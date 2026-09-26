@@ -13,8 +13,13 @@ Put `G₁ = e^{−|·|/2} * G`, the Green's function of `1/4 − D²` applied to
 multiplicative `g` supported in `[e^a, e^b]`, under the repository's moment conditions
 `∫_{x>0} g(x)/x dx = 0` and `∫_{x>0} g(x) dx = 0` (the two halves of `WeilMomentConditionsV1`).
 
-This is the support half of the factorisation `g = (1/4 − D²)g₁` used by the Fourier-side
-certificate in `RH_STATUS.md`. Not RH. AUTHORITY_EFFECT = NONE.
+The second half is the differential equation. `G1 = e^{−x/2}·∫_a^x e^{y/2}G − e^{x/2}·∫_b^x e^{−y/2}G` is
+twice differentiable with `G1/4 − G1'' = G` (`G1_ode`, fundamental theorem of calculus). It vanishes outside
+`(a, b)` when both interval moments are zero (`G1_support`). `G1_lift` states both facts for the log lift of a
+repository test function under `WeilMomentConditionsV1`.
+
+Together these give the factorisation `g = (1/4 − D²)g₁` with `g₁` supported in the same interval. The
+Fourier-side certificate in `RH_STATUS.md` uses it. Not RH. AUTHORITY_EFFECT = NONE.
 -/
 
 open Set MeasureTheory
@@ -132,7 +137,157 @@ theorem kreinFactor_lift_support (g : ℝ → ℂ) (a b : ℝ)
   have hmem := hsupp _ hg
   exact ⟨Real.exp_le_exp.mp hmem.1, Real.exp_le_exp.mp hmem.2⟩
 
+/-- `e^{c·x}` as a complex-valued function of a real variable. -/
+def ex (c : ℝ) (x : ℝ) : ℂ := (Real.exp (c * x) : ℂ)
+
+theorem hasDerivAt_ex (c x : ℝ) : HasDerivAt (ex c) (c * ex c x) x := by
+  have h : HasDerivAt (fun y => Real.exp (c * y)) (Real.exp (c * x) * c) x := by
+    have h0 := ((hasDerivAt_id x).const_mul c).exp
+    simpa using h0
+  have h2 : HasDerivAt (fun y => ((Real.exp (c * y) : ℝ) : ℂ)) ((Real.exp (c * x) * c : ℝ) : ℂ) x :=
+    h.ofReal_comp
+  exact h2.congr_deriv (by unfold ex; push_cast; ring)
+
+/-- `P(x) = ∫_a^x e^{y/2} G(y) dy`. -/
+def P (G : ℝ → ℂ) (a x : ℝ) : ℂ := ∫ y in a..x, ex (1/2) y * G y
+/-- `Q(x) = ∫_b^x e^{−y/2} G(y) dy`. -/
+def Q (G : ℝ → ℂ) (b x : ℝ) : ℂ := ∫ y in b..x, ex (-1/2) y * G y
+
+/-- `G₁ = e^{−x/2}·P − e^{x/2}·Q`. -/
+def G1 (G : ℝ → ℂ) (a b x : ℝ) : ℂ := ex (-1/2) x * P G a x - ex (1/2) x * Q G b x
+
+/-- `G₁' = −½·e^{−x/2}·P − ½·e^{x/2}·Q`. -/
+def G1' (G : ℝ → ℂ) (a b x : ℝ) : ℂ :=
+  -(1/2 : ℂ) * ex (-1/2) x * P G a x - (1/2 : ℂ) * ex (1/2) x * Q G b x
+
+theorem ex_mul_ex (c d x : ℝ) : ex c x * ex d x = ex (c + d) x := by
+  unfold ex; rw [← Complex.ofReal_mul, ← Real.exp_add]; congr 2; ring
+
+theorem hasDerivAt_P (G : ℝ → ℂ) (hG : Continuous G) (a x : ℝ) :
+    HasDerivAt (P G a) (ex (1/2) x * G x) x := by
+  have hc : Continuous (fun y => ex (1/2) y * G y) :=
+    (Complex.continuous_ofReal.comp (Real.continuous_exp.comp (continuous_const.mul continuous_id))).mul hG
+  exact (hc.integral_hasStrictDerivAt a x).hasDerivAt
+
+theorem hasDerivAt_Q (G : ℝ → ℂ) (hG : Continuous G) (b x : ℝ) :
+    HasDerivAt (Q G b) (ex (-1/2) x * G x) x := by
+  have hc : Continuous (fun y => ex (-1/2) y * G y) :=
+    (Complex.continuous_ofReal.comp (Real.continuous_exp.comp (continuous_const.mul continuous_id))).mul hG
+  exact (hc.integral_hasStrictDerivAt b x).hasDerivAt
+
+theorem hasDerivAt_G1 (G : ℝ → ℂ) (hG : Continuous G) (a b x : ℝ) :
+    HasDerivAt (G1 G a b) (G1' G a b x) x := by
+  have h1 := (hasDerivAt_ex (-1/2) x).mul (hasDerivAt_P G hG a x)
+  have h2 := (hasDerivAt_ex (1/2) x).mul (hasDerivAt_Q G hG b x)
+  have e1 : ex (-1/2) x * (ex (1/2) x * G x) = G x := by
+    rw [← mul_assoc, ex_mul_ex]; norm_num [ex]
+  have e2 : ex (1/2) x * (ex (-1/2) x * G x) = G x := by
+    rw [← mul_assoc, ex_mul_ex]; norm_num [ex]
+  exact (h1.sub h2).congr_deriv (by unfold G1'; push_cast; linear_combination e1 - e2)
+
+theorem hasDerivAt_G1' (G : ℝ → ℂ) (hG : Continuous G) (a b x : ℝ) :
+    HasDerivAt (G1' G a b) (G1 G a b x / 4 - G x) x := by
+  have h1 := ((hasDerivAt_ex (-1/2) x).const_mul (-(1/2 : ℂ))).mul (hasDerivAt_P G hG a x)
+  have h2 := ((hasDerivAt_ex (1/2) x).const_mul (1/2 : ℂ)).mul (hasDerivAt_Q G hG b x)
+  have e1 : ex (-1/2) x * (ex (1/2) x * G x) = G x := by
+    rw [← mul_assoc, ex_mul_ex]; norm_num [ex]
+  have e2 : ex (1/2) x * (ex (-1/2) x * G x) = G x := by
+    rw [← mul_assoc, ex_mul_ex]; norm_num [ex]
+  exact (h1.sub h2).congr_deriv (by
+    unfold G1; push_cast; linear_combination (-(1/2 : ℂ)) * e1 - (1/2 : ℂ) * e2)
+
+/-- `(1/4 − D²) G₁ = G`: `G₁` is twice differentiable and `G₁/4 − G₁'' = G`. -/
+theorem G1_ode (G : ℝ → ℂ) (hG : Continuous G) (a b x : ℝ) :
+    deriv (G1 G a b) = G1' G a b ∧ G1 G a b x / 4 - deriv (G1' G a b) x = G x := by
+  refine ⟨funext fun y => (hasDerivAt_G1 G hG a b y).deriv, ?_⟩
+  rw [(hasDerivAt_G1' G hG a b x).deriv]; ring
+
+theorem continuous_ex (c : ℝ) : Continuous (ex c) :=
+  Complex.continuous_ofReal.comp (Real.continuous_exp.comp (continuous_const.mul continuous_id))
+
+theorem integral_zero_right (f : ℝ → ℂ) (b x : ℝ) (hbx : b ≤ x)
+    (hf : ∀ y, b < y → f y = 0) : (∫ y in b..x, f y) = 0 := by
+  rw [intervalIntegral.integral_of_le hbx]
+  rw [setIntegral_congr_fun measurableSet_Ioc (g := fun _ => (0 : ℂ)) (fun y hy => hf y hy.1)]
+  simp
+
+theorem integral_zero_left (f : ℝ → ℂ) (a x : ℝ) (hxa : x ≤ a)
+    (hf : ∀ y, y ≤ a → f y = 0) : (∫ y in a..x, f y) = 0 := by
+  rw [intervalIntegral.integral_symm, intervalIntegral.integral_of_le hxa]
+  rw [setIntegral_congr_fun measurableSet_Ioc (g := fun _ => (0 : ℂ)) (fun y hy => hf y hy.2)]
+  simp
+
+/-- With `G` continuous, vanishing outside `(a, b)`, and both interval moments zero,
+`G₁ = e^{−x/2}·P − e^{x/2}·Q` vanishes outside `(a, b)`. -/
+theorem G1_support (G : ℝ → ℂ) (hG : Continuous G) (a b : ℝ)
+    (hsupp : ∀ y, G y ≠ 0 → y ∈ Ioo a b)
+    (hplus : (∫ y in a..b, ex (1/2) y * G y) = 0)
+    (hminus : (∫ y in a..b, ex (-1/2) y * G y) = 0) :
+    ∀ x, G1 G a b x ≠ 0 → x ∈ Ioo a b := by
+  have hz : ∀ y, y ∉ Ioo a b → G y = 0 := fun y hy => by
+    by_contra h; exact hy (hsupp y h)
+  have hii : ∀ c u v, IntervalIntegrable (fun y => ex c y * G y) volume u v :=
+    fun c u v => ((continuous_ex c).mul hG).intervalIntegrable u v
+  intro x hx
+  by_contra hout
+  apply hx
+  rcases not_and_or.mp hout with h | h
+  · -- x ≤ a
+    have hxa : x ≤ a := not_lt.mp h
+    have hP : P G a x = 0 := integral_zero_left _ a x hxa
+      (fun y hy => by rw [hz y (fun hm => absurd hm.1 (not_lt.mpr hy)), mul_zero])
+    have hQ : Q G b x = 0 := by
+      unfold Q
+      rw [← intervalIntegral.integral_add_adjacent_intervals (hii _ b a) (hii _ a x),
+        intervalIntegral.integral_symm, hminus, neg_zero, zero_add]
+      exact integral_zero_left _ a x hxa
+        (fun y hy => by rw [hz y (fun hm => absurd hm.1 (not_lt.mpr hy)), mul_zero])
+    simp [G1, hP, hQ]
+  · -- b ≤ x
+    have hbx : b ≤ x := not_lt.mp h
+    have hQ : Q G b x = 0 := integral_zero_right _ b x hbx
+      (fun y hy => by rw [hz y (fun hm => absurd hm.2 (not_lt.mpr hy.le)), mul_zero])
+    have hP : P G a x = 0 := by
+      unfold P
+      rw [← intervalIntegral.integral_add_adjacent_intervals (hii _ a b) (hii _ b x), hplus, zero_add]
+      exact integral_zero_right _ b x hbx
+        (fun y hy => by rw [hz y (fun hm => absurd hm.2 (not_lt.mpr hy.le)), mul_zero])
+    simp [G1, hP, hQ]
+
+theorem interval_eq_whole (f : ℝ → ℂ) (a b : ℝ) (hab : a ≤ b)
+    (hf : ∀ y, y ∉ Ioo a b → f y = 0) : (∫ y in a..b, f y) = ∫ y, f y := by
+  rw [intervalIntegral.integral_of_le hab]
+  exact setIntegral_eq_integral_of_forall_compl_eq_zero
+    (fun y hy => hf y (fun h => hy ⟨h.1, h.2.le⟩))
+
+/-- The factorisation for the repository's test functions: if `g` is continuous, its unitary
+log lift `G` vanishes outside `(a, b)`, and `∫_{x>0} g(x)/x dx = ∫_{x>0} g(x) dx = 0`, then
+`G₁ = e^{−x/2}·∫_a^x e^{y/2}G − e^{x/2}·∫_b^x e^{−y/2}G` vanishes outside `(a, b)` and solves
+`G₁/4 − G₁'' = G`. -/
+theorem G1_lift (g : ℝ → ℂ) (hg : Continuous g) (a b : ℝ) (hab : a ≤ b)
+    (hsupp : ∀ t, lift g t ≠ 0 → t ∈ Ioo a b)
+    (hinv : ∫ x in Ioi (0 : ℝ), g x / (x : ℂ) = 0)
+    (hone : ∫ x in Ioi (0 : ℝ), g x = 0) :
+    (∀ x, G1 (lift g) a b x ≠ 0 → x ∈ Ioo a b) ∧
+      ∀ x, G1 (lift g) a b x / 4 - deriv (G1' (lift g) a b) x = lift g x := by
+  have hG : Continuous (lift g) :=
+    (Complex.continuous_ofReal.comp (Real.continuous_exp.comp (continuous_id.div_const 2))).mul
+      (hg.comp Real.continuous_exp)
+  have hz : ∀ c y, y ∉ Ioo a b → ex c y * lift g y = 0 := fun c y hy => by
+    have : lift g y = 0 := by by_contra h; exact hy (hsupp y h)
+    rw [this, mul_zero]
+  have hplus : (∫ y in a..b, ex (1/2) y * lift g y) = 0 := by
+    rw [interval_eq_whole _ a b hab (hz _), ← hone, ← lift_moment_plus]
+    congr 1; funext y; unfold ex; rw [show (1/2 : ℝ) * y = y / 2 by ring]
+  have hminus : (∫ y in a..b, ex (-1/2) y * lift g y) = 0 := by
+    rw [interval_eq_whole _ a b hab (hz _), ← hinv, ← lift_moment_minus]
+    congr 1; funext y; unfold ex; rw [show (-1/2 : ℝ) * y = -y / 2 by ring]
+  exact ⟨G1_support (lift g) hG a b hsupp hplus hminus, fun x => (G1_ode (lift g) hG a b x).2⟩
+
 end AEGIS.RHKreinFactorV13
 
 #print axioms AEGIS.RHKreinFactorV13.kreinFactor_support
 #print axioms AEGIS.RHKreinFactorV13.kreinFactor_lift_support
+#print axioms AEGIS.RHKreinFactorV13.G1_ode
+#print axioms AEGIS.RHKreinFactorV13.G1_support
+#print axioms AEGIS.RHKreinFactorV13.G1_lift
