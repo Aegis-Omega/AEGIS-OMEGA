@@ -93,6 +93,8 @@ theorem weil_prime_term_zero_of_narrow_log_window_v1
       have hinv :=
         weil_autocorrelation_inv_zero_of_narrow_log_window_v1
           g a hwin (x := ((k + 2 : ℕ) : ℝ)) hm_real
+      have hcast : ((k + 2 : ℕ) : ℝ) = (k : ℝ) + 1 + 1 := by push_cast; ring
+      rw [hcast] at hdir hinv
       simp [WeilPrimeTermV1, hdir, hinv]
 
 theorem weil_prime_sum_zero_of_narrow_log_window_v1
