@@ -68,7 +68,7 @@ theorem riemann_radial_zero_finset_mono_v1
 
 /-- Finite, multiplicity-safe Mellin zero-side partial sum at radial cutoff `R`. -/
 noncomputable def WeilRadialZeroSumV1 (f : ℝ → ℂ) (R : ℝ) : ℂ :=
-  ∑ rho in RiemannRadialZeroFinsetV1 R, WeilZeroSummandV1 f rho
+  ∑ rho ∈ RiemannRadialZeroFinsetV1 R, WeilZeroSummandV1 f rho
 
 #check RiemannRadialZeroSetV1
 #check riemann_radial_zero_set_finite_v1
