@@ -308,16 +308,20 @@ lowers `m` by at most `4·10⁻⁵`). Dual `m` is a lower bound and a Ritz prima
 | `log 2` | `0.5071` | `0.5475` | `−4·10⁻⁵` | `4.1` |
 | `0.72` | `0.3846` | `0.4795` | `−1·10⁻⁵` | `3.4` |
 | `0.80` | `0.1075` | `0.2270` | `−2·10⁻⁵` | `4.2` |
+| `0.90` | `0.0223` | `0.0670` | `−3·10⁻⁵` | `4.0` |
+| `1.00` | `−0.0049` | `0.0123` | `−3·10⁻⁵` | `4.4` |
+| `1.05` | `−0.0069` | `0.0037` | `−3·10⁻⁵` | `5.1` |
 
-So Weil positivity with the prime `2` inside the window has a numerical certificate up to `L = 0.8`, with margin
-`0.107·E`. At `log 2` it reaches `91%` of the true margin, against the pointwise-cap LP's `1.7%`. The formal ingredients it needs are:
+So Weil positivity with the prime `2` inside the window has a numerical certificate up to `L = 0.9`
+(margin `0.107·E` at `0.8`, `0.022·E` at `0.9`). At `1.0` and `1.05` the certificate at this resolution is negative,
+while the true margin (`≤ 0.012`, `≤ 0.004`) is already close to zero. At `log 2` it reaches `91%` of the true margin, against the pointwise-cap LP's `1.7%`. The formal ingredients it needs are:
 - `|ĝ|²` on the critical line (`autocorrelation_mellin_critical_normSq_v11` already gives it);
 - the fixed-line digamma form of the arch term (`half_fixed_line_digamma_plus_gamma_eq_arch_v10`);
 - a Parseval pairing for hats and boundary `δ^{(j)}`;
 - a rigorous lower bound for `Re ψ(1/4 + iξ/2)`;
 - a finite trigonometric check.
 
-Reproduce: `python3 research/rh/krein_dual_beyond_log2.py 0.6931 0.72 0.8`. This is a restricted class, not RH:
+Reproduce: `python3 research/rh/krein_dual_beyond_log2.py 0.6931 0.72 0.8 0.9 1.0 1.05`. This is a restricted class, not RH:
 positivity for every `L` is RH.
 
 **Hosted replay.** `tarikskalic33/formal-conjectures` PR #41, run 36146289581 (job 108108162762, real
