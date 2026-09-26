@@ -209,3 +209,46 @@ positivity".  It does establish a much sharper bounded mechanism: for this
 same-discriminant pair and this explicit fixed test function, the loss of
 prime-power-only logarithmic-derivative support produces a large negative
 quadratic displacement while all Archimedean data cancel from the comparison.
+
+
+## Quadratic Euler first-impulse table
+
+For a class-number-one quadratic Dedekind/Epstein Euler product
+
+[
+F_D(s)=zeta(s)L(s,chi_D),
+]
+
+the logarithmic derivative has local coefficient
+
+[
+Lambda_D(p^m)=log p,[1+chi_D(p)^m].
+]
+
+This immediately separates the local cases:
+
+- split: (chi_D(p)=1), so every (p^m) contributes (2log p);
+- ramified: (chi_D(p)=0), so every (p^m) contributes (log p);
+- inert: (chi_D(p)=-1), so odd powers vanish and even powers contribute
+  (2log p).
+
+The committed exact-integer character test therefore gives:
+
+| lattice / discriminant | first nonzero logarithmic-derivative mode | reason |
+| --- | ---: | --- |
+| square / (D=-4) | (n=2) | 2 ramified |
+| hexagonal A2 / (D=-3) | (n=3) | 2 inert, but 3 ramified before (2^2) |
+| Heegner (D=-19) | (n=4=2^2) | 2 inert |
+| Heegner (D=-163) | (n=4=2^2) | 2 inert |
+
+Thus the silent support windows satisfy
+
+[
+log 2 < log 3 < log 4.
+]
+
+The (D=-19) and (D=-163) cases saturate the largest possible first window
+caused solely by the local factor at the smallest rational prime: an inert 2
+reappears at (2^2=4).  This also shows why the first-window length alone
+cannot characterize the Euler product; prime-power purity of the complete
+logarithmic derivative is the stronger invariant.
