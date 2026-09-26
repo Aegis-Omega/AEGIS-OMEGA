@@ -1,0 +1,22 @@
+name: AEGIS Runner Admission Probe
+
+on:
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    name: aegis / runner-admission-probe
+    runs-on: ubuntu-24.04
+    timeout-minutes: 2
+    steps:
+      - name: Prove GitHub-hosted runner assignment
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "AEGIS_RUNNER_ADMISSION_PROBE=EXECUTED"
+          echo "RUNNER_OS=$RUNNER_OS"
+          echo "GITHUB_SHA=$GITHUB_SHA"
