@@ -10,6 +10,7 @@ from harness.sdk.epstein_lattice_weil_probe import (
     d20_principal_coefficients,
     generalized_log_derivative_coefficients,
     run_d20_same_discriminant_control,
+    evaluate_d20_fixed_integer_witness,
 )
 
 
@@ -59,5 +60,24 @@ def test_same_discriminant_spectral_control_separates_at_L_3p5() -> None:
     assert receipt["principal_minimizer_on_euler_classsum"] > 1.0
     assert receipt["same_archimedean_factor"] is True
     assert receipt["same_conductor"] is True
+    assert receipt["proof_authority"] is False
+    assert receipt["rh_proven"] is False
+
+
+def test_fixed_integer_witness_separates_same_discriminant_pair() -> None:
+    receipt = evaluate_d20_fixed_integer_witness(
+        EpsteinWeilProbeConfig(
+            support_length=3.5,
+            basis_dim=24,
+            t_bound=600.0,
+            dt=0.05,
+            chunk_size=2048,
+        )
+    )
+    assert receipt["modes"] == (4, 6, 8, 10, 12, 16, 18)
+    assert receipt["integer_coefficients"] == (22, 10, 6, 3, 2, -2, -1)
+    assert receipt["optimizer_used_for_evaluation"] is False
+    assert receipt["principal_rayleigh"] < -0.05
+    assert receipt["euler_classsum_rayleigh"] > 5.0
     assert receipt["proof_authority"] is False
     assert receipt["rh_proven"] is False
