@@ -162,3 +162,50 @@ principal value moving toward roughly (-0.065) as (T) is increased from
 These stability checks are numerical, not interval bounds.  The next rigorous
 promotion is now narrower: certify this fixed seven-mode quadratic value and an
 upper bound for its omitted (t>T) tail.
+
+
+## Arithmetic-mode decomposition: where the sign gap comes from
+
+Because the principal Epstein object and the Euler class-sum control both have
+discriminant (-20), their completed conductor and Gamma contribution are
+identical.  On the fixed seven-mode witness their difference is therefore
+purely arithmetic.
+
+Using Parseval,
+
+[
+rac1piint_0^infty |widehat g(t)|^2cos(tu),dt
+  = int g(x)g(x+u),dx,
+]
+
+so every arithmetic frequency can be evaluated directly in x-space at
+(u=log n), with no t-grid and no Archimedean tail.
+
+For (L=3.5), the fixed witness gives
+
+- total principal-minus-Euler arithmetic shift: approximately
+  (-5.433709725);
+- shift from non-prime-power support alone: approximately
+  (-2.610467055);
+- shift from altered prime-power weights: approximately
+  (-2.823242670).
+
+The first forbidden composite mode is already decisive:
+
+[
+n=6,qquad Lambda_{m principal}(6)=2log 6,qquad
+Lambda_{m Euler}(6)=0,
+]
+
+and its contribution to the normalized principal-minus-Euler quadratic value
+is approximately (-1.067827356).
+
+Further non-prime-power modes inside the same support window include (n=14)
+and (n=21).  Together (6,14,21) account for about 48% of the full
+same-discriminant arithmetic shift.
+
+This does not prove a general theorem that "Euler product implies Weil
+positivity".  It does establish a much sharper bounded mechanism: for this
+same-discriminant pair and this explicit fixed test function, the loss of
+prime-power-only logarithmic-derivative support produces a large negative
+quadratic displacement while all Archimedean data cancel from the comparison.
