@@ -1,0 +1,160 @@
+name: RH Window Eighth Globalization V13
+
+on:
+  push:
+    branches:
+      - 'proof/rh-window-eighth-globalization-v13'
+    paths:
+      - 'sovereign-omega-v2/formal/bridges/lean/RHWindowEighthGlobalizationV13.lean'
+      - '.github/workflows/rh-window-eighth-globalization-v13.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  SOURCE_SHA: ${{ github.sha }}
+  MATHLIB_SHA: 0df444a360eaa60ab8c11dca51a86af692955474
+  LEAN_TOOLCHAIN: leanprover/lean4:v4.33.1
+  TARGET_MODULE: RHWindowEighthGlobalizationV13
+
+jobs:
+  verify:
+    name: compile 1/8 globalization producer
+    runs-on: ubuntu-24.04
+    timeout-minutes: 50
+    steps:
+      - name: Checkout pinned Mathlib
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          repository: leanprover-community/mathlib4
+          ref: ${{ env.MATHLIB_SHA }}
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Checkout exact AEGIS candidate
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          repository: Aegis-Omega/AEGIS-OMEGA
+          ref: ${{ env.SOURCE_SHA }}
+          path: .aegis
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Verify exact source and pins
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$MATHLIB_SHA"
+          test "$(git -C .aegis rev-parse HEAD)" = "$SOURCE_SHA"
+          test "$(cat lean-toolchain)" = "$LEAN_TOOLCHAIN"
+          mkdir -p evidence .lake/build/lib/lean
+          printf 'SOURCE_SHA=%s\nMATHLIB_SHA=%s\nLEAN_TOOLCHAIN=%s\n' \
+            "$SOURCE_SHA" "$MATHLIB_SHA" "$LEAN_TOOLCHAIN" > evidence/exact-source.log
+
+      - name: Install pinned Lean and Mathlib cache
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl -sSfL https://github.com/leanprover/elan/releases/download/v1.4.2/elan-x86_64-unknown-linux-gnu.tar.gz | tar xz
+          ./elan-init -y --default-toolchain none
+          export PATH="$HOME/.elan/bin:$PATH"
+          echo "$HOME/.elan/bin" >> "$GITHUB_PATH"
+          lake exe cache get
+          lean --version | tee evidence/lean-version.log
+
+      - name: Resolve local dependency closure
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          import hashlib, os, re
+
+          root = Path('.aegis/sovereign-omega-v2/formal/bridges/lean')
+          target = os.environ['TARGET_MODULE']
+          files = {p.stem: p for p in root.glob('*.lean')}
+          if target not in files:
+              raise SystemExit(f'missing target module: {target}')
+
+          pat = re.compile(r'^\s*import\s+(.+?)\s*$')
+          imports = {}
+          for name, src in files.items():
+              deps = []
+              for line in src.read_text().splitlines():
+                  m = pat.match(line)
+                  if not m:
+                      continue
+                  for token in m.group(1).split():
+                      leaf = token.split('.')[-1]
+                      if leaf in files:
+                          deps.append(leaf)
+              imports[name] = deps
+
+          temp, done, order = set(), set(), []
+          def visit(name):
+              if name in done:
+                  return
+              if name in temp:
+                  raise RuntimeError(f'local import cycle at {name}')
+              temp.add(name)
+              for dep in imports.get(name, []):
+                  visit(dep)
+              temp.remove(name)
+              done.add(name)
+              order.append(name)
+
+          visit(target)
+          Path('evidence/modules.txt').write_text('\n'.join(order) + '\n')
+          with Path('evidence/exact-source.log').open('a') as out:
+              for name in order:
+                  data = files[name].read_bytes()
+                  Path(f'{name}.lean').write_bytes(data)
+                  out.write(f'{hashlib.sha256(data).hexdigest()}  {name}.lean\n')
+          print(f'dependency closure: {len(order)} modules')
+          print('\n'.join(order))
+          PY
+
+      - name: Compile exact dependency closure
+        shell: bash
+        run: |
+          set -euo pipefail
+          while IFS= read -r m; do
+            echo "=== COMPILE $m ==="
+            lake env lean -o ".lake/build/lib/lean/$m.olean" "$m.lean" 2>&1 | tee "evidence/$m.log"
+          done < evidence/modules.txt
+
+      - name: Audit theorem closure
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat > RHWindowEighthGlobalizationV13Audit.lean <<'EOF'
+          import RHWindowEighthGlobalizationV13
+          #print axioms AEGIS.RHWindowEighthGlobalizationV13.window_eighth_arithmetic_nonpositive_v13
+          #print axioms AEGIS.RHWindowEighthGlobalizationV13.window_le_eighth_arithmetic_nonpositive_v13
+          EOF
+          lake env lean RHWindowEighthGlobalizationV13Audit.lean 2>&1 | tee evidence/axioms.log
+          ! grep -F 'sorryAx' evidence/axioms.log
+
+      - name: Emit fail-closed disposition
+        if: always()
+        shell: bash
+        run: |
+          cat > evidence/DISPOSITION.txt <<EOF
+          SOURCE_SHA=$SOURCE_SHA
+          TARGET=RHWindowEighthGlobalizationV13
+          WINDOW_RADIUS=1/8
+          ALL_FINITE_WINDOWS=OPEN
+          UNIVERSAL_ZERO_QUADRATIC=OPEN
+          RIEMANN_HYPOTHESIS=NOT_PROMOTED
+          AUTHORITY_EFFECT=NONE
+          EOF
+
+      - name: Upload evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: rh-window-eighth-${{ env.SOURCE_SHA }}
+          path: evidence/
+          if-no-files-found: warn
+          retention-days: 30
