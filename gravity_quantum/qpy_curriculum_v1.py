@@ -25,11 +25,23 @@ import importlib.metadata
 import io
 import json
 import math
+import re
 from pathlib import Path
 from typing import Any
 
 from qiskit import QuantumCircuit, qpy
 from qiskit.quantum_info import SparsePauliOp, Statevector
+
+from aegis_learning.evidence_gradient_compiler_v1 import (
+    CompilerPolicy,
+    FailureKind,
+    LearningDisposition,
+    Witness,
+    WitnessStatus,
+    canonical_json_bytes,
+    compile_evidence_gradient,
+    sha256_hex,
+)
 
 from gravity_quantum.cudaq_twoqubit_v1 import (
     COEFFICIENT_SCALE,
@@ -61,6 +73,8 @@ FORMAL_SOURCE_PATH = (
 )
 FORMAL_SOURCE_BLOB_SHA = "6d1eb047c932a4e7e512d62632de905da40f61bf"
 FORMAL_THEOREM = "coeffDet_eq_zero_iff_pureProductCoeffs"
+FORMAL_HOSTED_RUN_ID = 35_751_545_659
+FORMAL_HOSTED_STATUS = "ZERO_STEP_INFRASTRUCTURE_FAILURE"
 
 
 def _scaled_to_float(value: int, scale: int) -> float:
@@ -163,7 +177,10 @@ def qiskit_statevector_point(time_scaled: int) -> dict[str, Any]:
     }
 
 
-def build_curriculum_record(time_scaled: int) -> dict[str, Any]:
+def build_curriculum_record(
+    time_scaled: int,
+    source_head_sha: str = PARENT_CROSSFRAMEWORK_HEAD,
+) -> dict[str, Any]:
     analytic_x0, analytic_x1 = _analytic_observables_scaled(time_scaled)
     cudaq_point = run_dynamics_point(time_scaled)
     pennylane_point = pennylane_dynamics_point(time_scaled)
@@ -194,13 +211,133 @@ def build_curriculum_record(time_scaled: int) -> dict[str, Any]:
 
     qiskit_version = importlib.metadata.version("qiskit")
     version_ok = qiskit_version == EXPECTED_QISKIT_VERSION
-    gradient_admissible = framework_agreement and version_ok
 
     t, j, h0, h1 = _parameters(time_scaled)
     label = (
         "PURE_PRODUCT"
         if qiskit_point["pure_product_within_tolerance"]
         else "ENTANGLED_PURE_STATE"
+    )
+
+    analytic_row = {
+        "x0_scaled": analytic_x0,
+        "x1_scaled": analytic_x1,
+    }
+    cudaq_matches = (
+        bool(cudaq_point["within_tolerance"])
+        and abs(int(cudaq_point["cudaq_x0_scaled"]) - analytic_x0)
+            <= DYNAMICS_TOLERANCE_SCALED
+        and abs(int(cudaq_point["cudaq_x1_scaled"]) - analytic_x1)
+            <= DYNAMICS_TOLERANCE_SCALED
+    )
+    pennylane_matches = (
+        bool(pennylane_point["within_tolerance"])
+        and abs(int(pennylane_point["pennylane_x0_scaled"]) - analytic_x0)
+            <= DYNAMICS_TOLERANCE_SCALED
+        and abs(int(pennylane_point["pennylane_x1_scaled"]) - analytic_x1)
+            <= DYNAMICS_TOLERANCE_SCALED
+    )
+    qiskit_matches = (
+        bool(qiskit_point["qpy_roundtrip_equal"])
+        and abs(int(qiskit_point["qiskit_x0_scaled"]) - analytic_x0)
+            <= DYNAMICS_TOLERANCE_SCALED
+        and abs(int(qiskit_point["qiskit_x1_scaled"]) - analytic_x1)
+            <= DYNAMICS_TOLERANCE_SCALED
+        and version_ok
+    )
+
+    def runtime_witness(
+        name: str,
+        group: str,
+        source_ref: str,
+        row: dict[str, Any],
+        matches: bool,
+    ) -> Witness:
+        return Witness(
+            name=name,
+            status=WitnessStatus.VERIFIED if matches else WitnessStatus.FAILED,
+            independence_group=group,
+            source_ref=source_ref,
+            evidence_sha256=sha256_hex(canonical_json_bytes(row)) if matches else "",
+            failure_kind=(
+                FailureKind.NONE if matches
+                else FailureKind.SEMANTIC_DISAGREEMENT
+            ),
+            detail="" if matches else "observable disagreement beyond tolerance",
+        )
+
+    witnesses = [
+        Witness(
+            name="analytic_oracle",
+            status=WitnessStatus.VERIFIED,
+            independence_group="analytic_closed_form",
+            source_ref=(
+                f"Aegis-Omega/AEGIS-OMEGA@{PARENT_CROSSFRAMEWORK_HEAD}:"
+                "gravity_quantum/crossframework_v1.py#analytic"
+            ),
+            evidence_sha256=sha256_hex(canonical_json_bytes(analytic_row)),
+        ),
+        runtime_witness(
+            "cudaq_qpp_cpu",
+            "cudaq",
+            (
+                f"Aegis-Omega/AEGIS-OMEGA@{PARENT_CROSSFRAMEWORK_HEAD}:"
+                "gravity_quantum/cudaq_twoqubit_v1.py"
+            ),
+            dict(cudaq_point),
+            cudaq_matches,
+        ),
+        runtime_witness(
+            "pennylane_default_qubit",
+            "pennylane",
+            (
+                f"Aegis-Omega/AEGIS-OMEGA@{PARENT_CROSSFRAMEWORK_HEAD}:"
+                "gravity_quantum/crossframework_v1.py#pennylane"
+            ),
+            dict(pennylane_point),
+            pennylane_matches,
+        ),
+        runtime_witness(
+            "qiskit_qpy_statevector",
+            "qiskit_qpy",
+            (
+                f"Aegis-Omega/AEGIS-OMEGA@{source_head_sha}:"
+                "gravity_quantum/qpy_curriculum_v1.py"
+            ),
+            dict(qiskit_point),
+            qiskit_matches,
+        ),
+        Witness(
+            name="lean_pure_product_kernel",
+            status=WitnessStatus.FAILED,
+            independence_group="lean_kernel",
+            required=True,
+            formal_kernel=True,
+            source_ref=(
+                f"Aegis-Omega/AEGIS-OMEGA@{FORMAL_SOURCE_HEAD}:"
+                f"{FORMAL_SOURCE_PATH}#{FORMAL_THEOREM}"
+            ),
+            failure_kind=FailureKind.INFRASTRUCTURE,
+            detail=(
+                f"hosted_run={FORMAL_HOSTED_RUN_ID};"
+                f"status={FORMAL_HOSTED_STATUS};steps=0"
+            ),
+        ),
+    ]
+
+    evidence_gradient = compile_evidence_gradient(
+        example_id=f"ising-2q-t-{time_scaled}",
+        source_head_sha=source_head_sha,
+        witnesses=witnesses,
+        representation=qiskit_point["qpy_sha256"].encode("ascii"),
+        policy=CompilerPolicy(
+            min_independent_groups=4,
+            formal_kernel_required=True,
+        ),
+        metadata={
+            "framework_agreement": framework_agreement,
+            "qiskit_version_pinned": version_ok,
+        },
     )
 
     return {
@@ -256,6 +393,9 @@ def build_curriculum_record(time_scaled: int) -> dict[str, Any]:
             "source_blob_sha": FORMAL_SOURCE_BLOB_SHA,
             "theorem": FORMAL_THEOREM,
             "meaning": "coeffDet = 0 iff the pure two-qubit coefficient tensor is a product state",
+            "hosted_run_id": FORMAL_HOSTED_RUN_ID,
+            "hosted_status": FORMAL_HOSTED_STATUS,
+            "kernel_verified": False,
         },
         "provenance": {
             "parent_crossframework_head": PARENT_CROSSFRAMEWORK_HEAD,
@@ -271,10 +411,26 @@ def build_curriculum_record(time_scaled: int) -> dict[str, Any]:
             "qiskit_version_pinned": version_ok,
         },
         "training": {
-            "gradient_admissible": gradient_admissible,
-            "training_weight_ppm": TRAINING_WEIGHT_PPM if gradient_admissible else 0,
-            "rule": "NO_GRADIENT_WITHOUT_MULTI_REPRESENTATION_WITNESS",
+            "disposition": evidence_gradient["disposition"],
+            "gradient_admissible": (
+                evidence_gradient["disposition"]
+                == LearningDisposition.POSITIVE.value
+            ),
+            "training_weight_ppm": evidence_gradient[
+                "positive_gradient_weight_ppm"
+            ],
+            "contrastive_weight_ppm": evidence_gradient[
+                "contrastive_weight_ppm"
+            ],
+            "sampling_priority_ppm": evidence_gradient[
+                "sampling_priority_ppm"
+            ],
+            "evidence_gradient_receipt_sha256": evidence_gradient[
+                "receipt_sha256"
+            ],
+            "rule": "NO_POSITIVE_GRADIENT_WITHOUT_COMPLETE_WITNESS",
         },
+        "evidence_gradient": evidence_gradient,
         "scope": "RESEARCH_ONLY_TRAINING_DATA",
         "authority_effect": "NONE",
         "physics_claim_effect": "NONE",
@@ -295,9 +451,20 @@ def build_curriculum_receipt(source_head_sha: str | None = None) -> dict[str, An
     if qiskit_version != EXPECTED_QISKIT_VERSION:
         raise ValueError("UNEXPECTED_QISKIT_VERSION")
 
-    records = [build_curriculum_record(t) for t in DEFAULT_TIME_SCALED]
-    if not all(record["training"]["gradient_admissible"] for record in records):
-        raise ValueError("CURRICULUM_WITNESS_FAILED_CLOSED")
+    records = [
+        build_curriculum_record(t, source_head)
+        for t in DEFAULT_TIME_SCALED
+    ]
+    positive_count = sum(
+        1 for record in records
+        if record["training"]["disposition"] == LearningDisposition.POSITIVE.value
+    )
+    contrastive_count = sum(
+        1 for record in records
+        if record["training"]["disposition"]
+        == LearningDisposition.CONTRASTIVE_ONLY.value
+    )
+    quarantine_count = len(records) - positive_count - contrastive_count
 
     return {
         "schema": SCHEMA,
@@ -311,7 +478,12 @@ def build_curriculum_receipt(source_head_sha: str | None = None) -> dict[str, An
         "formal_source_blob_sha": FORMAL_SOURCE_BLOB_SHA,
         "formal_theorem": FORMAL_THEOREM,
         "records": records,
-        "all_gradient_admissible": True,
+        "positive_gradient_count": positive_count,
+        "contrastive_count": contrastive_count,
+        "quarantine_count": quarantine_count,
+        "all_gradient_admissible": positive_count == len(records),
+        "formal_kernel_verified": False,
+        "weakest_transition": FORMAL_HOSTED_STATUS,
         "authority_effect": "NONE",
         "physics_claim_effect": "NONE",
     }
@@ -322,9 +494,29 @@ def emit_bundle(output_dir: Path, source_head_sha: str | None = None) -> dict[st
     receipt = build_curriculum_receipt(source_head_sha)
 
     curriculum_path = output_dir / "curriculum.jsonl"
-    with curriculum_path.open("w", encoding="utf-8") as handle:
-        for record in receipt["records"]:
-            handle.write(json.dumps(record, sort_keys=True, separators=(",", ":")) + "\n")
+    positive_path = output_dir / "positive.jsonl"
+    contrastive_path = output_dir / "contrastive.jsonl"
+    quarantine_path = output_dir / "quarantine.jsonl"
+
+    handles = {
+        LearningDisposition.POSITIVE.value:
+            positive_path.open("w", encoding="utf-8"),
+        LearningDisposition.CONTRASTIVE_ONLY.value:
+            contrastive_path.open("w", encoding="utf-8"),
+        LearningDisposition.QUARANTINE.value:
+            quarantine_path.open("w", encoding="utf-8"),
+    }
+    try:
+        with curriculum_path.open("w", encoding="utf-8") as handle:
+            for record in receipt["records"]:
+                line = json.dumps(
+                    record, sort_keys=True, separators=(",", ":")
+                ) + "\n"
+                handle.write(line)
+                handles[record["training"]["disposition"]].write(line)
+    finally:
+        for partition_handle in handles.values():
+            partition_handle.close()
 
     qpy_artifacts: dict[str, str] = {}
     for time_scaled in DEFAULT_TIME_SCALED:
