@@ -314,12 +314,23 @@ lowers `m` by at most `4·10⁻⁵`). Dual `m` is a lower bound and a Ritz prima
 
 So Weil positivity with the prime `2` inside the window has a numerical certificate up to `L = 0.9`
 (margin `0.107·E` at `0.8`, `0.022·E` at `0.9`). At `1.0` and `1.05` the certificate at this resolution is negative,
-while the true margin (`≤ 0.012`, `≤ 0.004`) is already close to zero. At `log 2` it reaches `91%` of the true margin, against the pointwise-cap LP's `1.7%`. The formal ingredients it needs are:
-- `|ĝ|²` on the critical line (`autocorrelation_mellin_critical_normSq_v11` already gives it);
-- the fixed-line digamma form of the arch term (`half_fixed_line_digamma_plus_gamma_eq_arch_v10`);
-- a Parseval pairing for hats and boundary `δ^{(j)}`;
-- a rigorous lower bound for `Re ψ(1/4 + iξ/2)`;
-- a finite trigonometric check.
+while the true margin (`≤ 0.012`, `≤ 0.004`) is already close to zero. At `log 2` it reaches `91%` of the true margin, against the pointwise-cap LP's `1.7%`. Formal ingredients already in the repository:
+- `|ĝ|²` on the critical line: `autocorrelation_mellin_critical_normSq_v11`.
+- The fixed-line digamma form of the arch term: `half_fixed_line_digamma_plus_gamma_eq_arch_v10`.
+- Mellin inversion on every vertical line, the Parseval half: `weil_compact_smooth_mellin_inversion_v1` (and the
+  `exp`-line form `weil_compact_smooth_mellin_inversion_exp_line_v6`). The Fubini swaps are in `WeilFixedLineFubiniSwapV4`.
+- The digamma series on the half-plane: `digamma_series_halfPlane_v1`, `ψ(z) + γ = Σ (1/(n+1) − 1/(z+n))`. Each term
+  of `Re ψ(1/4 + iξ/2)` increases in `|ξ|` and is `≥ 1/(n+1) − 1/(n+1/4)`. So a finite partial sum plus a
+  telescoping tail gives a rigorous, monotone lower bound.
+
+Still missing:
+- The factorisation lemma: moment-zero compact smooth `g` gives `g₁ = e^{−|·|/2} * g` with the same support.
+  With `g` smooth, `g₁ * g̃₁` is smooth with support in `[−L, L]`, so every `δ^{(j)}(u ∓ L)` pairs to zero.
+- The Fubini pairing `∫ |ĝ₁|²·Ĥ = ∫∫ g₁ g₁ H(x − y) = 0`.
+- A sharp enclosure of `γ`. Mathlib's stated `1/2 < γ < 2/3` is too coarse for margins `0.02 … 0.1`, but
+  `eulerMascheroniSeq_lt_eulerMascheroniConstant` and `eulerMascheroniSeq'` sandwich `γ` at every `n`, with a gap of
+  `log(1 + 1/n)`. So this is instantiation work plus rational `log` bounds.
+- The finite trigonometric check on a grid, with a Lipschitz step.
 
 Reproduce: `python3 research/rh/krein_dual_beyond_log2.py 0.6931 0.72 0.8 0.9 1.0 1.05`. This is a restricted class, not RH:
 positivity for every `L` is RH.
