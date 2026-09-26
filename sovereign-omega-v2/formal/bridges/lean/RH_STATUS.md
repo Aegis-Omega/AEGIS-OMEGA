@@ -237,7 +237,7 @@ Weil-positive. Closed-form ceiling of this ingredient set `≈ 0.223` in `r`; th
 **Positive-definite hat kernel (`RHHatPosDefV13`, `RHHatKernelV13`, `RHHatBudgetV13`, `RHHatCellsV13`,
 `RHHatClassV13`, `RHHatClass310V13`, `RHHatClass13V13`, `RHHatCellsWideV13`, `RHHatClass69200V13`).**
 Pointwise caps ignore that `c(u) = Re C(u)` is positive definite. For block averages
-`aᵢ(s) = ∫_{(0,h]} G(s + ih + t) dt` one has `∫ |Σ vᵢ aᵢ(s)|² ds = Σᵢⱼ vᵢvⱼ ∫ c(u)·T_h(u − (i−j)h) du`
+`aᵢ(s) = ∫_{(0,h]} G(s + ih + t) dt` one has `∫ |Σ vᵢaᵢ(s)|² ds = Σᵢⱼ vᵢvⱼ ∫ c(u)·T_h(u − (i−j)h) du`
 (two Fubini swaps, a translation and the overlap length of two intervals), so every piecewise-linear
 interpolant `hatK` of a positive-definite sequence `ρ_k = Σⱼ v_{j+k}vⱼ` pairs nonnegatively with `c`.
 Subtracting `σ·c·hatK` together with the moment multiplier leaves the integrand
@@ -323,14 +323,42 @@ while the true margin (`≤ 0.012`, `≤ 0.004`) is already close to zero. At `l
   of `Re ψ(1/4 + iξ/2)` increases in `|ξ|` and is `≥ 1/(n+1) − 1/(n+1/4)`. So a finite partial sum plus a
   telescoping tail gives a rigorous, monotone lower bound.
 
+Proved on this branch (Mathlib only, standard axioms):
+- `RHKreinFactorV13`: the factorisation.
+  - `kreinFactor_support` and `G1_support`: `g₁ = e^{−|·|/2} * g` keeps the support when both moments vanish.
+  - `G1_ode`: `g₁/4 − g₁'' = g`.
+  - `G1_lift`: the same under the repository's `WeilMomentConditionsV1`.
+  - `moment_zero_parametrization`: the smooth form. `C^∞` `h` with `tsupport h ⊆ [a, b]` and
+    `∫ e^{±u/2} h = 0` gives `h = χ'' − χ/4` with `χ` smooth and `tsupport χ ⊆ [a, b]`.
+- `RHKreinPairingV13.krein_pairing`: `∫ |Ĝ|²·Ĥ = 0` for `G` supported in an interval of length `b − a`, and `H` an
+  integrable continuous function with integrable `Ĥ` that vanishes on `|u| < b − a`. This covers genuine functions
+  only, not the `δ^{(j)}` columns.
+- `RHEulerGammaV13`: `0.5752 < γ < 0.5792`, from `H₂₅₆` and the Mathlib sandwich.
+
 Still missing:
-- The factorisation lemma: moment-zero compact smooth `g` gives `g₁ = e^{−|·|/2} * g` with the same support.
-  With `g` smooth, `g₁ * g̃₁` is smooth with support in `[−L, L]`, so every `δ^{(j)}(u ∓ L)` pairs to zero.
-- The Fubini pairing `∫ |ĝ₁|²·Ĥ = ∫∫ g₁ g₁ H(x − y) = 0`.
-- A sharp enclosure of `γ`. Mathlib's stated `1/2 < γ < 2/3` is too coarse for margins `0.02 … 0.1`, but
-  `eulerMascheroniSeq_lt_eulerMascheroniConstant` and `eulerMascheroniSeq'` sandwich `γ` at every `n`, with a gap of
-  `log(1 + 1/n)`. So this is instantiation work plus rational `log` bounds.
-- The finite trigonometric check on a grid, with a Lipschitz step.
+- The bridge from the repository zero quadratic to `(1/2π) ∫ |ĝ₁|² W S`.
+- An exact rational certificate. The LP coefficients are floating point, and the B-spline columns below reach
+  `10¹²`.
+- A rigorous digamma lower bound and the finite trigonometric check on a grid, with a Lipschitz step.
+
+**Genuine-function columns (T2).** B-splines of order `k` at the window edge replace the `δ^{(j)}` columns, so
+`krein_pairing` applies as stated.
+- At `L = 0.8` with knot step `0.001`, `k = 8` gives `m = 0.1140` (`0.1132` after the `10×` finer grid).
+- At `L = (9/8)·log 2`, `k = 8` with step `0.002` gives `m = 0.1236` (`0.1229`).
+- Many coefficients sit at the `10¹²` bound, and the LP is ill-conditioned.
+  - At step `0.001`, orders `12` and `15` fail.
+  - At fixed width `0.019`, order `15` passes the LP grid and fails the fine grid.
+  - The order sweep is noise-dominated, and no order stands out.
+
+**Prior art: Zhu (2026).** X. Zhu, *Weil positivity in compact windows*, arXiv:2608.24827 (3 Sept 2026), proves
+by certified computation (interval arithmetic, 50 digits) that `Q(f) ≥ 8.9·10⁻¹⁸‖f‖²` for `supp f ⊆ [−0.8, 0.8]`. His
+symbol `Ψ_L` is `S` above (`2Λ(2)/√2 = √2·log 2`). His `L` is a half-width; his Yoshida range is `2L ≤ log 2`. In this
+ledger's normalisation his window is `L = 1.6`, past `log 3`. The `L ≤ 0.9` range above is therefore already certified
+by computation. What this branch adds is a Lean route, not a new range.
+
+His Theorem 1.4 shows that pointwise-envelope certificates cost doubly exponentially in `L`. The Krein
+certificate is not of that type, and whether a comparable barrier holds for it is open. He also retracted an
+earlier claim at support `2.38`.
 
 Reproduce: `python3 research/rh/krein_dual_beyond_log2.py 0.6931 0.72 0.8 0.9 1.0 1.05`. This is a restricted class, not RH:
 positivity for every `L` is RH.
