@@ -341,3 +341,69 @@ def run_d20_same_discriminant_control(
             "NO_RH_AUTHORITY",
         ),
     }
+
+
+D20_FIXED_WITNESS_MODES = (4, 6, 8, 10, 12, 16, 18)
+D20_FIXED_WITNESS_COEFFICIENTS = (22, 10, 6, 3, 2, -2, -1)
+
+
+def evaluate_d20_fixed_integer_witness(
+    config: EpsteinWeilProbeConfig = EpsteinWeilProbeConfig(),
+) -> dict[str, object]:
+    """Evaluate the committed optimizer-free D=-20 sign witness.
+
+    The witness uses only seven even basis modes and integer coefficients:
+      modes = (4, 6, 8, 10, 12, 16, 18)
+      coeff = (22, 10, 6, 3, 2, -2, -1)
+
+    Rayleigh quotients are scale invariant, so the integer vector is the
+    canonical representation.  The calculation is still a finite floating-
+    point Galerkin diagnostic; fixing the vector removes eigensolver dependence
+    from the sign witness but does not supply interval/infinite-tail authority.
+    """
+    if config.basis_dim < max(D20_FIXED_WITNESS_MODES):
+        raise ValueError("basis_dim must include all fixed witness modes")
+
+    max_n = max(64, int(math.ceil(math.exp(config.support_length))) + 2)
+    principal_lambda = generalized_log_derivative_coefficients(
+        d20_principal_coefficients(max_n)
+    )
+    euler_lambda = generalized_log_derivative_coefficients(
+        d20_euler_coefficients(max_n)
+    )
+    principal_M, G = assemble_quadratic_matrix(config, principal_lambda)
+    euler_M, _ = assemble_quadratic_matrix(config, euler_lambda)
+
+    indices = np.asarray([mode - 1 for mode in D20_FIXED_WITNESS_MODES], dtype=int)
+    coeff = np.asarray(D20_FIXED_WITNESS_COEFFICIENTS, dtype=float)
+    principal_block = principal_M[np.ix_(indices, indices)]
+    euler_block = euler_M[np.ix_(indices, indices)]
+    gram_block = G[np.ix_(indices, indices)]
+
+    norm_sq = float(coeff @ gram_block @ coeff)
+    if not math.isfinite(norm_sq) or norm_sq <= 0.0:
+        raise RuntimeError("fixed witness Gram norm is not positive")
+
+    principal_q = float(coeff @ principal_block @ coeff) / norm_sq
+    euler_q = float(coeff @ euler_block @ coeff) / norm_sq
+    return {
+        "schema_version": "1.0.0",
+        "authority": AUTHORITY,
+        "discriminant": DISCRIMINANT,
+        "modes": D20_FIXED_WITNESS_MODES,
+        "integer_coefficients": D20_FIXED_WITNESS_COEFFICIENTS,
+        "gram_norm_squared": norm_sq,
+        "principal_rayleigh": principal_q,
+        "euler_classsum_rayleigh": euler_q,
+        "optimizer_used_for_evaluation": False,
+        "principal_negative_observed": principal_q < 0.0,
+        "same_witness_euler_positive_observed": euler_q > 0.0,
+        "proof_authority": False,
+        "global_weil_positivity_proven": False,
+        "rh_proven": False,
+        "open_obligations": (
+            "INTERVAL_CERTIFY_FIXED_WITNESS_FINITE_INTEGRAL",
+            "CERTIFY_ARCHIMEDEAN_TAIL_FOR_FIXED_WITNESS",
+            "FORMULA_TO_TARGET_WEIL_FORM_IDENTITY_NOT_MACHINE_FORMALIZED",
+        ),
+    }
