@@ -28,35 +28,39 @@ class QuantumDnaAdapterV1Test(unittest.TestCase):
         terminal = validate_ledger_chain(self.ledger)
         self.assertEqual(terminal, self.ledger["terminal_sha256"])
 
-    def test_tri_stream_counts_are_exact(self) -> None:
+    def test_verified_claims_fail_closed_until_typed_receipts_are_admitted(self) -> None:
         receipt = compile_quantumdna_ledger(self.ledger)
         self.assertEqual(receipt["record_count"], 16)
-        self.assertEqual(receipt["counts"]["POSITIVE"], 3)
+        # The source adapter has three caller-authored VERIFIED witnesses, but it
+        # does not yet supply typed + explicitly admitted VerifiedWitnessReceiptV1
+        # bindings.  Those three former positive claims must therefore quarantine.
+        self.assertEqual(receipt["counts"]["POSITIVE"], 0)
         self.assertEqual(receipt["counts"]["CONTRASTIVE_ONLY"], 10)
-        self.assertEqual(receipt["counts"]["QUARANTINE"], 3)
+        self.assertEqual(receipt["counts"]["QUARANTINE"], 6)
 
-    def test_verified_claim_becomes_scoped_positive(self) -> None:
+    def test_former_verified_claim_is_quarantined_not_positive(self) -> None:
         receipt = compile_quantumdna_ledger(self.ledger)
         record = next(r for r in receipt["records"] if r["claim_id"] == "CLM-452")
-        self.assertEqual(record["learning"]["disposition"], "POSITIVE")
+        self.assertEqual(record["learning"]["disposition"], "QUARANTINE")
         self.assertEqual(
             record["target"]["desired_behavior"],
             "ACCEPT_WITH_DECLARED_SCOPE",
         )
-        self.assertEqual(record["learning"]["positive_gradient_weight_ppm"], 1_000_000)
+        self.assertEqual(record["learning"]["positive_gradient_weight_ppm"], 0)
+        for witness in record["learning"]["witnesses"]:
+            if witness["status"] == "VERIFIED":
+                self.assertFalse(witness["receipt_admitted"])
+                self.assertIn(
+                    "VERIFIED_RECEIPT_REQUIRED",
+                    witness["provenance_errors"],
+                )
 
     def test_removed_claim_becomes_contrastive_pair(self) -> None:
         receipt = compile_quantumdna_ledger(self.ledger)
         record = next(r for r in receipt["records"] if r["claim_id"] == "CLM-455")
-        self.assertEqual(
-            record["learning"]["disposition"],
-            "CONTRASTIVE_ONLY",
-        )
+        self.assertEqual(record["learning"]["disposition"], "CONTRASTIVE_ONLY")
         self.assertIn("0.21646991105146732", record["target"]["correction"])
-        self.assertEqual(
-            record["target"]["desired_behavior"],
-            "REJECT_OR_CORRECT",
-        )
+        self.assertEqual(record["target"]["desired_behavior"], "REJECT_OR_CORRECT")
         self.assertEqual(record["learning"]["positive_gradient_weight_ppm"], 0)
         self.assertEqual(record["learning"]["contrastive_weight_ppm"], 1_000_000)
 
@@ -64,30 +68,24 @@ class QuantumDnaAdapterV1Test(unittest.TestCase):
         receipt = compile_quantumdna_ledger(self.ledger)
         record = next(r for r in receipt["records"] if r["claim_id"] == "CLM-465")
         self.assertEqual(record["learning"]["disposition"], "QUARANTINE")
-        self.assertEqual(
-            record["target"]["desired_behavior"],
-            "DEFER_PENDING_EVIDENCE",
-        )
+        self.assertEqual(record["target"]["desired_behavior"], "DEFER_PENDING_EVIDENCE")
         self.assertEqual(record["learning"]["positive_gradient_weight_ppm"], 0)
 
-    def test_hosted_replay_binding_is_exact(self) -> None:
+    def test_hosted_replay_metadata_is_preserved_but_not_self_admitting(self) -> None:
         receipt = compile_quantumdna_ledger(self.ledger)
         hosted = receipt["hosted_attestation"]
         self.assertEqual(hosted["source_head"], SOURCE_HEAD)
         self.assertEqual(hosted["run_id"], HOSTED_RUN_ID)
         self.assertEqual(hosted["job_id"], HOSTED_JOB_ID)
         self.assertEqual(hosted["conclusion"], "success")
-        self.assertIn(
-            "Validate claims ledger",
-            hosted["executed_steps"],
-        )
+        self.assertIn("Validate claims ledger", hosted["executed_steps"])
+        # Metadata alone is not an admitted VerifiedWitnessReceiptV1.
+        self.assertEqual(receipt["counts"]["POSITIVE"], 0)
 
     def test_authority_never_promoted(self) -> None:
         receipt = compile_quantumdna_ledger(self.ledger)
         self.assertEqual(receipt["authority_effect"], "NONE")
-        self.assertTrue(
-            all(r["authority_effect"] == "NONE" for r in receipt["records"])
-        )
+        self.assertTrue(all(r["authority_effect"] == "NONE" for r in receipt["records"]))
 
     def test_receipt_is_deterministic(self) -> None:
         a = compile_quantumdna_ledger(self.ledger)
