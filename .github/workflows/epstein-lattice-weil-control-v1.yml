@@ -5,6 +5,7 @@ on:
     paths:
       - "harness/sdk/epstein_lattice_weil_probe.py"
       - "research/rh/test_epstein_lattice_weil_probe.py"
+      - "research/rh/test_epstein_d20_offline_zero.py"
       - "research/rh/EPSTEIN_LATTICE_WEIL_CONTROL_V1.md"
       - ".github/workflows/epstein-lattice-weil-control-v1.yml"
   workflow_dispatch:
@@ -24,6 +25,6 @@ jobs:
         with:
           python-version: "3.12"
       - name: Install bounded test dependencies
-        run: python -m pip install --disable-pip-version-check numpy scipy pytest
-      - name: Run same-discriminant Epstein control
-        run: python -m pytest -q research/rh/test_epstein_lattice_weil_probe.py
+        run: python -m pip install --disable-pip-version-check numpy scipy mpmath pytest
+      - name: Run same-discriminant Epstein controls
+        run: python -m pytest -q research/rh/test_epstein_lattice_weil_probe.py research/rh/test_epstein_d20_offline_zero.py
