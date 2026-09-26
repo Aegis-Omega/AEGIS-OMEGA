@@ -45,8 +45,10 @@ class ProofCarryingQpyCurriculumV1Test(unittest.TestCase):
                 self.assertTrue(record["checks"]["framework_agreement"])
                 self.assertTrue(record["checks"]["qpy_roundtrip_equal"])
                 self.assertTrue(record["checks"]["qiskit_version_pinned"])
-                self.assertTrue(record["training"]["gradient_admissible"])
-                self.assertEqual(record["training"]["training_weight_ppm"], 1_000_000)
+                self.assertFalse(record["training"]["gradient_admissible"])
+                self.assertEqual(record["training"]["training_weight_ppm"], 0)
+                self.assertEqual(record["training"]["disposition"], "QUARANTINE")
+                self.assertFalse(record["formal_invariant"]["kernel_verified"])
 
     def test_formal_invariant_is_exact_head_bound(self) -> None:
         record = build_curriculum_record(0)
@@ -61,7 +63,13 @@ class ProofCarryingQpyCurriculumV1Test(unittest.TestCase):
     def test_receipt_is_fail_closed_and_complete(self) -> None:
         receipt = build_curriculum_receipt()
         self.assertEqual(receipt["qiskit_version"], EXPECTED_QISKIT_VERSION)
-        self.assertTrue(receipt["all_gradient_admissible"])
+        self.assertFalse(receipt["all_gradient_admissible"])
+        self.assertEqual(receipt["positive_gradient_count"], 0)
+        self.assertEqual(receipt["contrastive_count"], 0)
+        self.assertEqual(
+            receipt["quarantine_count"], len(DEFAULT_TIME_SCALED)
+        )
+        self.assertFalse(receipt["formal_kernel_verified"])
         self.assertEqual(receipt["record_count"], len(DEFAULT_TIME_SCALED))
         self.assertEqual(receipt["authority_effect"], "NONE")
 
@@ -79,6 +87,12 @@ class ProofCarryingQpyCurriculumV1Test(unittest.TestCase):
                 len(receipt["qpy_artifacts"]),
                 len(DEFAULT_TIME_SCALED),
             )
+            self.assertTrue((root / "positive.jsonl").is_file())
+            self.assertTrue((root / "contrastive.jsonl").is_file())
+            self.assertTrue((root / "quarantine.jsonl").is_file())
+            self.assertEqual((root / "positive.jsonl").read_text(), "")
+            self.assertEqual((root / "contrastive.jsonl").read_text(), "")
+            self.assertGreater(len((root / "quarantine.jsonl").read_text()), 0)
 
 
 if __name__ == "__main__":
