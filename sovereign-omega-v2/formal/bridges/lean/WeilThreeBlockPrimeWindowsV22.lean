@@ -135,7 +135,7 @@ theorem mixed_self_one_eq_energy (g : WeilCompactSmoothGV1) :
           apply setIntegral_congr_fun measurableSet_Ioi
           intro y hy
           simp [Complex.mul_conj, Complex.sq_norm]
-    _ = ((∫ y in Ioi (0 : ℝ), ‖g.1 y‖ ^ 2) : ℂ) := by
+    _ = (((∫ y in Ioi (0 : ℝ), ‖g.1 y‖ ^ 2 : ℝ)) : ℂ) := by
           exact integral_ofReal
             (𝕜 := ℂ)
             (μ := volume.restrict (Ioi (0 : ℝ)))
