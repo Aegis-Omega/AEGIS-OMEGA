@@ -1,0 +1,97 @@
+name: Proof-Carrying QPY Curriculum
+
+on:
+  pull_request:
+    paths:
+      - "gravity_quantum/qpy_curriculum_v1.py"
+      - "gravity_quantum/test_qpy_curriculum_v1.py"
+      - "gravity_quantum/cudaq_twoqubit_v1.py"
+      - "gravity_quantum/crossframework_v1.py"
+      - ".github/workflows/proof-carrying-qpy-curriculum.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: proof-carrying-qpy-curriculum-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+env:
+  SOURCE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+
+jobs:
+  witness:
+    name: Research / proof-carrying QPY curriculum
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - name: Checkout exact candidate
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ env.SOURCE_SHA }}
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Assert exact candidate
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$SOURCE_SHA"
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: "3.12"
+
+      - name: Install pinned witness runtimes
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install --disable-pip-version-check             'cudaq==0.15.1'             'pennylane==0.45.1'             'qiskit==2.5.2'
+          python - <<'PY'
+          from importlib.metadata import version
+          assert version("cudaq") == "0.15.1"
+          assert version("pennylane") == "0.45.1"
+          assert version("qiskit") == "2.5.2"
+          PY
+
+      - name: Compile and execute curriculum falsifiers
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m py_compile             gravity_quantum/qpy_curriculum_v1.py             gravity_quantum/test_qpy_curriculum_v1.py
+          python -m unittest             gravity_quantum.test_cudaq_twoqubit_v1             gravity_quantum.test_crossframework_v1             gravity_quantum.test_qpy_curriculum_v1 -v
+
+      - name: Emit exact-head QPY curriculum bundle
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p artifacts/proof-carrying-qpy-curriculum
+          python - <<'PY'
+          import os
+          from pathlib import Path
+          from gravity_quantum.qpy_curriculum_v1 import emit_bundle
+
+          receipt = emit_bundle(
+              Path("artifacts/proof-carrying-qpy-curriculum"),
+              source_head_sha=os.environ["SOURCE_SHA"],
+          )
+          assert receipt["source_head_sha"] == os.environ["SOURCE_SHA"]
+          assert receipt["all_gradient_admissible"] is True
+          print(receipt["record_count"])
+          PY
+          python -m pip freeze             > artifacts/proof-carrying-qpy-curriculum/environment.lock.txt
+          (
+            cd artifacts/proof-carrying-qpy-curriculum
+            sha256sum *.qpy curriculum.jsonl receipt.json environment.lock.txt > SHA256SUMS
+            sha256sum -c SHA256SUMS
+          )
+
+      - name: Upload proof-carrying training evidence
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: proof-carrying-qpy-curriculum-${{ env.SOURCE_SHA }}
+          path: artifacts/proof-carrying-qpy-curriculum/
+          if-no-files-found: error
+          retention-days: 90
