@@ -407,3 +407,168 @@ def evaluate_d20_fixed_integer_witness(
             "FORMULA_TO_TARGET_WEIL_FORM_IDENTITY_NOT_MACHINE_FORMALIZED",
         ),
     }
+
+
+def _fixed_witness_cosine_coefficients(
+    support_length: float,
+) -> dict[int, float]:
+    """Return cosine-series coefficients of the committed seven-mode witness."""
+    L = float(support_length)
+    if not math.isfinite(L) or L <= 0.0:
+        raise ValueError("support_length must be finite and positive")
+    alpha = math.pi / L
+    out: dict[int, float] = {}
+    for k, witness_coefficient in zip(
+        D20_FIXED_WITNESS_MODES, D20_FIXED_WITNESS_COEFFICIENTS
+    ):
+        for mode, coefficient in {
+            k - 1: 0.5 * (0.25 + ((k - 1) * alpha) ** 2),
+            k + 1: -0.5 * (0.25 + ((k + 1) * alpha) ** 2),
+        }.items():
+            out[mode] = out.get(mode, 0.0) + witness_coefficient * coefficient
+    return dict(sorted(out.items()))
+
+
+def _cos_cos_integral(a: float, b: float, endpoint: float) -> float:
+    if math.isclose(a, b, rel_tol=0.0, abs_tol=1e-14):
+        if math.isclose(a, 0.0, rel_tol=0.0, abs_tol=1e-14):
+            return endpoint
+        return endpoint / 2.0 + math.sin(2.0 * a * endpoint) / (4.0 * a)
+    return (
+        math.sin((a - b) * endpoint) / (2.0 * (a - b))
+        + math.sin((a + b) * endpoint) / (2.0 * (a + b))
+    )
+
+
+def _cos_sin_integral(a: float, b: float, endpoint: float) -> float:
+    total = 0.0
+    if not math.isclose(a + b, 0.0, rel_tol=0.0, abs_tol=1e-14):
+        total += 0.5 * (1.0 - math.cos((b + a) * endpoint)) / (b + a)
+    difference = b - a
+    if not math.isclose(difference, 0.0, rel_tol=0.0, abs_tol=1e-14):
+        total += 0.5 * (1.0 - math.cos(difference * endpoint)) / difference
+    return total
+
+
+def _fixed_witness_autocorrelation(
+    shift: float,
+    *,
+    support_length: float,
+) -> float:
+    """Exact-in-form x-space autocorrelation of the finite trigonometric witness."""
+    L = float(support_length)
+    u = abs(float(shift))
+    if u >= L:
+        return 0.0
+    endpoint = L - u
+    alpha = math.pi / L
+    coefficients = _fixed_witness_cosine_coefficients(L)
+    total = 0.0
+    for left_mode, left_coefficient in coefficients.items():
+        a = left_mode * alpha
+        for right_mode, right_coefficient in coefficients.items():
+            b = right_mode * alpha
+            shifted_product_integral = (
+                math.cos(b * u) * _cos_cos_integral(a, b, endpoint)
+                - math.sin(b * u) * _cos_sin_integral(a, b, endpoint)
+            )
+            total += (
+                left_coefficient
+                * right_coefficient
+                * shifted_product_integral
+            )
+    return total
+
+
+def d20_fixed_witness_arithmetic_decomposition(
+    *,
+    support_length: float = 3.5,
+) -> dict[str, object]:
+    """Decompose the same-discriminant difference into finite arithmetic modes.
+
+    The two D=-20 objects share the same completed conductor and Gamma factor.
+    Therefore their difference on a fixed test function is purely arithmetic.
+    Parseval converts each cosine mode into the x-space autocorrelation
+
+        C(log n) = integral g(x) g(x + log n) dx,
+
+    so this comparison needs no t-grid and no Archimedean tail estimate.
+    """
+    L = float(support_length)
+    if not math.isfinite(L) or L <= 0.0:
+        raise ValueError("support_length must be finite and positive")
+
+    max_n = max(64, int(math.ceil(math.exp(L))) + 2)
+    principal_lambda = generalized_log_derivative_coefficients(
+        d20_principal_coefficients(max_n)
+    )
+    euler_lambda = generalized_log_derivative_coefficients(
+        d20_euler_coefficients(max_n)
+    )
+    cosine_coefficients = _fixed_witness_cosine_coefficients(L)
+    energy = sum(
+        (L if mode == 0 else L / 2.0) * coefficient * coefficient
+        for mode, coefficient in cosine_coefficients.items()
+    )
+    if not math.isfinite(energy) or energy <= 0.0:
+        raise RuntimeError("fixed witness energy is not positive")
+
+    contributions: list[dict[str, object]] = []
+    total_delta = 0.0
+    composite_leakage_delta = 0.0
+    prime_power_delta = 0.0
+    for n in range(2, int(math.ceil(math.exp(L)))):
+        log_n = math.log(n)
+        if not log_n < L:
+            continue
+        autocorrelation = _fixed_witness_autocorrelation(
+            log_n, support_length=L
+        )
+        principal_weight = float(principal_lambda[n])
+        euler_weight = float(euler_lambda[n])
+        if principal_weight == 0.0 and euler_weight == 0.0:
+            continue
+
+        scale = -2.0 * autocorrelation / (math.sqrt(n) * energy)
+        principal_contribution = principal_weight * scale
+        euler_contribution = euler_weight * scale
+        delta = principal_contribution - euler_contribution
+        prime_power = is_prime_power(n)
+        total_delta += delta
+        if prime_power:
+            prime_power_delta += delta
+        else:
+            composite_leakage_delta += delta
+
+        contributions.append(
+            {
+                "n": n,
+                "prime_power": prime_power,
+                "principal_lambda": principal_weight,
+                "euler_lambda": euler_weight,
+                "autocorrelation_over_energy": autocorrelation / energy,
+                "principal_contribution": principal_contribution,
+                "euler_contribution": euler_contribution,
+                "delta_principal_minus_euler": delta,
+            }
+        )
+
+    return {
+        "schema_version": "1.0.0",
+        "authority": AUTHORITY,
+        "discriminant": DISCRIMINANT,
+        "support_length": L,
+        "modes": D20_FIXED_WITNESS_MODES,
+        "integer_coefficients": D20_FIXED_WITNESS_COEFFICIENTS,
+        "energy": energy,
+        "contributions": tuple(contributions),
+        "total_arithmetic_delta_principal_minus_euler": total_delta,
+        "non_prime_power_leakage_delta": composite_leakage_delta,
+        "prime_power_weight_delta": prime_power_delta,
+        "archimedean_difference": 0.0,
+        "t_grid_used": False,
+        "tail_bound_needed_for_pairwise_difference": False,
+        "proof_authority": False,
+        "global_weil_positivity_proven": False,
+        "rh_proven": False,
+    }
