@@ -10,12 +10,13 @@ supplying an arbitrary non-empty source_ref and arbitrary 64-hex digest.
 
 The receipt binds source identity, verifier policy, executed provider/run,
 non-zero execution, artifact identity, and the evidence digest. A structurally
-valid receipt is still NOT admitted automatically: its self-hash must also be
-listed in `CompilerPolicy.admitted_verified_receipt_sha256s`. This makes the
-external trust/admission boundary explicit and default-deny. Provider
-authenticity/attestation remains an upstream trust boundary; this compiler
-validates exact binding and refuses positive-gradient authority unless the
-upstream-admitted receipt hash is present.
+valid receipt is still NOT admitted automatically: its self-hash must be listed
+in an admission registry whose canonical root is source-pinned in
+`TRUSTED_ADMISSION_REGISTRY_ROOTS`. Caller-authored policy fields therefore cannot
+self-admit a receipt. The pinned-root set is intentionally empty in this version,
+so production callers cannot obtain positive-gradient authority until a separate
+governed source transition admits a concrete registry root. Provider
+authenticity/attestation remains an upstream trust boundary.
 
 Learning dispositions:
 - POSITIVE: every required transition is verified, receipt-bound, and
@@ -40,6 +41,10 @@ from typing import Mapping, Sequence
 
 SCHEMA = "AEGIS_EVIDENCE_GRADIENT_COMPILER_V1"
 VERIFIED_RECEIPT_SCHEMA = "AEGIS_VERIFIED_WITNESS_RECEIPT_V1"
+ADMISSION_REGISTRY_SCHEMA = "AEGIS_VERIFIED_RECEIPT_ADMISSION_REGISTRY_V1"
+# Source-controlled trust roots only. Intentionally empty until a separately
+# governed transition admits an exact registry root. Caller input cannot extend it.
+TRUSTED_ADMISSION_REGISTRY_ROOTS: frozenset[str] = frozenset()
 PPM = 1_000_000
 _HEX40 = re.compile(r"^[0-9a-f]{40}$")
 _HEX64 = re.compile(r"^[0-9a-f]{64}$")
@@ -84,6 +89,20 @@ def canonical_json_bytes(value: Mapping[str, object]) -> bytes:
 
 def sha256_hex(data: bytes) -> str:
     return hashlib.sha256(data).hexdigest()
+
+
+def admission_registry_root_sha256(receipt_sha256s: Sequence[str]) -> str:
+    """Canonical source-pinnable root for an exact set of admitted receipts."""
+    unique = sorted(set(receipt_sha256s))
+    if len(unique) != len(tuple(receipt_sha256s)):
+        raise ValueError("ADMITTED_RECEIPT_SHA256S_MUST_BE_UNIQUE")
+    for digest in unique:
+        if _HEX64.fullmatch(digest) is None:
+            raise ValueError("ADMITTED_RECEIPT_SHA256_INVALID")
+    return sha256_hex(canonical_json_bytes({
+        "schema": ADMISSION_REGISTRY_SCHEMA,
+        "receipt_sha256s": unique,
+    }))
 
 
 @dataclass(frozen=True)
@@ -240,6 +259,7 @@ class CompilerPolicy:
     positive_weight_ppm: int = PPM
     contrastive_weight_ppm: int = PPM
     admitted_verified_receipt_sha256s: tuple[str, ...] = ()
+    admission_registry_root_sha256: str = ""
 
     def validate(self) -> None:
         if self.min_independent_groups < 1:
@@ -247,13 +267,24 @@ class CompilerPolicy:
         for value in (self.positive_weight_ppm, self.contrastive_weight_ppm):
             if not 0 <= value <= PPM:
                 raise ValueError("WEIGHT_PPM_OUT_OF_RANGE")
-        if len(self.admitted_verified_receipt_sha256s) != len(
-            set(self.admitted_verified_receipt_sha256s)
+        admission_registry_root_sha256(self.admitted_verified_receipt_sha256s)
+        if self.admission_registry_root_sha256 and (
+            _HEX64.fullmatch(self.admission_registry_root_sha256) is None
         ):
-            raise ValueError("ADMITTED_RECEIPT_SHA256S_MUST_BE_UNIQUE")
-        for digest in self.admitted_verified_receipt_sha256s:
-            if _HEX64.fullmatch(digest) is None:
-                raise ValueError("ADMITTED_RECEIPT_SHA256_INVALID")
+            raise ValueError("ADMISSION_REGISTRY_ROOT_SHA256_INVALID")
+
+    def registry_root_matches_receipts(self) -> bool:
+        if not self.admitted_verified_receipt_sha256s:
+            return False
+        return self.admission_registry_root_sha256 == admission_registry_root_sha256(
+            self.admitted_verified_receipt_sha256s
+        )
+
+    def admission_registry_trusted(self) -> bool:
+        return (
+            self.registry_root_matches_receipts()
+            and self.admission_registry_root_sha256 in TRUSTED_ADMISSION_REGISTRY_ROOTS
+        )
 
 
 def lz78_phrase_count(data: bytes) -> int:
@@ -327,7 +358,10 @@ def compile_evidence_gradient(
         )
     ]
     verified = [w for w in required if w.status is WitnessStatus.VERIFIED]
-    admitted_receipts = set(policy.admitted_verified_receipt_sha256s)
+    registry_trusted = policy.admission_registry_trusted()
+    admitted_receipts = (
+        set(policy.admitted_verified_receipt_sha256s) if registry_trusted else set()
+    )
 
     def receipt_admitted(w: Witness) -> bool:
         receipt = w.verified_receipt
@@ -431,6 +465,8 @@ def compile_evidence_gradient(
         "formal_kernel_verified": formal_verified,
         "formal_kernel_required": policy.formal_kernel_required,
         "admitted_verified_receipt_sha256s": sorted(admitted_receipts),
+        "admission_registry_root_sha256": policy.admission_registry_root_sha256,
+        "admission_registry_trusted": registry_trusted,
         "representation_sha256": sha256_hex(representation),
         "lz78_density_ppm": current_lz,
         "lz78_volatility_ppm": volatility,

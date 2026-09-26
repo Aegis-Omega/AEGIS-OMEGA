@@ -1,6 +1,9 @@
 import hashlib
 import unittest
 from dataclasses import replace
+from unittest.mock import patch
+
+import aegis_learning.evidence_gradient_compiler_v1 as egc
 
 from aegis_learning.evidence_gradient_compiler_v1 import (
     CompilerPolicy,
@@ -10,6 +13,7 @@ from aegis_learning.evidence_gradient_compiler_v1 import (
     VerifiedWitnessReceiptV1,
     Witness,
     WitnessStatus,
+    admission_registry_root_sha256,
     compile_evidence_gradient,
     lz78_density_ppm,
 )
@@ -50,26 +54,34 @@ def bound_verified(name, group, *, formal=False, steps=3):
 
 
 def admitted_policy(*witnesses, formal=False, min_groups=2):
+    receipts = tuple(
+        w.verified_receipt.receipt_sha256
+        for w in witnesses
+        if w.verified_receipt is not None
+    )
     return CompilerPolicy(
         min_independent_groups=min_groups,
         formal_kernel_required=formal,
-        admitted_verified_receipt_sha256s=tuple(
-            w.verified_receipt.receipt_sha256
-            for w in witnesses
-            if w.verified_receipt is not None
+        admitted_verified_receipt_sha256s=receipts,
+        admission_registry_root_sha256=(
+            admission_registry_root_sha256(receipts) if receipts else ""
         ),
     )
+
+
+def compile_with_source_pinned_registry(*, policy, **kwargs):
+    root = policy.admission_registry_root_sha256
+    with patch.object(egc, "TRUSTED_ADMISSION_REGISTRY_ROOTS", frozenset({root})):
+        return compile_evidence_gradient(policy=policy, **kwargs)
 
 
 class EvidenceGradientCompilerV1Test(unittest.TestCase):
     def test_positive_requires_receipt_bound_and_admitted_verified_witnesses(self):
         a = bound_verified("a", "analytic")
         b = bound_verified("b", "runtime")
-        r = compile_evidence_gradient(
-            example_id="x",
-            source_head_sha=HEAD,
-            witnesses=[a, b],
-            policy=admitted_policy(a, b),
+        policy = admitted_policy(a, b)
+        r = compile_with_source_pinned_registry(
+            example_id="x", source_head_sha=HEAD, witnesses=[a, b], policy=policy
         )
         self.assertEqual(r["disposition"], LearningDisposition.POSITIVE.value)
         self.assertEqual(r["positive_gradient_weight_ppm"], 1_000_000)
@@ -88,6 +100,17 @@ class EvidenceGradientCompilerV1Test(unittest.TestCase):
             self.assertTrue(row["receipt_structurally_valid"])
             self.assertFalse(row["receipt_admitted"])
             self.assertIn("VERIFIED_RECEIPT_NOT_ADMITTED", row["provenance_errors"])
+
+    def test_caller_authored_admission_registry_root_cannot_self_admit(self):
+        a = bound_verified("a", "analytic")
+        b = bound_verified("b", "runtime")
+        policy = admitted_policy(a, b)
+        r = compile_evidence_gradient(
+            example_id="caller-root", source_head_sha=HEAD, witnesses=[a, b], policy=policy
+        )
+        self.assertEqual(r["disposition"], LearningDisposition.QUARANTINE.value)
+        self.assertFalse(r["admission_registry_trusted"])
+        self.assertEqual(r["admitted_verified_receipt_sha256s"], [])
 
     def test_old_synthetic_verified_shape_is_quarantined(self):
         forged = Witness(
@@ -222,11 +245,10 @@ class EvidenceGradientCompilerV1Test(unittest.TestCase):
         self.assertEqual(no_formal["disposition"], LearningDisposition.QUARANTINE.value)
 
         lean = bound_verified("lean", "formal", formal=True)
-        yes_formal = compile_evidence_gradient(
-            example_id="x",
-            source_head_sha=HEAD,
-            witnesses=[a, lean],
-            policy=admitted_policy(a, lean, formal=True),
+        formal_policy = admitted_policy(a, lean, formal=True)
+        yes_formal = compile_with_source_pinned_registry(
+            example_id="x", source_head_sha=HEAD, witnesses=[a, lean],
+            policy=formal_policy,
         )
         self.assertEqual(yes_formal["disposition"], LearningDisposition.POSITIVE.value)
         self.assertTrue(yes_formal["formal_kernel_verified"])
@@ -239,14 +261,16 @@ class EvidenceGradientCompilerV1Test(unittest.TestCase):
         a = bound_verified("a", "analytic")
         b = bound_verified("b", "runtime")
         policy = admitted_policy(a, b)
-        stable = compile_evidence_gradient(
-            example_id="x", source_head_sha=HEAD, witnesses=[a, b], policy=policy,
-            representation=b"aaaaaaaaaaaaaaaa", previous_representation=b"aaaaaaaaaaaaaaaa",
-        )
-        volatile = compile_evidence_gradient(
-            example_id="y", source_head_sha=HEAD, witnesses=[a, b], policy=policy,
-            representation=bytes(range(16)), previous_representation=b"aaaaaaaaaaaaaaaa",
-        )
+        root = policy.admission_registry_root_sha256
+        with patch.object(egc, "TRUSTED_ADMISSION_REGISTRY_ROOTS", frozenset({root})):
+            stable = compile_evidence_gradient(
+                example_id="x", source_head_sha=HEAD, witnesses=[a, b], policy=policy,
+                representation=b"aaaaaaaaaaaaaaaa", previous_representation=b"aaaaaaaaaaaaaaaa",
+            )
+            volatile = compile_evidence_gradient(
+                example_id="y", source_head_sha=HEAD, witnesses=[a, b], policy=policy,
+                representation=bytes(range(16)), previous_representation=b"aaaaaaaaaaaaaaaa",
+            )
         self.assertEqual(stable["disposition"], LearningDisposition.POSITIVE.value)
         self.assertEqual(volatile["disposition"], LearningDisposition.POSITIVE.value)
         self.assertGreaterEqual(volatile["sampling_priority_ppm"], stable["sampling_priority_ppm"])
