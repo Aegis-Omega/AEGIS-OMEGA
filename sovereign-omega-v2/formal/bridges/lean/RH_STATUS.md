@@ -301,7 +301,17 @@ Sixth hosted replay, same PR, commit `ba62c035`: AEGIS pinned at `4026b6c8`, tar
 targets), union closure 131 modules, runs 36205050289 (push) and 36205052790 (pull_request) green; 66 theorems audited
 `ALL_STANDARD_AXIOMS_ONLY`, 0 `sorryAx`; unconditional probe stops at `⊢ UniversalZeroQuadraticNonnegativeV10`; runner
 hashes of the seven hat-kernel modules equal the local ones (`RHHatClass13V13` = `902af511`). Artifact 10894590437, zip
-sha256 `9c42305647caa4c5cde76b5b0e070b01a40c97c95b80aa562368dcee58082afb`. The `69/200` class is not yet hosted-replayed.
+sha256 `9c42305647caa4c5cde76b5b0e070b01a40c97c95b80aa562368dcee58082afb`. Same pin, hardened workflow (`64427279`: no duplicate
+push run, `hat_coercive` audited, exactly 67 distinct declarations required, the unconditional probe's only error must be
+`unsolved goals` with the single goal `UniversalZeroQuadraticNonnegativeV10`): run 36206490204 green, artifact 10894332351,
+zip sha256 `811a08acd1f2c18a7c2d8aa7fa75e84b0f1cd5db152585cc4fe7faa208981222`.
+
+Seventh hosted replay, same PR, commit `141bf5ed` (on top of `64427279`): AEGIS pinned at `514e4493`, target
+`RHHatClass69200V13` added (fifteen targets), union closure 133 modules, run 36210491583 green; 72 distinct declarations
+audited `ALL_STANDARD_AXIOMS_ONLY` (including `RHHatCellsWideV13.Q_of_checksW` and the four `RHHatClass69200V13`
+producers), 0 `sorryAx`; the unconditional probe's only diagnostic is `unsolved goals ⊢ UniversalZeroQuadraticNonnegativeV10`;
+runner hashes `RHHatCellsWideV13` = `6b047151`, `RHHatClass69200V13` = `1bea5d5f` equal the local ones. Artifact
+10896312115, zip sha256 `e4e77b9cadf1bf5de895253e294337fac410e60a099bef7977660b46e19f0df0`.
 
 **Other lanes (audit of 56 new modules, compiled at the pin).** One genuine extension:
 `ten_packet_coercive_v1` (`research/rh-eleven-block-actual-bridge-v1`) — ten translates on the `33/16`
@@ -352,6 +362,6 @@ The Weil-type criterion `RH ↔ UniversalZeroQuadraticNonnegativeV10` is formall
 the RH-equivalent quadratic is kernel-verified nonnegative on the whole class of log-half-width `≤ 69/200`
 (support length `≤ 0.69`, `99.5%` of the prime-free range, via the moment identity, the Cauchy–Schwarz and three-cell caps, and a positive-definite
 hat-kernel certificate that goes past the pointwise-cap ceiling `≈ 0.24`; hosted-replayed through FormalConjectures
-up to the `≤ 1/3` class), on a 9-parameter `33/16` family per narrow seed, and on `(N+1)`-parameter
+up to the `≤ 69/200` class), on a 9-parameter `33/16` family per narrow seed, and on `(N+1)`-parameter
 dyadic families for every `N` (`dyadic_tower`), via one generic Toeplitz/Gram engine whose reach grows
 without bound as the packet narrows. RH itself is open; the repository contains no proof of it.
