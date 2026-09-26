@@ -38,5 +38,28 @@ jobs:
           set -euo pipefail
           test "$(git rev-parse HEAD)" = "$CANDIDATE_SHA"
 
-      - name: Query public DNS and verify OpenAI TXT records
-        run: python scripts/verify-openai-domain-dns.py
+      - name: Query public DNS and emit receipt
+        id: verify
+        shell: bash
+        run: |
+          set +e
+          python scripts/verify-openai-domain-dns.py
+          code=$?
+          echo "exit_code=$code" >> "$GITHUB_OUTPUT"
+          exit 0
+
+      - name: Upload DNS verification receipt
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: openai-domain-dns-${{ env.CANDIDATE_SHA }}
+          path: openai-domain-dns-receipt.json
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Enforce DNS verification
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "${{ steps.verify.outputs.exit_code }}" = "0"
