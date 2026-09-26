@@ -2,6 +2,8 @@ import ZetaDivisorLedgerV1
 import ZetaDivisorExhaustionV1
 import Mathlib.Analysis.Analytic.IsolatedZeros
 import Mathlib.NumberTheory.LSeries.Dirichlet
+import Mathlib.Analysis.Normed.Module.Connected
+import Mathlib.Analysis.Meromorphic.NormalForm
 
 /-!
 AEGIS Ω — zeta-divisor support bridge v1.
@@ -26,6 +28,7 @@ RH_EQUIVALENCE_OPEN
 open Set
 open Complex
 open Filter
+open scoped Topology
 
 noncomputable section
 
@@ -63,10 +66,10 @@ theorem zeta_zero_divisor_coeff_ne_zero_v1
   have hsne : s ≠ 1 := by
     simpa using hK.2 hsK
   rw [ZetaDivisorV1, MeromorphicOn.divisor_apply hmer hsK]
-  simp only [WithTop.untop₀_eq_zero, not_or]
+  simp only [ne_eq, WithTop.untop₀_eq_zero, not_or]
   constructor
   · intro horder
-    exact (han.meromorphicOrderAt_eq_zero_iff.mp horder) hz
+    exact (han.meromorphicNFAt.meromorphicOrderAt_eq_zero_iff.mp horder) hz
   · exact zeta_meromorphic_order_ne_top_v1 hsne
 
 /-- Therefore every zeta zero in the region belongs to the divisor support. -/
