@@ -113,6 +113,7 @@ Return JSON:
 }`,
       }],
     }),
+    signal: AbortSignal.timeout(90_000),
   })
 
   if (!res.ok) {
