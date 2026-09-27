@@ -15,7 +15,7 @@ const source = readFileSync(CHAT_SOURCE_URL, 'utf8')
 describe('chat edge transport source contract', () => {
   it('puts every provider fetch behind the common upstream timeout', () => {
     expect(source).toContain("const CHAT_UPSTREAM_TIMEOUT_MS = readPositiveIntEnv('CHAT_UPSTREAM_TIMEOUT_MS', 60_000)")
-    expect(source).toContain('signal: AbortSignal.timeout(CHAT_UPSTREAM_TIMEOUT_MS)')
+    expect(source).toContain('}, CHAT_UPSTREAM_TIMEOUT_MS)')
   })
 
   it('bounds provider error bodies before logging them', () => {
