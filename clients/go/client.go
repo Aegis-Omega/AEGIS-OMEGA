@@ -21,6 +21,8 @@ import (
 
 const baseURL = "https://aegis-vertex.aegisomega.com"
 
+var apiHTTPClient = &http.Client{Timeout: 60 * time.Second}
+
 type collaborateRequest struct {
 	Objective string `json:"objective"`
 	Mode      string `json:"mode"`
@@ -46,17 +48,28 @@ type collaborateData struct {
 }
 
 func collaborate(objective, mode string) (*collaborateData, error) {
-	body, _ := json.Marshal(collaborateRequest{Objective: objective, Mode: mode, Live: false})
+	body, err := json.Marshal(collaborateRequest{Objective: objective, Mode: mode, Live: false})
+	if err != nil {
+		return nil, fmt.Errorf("encode request: %w", err)
+	}
 
-	client := &http.Client{Timeout: 60 * time.Second}
-	resp, err := client.Post(baseURL+"/platform/collaborate", "application/json", bytes.NewReader(body))
+	// Reuse one client so the shared default Transport can retain idle
+	// connections across repeated calls instead of rebuilding client state.
+	resp, err := apiHTTPClient.Post(baseURL+"/platform/collaborate", "application/json", bytes.NewReader(body))
 	if err != nil {
 		return nil, fmt.Errorf("request failed: %w", err)
 	}
 	defer resp.Body.Close()
 
-	raw, _ := io.ReadAll(resp.Body)
-	if resp.StatusCode != 200 {
+	raw, err := io.ReadAll(io.LimitReader(resp.Body, 16<<20))
+	if err != nil {
+		return nil, fmt.Errorf("read response: %w", err)
+	}
+	if resp.StatusCode != http.StatusOK {
+		const maxErrorBytes = 2048
+		if len(raw) > maxErrorBytes {
+			raw = raw[:maxErrorBytes]
+		}
 		return nil, fmt.Errorf("HTTP %d: %s", resp.StatusCode, raw)
 	}
 
