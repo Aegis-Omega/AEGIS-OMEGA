@@ -65,6 +65,7 @@ export function useExecution(apiKey: string) {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'x-api-key': apiKey },
         body: JSON.stringify({ objective, mode, live }),
+        signal: AbortSignal.timeout(15_000),
       })
       if (!res.ok) {
         const err = await res.json().catch(() => ({ error: res.statusText }))
