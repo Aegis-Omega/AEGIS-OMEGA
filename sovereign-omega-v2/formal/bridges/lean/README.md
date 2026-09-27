@@ -107,6 +107,16 @@ the `+6` phase step being `u ↦ −u`.
 In one line: the cyclic structure is real, it is genuinely a ring, and it is
 provably blind to the pole. Rotation cannot leave the unit circle.
 
+### `HasseSnowflakeCurve.lean` — Hasse bound for `y² = x³ + 1`
+
+- `hasse_snowflake` — for every prime `p ≥ 5`, with `N` the number of affine
+  solutions of `y² = x³ + 1` in `(ZMod p)²`: `(N − p)² ≤ 4p`.
+
+For `p ≡ 2 (mod 3)` cubing is a bijection and `N = p`. For `p ≡ 1 (mod 3)`,
+`N − p = J + J̄` for the Jacobi sum `J(χ₃, χ₂)`, and `J·J̄ = p`. The positivity
+comes from a norm, `|J|² = p`: this is the finite-field analogue of the
+positivity RH asks for, and it does not transfer to `ζ`. Not RH.
+
 ## Verification
 
 ```
@@ -116,12 +126,15 @@ lake env lean scratch/AegisModuloRingV1.lean
 lake env lean scratch/AbjadFactorizationV1.lean
 lake env lean scratch/ResidueClassFactorizationV1.lean
 lake env lean scratch/CyclicFilterLimitV1.lean
+lake env lean scratch/HasseSnowflakeCurve.lean
 ```
 
 Each exits 0 and prints its `#print axioms` block.
 
 `ResidueClassFactorizationV1.lean` additionally compiles unchanged on Lean
 `v4.33.1` / Mathlib `0df444a3` (the `#493` lane toolchain).
+`HasseSnowflakeCurve.lean` was checked on Lean `v4.33.1` / Mathlib `0df444a3`
+(standard axioms only).
 
 ## Source hashes (sha256)
 
@@ -130,6 +143,7 @@ Each exits 0 and prints its `#print axioms` block.
 db893663ba81e2741aebf2680f4562307900c893c46ee89f9092a27af2e374e3  AbjadFactorizationV1.lean
 197fecf442c4dda6764434b54bea64578bfd99ad0c6ca29edfbd2e91014fa519  ResidueClassFactorizationV1.lean
 997bb2bcb94ed76874becbec42392cdc71e351ee7cf05a74088e4702cdbe2af2  CyclicFilterLimitV1.lean
+44b2ca0df86a8a90ce0eedd0cc04b790476a63e4e005fde45cadbedb0ca47a5e  HasseSnowflakeCurve.lean
 ```
 
 ## Not included here
