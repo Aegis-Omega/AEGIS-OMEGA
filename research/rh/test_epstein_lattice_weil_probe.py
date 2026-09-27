@@ -144,10 +144,10 @@ def test_tail_free_same_discriminant_arithmetic_interval_certificate() -> None:
     prime_power_lower, prime_power_upper = receipt["prime_power_interval"]
     n6_lower, n6_upper = receipt["n6_interval"]
 
-    assert total_lower < total_upper < -5.43
-    assert leakage_lower < leakage_upper < -2.61
-    assert prime_power_lower < prime_power_upper < -2.82
-    assert n6_lower < n6_upper < -1.06
+    assert total_lower <= total_upper < -5.43
+    assert leakage_lower <= leakage_upper < -2.61
+    assert prime_power_lower <= prime_power_upper < -2.82
+    assert n6_lower <= n6_upper < -1.06
     assert receipt["certified_strictly_negative"] is True
 
     rows = {row["n"]: row for row in receipt["symbolic_logder_rows"]}
