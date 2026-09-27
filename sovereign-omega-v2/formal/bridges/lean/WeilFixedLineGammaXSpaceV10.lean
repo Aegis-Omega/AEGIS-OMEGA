@@ -225,7 +225,7 @@ theorem gamma_x_integral_eq_arch_v10
 exactly the negative repository Archimedean integral plus the log-2
 normalization correction. -/
 theorem half_fixed_line_digamma_plus_gamma_eq_arch_v10
-    (f : WeilCompactSmoothGV1) (c : ℝ) (hc : 1 < c) :
+    (f : WeilCompactSmoothGV1) (c : ℝ) (hc : 0 < c) :
     (1 / 2 : ℂ) *
       ((1 / (2 * Real.pi) : ℂ) *
         ∫ t : ℝ,

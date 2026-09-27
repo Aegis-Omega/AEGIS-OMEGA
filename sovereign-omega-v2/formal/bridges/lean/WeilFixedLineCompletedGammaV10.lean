@@ -54,8 +54,8 @@ private theorem log_four_pi_normalization_v10 :
     _ = Real.log (4 * Real.pi) := by
       rw [Real.log_mul] <;> positivity
 
-private theorem digamma_plus_gamma_profile_integrable_v10
-    (f : WeilCompactSmoothGV1) (c : ℝ) (hc : 1 < c) :
+theorem digamma_plus_gamma_profile_integrable_v10
+    (f : WeilCompactSmoothGV1) (c : ℝ) (hc : 0 < c) :
     Integrable
       (fun t : ℝ =>
         (Complex.digamma
@@ -98,7 +98,7 @@ theorem weil_fixed_line_completed_gamma_integrable_v10
         WeilCompletedGammaFactorV10 c t *
           WeilPairedMellinProfileV5 f c t) := by
   have hplus :=
-    digamma_plus_gamma_profile_integrable_v10 f c hc
+    digamma_plus_gamma_profile_integrable_v10 f c (zero_lt_one.trans hc)
   have hH :=
     (weil_paired_mellin_profile_has_vertical_norm_moments_two_v5 f c).1
   have hA :
@@ -132,7 +132,7 @@ theorem weil_fixed_line_completed_gamma_eq_archimedean_v10
       -WeilArchimedeanConstantV1 * f.1 1 -
         WeilArchimedeanIntegralV1 f.1 := by
   have hplus :=
-    digamma_plus_gamma_profile_integrable_v10 f c hc
+    digamma_plus_gamma_profile_integrable_v10 f c (zero_lt_one.trans hc)
   have hH :=
     (weil_paired_mellin_profile_has_vertical_norm_moments_two_v5 f c).1
   have hA :
@@ -185,7 +185,7 @@ theorem weil_fixed_line_completed_gamma_eq_archimedean_v10
   rw [hsplit, integral_const_mul, integral_const_mul,
     integral_const_mul]
   have hhalf :=
-    half_fixed_line_digamma_plus_gamma_eq_arch_v10 f c hc
+    half_fixed_line_digamma_plus_gamma_eq_arch_v10 f c (zero_lt_one.trans hc)
   have hprofile :=
     weil_paired_profile_integral_one_v10 f c
   have hlognorm := log_four_pi_normalization_v10

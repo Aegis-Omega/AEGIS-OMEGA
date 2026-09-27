@@ -1,0 +1,30 @@
+name: Epstein lattice Weil control v1
+
+on:
+  pull_request:
+    paths:
+      - "harness/sdk/epstein_lattice_weil_probe.py"
+      - "research/rh/test_epstein_lattice_weil_probe.py"
+      - "research/rh/test_epstein_d20_offline_zero.py"
+      - "research/rh/EPSTEIN_LATTICE_WEIL_CONTROL_V1.md"
+      - ".github/workflows/epstein-lattice-weil-control-v1.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  epstein-lattice-weil-control:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout exact PR head
+        uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install bounded test dependencies
+        run: python -m pip install --disable-pip-version-check numpy scipy mpmath pytest
+      - name: Run same-discriminant Epstein controls
+        run: python -m pytest -q research/rh/test_epstein_lattice_weil_probe.py research/rh/test_epstein_d20_offline_zero.py

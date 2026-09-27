@@ -99,7 +99,7 @@ private theorem half_line_shift_norm_le_v10 (c t : ℝ) :
 
 /-- Global Gauss-kernel majorant on the fixed line. -/
 theorem gauss_fixed_line_norm_le_v10
-    (c t : ℝ) {u : ℝ} (hc : 1 < c) (hu : 0 < u) :
+    (c t : ℝ) {u : ℝ} (hc : 0 < c) (hu : 0 < u) :
     ‖gaussIntegrand
         ((((c : ℂ) + (t : ℂ) * I) / 2)) u‖
       ≤
@@ -164,7 +164,7 @@ theorem gauss_fixed_line_norm_le_v10
         Real.exp (-(min 1 (c / 2) * u)) := by rfl
 
 private theorem gamma_u_majorant_integrable_v10
-    (c : ℝ) (hc : 1 < c) :
+    (c : ℝ) (hc : 0 < c) :
     Integrable
       (fun u : ℝ =>
         (1 + u) * Real.exp (-(min 1 (c / 2) * u)))
@@ -218,7 +218,7 @@ private theorem gamma_t_majorant_integrable_v10
 /-- Absolute product-integrability of the Gauss kernel against the actual V5
 paired Mellin profile. -/
 theorem weil_gauss_fixed_line_kernel_integrable_v10
-    (f : WeilCompactSmoothGV1) (c : ℝ) (hc : 1 < c) :
+    (f : WeilCompactSmoothGV1) (c : ℝ) (hc : 0 < c) :
     Integrable
       (WeilGaussFixedLineKernelV10 f c)
       (volume.prod (volume.restrict (Ioi (0 : ℝ)))) := by
@@ -292,7 +292,7 @@ theorem weil_gauss_fixed_line_kernel_integrable_v10
 
 /-- The actual Gauss-kernel t/u Fubini swap. -/
 theorem weil_gauss_fixed_line_fubini_v10
-    (f : WeilCompactSmoothGV1) (c : ℝ) (hc : 1 < c) :
+    (f : WeilCompactSmoothGV1) (c : ℝ) (hc : 0 < c) :
     (∫ t : ℝ,
       ∫ u : ℝ in Ioi (0 : ℝ),
         WeilGaussFixedLineKernelV10 f c (t, u)) =
