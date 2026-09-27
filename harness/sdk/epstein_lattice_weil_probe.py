@@ -17,8 +17,11 @@ eigenproblem. Floating point spectral output has no proof authority.
 """
 from __future__ import annotations
 
+from collections import defaultdict
 from dataclasses import asdict, dataclass
 import math
+
+import mpmath as mp
 
 import numpy as np
 import scipy.linalg as la
@@ -665,3 +668,270 @@ def quadratic_euler_first_impulse(
         "log_window": math.log(n),
         "prime_power_only": True,
     }
+
+
+def _prime_factorization(n: int) -> dict[int, int]:
+    n = int(n)
+    if n < 1:
+        raise ValueError("n must be positive")
+    out: dict[int, int] = {}
+    m = n
+    p = 2
+    while p * p <= m:
+        while m % p == 0:
+            out[p] = out.get(p, 0) + 1
+            m //= p
+        p = 3 if p == 2 else p + 2
+    if m > 1:
+        out[m] = out.get(m, 0) + 1
+    return out
+
+
+def _d20_principal_coefficients_exact(max_n: int) -> tuple[int, ...]:
+    """Exact integer coefficients of E_{x^2+5y^2}(s)/2 through max_n."""
+    if max_n < 1:
+        raise ValueError("max_n must be >= 1")
+    counts = [0] * (max_n + 1)
+    x_bound = math.isqrt(max_n)
+    y_bound = math.isqrt(max_n // 5) if max_n >= 5 else 0
+    for x in range(-x_bound, x_bound + 1):
+        x2 = x * x
+        for y in range(-y_bound, y_bound + 1):
+            value = x2 + 5 * y * y
+            if 1 <= value <= max_n:
+                counts[value] += 1
+    if any(count % 2 for count in counts[1:]):
+        raise RuntimeError("principal representation count is not even")
+    return tuple(count // 2 for count in counts)
+
+
+def _d20_euler_coefficients_exact(max_n: int) -> tuple[int, ...]:
+    """Exact integer coefficients of zeta(s)L(s,chi_-20) through max_n."""
+    if max_n < 1:
+        raise ValueError("max_n must be >= 1")
+    out = [0] * (max_n + 1)
+    for n in range(1, max_n + 1):
+        out[n] = sum(chi_minus20(d) for d in _divisors(n))
+    return tuple(out)
+
+
+def _symbolic_log_derivative_prime_coefficients(
+    a: tuple[int, ...],
+) -> tuple[dict[int, int], ...]:
+    """Exact log-prime coefficients for -F'/F from an exact Dirichlet prefix.
+
+    Each output row encodes Lambda_F(n) as an integer linear combination of
+    log(p). Factoring log(n) before the recurrence makes exact cancellations
+    such as the Euler-control n=6 coefficient literal zero instead of a
+    floating-point near-zero.
+    """
+    if len(a) < 2 or a[1] != 1:
+        raise ValueError("a must satisfy a(1)=1")
+    out: list[dict[int, int]] = [{} for _ in a]
+    for n in range(2, len(a)):
+        row: defaultdict[int, int] = defaultdict(int)
+        for prime, exponent in _prime_factorization(n).items():
+            row[prime] += a[n] * exponent
+        for d in _divisors(n):
+            if 1 < d < n:
+                multiplier = a[n // d]
+                if multiplier:
+                    for prime, coefficient in out[d].items():
+                        row[prime] -= coefficient * multiplier
+        out[n] = {prime: coefficient for prime, coefficient in row.items() if coefficient}
+    return tuple(out)
+
+
+def certify_d20_fixed_witness_arithmetic_displacement(
+    *,
+    decimal_digits: int = 80,
+) -> dict[str, object]:
+    """Interval-certify the tail-free same-discriminant arithmetic shift.
+
+    Scope is deliberately narrow: the committed seven-mode witness at
+    support length L=7/2, comparing the principal D=-20 Epstein object against
+    the Euler class-sum control. Their conductor and Gamma terms are identical,
+    so they cancel before evaluation. The remaining arithmetic displacement is
+    a finite sum of x-space autocorrelations at log(n), n < exp(7/2).
+
+    This does *not* certify either absolute Weil quadratic value, the
+    Archimedean tail of an absolute value, or the formula-to-target-Weil
+    identity.
+    """
+    if decimal_digits < 50:
+        raise ValueError("decimal_digits must be >= 50")
+
+    iv = mp.iv
+    previous_dps = iv.dps
+    iv.dps = decimal_digits
+    try:
+        support_length = iv.mpf(7) / 2
+        alpha = iv.pi / support_length
+        zero = iv.mpf(0)
+
+        cosine_coefficients: dict[int, object] = {}
+        for k, witness_coefficient in zip(
+            D20_FIXED_WITNESS_MODES, D20_FIXED_WITNESS_COEFFICIENTS
+        ):
+            for mode, sign in ((k - 1, 1), (k + 1, -1)):
+                coefficient = (
+                    iv.mpf(sign)
+                    / 2
+                    * (iv.mpf(1) / 4 + (iv.mpf(mode) * alpha) ** 2)
+                )
+                cosine_coefficients[mode] = (
+                    cosine_coefficients.get(mode, zero)
+                    + iv.mpf(witness_coefficient) * coefficient
+                )
+
+        energy = iv.mpf(0)
+        for mode, coefficient in cosine_coefficients.items():
+            cosine_norm = support_length if mode == 0 else support_length / 2
+            energy += cosine_norm * coefficient * coefficient
+        if not (energy > 0):
+            raise RuntimeError("interval witness energy is not strictly positive")
+
+        principal = _d20_principal_coefficients_exact(64)
+        euler = _d20_euler_coefficients_exact(64)
+        principal_logder = _symbolic_log_derivative_prime_coefficients(principal)
+        euler_logder = _symbolic_log_derivative_prime_coefficients(euler)
+
+        def evaluate_symbolic(weight: dict[int, int]):
+            value = iv.mpf(0)
+            for prime, coefficient in weight.items():
+                value += iv.mpf(coefficient) * iv.log(prime)
+            return value
+
+        def cos_cos_integral(
+            left_mode: int,
+            right_mode: int,
+            endpoint,
+        ):
+            a = iv.mpf(left_mode) * alpha
+            b = iv.mpf(right_mode) * alpha
+            if left_mode == right_mode:
+                if left_mode == 0:
+                    return endpoint
+                return endpoint / 2 + iv.sin(2 * a * endpoint) / (4 * a)
+            return (
+                iv.sin((a - b) * endpoint) / (2 * (a - b))
+                + iv.sin((a + b) * endpoint) / (2 * (a + b))
+            )
+
+        def cos_sin_integral(
+            left_mode: int,
+            right_mode: int,
+            endpoint,
+        ):
+            a = iv.mpf(left_mode) * alpha
+            b = iv.mpf(right_mode) * alpha
+            value = iv.mpf(0)
+            if left_mode + right_mode != 0:
+                value += (1 - iv.cos((b + a) * endpoint)) / (2 * (b + a))
+            if right_mode - left_mode != 0:
+                value += (1 - iv.cos((b - a) * endpoint)) / (2 * (b - a))
+            return value
+
+        def autocorrelation(n: int):
+            shift = iv.log(n)
+            endpoint = support_length - shift
+            value = iv.mpf(0)
+            for left_mode, left_coefficient in cosine_coefficients.items():
+                for right_mode, right_coefficient in cosine_coefficients.items():
+                    b = iv.mpf(right_mode) * alpha
+                    shifted_integral = (
+                        iv.cos(b * shift)
+                        * cos_cos_integral(left_mode, right_mode, endpoint)
+                        - iv.sin(b * shift)
+                        * cos_sin_integral(left_mode, right_mode, endpoint)
+                    )
+                    value += (
+                        left_coefficient
+                        * right_coefficient
+                        * shifted_integral
+                    )
+            return value
+
+        total = iv.mpf(0)
+        non_prime_power = iv.mpf(0)
+        prime_power = iv.mpf(0)
+        n6 = None
+        symbolic_rows: list[dict[str, object]] = []
+
+        # exp(7/2) is between 33 and 34, so n=2,...,33 is the exact support set.
+        for n in range(2, 34):
+            symbolic: defaultdict[int, int] = defaultdict(int)
+            for prime, coefficient in principal_logder[n].items():
+                symbolic[prime] += coefficient
+            for prime, coefficient in euler_logder[n].items():
+                symbolic[prime] -= coefficient
+            symbolic = defaultdict(
+                int,
+                {
+                    prime: coefficient
+                    for prime, coefficient in symbolic.items()
+                    if coefficient
+                },
+            )
+            if not symbolic:
+                continue
+
+            lambda_delta = evaluate_symbolic(dict(symbolic))
+            delta = (
+                -2
+                * autocorrelation(n)
+                / (iv.sqrt(n) * energy)
+                * lambda_delta
+            )
+            total += delta
+            prime_power_mode = is_prime_power(n)
+            if prime_power_mode:
+                prime_power += delta
+            else:
+                non_prime_power += delta
+            if n == 6:
+                n6 = delta
+            symbolic_rows.append(
+                {
+                    "n": n,
+                    "prime_power": prime_power_mode,
+                    "prime_log_coefficients": dict(sorted(symbolic.items())),
+                }
+            )
+
+        if n6 is None:
+            raise RuntimeError("n=6 displacement is missing")
+
+        def bounds(value) -> tuple[float, float]:
+            return (float(value.a), float(value.b))
+
+        total_interval = bounds(total)
+        non_prime_power_interval = bounds(non_prime_power)
+        prime_power_interval = bounds(prime_power)
+        n6_interval = bounds(n6)
+
+        return {
+            "schema_version": "1.0.0",
+            "certificate_scope": "FINITE_PAIRWISE_ARITHMETIC_DISPLACEMENT_ONLY",
+            "backend": "mpmath.iv",
+            "decimal_digits": decimal_digits,
+            "support_length_exact": "7/2",
+            "modes": D20_FIXED_WITNESS_MODES,
+            "integer_coefficients": D20_FIXED_WITNESS_COEFFICIENTS,
+            "total_interval": total_interval,
+            "non_prime_power_interval": non_prime_power_interval,
+            "prime_power_interval": prime_power_interval,
+            "n6_interval": n6_interval,
+            "certified_strictly_negative": bool(total < 0),
+            "archimedean_difference_exactly_zero": True,
+            "tail_bound_needed": False,
+            "t_grid_used": False,
+            "symbolic_logder_rows": tuple(symbolic_rows),
+            "absolute_principal_weil_value_certified": False,
+            "absolute_euler_weil_value_certified": False,
+            "formula_to_target_weil_identity_machine_formalized": False,
+            "proof_authority": False,
+            "rh_proven": False,
+        }
+    finally:
+        iv.dps = previous_dps
