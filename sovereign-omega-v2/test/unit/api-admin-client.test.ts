@@ -69,6 +69,49 @@ describe('AdminClient._fetch error handling', () => {
   })
 })
 
+describe('AdminClient transport hardening', () => {
+  it('attaches a bounded abort signal to requests', async () => {
+    const fetchSpy = mockFetch({ id: 'org-123', name: 'Test Org', type: 'organization' })
+    vi.stubGlobal('fetch', fetchSpy)
+
+    await new AdminClient('test-key', 1_234).getOrg()
+
+    const init = fetchSpy.mock.calls[0]![1] as RequestInit
+    expect(init.signal).toBeDefined()
+  })
+
+  it('normalizes timeout failures with the configured bound', async () => {
+    const timeout = new Error('timed out')
+    timeout.name = 'TimeoutError'
+    vi.stubGlobal('fetch', vi.fn().mockRejectedValue(timeout))
+
+    await expect(new AdminClient('test-key', 25).getOrg())
+      .rejects.toThrow('[ADMIN_API] timeout after 25ms')
+  })
+
+  it('rejects non-positive timeout configuration', () => {
+    expect(() => new AdminClient('test-key', 0)).toThrow(RangeError)
+  })
+
+  it('bounds upstream error bodies before surfacing them', async () => {
+    const huge = 'x'.repeat(10_000)
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+      ok: false,
+      status: 500,
+      text: () => Promise.resolve(huge),
+      json: () => Promise.resolve({}),
+    }))
+
+    try {
+      await new AdminClient('test-key').getOrg()
+      expect.fail('expected request to fail')
+    } catch (error) {
+      expect(error).toBeInstanceOf(Error)
+      expect((error as Error).message.length).toBeLessThan(2_200)
+    }
+  })
+})
+
 // ── Happy-path method tests ────────────────────────────────
 
 describe('AdminClient.getOrg', () => {
