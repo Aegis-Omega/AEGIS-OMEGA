@@ -30,7 +30,8 @@ function notify(s: TelemetryState): void {
 
 async function fetchOnce(signal: AbortSignal): Promise<void> {
   try {
-    const res = await fetch(`${BRIDGE}/telemetry`, { signal })
+    const requestSignal = AbortSignal.any([signal, AbortSignal.timeout(4_000)])
+    const res = await fetch(`${BRIDGE}/telemetry`, { signal: requestSignal })
     if (!res.ok) { notify({ status: 'error', message: `Bridge ${res.status}` }); return }
     const data = (await res.json()) as TelemetrySnapshot
     notify({ status: 'online', data })
