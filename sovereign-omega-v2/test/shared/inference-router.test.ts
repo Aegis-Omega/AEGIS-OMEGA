@@ -13,11 +13,61 @@ const fetchMock = vi.fn()
 beforeEach(() => {
   fetchMock.mockReset()
   vi.stubGlobal('fetch', fetchMock)
+
+  // Make configuration deterministic even when the host environment has
+  // provider variables set. Individual tests opt providers in explicitly.
+  for (const key of [
+    'VITE_BRIDGE_URL',
+    'VITE_ENABLE_CL_PSI',
+    'VITE_PROVIDER',
+    'VITE_ENABLE_OPENAI',
+    'VITE_ENABLE_NEBIUS',
+    'VITE_ENABLE_AZURE',
+    'VITE_OLLAMA_BASE_URL',
+    'VITE_CLAUDE_API_KEY',
+    'VITE_DASHSCOPE_API_KEY',
+  ]) {
+    vi.stubEnv(key, '')
+  }
 })
 
 afterEach(() => {
   vi.unstubAllGlobals()
   vi.unstubAllEnvs()
+})
+
+describe('configured-backend fast path', () => {
+  it('does not probe any network backend when none is configured', async () => {
+    fetchMock.mockRejectedValue(new Error('should not be called'))
+
+    await expect(routeInference({ systemPrompt: 'S', userMessage: 'U' }))
+      .rejects.toThrow(/No inference backends configured/)
+
+    expect(configuredBackends()).toEqual([])
+    expect(fetchMock).not.toHaveBeenCalled()
+  })
+
+  it('does not include CL-Ψ unless the bridge is explicitly configured', () => {
+    expect(configuredBackends()).not.toContain('cl-psi')
+
+    vi.stubEnv('VITE_BRIDGE_URL', 'http://localhost:7890')
+    expect(configuredBackends()).toContain('cl-psi')
+  })
+
+  it('reaches an enabled OpenAI proxy without first probing an absent CL-Ψ bridge', async () => {
+    vi.stubEnv('VITE_ENABLE_OPENAI', 'true')
+    fetchMock.mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ reply: '{"ok":true}', model: 'server-model' }),
+    })
+
+    const r = await routeInference({ systemPrompt: 'S', userMessage: 'U' })
+
+    expect(r.backend).toBe('openai-compat')
+    expect(r.fallback_count).toBe(0)
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+    expect(String(fetchMock.mock.calls[0]![0])).toContain('/functions/v1/chat')
+  })
 })
 
 describe('opt-in OpenAI backend gating', () => {
