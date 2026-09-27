@@ -1,5 +1,6 @@
 import { createClient } from 'jsr:@supabase/supabase-js@2'
 import { CORS } from '../_shared/cors.ts'
+import { fetchWithTimeout, readTextBounded } from '../_shared/http.ts'
 
 const DASHSCOPE_API_KEY_ENV = Deno.env.get('DASHSCOPE_API_KEY') ?? ''
 const DASHSCOPE_URL = 'https://dashscope-intl.aliyuncs.com/compatible-mode/v1/chat/completions'
@@ -24,8 +25,6 @@ const AZURE_OPENAI_API_KEY = Deno.env.get('AZURE_OPENAI_API_KEY') ?? ''
 const AZURE_OPENAI_DEPLOYMENT = Deno.env.get('AZURE_OPENAI_DEPLOYMENT') ?? ''
 const AZURE_OPENAI_API_VERSION = Deno.env.get('AZURE_OPENAI_API_VERSION') ?? '2024-10-21'
 const DEFAULT_SYSTEM = `You are the AEGIS Omega AI assistant helping content creators. Be concise, direct, and practical.`
-const MAX_UPSTREAM_ERROR_BODY_CHARS = 2_048
-
 function readPositiveIntEnv(name: string, fallback: number): number {
   const raw = Deno.env.get(name)
   if (!raw) return fallback
@@ -199,7 +198,7 @@ Deno.serve(async (req) => {
         : useNebius ? NEBIUS_URL
           : DASHSCOPE_URL
 
-    const resp = await fetch(url, {
+    const resp = await fetchWithTimeout(url, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -236,7 +235,7 @@ Deno.serve(async (req) => {
     })
 
     if (!resp.ok) {
-      const err = (await resp.text()).slice(0, MAX_UPSTREAM_ERROR_BODY_CHARS)
+      const err = await readTextBounded(resp)
       console.error(
         useAzure
           ? 'Azure OpenAI error:'
