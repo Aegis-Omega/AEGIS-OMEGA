@@ -36,8 +36,9 @@ describe('Supabase Edge outbound transport census', () => {
 
   it('keeps the raw fetch primitive isolated to the shared transport helper', () => {
     const source = read('supabase/functions/_shared/http.ts')
-    expect(source).toContain('return fetch(input, { ...init, signal })')
-    expect(source).toContain('AbortSignal.timeout')
+    expect(source).toContain('return await fetch(input, { ...init, signal: controller.signal })')
+    expect(source).toContain('const timer = setTimeout(() => controller.abort(), boundedTimeoutMs)')
+    expect(source).toContain("callerSignal.addEventListener('abort', onCallerAbort, { once: true })")
   })
 })
 
