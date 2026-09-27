@@ -4,11 +4,13 @@ from __future__ import annotations
 import json
 import urllib.request
 import urllib.error
+import urllib.parse
 from dataclasses import dataclass, field
 from typing import Any, Generator, Literal
 
 BASE_URL = "https://aegis-vertex.aegisomega.com"
 CONTRACT_VERSION = "1.0.0"
+MAX_ERROR_BODY_BYTES = 2_048
 
 Mode = Literal["revenue", "analysis", "gtm", "retention", "competitive", "technical", "regulatory", "fundraising"]
 
@@ -94,6 +96,21 @@ class ExecutionHandle:
         return self._client.get_execution(self.execution_id)
 
 
+def _http_error_payload(exc: urllib.error.HTTPError) -> dict[str, Any]:
+    try:
+        payload = exc.read(MAX_ERROR_BODY_BYTES)
+        parsed = json.loads(payload.decode())
+        if isinstance(parsed, dict):
+            return parsed
+    except Exception:
+        pass
+    return {"error": str(exc), "code": "INTERNAL"}
+
+
+def _network_error(exc: BaseException) -> AegisError:
+    return AegisError(str(exc), code="NETWORK", status=0)
+
+
 def _validate_envelope(raw: dict[str, Any]) -> Any:
     if raw.get("contract_version") != CONTRACT_VERSION:
         raise AegisError(
@@ -141,11 +158,10 @@ class AegisClient:
             with urllib.request.urlopen(req, timeout=self._timeout) as resp:
                 return json.loads(resp.read().decode())
         except urllib.error.HTTPError as exc:
-            try:
-                err = json.loads(exc.read().decode())
-            except Exception:
-                err = {"error": str(exc), "code": "INTERNAL"}
+            err = _http_error_payload(exc)
             raise AegisError(err.get("error", str(exc)), code=err.get("code", "INTERNAL"), status=exc.code) from exc
+        except urllib.error.URLError as exc:
+            raise _network_error(exc) from exc
 
     # ── Public API ────────────────────────────────────────────────────────────
 
@@ -157,8 +173,10 @@ class AegisClient:
             with urllib.request.urlopen(req, timeout=self._timeout) as resp:
                 raw = json.loads(resp.read().decode())
         except urllib.error.HTTPError as exc:
-            err = json.loads(exc.read().decode()) if exc.read else {"error": str(exc), "code": "INTERNAL"}
+            err = _http_error_payload(exc)
             raise AegisError(err.get("error", str(exc)), code=err.get("code", "INTERNAL"), status=exc.code) from exc
+        except urllib.error.URLError as exc:
+            raise _network_error(exc) from exc
         data = _validate_envelope(raw)
         return PlatformStatus(
             version=data["version"],
@@ -205,7 +223,8 @@ class AegisClient:
         ({status, result?}); the CollaborationResult lives under ``result``
         only once status is ``complete``.
         """
-        raw = self._request("GET", f"/platform/executions/{execution_id}")
+        safe_id = urllib.parse.quote(execution_id, safe="")
+        raw = self._request("GET", f"/platform/executions/{safe_id}")
         data = _validate_envelope(raw)
         status = data.get("status")
         if status == "error":
@@ -218,18 +237,22 @@ class AegisClient:
 
     def delete_execution(self, execution_id: str) -> None:
         """DELETE /platform/executions/{id} — remove a stored execution result."""
-        url = f"{self._base}/platform/executions/{execution_id}"
+        safe_id = urllib.parse.quote(execution_id, safe="")
+        url = f"{self._base}/platform/executions/{safe_id}"
         req = urllib.request.Request(url, headers=self._headers(), method="DELETE")
         try:
             with urllib.request.urlopen(req, timeout=self._timeout):
                 pass
         except urllib.error.HTTPError as exc:
-            err = {"error": str(exc), "code": "INTERNAL"}
-            raise AegisError(err["error"], code=err["code"], status=exc.code) from exc
+            err = _http_error_payload(exc)
+            raise AegisError(err.get("error", str(exc)), code=err.get("code", "INTERNAL"), status=exc.code) from exc
+        except urllib.error.URLError as exc:
+            raise _network_error(exc) from exc
 
     def _stream_events(self, execution_id: str) -> Generator[dict[str, Any], None, None]:
         """Internal SSE consumer for ExecutionHandle.stream()."""
-        url = f"{self._base}/platform/executions/live?id={execution_id}"
+        safe_id = urllib.parse.quote(execution_id, safe="")
+        url = f"{self._base}/platform/executions/live?id={safe_id}"
         headers = {**self._headers(), "Accept": "text/event-stream"}
         req = urllib.request.Request(url, headers=headers, method="GET")
         try:
@@ -249,5 +272,7 @@ class AegisClient:
                             pass
                         buf = ""
         except urllib.error.HTTPError as exc:
-            err = {"error": str(exc), "code": "INTERNAL"}
-            raise AegisError(err["error"], code=err["code"], status=exc.code) from exc
+            err = _http_error_payload(exc)
+            raise AegisError(err.get("error", str(exc)), code=err.get("code", "INTERNAL"), status=exc.code) from exc
+        except urllib.error.URLError as exc:
+            raise _network_error(exc) from exc
