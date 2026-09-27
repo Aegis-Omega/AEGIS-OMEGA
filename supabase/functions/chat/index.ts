@@ -24,6 +24,20 @@ const AZURE_OPENAI_API_KEY = Deno.env.get('AZURE_OPENAI_API_KEY') ?? ''
 const AZURE_OPENAI_DEPLOYMENT = Deno.env.get('AZURE_OPENAI_DEPLOYMENT') ?? ''
 const AZURE_OPENAI_API_VERSION = Deno.env.get('AZURE_OPENAI_API_VERSION') ?? '2024-10-21'
 const DEFAULT_SYSTEM = `You are the AEGIS Omega AI assistant helping content creators. Be concise, direct, and practical.`
+const MAX_UPSTREAM_ERROR_BODY_CHARS = 2_048
+
+function readPositiveIntEnv(name: string, fallback: number): number {
+  const raw = Deno.env.get(name)
+  if (!raw) return fallback
+
+  const parsed = Number(raw)
+  return Number.isFinite(parsed) && parsed > 0 ? Math.floor(parsed) : fallback
+}
+
+// One bounded transport policy for every paid/free model provider. Deliberately
+// no automatic retry for POST inference: without provider-level idempotency a
+// retry could duplicate execution and cost.
+const CHAT_UPSTREAM_TIMEOUT_MS = readPositiveIntEnv('CHAT_UPSTREAM_TIMEOUT_MS', 60_000)
 
 let dashScopeKeyCache: string | null | undefined
 
@@ -218,10 +232,11 @@ Deno.serve(async (req) => {
         max_tokens: 512,
         temperature: 0.7,
       }),
+      signal: AbortSignal.timeout(CHAT_UPSTREAM_TIMEOUT_MS),
     })
 
     if (!resp.ok) {
-      const err = await resp.text()
+      const err = (await resp.text()).slice(0, MAX_UPSTREAM_ERROR_BODY_CHARS)
       console.error(
         useAzure
           ? 'Azure OpenAI error:'
@@ -249,7 +264,8 @@ Deno.serve(async (req) => {
       headers: { ...CORS, 'Content-Type': 'application/json' },
     })
   } catch (e) {
-    console.error('chat function error:', e)
+    const detail = e instanceof Error ? `${e.name}: ${e.message}` : String(e)
+    console.error('chat function error:', detail)
     return new Response(JSON.stringify({ reply: "Something went wrong. Please try again." }), {
       status: 200, headers: { ...CORS, 'Content-Type': 'application/json' },
     })
