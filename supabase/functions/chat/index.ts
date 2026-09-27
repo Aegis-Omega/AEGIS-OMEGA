@@ -231,8 +231,7 @@ Deno.serve(async (req) => {
         max_tokens: 512,
         temperature: 0.7,
       }),
-      signal: AbortSignal.timeout(CHAT_UPSTREAM_TIMEOUT_MS),
-    })
+    }, CHAT_UPSTREAM_TIMEOUT_MS)
 
     if (!resp.ok) {
       const err = await readTextBounded(resp)
