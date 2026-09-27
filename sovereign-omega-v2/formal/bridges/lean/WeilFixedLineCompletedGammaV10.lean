@@ -62,7 +62,7 @@ private theorem digamma_plus_gamma_profile_integrable_v10
           ((((c : ℂ) + (t : ℂ) * I) / 2)) + (γ : ℂ)) *
           WeilPairedMellinProfileV5 f c t) := by
   have hprod :=
-    weil_gauss_fixed_line_kernel_integrable_v10 f c hc
+    weil_gauss_fixed_line_kernel_integrable_v10 f c (zero_lt_one.trans hc)
   have hinner :
       Integrable
         (fun t : ℝ =>
@@ -71,7 +71,7 @@ private theorem digamma_plus_gamma_profile_integrable_v10
     hprod.integral_prod_left
   exact hinner.congr
     (Filter.Eventually.of_forall fun t =>
-      weil_gauss_kernel_inner_u_v10 f c t hc)
+      weil_gauss_kernel_inner_u_v10 f c t (zero_lt_one.trans hc))
 
 private theorem completed_gamma_pointwise_split_v10
     (f : WeilCompactSmoothGV1) (c t : ℝ) :
@@ -185,7 +185,7 @@ theorem weil_fixed_line_completed_gamma_eq_archimedean_v10
   rw [hsplit, integral_const_mul, integral_const_mul,
     integral_const_mul]
   have hhalf :=
-    half_fixed_line_digamma_plus_gamma_eq_arch_v10 f c hc
+    half_fixed_line_digamma_plus_gamma_eq_arch_v10 f c (zero_lt_one.trans hc)
   have hprofile :=
     weil_paired_profile_integral_one_v10 f c
   have hlognorm := log_four_pi_normalization_v10

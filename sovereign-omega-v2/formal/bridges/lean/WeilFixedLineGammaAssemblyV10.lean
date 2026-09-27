@@ -72,7 +72,7 @@ private theorem paired_exp_profile_integrable_v10
 
 /-- Evaluate the u-integral first using the newly source-closed Gauss formula. -/
 theorem weil_gauss_kernel_inner_u_v10
-    (f : WeilCompactSmoothGV1) (c t : ℝ) (hc : 1 < c) :
+    (f : WeilCompactSmoothGV1) (c t : ℝ) (hc : 0 < c) :
     (∫ u : ℝ in Ioi (0 : ℝ),
       WeilGaussFixedLineKernelV10 f c (t, u)) =
       (Complex.digamma
@@ -92,7 +92,7 @@ theorem weil_gauss_kernel_inner_u_v10
 /-- Evaluate the normalized t-integral of the Gauss kernel at fixed u. -/
 theorem weil_gauss_kernel_inner_t_normalized_v10
     (f : WeilCompactSmoothGV1) (c : ℝ) {u : ℝ}
-    (hc : 1 < c) (hu : 0 < u) :
+    (hc : 0 < c) (hu : 0 < u) :
     ((1 / (2 * Real.pi) : ℂ) *
       ∫ t : ℝ,
         WeilGaussFixedLineKernelV10 f c (t, u)) =
@@ -151,7 +151,7 @@ theorem weil_gauss_kernel_inner_t_normalized_v10
 /-- Fubini plus both inner evaluations: the normalized fixed-line
 `ψ+γ` contribution equals the exact u-space paired-test integral. -/
 theorem weil_fixed_line_digamma_plus_gamma_log_integral_v10
-    (f : WeilCompactSmoothGV1) (c : ℝ) (hc : 1 < c) :
+    (f : WeilCompactSmoothGV1) (c : ℝ) (hc : 0 < c) :
     ((1 / (2 * Real.pi) : ℂ) *
       ∫ t : ℝ,
         (Complex.digamma
