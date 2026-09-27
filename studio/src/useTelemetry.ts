@@ -12,7 +12,7 @@ export function useTelemetry() {
     let active = true
     const poll = async () => {
       try {
-        const res = await fetch(`${BRIDGE_URL}/telemetry`)
+        const res = await fetch(`${BRIDGE_URL}/telemetry`, { signal: AbortSignal.timeout(4_000) })
         if (!res.ok) throw new Error(`HTTP ${res.status}`)
         const data = await res.json() as TelemetrySnapshot
         if (active) { setSnapshot(data); setError(null) }

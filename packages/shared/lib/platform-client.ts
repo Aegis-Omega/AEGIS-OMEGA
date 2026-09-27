@@ -43,8 +43,11 @@ export interface PlatformClientOptions {
   readonly secretKey?: string
   readonly genesisHash?: string
   readonly initialSequence?: number
+  /** Hard timeout for non-stream HTTP requests. Defaults to 60 seconds. */
+  readonly timeoutMs?: number
 }
 
+const DEFAULT_REQUEST_TIMEOUT_MS = 60_000
 const DEFAULT_AUTOMATON_GENESIS_HASH = '69a8f27b9c4c11e49afbf4c8996fb92427ae41e4649b934ca495991b7852b855' // pragma: allowlist secret
 const SHA256_HEX_PATTERN = /^[a-f0-9]{64}$/i
 
@@ -70,6 +73,7 @@ export class PlatformClient {
   private readonly secretKey: string | undefined
   private readonly genesisHash: string
   private readonly initialSequence: number
+  private readonly timeoutMs: number
 
   constructor(apiKeyOrOptions: string | PlatformClientOptions, base = 'https://aegis-vertex.aegisomega.com') {
     if (typeof apiKeyOrOptions === 'string') {
@@ -77,6 +81,7 @@ export class PlatformClient {
       this.base = base.replace(/\/$/, '')
       this.genesisHash = DEFAULT_AUTOMATON_GENESIS_HASH
       this.initialSequence = 0
+      this.timeoutMs = DEFAULT_REQUEST_TIMEOUT_MS
       return
     }
 
@@ -85,6 +90,7 @@ export class PlatformClient {
     this.secretKey = apiKeyOrOptions.secretKey
     this.genesisHash = apiKeyOrOptions.genesisHash ?? DEFAULT_AUTOMATON_GENESIS_HASH
     this.initialSequence = apiKeyOrOptions.initialSequence ?? 0
+    this.timeoutMs = normalizeTimeoutMs(apiKeyOrOptions.timeoutMs)
   }
 
   async verifyEnvelopeLocally(
@@ -151,17 +157,20 @@ export class PlatformClient {
   // ── GET /platform/executions/{id} (poll result) ───────────────────────────
 
   async getExecution(executionId: string): Promise<ExecutionGetResult> {
-    const env = await this._get<ExecutionGetResult>(`/platform/executions/${executionId}`)
+    const env = await this._get<ExecutionGetResult>(`/platform/executions/${encodeURIComponent(executionId)}`)
     return env.data
   }
 
   // ── DELETE /platform/executions/{id} ─────────────────────────────────────
 
   async deleteExecution(executionId: string): Promise<void> {
-    const resp = await fetch(`${this.base}/platform/executions/${executionId}`, {
-      method: 'DELETE',
-      headers: { 'x-api-key': this.apiKey },
-    })
+    const resp = await this._fetchResponse(
+      `/platform/executions/${encodeURIComponent(executionId)}`,
+      {
+        method: 'DELETE',
+        headers: { 'x-api-key': this.apiKey },
+      },
+    )
     if (resp.status !== 204 && !resp.ok) {
       await this._throwFromResponse(resp)
     }
@@ -179,10 +188,13 @@ export class PlatformClient {
    *   if (event.type === 'completion') console.log(event.payload)
    * }
    */
-  async *streamExecution(executionId: string): AsyncGenerator<SseEvent> {
+  async *streamExecution(executionId: string, signal?: AbortSignal): AsyncGenerator<SseEvent> {
     const resp = await fetch(
-      `${this.base}/platform/executions/live?id=${executionId}`,
-      { headers: { 'x-api-key': this.apiKey } },
+      `${this.base}/platform/executions/live?id=${encodeURIComponent(executionId)}`,
+      {
+        headers: { 'x-api-key': this.apiKey },
+        signal,
+      },
     )
     if (!resp.ok || !resp.body) {
       await this._throwFromResponse(resp)
@@ -219,15 +231,32 @@ export class PlatformClient {
 
   // ── Internal helpers ──────────────────────────────────────────────────────
 
+  private async _fetchResponse(path: string, init: RequestInit = {}): Promise<Response> {
+    const signal = init.signal ?? AbortSignal.timeout(this.timeoutMs)
+
+    try {
+      return await fetch(`${this.base}${path}`, { ...init, signal })
+    } catch (error) {
+      if (isAbortError(error)) {
+        throw new PlatformApiError(
+          `Request timed out after ${this.timeoutMs}ms`,
+          'INTERNAL',
+          0,
+        )
+      }
+      throw error
+    }
+  }
+
   private async _get<T>(path: string): Promise<PlatformEnvelope<T>> {
-    const resp = await fetch(`${this.base}${path}`, {
+    const resp = await this._fetchResponse(path, {
       headers: { 'x-api-key': this.apiKey },
     })
     return this._parse<T>(resp)
   }
 
   private async _post<T>(path: string, body: object): Promise<PlatformEnvelope<T>> {
-    const resp = await fetch(`${this.base}${path}`, {
+    const resp = await this._fetchResponse(path, {
       method: 'POST',
       headers: {
         'x-api-key': this.apiKey,
@@ -274,6 +303,18 @@ export class PlatformClient {
       err.execution_id,
     )
   }
+}
+
+function normalizeTimeoutMs(value: number | undefined): number {
+  if (value === undefined) return DEFAULT_REQUEST_TIMEOUT_MS
+  if (!Number.isFinite(value) || value <= 0) {
+    throw new RangeError('timeoutMs must be a finite positive number')
+  }
+  return Math.floor(value)
+}
+
+function isAbortError(error: unknown): boolean {
+  return error instanceof Error && (error.name === 'AbortError' || error.name === 'TimeoutError')
 }
 
 // ── Factory ───────────────────────────────────────────────────────────────────

@@ -10,6 +10,8 @@
 //   5. Install app → copy Bot Token → SLACK_BOT_TOKEN secret
 //   6. Copy Signing Secret → SLACK_SIGNING_SECRET secret
 
+import { fetchWithTimeout } from '../_shared/http.ts'
+
 const SLACK_SIGNING_SECRET = Deno.env.get('SLACK_SIGNING_SECRET') ?? ''
 const SLACK_BOT_TOKEN      = Deno.env.get('SLACK_BOT_TOKEN') ?? ''
 const SUPABASE_URL         = Deno.env.get('SUPABASE_URL') ?? ''
@@ -40,7 +42,7 @@ async function verifySlackSignature(body: string, timestamp: string, sig: string
 // Post a message back to Slack
 async function slackReply(channel: string, text: string, thread_ts?: string): Promise<void> {
   if (!SLACK_BOT_TOKEN) return
-  await fetch('https://slack.com/api/chat.postMessage', {
+  await fetchWithTimeout('https://slack.com/api/chat.postMessage', {
     method: 'POST',
     headers: { 'Authorization': `Bearer ${SLACK_BOT_TOKEN}`, 'Content-Type': 'application/json' },
     body: JSON.stringify({ channel, text, thread_ts }),
@@ -50,7 +52,7 @@ async function slackReply(channel: string, text: string, thread_ts?: string): Pr
 // Call the agent function with a task
 async function runAgent(task: string, context?: string): Promise<string> {
   const agentUrl = `${SUPABASE_URL}/functions/v1/agent`
-  const res = await fetch(agentUrl, {
+  const res = await fetchWithTimeout(agentUrl, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'x-notify-secret': NOTIFY_SECRET },
     body: JSON.stringify({ task, context }),

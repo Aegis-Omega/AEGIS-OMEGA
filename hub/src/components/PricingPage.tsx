@@ -345,6 +345,7 @@ export function PricingPage() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ tier: 'explorer', email: em }),
+        signal: AbortSignal.timeout(20_000),
       })
       const data = await resp.json() as { api_key?: string; error?: string }
       if (!resp.ok) throw new Error(data.error ?? `HTTP ${resp.status}`)
@@ -384,6 +385,7 @@ export function PricingPage() {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ order_id: data.orderID, tier, email: emailRef.current.trim() }),
+            signal: AbortSignal.timeout(30_000),
           })
           const d = await resp.json() as { api_key?: string; tool_token?: string; error?: string }
           if (!resp.ok) throw new Error(d.error ?? `HTTP ${resp.status}`)

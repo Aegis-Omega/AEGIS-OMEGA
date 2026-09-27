@@ -8,6 +8,20 @@ export interface StreamOptions {
   signal?: AbortSignal
 }
 
+function streamSignal(signal?: AbortSignal): AbortSignal {
+  if (signal) return signal
+
+  const configured = Number(import.meta.env.VITE_STREAM_TIMEOUT_MS ?? '180000')
+  const timeoutMs = Number.isFinite(configured) && configured > 0
+    ? Math.floor(configured)
+    : 180_000
+  return AbortSignal.timeout(timeoutMs)
+}
+
+async function boundedError(res: Response): Promise<string> {
+  return (await res.text()).slice(0, 2_048)
+}
+
 async function* readLines(
   reader: ReadableStreamDefaultReader<Uint8Array>,
   signal?: AbortSignal,
@@ -33,17 +47,18 @@ async function* readLines(
 export async function* streamOllama(opts: StreamOptions): AsyncGenerator<string> {
   const base = import.meta.env.VITE_OLLAMA_BASE_URL ?? 'http://localhost:11434'
   const model = import.meta.env.VITE_OLLAMA_MODEL ?? 'hermes3:8b'
+  const signal = streamSignal(opts.signal)
 
   const res = await fetch(`${base}/api/chat`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ model, messages: opts.messages, stream: true }),
-    signal: opts.signal,
+    signal,
   })
 
-  if (!res.ok || !res.body) throw new Error(`Ollama ${res.status}: ${await res.text()}`)
+  if (!res.ok || !res.body) throw new Error(`Ollama ${res.status}: ${await boundedError(res)}`)
 
-  for await (const line of readLines(res.body.getReader(), opts.signal)) {
+  for await (const line of readLines(res.body.getReader(), signal)) {
     if (!line.trim()) continue
     try {
       const chunk = JSON.parse(line) as { message?: { content?: string }; done?: boolean }
@@ -58,7 +73,8 @@ export async function* streamDashScope(opts: StreamOptions): AsyncGenerator<stri
   if (!apiKey) throw new Error('VITE_DASHSCOPE_API_KEY is not set')
 
   const model = import.meta.env.VITE_DASHSCOPE_MODEL ?? 'qwen-plus'
-  const base = 'https://dashscope.aliyuncs.com/compatible-mode/v1'
+  const base = (import.meta.env.VITE_DASHSCOPE_BASE_URL ?? 'https://dashscope-intl.aliyuncs.com/compatible-mode/v1').replace(/\/$/, '')
+  const signal = streamSignal(opts.signal)
 
   const res = await fetch(`${base}/chat/completions`, {
     method: 'POST',
@@ -67,12 +83,12 @@ export async function* streamDashScope(opts: StreamOptions): AsyncGenerator<stri
       'Authorization': `Bearer ${apiKey}`,
     },
     body: JSON.stringify({ model, messages: opts.messages, stream: true }),
-    signal: opts.signal,
+    signal,
   })
 
-  if (!res.ok || !res.body) throw new Error(`DashScope ${res.status}: ${await res.text()}`)
+  if (!res.ok || !res.body) throw new Error(`DashScope ${res.status}: ${await boundedError(res)}`)
 
-  for await (const line of readLines(res.body.getReader(), opts.signal)) {
+  for await (const line of readLines(res.body.getReader(), signal)) {
     if (!line.startsWith('data: ')) continue
     const data = line.slice(6).trim()
     if (data === '[DONE]') break
@@ -90,6 +106,7 @@ export async function* streamClaude(opts: StreamOptions): AsyncGenerator<string>
   const bridgeUrl = import.meta.env.VITE_BRIDGE_URL ?? 'http://localhost:7890'
   const model = import.meta.env.VITE_CLAUDE_MODEL ?? 'claude-sonnet-4-6'
   const maxTokens = Number(import.meta.env.VITE_CLAUDE_MAX_TOKENS ?? '2048')
+  const signal = streamSignal(opts.signal)
 
   const res = await fetch(`${bridgeUrl}/claude/stream`, {
     method: 'POST',
@@ -99,12 +116,12 @@ export async function* streamClaude(opts: StreamOptions): AsyncGenerator<string>
       model,
       max_tokens: maxTokens,
     }),
-    signal: opts.signal,
+    signal,
   })
 
-  if (!res.ok || !res.body) throw new Error(`Claude bridge ${res.status}: ${await res.text()}`)
+  if (!res.ok || !res.body) throw new Error(`Claude bridge ${res.status}: ${await boundedError(res)}`)
 
-  for await (const line of readLines(res.body.getReader(), opts.signal)) {
+  for await (const line of readLines(res.body.getReader(), signal)) {
     if (!line.startsWith('data: ')) continue
     const data = line.slice(6).trim()
     try {

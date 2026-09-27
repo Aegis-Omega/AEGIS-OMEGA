@@ -11,6 +11,7 @@
 //           RESEND_API_KEY
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { CORS } from '../_shared/cors.ts'
+import { fetchWithTimeout } from '../_shared/http.ts'
 import { issueGrantToken } from '../_shared/jwt.ts'
 
 const PLAN_RANK: Record<string, number> = { single: 1, starter: 2, full: 3 }
@@ -29,7 +30,7 @@ async function mailGrant(email: string, plan: string, token: string): Promise<vo
     console.error('RESEND_API_KEY not set — grant not delivered')
     return
   }
-  const res = await fetch('https://api.resend.com/emails', {
+  const res = await fetchWithTimeout('https://api.resend.com/emails', {
     method: 'POST',
     headers: { Authorization: `Bearer ${RESEND_API_KEY}`, 'Content-Type': 'application/json' },
     body: JSON.stringify({

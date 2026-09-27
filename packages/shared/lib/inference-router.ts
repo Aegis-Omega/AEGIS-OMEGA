@@ -286,24 +286,43 @@ export interface RouterResult {
  * Returns first successful response. Throws only if ALL backends fail.
  */
 export async function routeInference(req: InferenceRequest): Promise<RouterResult> {
+  // Only probe backends that are explicitly configured. Previously CL-Ψ was
+  // always attempted first, which could add its full 30 s timeout before a
+  // usable provider was reached in browser deployments without a local bridge.
+  const configured = new Set(configuredBackends())
+  if (configured.size === 0) {
+    throw new Error('All inference backends failed:\n  [configuration] No inference backends configured')
+  }
+
   const errors: string[] = []
 
-  for (const [, fn] of BACKEND_CHAIN) {
+  for (const [backend, fn] of BACKEND_CHAIN) {
+    if (!configured.has(backend)) continue
+
     try {
       const result = await fn(req)
       return { ...result, fallback_count: errors.length }
     } catch (e) {
-      errors.push(e instanceof Error ? e.message : String(e))
+      const message = e instanceof Error ? e.message : String(e)
+      errors.push(`${backend}: ${message}`)
     }
   }
 
   throw new Error(`All inference backends failed:\n${errors.map((e, i) => `  [${i}] ${e}`).join('\n')}`)
 }
 
-/** Returns which backends are configured (not necessarily reachable) */
+/** Returns which backends are explicitly configured (not necessarily reachable). */
 export function configuredBackends(): BackendType[] {
   const active: BackendType[] = []
-  if (import.meta.env.VITE_BRIDGE_URL || true) active.push('cl-psi')       // always try bridge
+
+  // CL-Ψ is local-first, but it must be explicit. An absent local bridge is a
+  // configuration state, not a network failure worth paying 30 seconds for.
+  const clPsiConfigured =
+    Boolean(import.meta.env.VITE_BRIDGE_URL) ||
+    import.meta.env.VITE_ENABLE_CL_PSI === 'true' ||
+    import.meta.env.VITE_PROVIDER === 'cl-psi'
+
+  if (clPsiConfigured) active.push('cl-psi')
   if (import.meta.env.VITE_ENABLE_OPENAI === 'true') active.push('openai-compat')
   if (import.meta.env.VITE_ENABLE_NEBIUS === 'true') active.push('nebius-token-factory')
   if (import.meta.env.VITE_ENABLE_AZURE === 'true') active.push('azure-openai')

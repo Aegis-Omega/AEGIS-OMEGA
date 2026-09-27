@@ -9,6 +9,7 @@
 //   SUPABASE_URL + SUPABASE_SERVICE_ROLE_KEY auto-injected
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { CORS } from '../_shared/cors.ts'
+import { fetchWithTimeout } from '../_shared/http.ts'
 
 const STRIPE_WEBHOOK_SECRET = Deno.env.get('STRIPE_WEBHOOK_SECRET') ?? ''
 const RESEND_API_KEY         = Deno.env.get('RESEND_API_KEY') ?? ''
@@ -57,7 +58,7 @@ async function sendApiKey(email: string, tier: string, rawKey: string): Promise<
   if (!RESEND_API_KEY) return
   const limits: Record<string, string> = { operator: '500', sovereign: 'unlimited' }
   const prices: Record<string, string>  = { operator: '$49', sovereign: '$499' }
-  await fetch('https://api.resend.com/emails', {
+  await fetchWithTimeout('https://api.resend.com/emails', {
     method: 'POST',
     headers: { Authorization: `Bearer ${RESEND_API_KEY}`, 'Content-Type': 'application/json' },
     body: JSON.stringify({
@@ -143,7 +144,7 @@ Deno.serve(async (req) => {
   // Notify owner
   const notifyUrl = `${Deno.env.get('SUPABASE_URL')}/functions/v1/notify`
   const tierLabel = { operator: 'Operator ($49)', sovereign: 'Sovereign ($499)' }
-  fetch(notifyUrl, {
+  fetchWithTimeout(notifyUrl, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',

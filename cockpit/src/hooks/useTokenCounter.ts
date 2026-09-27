@@ -80,8 +80,13 @@ export function useTokenCounter() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ plan }),
+        signal: AbortSignal.timeout(20_000),
       })
-      const data = await res.json()
+      if (!res.ok) {
+        const detail = (await res.text()).slice(0, 2_048)
+        throw new Error(`Stripe checkout HTTP ${res.status}: ${detail}`)
+      }
+      const data = await res.json() as { sessionUrl?: string; error?: string }
       if (data.sessionUrl) {
         window.location.href = data.sessionUrl
       } else if (data.error) {
