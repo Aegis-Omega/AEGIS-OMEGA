@@ -30,6 +30,8 @@ Axiom target for every theorem: `[propext, Classical.choice, Quot.sound]`. `sorr
 | `window_all` | at half-width `1/256` the windows around `(33/16)^k`, `k = 1..8`, are prime-power-free | `RHRatio33Over16V13` |
 | `ninePacket_coercive` | `Re RHS(Autocorr(Σ_{k<9} z_k T_{k log(33/16)} g)) ≤ −(D256 − 4/25)·E·Σ‖z_k‖²`, `D256 > 23/10` | `RHNinePacket33Over16V13` |
 | `ninePacket_zero_quadratic_nonnegative` | `0 ≤ Re Σ_ρ m_ρ M(Autocorr(ninePacket g z))(ρ)` for all `z ∈ ℂ⁹`, every moment-zero `g` of half-width `1/256` | `RHNinePacket33Over16V13` |
+| `window_all` (golden) | at half-width `1/128` the windows around `φ^{2k}`, `k = 1, 2, 3`, are prime-power-free (`∅, ∅, {18}`); at `1/64` the `k = 2` window contains `7` | `RHGoldenPrimeWindowV1` |
+| `fourPacket_coercive`, `fourPacket_zero_quadratic_nonnegative` | `Re RHS(Autocorr(Σ_{k<4} z_k T_{k log φ²} g)) ≤ −(D128 − 3/100)·E·Σ‖z_k‖²`, `D128 > 17/10`; hence `0 ≤` the zero quadratic for all `z ∈ ℂ⁴` | `RHGoldenFourPacketV1` |
 | `narrow_coercive`, `universal_on_narrow_class` | for every moment-zero `g` of half-width `≤ 1/64` (any shape, any dense combination inside the window): `Re RHS ≤ −(103/100)·E`, hence `0 ≤` the zero quadratic — the whole narrow-support class, no lattice | `RHNarrowSupportPositivityV13` |
 | `margin_pos`, `tower_coercive` | `m ≥ max 10 (N+2)` ⇒ `Dm m − 2(log 2·2.42 + N/100) ≥ 0`; `Re RHS(Autocorr(Σ_{j≤N} z_j T_{j log 2} g)) ≤ −margin·E·Σ‖z‖²` | `RHDyadicTowerV13` |
 | `dyadic_tower` | `∀ N, ∃ m, ∀ g a, HalfWidthAt g 2^{-m} a → moments → ∀ z : Fin (N+1) → ℂ, 0 ≤ Re Σ_ρ m_ρ M(Autocorr(towerPacket N g z))(ρ)` — unbounded tower of dyadic families | `RHDyadicTowerV13` |
@@ -146,6 +148,15 @@ windows around `(33/16)^k`, `k = 1..8`, contain only `∅, ∅, ∅, {18}, ∅, 
 That is nine translates at width `1/256` with a margin sixteen times larger than the dyadic
 four-block margin `2/125`, from the same ingredients.
 
+**Golden lattice `q = φ² = (3+√5)/2`** (`RHGoldenPrimeWindowV1`, `RHGoldenFourPacketV1`). The gaps
+`d, 2d, 3d` with `d = log φ² ≈ 0.96242` sit near `log 7 ≈ 1.94591` at `2d ≈ 1.92485` (distance `0.02106`),
+so the window radius must be `< 0.02106`: half-width `1/64` (radius `1/32`) fails, half-width `1/128`
+(radius `1/64`) works. The windows are `[2.577, 2.660] ∅`, `[6.747, 6.963] ∅`, `[17.664, 18.229] {18}`
+(rational bounds `2.236 < √5 < 2.237`, `e^{±1/64}`; `Λ(18) = 0` by kernel `decide`). The diagonal floor
+is `D128 = cothTail(1/64) − κ − e^{1/64}/128 > 17/10`; each row has three off-diagonal ceilings `E/100`,
+so the margin is `D128 − 3/100 > 1.67·E` (a `5/4` margin claimed for this family is therefore met).
+A four-parameter family per seed, weaker than the `33/16` nine-packet; not RH.
+
 **Signed/Toeplitz-symbol certificates** gain nothing here: in the single-sample regime the prime part
 of each `b_k` is a positive real, so the symbol `p(θ) = −D + 2Σ Re(b_k e^{ikθ})` is maximal at
 `θ = 0`, where it equals the Gershgorin row sum. The gain comes from choosing a lattice whose windows
@@ -237,7 +248,7 @@ Weil-positive. Closed-form ceiling of this ingredient set `≈ 0.223` in `r`; th
 **Positive-definite hat kernel (`RHHatPosDefV13`, `RHHatKernelV13`, `RHHatBudgetV13`, `RHHatCellsV13`,
 `RHHatClassV13`, `RHHatClass310V13`, `RHHatClass13V13`, `RHHatCellsWideV13`, `RHHatClass69200V13`).**
 Pointwise caps ignore that `c(u) = Re C(u)` is positive definite. For block averages
-`aᵢ(s) = ∫_{(0,h]} G(s + ih + t) dt` one has `∫ |Σ vᵢaᵢ(s)|² ds = Σᵢⱼ vᵢvⱼ ∫ c(u)·T_h(u − (i−j)h) du`
+`aᵢ(s) = ∫_{(0,h]} G(s + ih + t) dt` one has `∫ |Σ vᵢ aᵢ(s)|² ds = Σᵢⱼ vᵢvⱼ ∫ c(u)·T_h(u − (i−j)h) du`
 (two Fubini swaps, a translation and the overlap length of two intervals), so every piecewise-linear
 interpolant `hatK` of a positive-definite sequence `ρ_k = Σⱼ v_{j+k}vⱼ` pairs nonnegatively with `c`.
 Subtracting `σ·c·hatK` together with the moment multiplier leaves the integrand
@@ -445,6 +456,7 @@ python3 build2.py RHThresholdClassV13  # expect rc=0 sorryAx=0 for RHThresholdGa
 python3 build2.py RHBonusClassV13 RHThreeCellClassV13  # expect rc=0 sorryAx=0 for the five bonus/three-cell modules
 python3 build2.py RHHatClassV13 RHHatClass310V13 RHHatClass13V13 RHHatClass69200V13  # expect rc=0 sorryAx=0 for the nine RHHat* modules
 python3 build2.py RHHatCoxClass693V13  # expect rc=0 sorryAx=0 for RHCell4..7CapV13, RHCellCapsV13, RHHatCoxBudgetV13, RHHatCoxClass693V13 (run 2026-09-26: all seven OK)
+python3 build2.py RHGoldenFourPacketV1  # expect rc=0 sorryAx=0 for RHGoldenPrimeWindowV1, RHGoldenFourPacketV1
 lean -R aegis_rh_extra aegis_rh_extra/NineFacesAcceptanceCheck.lean  # expect all six exact? to fail
 ```
 
@@ -461,6 +473,9 @@ Coxeter-cap modules (sha256, commits `08125765` … `2516c8a6`): `RHCell4CapV13`
 `RHCell6CapV13` = `c43203a6`, `RHCell7CapV13` = `f6cd2fce`, `RHCellCapsV13` = `443865d1`, `RHHatCoxBudgetV13` = `cffff679`,
 `RHHatCoxClass693V13` = `a0d39432`; isolated rebuild of its closure from the pushed sources: 95 modules, standard
 axioms only. Not yet hosted-replayed.
+Golden modules (sha256): `RHGoldenPrimeWindowV1` = `ae50c42d`, `RHGoldenFourPacketV1` = `3289f4a7`; compiled against
+freshly rebuilt `RHDyadicDiagonalV13`/`RHDyadicWindowV13`/`RHRatioWindowV13`/`RHGramExpansionV13` from this branch,
+standard axioms only. Not yet hosted-replayed.
 
 ## 5. Honest one-line summary
 
