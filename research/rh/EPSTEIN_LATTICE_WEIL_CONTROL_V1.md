@@ -252,3 +252,22 @@ caused solely by the local factor at the smallest rational prime: an inert 2
 reappears at (2^2=4).  This also shows why the first-window length alone
 cannot characterize the Euler product; prime-power purity of the complete
 logarithmic derivative is the stronger invariant.
+
+## Formula-to-target identity: machine-formalization status
+
+The t-space target form used by `assemble_quadratic_matrix` is
+(1/π)∫₀^∞ |ĝ(t)|² S(t) dt with
+S(t) = 2 Re ψ(1/2+it) + log(5/π²) − 2 Σ Λ_F(n) n^{-1/2} cos(t log n).
+It involves no zeros. Passing to the x-space value certified by
+`certify_d20_fixed_witness_absolute_quadratic` needs three analytic inputs.
+`sovereign-omega-v2/formal/bridges/lean/EpsteinWeilXSpaceIdentityV1.lean`
+(Lean 4.33.1 / Mathlib 0df444a3, standard axioms only) covers two of them:
+
+| input | status |
+| --- | --- |
+| ψ(1/2) = −γ − 2 log 2 | proved (`epsteinWeil_digamma_one_half_re_v1`) |
+| ∫_L^∞ du/sinh(u/2) = 2(log(1+e^{-L/2}) − log(1−e^{-L/2})) | proved (`sinhHalf_tail_integral_v1`) |
+| Gauss: Re ψ(1/2+it) − ψ(1/2) = ∫₀^∞ (1−cos tu)/(2 sinh(u/2)) du | open (a listed Mathlib TODO; Mathlib has no complex digamma series) |
+| Parseval/cosine: (1/π)∫₀^∞ \|ĝ\|² cos(tu) dt = h(u) and the Fubini swap | open |
+
+`FORMULA_TO_TARGET_WEIL_IDENTITY_FORMALIZED` stays `FALSE`.
