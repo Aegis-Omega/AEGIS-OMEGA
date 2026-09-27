@@ -13,8 +13,12 @@ export async function callDashScope<T>(opts: DashScopeCallOpts): Promise<T> {
     opts.defaultModel ??
     'qwen-plus'
 
+  const base =
+    ((import.meta.env.VITE_DASHSCOPE_BASE_URL as string | undefined) ??
+      'https://dashscope-intl.aliyuncs.com/compatible-mode/v1').replace(/\/$/, '')
+
   const res = await fetch(
-    'https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions',
+    `${base}/chat/completions`,
     {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` },
@@ -30,7 +34,10 @@ export async function callDashScope<T>(opts: DashScopeCallOpts): Promise<T> {
     },
   )
 
-  if (!res.ok) throw new Error(`DashScope ${res.status}: ${await res.text()}`)
+  if (!res.ok) {
+    const detail = (await res.text()).slice(0, 2_048)
+    throw new Error(`DashScope ${res.status}: ${detail}`)
+  }
 
   const data = (await res.json()) as { choices: { message: { content: string } }[] }
   let raw = data.choices[0]?.message?.content ?? ''
