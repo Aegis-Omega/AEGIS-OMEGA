@@ -1,0 +1,56 @@
+name: Metacognitive Evidence State
+
+on:
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, reopened, ready_for_review]
+    paths:
+      - '.claude/metacog/evidence-state.mjs'
+      - '.claude/metacog/evidence-ledger.mjs'
+      - '.claude/metacog/evidence-cycle.mjs'
+      - '.claude/metacog/evidence-v2.test.mjs'
+      - '.github/workflows/metacognitive-evidence.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: metacognitive-evidence-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    name: aegis / metacognitive-evidence
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout PR test context
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 1
+          persist-credentials: false
+
+      # GITHUB_SHA is the refs/pull/N/merge commit on a pull_request event, never
+      # the candidate head, so it cannot serve as the binding. The tree that was
+      # actually checked out can, and that is what this asserts.
+      - name: Bind candidate identity
+        shell: bash
+        env:
+          EXPECTED_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          set -euo pipefail
+          test -n "$EXPECTED_HEAD_SHA"
+          checked_out="$(git rev-parse HEAD)"
+          echo "candidate_head=$EXPECTED_HEAD_SHA"
+          echo "checked_out=$checked_out"
+          echo "merge_sha=$GITHUB_SHA"
+          test "$checked_out" = "$EXPECTED_HEAD_SHA"
+          test -z "$(git status --porcelain)"
+
+      - name: Run metacognitive evidence contract
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --version
+          node --test .claude/metacog/evidence-v2.test.mjs
