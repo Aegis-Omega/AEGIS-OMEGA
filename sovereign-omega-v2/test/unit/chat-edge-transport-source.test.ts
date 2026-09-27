@@ -19,8 +19,8 @@ describe('chat edge transport source contract', () => {
   })
 
   it('bounds provider error bodies before logging them', () => {
-    expect(source).toContain('const MAX_UPSTREAM_ERROR_BODY_CHARS = 2_048')
-    expect(source).toContain('(await resp.text()).slice(0, MAX_UPSTREAM_ERROR_BODY_CHARS)')
+    expect(source).toContain("import { fetchWithTimeout, readTextBounded } from '../_shared/http.ts'")
+    expect(source).toContain('const err = await readTextBounded(resp)')
   })
 
   it('keeps paid provider gates server-side', () => {
