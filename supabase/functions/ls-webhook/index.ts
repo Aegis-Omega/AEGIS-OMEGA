@@ -8,6 +8,7 @@
 //   NOTIFY_SECRET            — for internal owner notification
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { CORS } from '../_shared/cors.ts'
+import { fetchWithTimeout } from '../_shared/http.ts'
 
 const LS_WEBHOOK_SECRET = Deno.env.get('LS_WEBHOOK_SECRET') ?? ''
 const LS_PLAN_MAP: Record<string, string> = JSON.parse(Deno.env.get('LS_PLAN_MAP') ?? '{}')
@@ -40,7 +41,7 @@ async function sendApiKey(email: string, tier: string, rawKey: string): Promise<
     subject: `Your AEGIS API key — ${tier} tier`,
     html: `<div style="font-family:monospace;max-width:600px;margin:0 auto;padding:24px"><h2>Your AEGIS Platform API Key</h2><p>Tier: <strong>${tier}</strong> (${prices[tier] ?? ''})<br>Call limit: <strong>${limits[tier] ?? '?'} requests</strong></p><div style="background:#0f0f0f;color:#00ff88;padding:16px;border-radius:8px;font-size:14px;word-break:break-all">${rawKey}</div><p style="margin-top:16px">Use as HTTP header:<br><code>x-api-key: ${rawKey}</code></p><h3>Quick start</h3><pre style="background:#1a1a1a;padding:12px;border-radius:6px;font-size:12px">curl -X POST https://aegis-vertex.aegisomega.com/platform/collaborate -H "x-api-key: ${rawKey}" -H "Content-Type: application/json" -d '{"objective":"Analyse our Q2 revenue","mode":"analysis","live":false}'</pre><p style="color:#666;font-size:12px">Docs: <a href="https://aegisomega.com/platform">aegisomega.com/platform</a><br>Support: api@aegisomega.com</p></div>`,
   }
-  const res = await fetch('https://api.resend.com/emails', {
+  const res = await fetchWithTimeout('https://api.resend.com/emails', {
     method: 'POST',
     headers: { Authorization: `Bearer ${RESEND_API_KEY}`, 'Content-Type': 'application/json' },
     body: JSON.stringify(body),
@@ -112,7 +113,7 @@ Deno.serve(async (req) => {
     single: 'Single tool ($19)', starter: 'Starter 2-pack ($29)', full: 'Full bundle ($39)',
     explorer: 'API Explorer (free)', operator: 'API Operator ($49)', sovereign: 'API Sovereign ($299)',
   }
-  fetch(notifyUrl, {
+  fetchWithTimeout(notifyUrl, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'x-notify-secret': notifySecret },
     body: JSON.stringify({
