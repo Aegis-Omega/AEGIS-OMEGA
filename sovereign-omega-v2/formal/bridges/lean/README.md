@@ -117,6 +117,19 @@ For `p ≡ 2 (mod 3)` cubing is a bijection and `N = p`. For `p ≡ 1 (mod 3)`,
 comes from a norm, `|J|² = p`: this is the finite-field analogue of the
 positivity RH asks for, and it does not transfer to `ζ`. Not RH.
 
+### `EulerProductSupport.lean` — Euler product ⟺ prime-power support
+
+For `f : ℕ → ℝ` with `f 1 = 1` and any `L` with `f(n) log n = Σ_{d∣n} L(d) f(n/d)`:
+
+- `multiplicative_iff_support` — `f` is multiplicative iff `L n = 0` for every
+  `n ≥ 1` that is not a prime power.
+- `isLogDeriv_zeta` — Mathlib's `Λ` is such an `L` for `ζ`.
+
+This is the classical fact, kernel-checked. It is the filter the `D = −20` Epstein
+counterexample needs: for `x² + 5y²` the coefficients are not multiplicative and
+`L(6), L(14), L(21) ≠ 0` — the composites behind its certified Weil negativity — while
+for `ζ·L(χ₋₂₀)` `L` vanishes off prime powers. Not RH.
+
 ## Verification
 
 ```
@@ -127,14 +140,15 @@ lake env lean scratch/AbjadFactorizationV1.lean
 lake env lean scratch/ResidueClassFactorizationV1.lean
 lake env lean scratch/CyclicFilterLimitV1.lean
 lake env lean scratch/HasseSnowflakeCurve.lean
+lake env lean scratch/EulerProductSupport.lean
 ```
 
 Each exits 0 and prints its `#print axioms` block.
 
 `ResidueClassFactorizationV1.lean` additionally compiles unchanged on Lean
 `v4.33.1` / Mathlib `0df444a3` (the `#493` lane toolchain).
-`HasseSnowflakeCurve.lean` was checked on Lean `v4.33.1` / Mathlib `0df444a3`
-(standard axioms only).
+`HasseSnowflakeCurve.lean` and `EulerProductSupport.lean` were checked on Lean
+`v4.33.1` / Mathlib `0df444a3` (standard axioms only).
 
 ## Source hashes (sha256)
 
@@ -144,6 +158,7 @@ db893663ba81e2741aebf2680f4562307900c893c46ee89f9092a27af2e374e3  AbjadFactoriza
 197fecf442c4dda6764434b54bea64578bfd99ad0c6ca29edfbd2e91014fa519  ResidueClassFactorizationV1.lean
 997bb2bcb94ed76874becbec42392cdc71e351ee7cf05a74088e4702cdbe2af2  CyclicFilterLimitV1.lean
 44b2ca0df86a8a90ce0eedd0cc04b790476a63e4e005fde45cadbedb0ca47a5e  HasseSnowflakeCurve.lean
+eaee951ee40fe3c6e9458f32e02551a37a75f08872af49d3c1e8fe4a59f22e7b  EulerProductSupport.lean
 ```
 
 ## Not included here
