@@ -101,7 +101,8 @@ Euler finite section is **not** a global positivity theorem.
 Numerically, the principal (D=-20) Epstein zeta has an off-critical zero at
 
 [
-hoapprox
+
+hoapprox
 0.8231873164780866676470730774
 +44.00011318023689727806224695,i.
 ]
@@ -114,9 +115,15 @@ B(s)=L(s,chi_{-4})L(s,chi_5)
 ]
 
 via Hurwitz-zeta Dirichlet-(L) evaluation gives
-(|A(ho)+B(ho)|<4	imes10^{-80}), while
-(|A(ho)|=|B(ho)|approx0.7758158509) and
-(A(ho)/B(ho)=-1) to the working precision. Thus the observed zero comes
+(|A(
+ho)+B(
+ho)|<4	imes10^{-80}), while
+(|A(
+ho)|=|B(
+ho)|approx0.7758158509) and
+(A(
+ho)/B(
+ho)=-1) to the working precision. Thus the observed zero comes
 from cancellation between two nonzero Euler-product components rather than a
 zero of either component.
 
@@ -193,8 +200,10 @@ For (L=3.5), the fixed witness gives
 The first forbidden composite mode is already decisive:
 
 [
-n=6,qquad Lambda_{m principal}(6)=2log 6,qquad
-Lambda_{m Euler}(6)=0,
+n=6,qquad Lambda_{
+m principal}(6)=2log 6,qquad
+Lambda_{
+m Euler}(6)=0,
 ]
 
 and its contribution to the normalized principal-minus-Euler quadratic value
@@ -260,14 +269,13 @@ The t-space target form used by `assemble_quadratic_matrix` is
 S(t) = 2 Re ψ(1/2+it) + log(5/π²) − 2 Σ Λ_F(n) n^{-1/2} cos(t log n).
 It involves no zeros. Passing to the x-space value certified by
 `certify_d20_fixed_witness_absolute_quadratic` needs three analytic inputs.
-`sovereign-omega-v2/formal/bridges/lean/EpsteinWeilXSpaceIdentityV1.lean`
-(Lean 4.33.1 / Mathlib 0df444a3, standard axioms only) covers two of them:
+Lean status (Lean 4.33.1 / Mathlib 0df444a3, standard axioms only):
 
 | input | status |
 | --- | --- |
-| ψ(1/2) = −γ − 2 log 2 | proved (`epsteinWeil_digamma_one_half_re_v1`) |
-| ∫_L^∞ du/sinh(u/2) = 2(log(1+e^{-L/2}) − log(1−e^{-L/2})) | proved (`sinhHalf_tail_integral_v1`) |
-| Gauss: Re ψ(1/2+it) − ψ(1/2) = ∫₀^∞ (1−cos tu)/(2 sinh(u/2)) du | open (a listed Mathlib TODO; Mathlib has no complex digamma series) |
+| ψ(1/2) = −γ − 2 log 2 | proved (`EpsteinWeilXSpaceIdentityV1.epsteinWeil_digamma_one_half_re_v1`) |
+| ∫_L^∞ du/sinh(u/2) = 2(log(1+e^{-L/2}) − log(1−e^{-L/2})) | proved (`EpsteinWeilXSpaceIdentityV1.sinhHalf_tail_integral_v1`) |
+| Gauss: Re ψ(1/2+it) − ψ(1/2) = ∫₀^∞ (1−cos tu)/(2 sinh(u/2)) du | proved (`EpsteinGaussCriticalLineV1.gauss_critical_line_v1`), specializing the existing `WeilDigammaSeriesHalfPlaneV1.gauss_digamma_integral_v1` (already on this branch) |
 | Parseval/cosine: (1/π)∫₀^∞ \|ĝ\|² cos(tu) dt = h(u) and the Fubini swap | open |
 
 `FORMULA_TO_TARGET_WEIL_IDENTITY_FORMALIZED` stays `FALSE`.
