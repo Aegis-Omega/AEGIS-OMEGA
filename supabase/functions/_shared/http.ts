@@ -19,8 +19,22 @@ export async function fetchWithTimeout(
   timeoutMs = DEFAULT_OUTBOUND_TIMEOUT_MS,
 ): Promise<Response> {
   const boundedTimeoutMs = normalizePositiveInt(timeoutMs, DEFAULT_OUTBOUND_TIMEOUT_MS)
-  const signal = init.signal ?? AbortSignal.timeout(boundedTimeoutMs)
-  return fetch(input, { ...init, signal })
+  const controller = new AbortController()
+  const timer = setTimeout(() => controller.abort(), boundedTimeoutMs)
+
+  const callerSignal = init.signal
+  const onCallerAbort = () => controller.abort()
+  if (callerSignal) {
+    if (callerSignal.aborted) controller.abort()
+    else callerSignal.addEventListener('abort', onCallerAbort, { once: true })
+  }
+
+  try {
+    return await fetch(input, { ...init, signal: controller.signal })
+  } finally {
+    clearTimeout(timer)
+    callerSignal?.removeEventListener('abort', onCallerAbort)
+  }
 }
 
 export async function readTextBounded(
