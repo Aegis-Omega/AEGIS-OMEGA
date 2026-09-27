@@ -23,15 +23,17 @@ describe('fetchWithTimeout', () => {
     expect(init.signal).toBeDefined()
   })
 
-  it('preserves an explicit caller signal', async () => {
+  it('propagates an already-aborted caller signal into the bounded request', async () => {
     const fetchSpy = vi.fn().mockResolvedValue(new Response('ok'))
     vi.stubGlobal('fetch', fetchSpy)
     const ctrl = new AbortController()
+    ctrl.abort()
 
     await fetchWithTimeout('https://example.invalid/test', { signal: ctrl.signal }, 1_234)
 
     const init = fetchSpy.mock.calls[0]![1] as RequestInit
-    expect(init.signal).toBe(ctrl.signal)
+    expect(init.signal).toBeDefined()
+    expect((init.signal as AbortSignal).aborted).toBe(true)
   })
 
   it('falls back to the default timeout for an invalid bound', async () => {
