@@ -352,6 +352,15 @@ Still missing:
   `10¹²`.
 - A rigorous digamma lower bound and the finite trigonometric check on a grid, with a Lipschitz step.
 
+**Arb certificate at `L = 0.8` (T1, not Lean).** `research/rh/verify_krein_arb_v1.py` checks the LP output of
+`krein_lp_solve_v1.py` (same `columns`/`symbol` as `krein_dual_beyond_log2.py`, hat bound `10⁵`) rigorously:
+`W(ξ)(S(ξ) − 0.105) + Ĥ(ξ) ≥ 0` for every real `ξ`. The hat sum is rewritten exactly as `2R(ξ)/(wξ²)` with `R` the
+second-difference cosine sum, and `ξ²F` is enclosed by degree-20 Arb Taylor models on 12 034 adaptive cells of
+`[0.02, 3000]`, with polygamma and exponential remainders. The cell `[0, 0.02]` is closed by `ξ²`-division (lower bound
+`1.03·10⁻⁴`) and `ξ ≥ 3000` by the monotone `Re ψ` tail (`F/W ≥ 4.16`). Receipt: `KREIN_ARB_CERTIFICATE_L0.8.json`. The
+certificate needs large cancelling weights (`Σ|c| ≈ 1.8·10⁷`); with hat weights bounded by `10³` the LP margin at `0.8` is
+negative (`−0.008`). Still open here: the dual step itself (Krein pairing for the `δ^{(j)}` columns) and a Lean proof.
+
 **Genuine-function columns (T2).** B-splines of order `k` at the window edge replace the `δ^{(j)}` columns, so
 `krein_pairing` applies as stated.
 - At `L = 0.8` with knot step `0.001`, `k = 8` gives `m = 0.1140` (`0.1132` after the `10×` finer grid).
