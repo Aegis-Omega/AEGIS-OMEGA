@@ -14,6 +14,7 @@ from harness.sdk.epstein_lattice_weil_probe import (
     d20_fixed_witness_arithmetic_decomposition,
     quadratic_euler_first_impulse,
     certify_d20_fixed_witness_arithmetic_displacement,
+    certify_d20_fixed_witness_absolute_quadratic,
 )
 
 
@@ -158,6 +159,36 @@ def test_tail_free_same_discriminant_arithmetic_interval_certificate() -> None:
     assert receipt["tail_bound_needed"] is False
     assert receipt["t_grid_used"] is False
     assert receipt["absolute_principal_weil_value_certified"] is False
+    assert receipt["formula_to_target_weil_identity_machine_formalized"] is False
+    assert receipt["proof_authority"] is False
+    assert receipt["rh_proven"] is False
+
+
+def test_absolute_fixed_witness_weil_value_interval_certificate() -> None:
+    receipt = certify_d20_fixed_witness_absolute_quadratic()
+
+    assert receipt["certificate_scope"] == (
+        "ABSOLUTE_FIXED_WITNESS_EXPLICIT_FORMULA_VALUE"
+    )
+    assert receipt["support_length_exact"] == "7/2"
+    assert receipt["modes"] == (4, 6, 8, 10, 12, 16, 18)
+    assert receipt["integer_coefficients"] == (22, 10, 6, 3, 2, -2, -1)
+
+    principal_lower, principal_upper = receipt["principal_rayleigh_interval"]
+    euler_lower, euler_upper = receipt["euler_classsum_rayleigh_interval"]
+    diff_lower, diff_upper = receipt["difference_interval"]
+
+    # Independent Arb (Petras) evaluation of the same x-space value:
+    # principal -0.0647652236888584518..., Euler +5.3689445011495341643...
+    assert principal_lower <= -0.0647652236888 <= principal_upper < -0.064
+    assert 5.36 < euler_lower <= 5.3689445011495 <= euler_upper
+    assert diff_lower <= -5.4337097248 <= diff_upper
+    assert receipt["principal_certified_strictly_negative"] is True
+    assert receipt["euler_classsum_certified_strictly_positive"] is True
+
+    assert receipt["t_grid_used"] is False
+    assert receipt["t_tail_needed"] is False
+    assert receipt["series_remainder_bounded"] is True
     assert receipt["formula_to_target_weil_identity_machine_formalized"] is False
     assert receipt["proof_authority"] is False
     assert receipt["rh_proven"] is False

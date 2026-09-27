@@ -935,3 +935,196 @@ def certify_d20_fixed_witness_arithmetic_displacement(
         }
     finally:
         iv.dps = previous_dps
+
+
+def certify_d20_fixed_witness_absolute_quadratic(
+    *,
+    decimal_digits: int = 40,
+    series_terms: int = 2000,
+) -> dict[str, object]:
+    """Interval-certify the absolute Weil quadratic value of the fixed witness.
+
+    Same witness and normalization as ``evaluate_d20_fixed_integer_witness``
+    (Rayleigh quotient of (1/pi) int_0^inf S_F(t)|ghat(t)|^2 dt over
+    int g^2), but evaluated in x-space, so no t-grid and no |t| > T tail:
+
+      W_F = h(0)[2 psi(1/2) + 4 artanh(e^{-L/2}) + log(5/pi^2)]
+            + int_0^L (h(0) - h(u)) / sinh(u/2) du
+            - 2 sum_{log n < L} Lambda_F(n) n^{-1/2} h(log n),
+
+    with h the autocorrelation of g. This follows from Parseval and Gauss'
+    formula Re psi(1/2+it) - psi(1/2) = int_0^inf (1 - cos tu)/(2 sinh(u/2)) du.
+    For the integer cosine modes of g on [0, L],
+
+      h(u) = sum_j s_j sin(j pi u/L) + sum_j d_j (L - u) cos(j pi u/L),
+
+    and 1/sinh(u/2) = 2 sum_{k>=0} e^{-(k+1/2)u} turns the Archimedean
+    integral into closed-form elementary integrals. The remainder after
+    ``series_terms`` terms is bounded rigorously by
+    N'(0) T1 + [-H2, H2]/(K+1)^2, where N = h(0) - h and H2 >= sup|h''|.
+
+    Scope: an interval certificate of this finite explicit-formula value.
+    It does not formalize the identity between this formula and the target
+    repository Weil form, and it is not a proof of anything about RH.
+    """
+    if decimal_digits < 30:
+        raise ValueError("decimal_digits must be >= 30")
+    if series_terms < 100:
+        raise ValueError("series_terms must be >= 100")
+
+    iv = mp.iv
+    previous_dps = iv.dps
+    iv.dps = decimal_digits
+    try:
+        L = iv.mpf(7) / 2
+        alpha = iv.pi / L
+        zero = iv.mpf(0)
+
+        cosine: dict[int, object] = {}
+        for k, witness_coefficient in zip(
+            D20_FIXED_WITNESS_MODES, D20_FIXED_WITNESS_COEFFICIENTS
+        ):
+            for mode, sign in ((k - 1, 1), (k + 1, -1)):
+                cosine[mode] = cosine.get(mode, zero) + (
+                    iv.mpf(witness_coefficient)
+                    * sign
+                    * (iv.mpf(1) / 4 + (mode * alpha) ** 2)
+                    / 2
+                )
+
+        # h(u) = int_0^{L-u} g(x) g(x+u) dx in the sin / (L-u)cos basis.
+        # With kappa L an integer multiple of pi, each pair integral reduces
+        # to sin(m alpha u), sin(m' alpha u) or (L-u) cos(m alpha u).
+        sin_coeff: dict[int, object] = {}
+        lin_cos_coeff: dict[int, object] = {}
+        for m, cm in cosine.items():
+            for mp_, cmp_ in cosine.items():
+                weight = cm * cmp_ / 2
+                if m == mp_:
+                    lin_cos_coeff[m] = lin_cos_coeff.get(m, zero) + weight
+                else:
+                    kappa = (m - mp_) * alpha
+                    sin_coeff[m] = sin_coeff.get(m, zero) + weight * (-1) ** (m - mp_ + 1) / kappa
+                    sin_coeff[mp_] = sin_coeff.get(mp_, zero) + weight / kappa
+                if m + mp_ == 0:
+                    lin_cos_coeff[0] = lin_cos_coeff.get(0, zero) + weight
+                else:
+                    kappa = (m + mp_) * alpha
+                    sin_coeff[m] = sin_coeff.get(m, zero) + weight * (-1) ** (m + mp_ + 1) / kappa
+                    sin_coeff[mp_] = sin_coeff.get(mp_, zero) - weight / kappa
+        frequencies = sorted(set(sin_coeff) | set(lin_cos_coeff))
+
+        def s_at(j: int):
+            return sin_coeff.get(j, zero)
+
+        def d_at(j: int):
+            return lin_cos_coeff.get(j, zero)
+
+        def autocorrelation(u):
+            value = iv.mpf(0)
+            for j in frequencies:
+                omega = j * alpha
+                value += s_at(j) * iv.sin(omega * u) + d_at(j) * (L - u) * iv.cos(omega * u)
+            return value
+
+        energy = autocorrelation(zero)
+        energy_direct = zero
+        for mode, coefficient in cosine.items():
+            energy_direct += (L if mode == 0 else L / 2) * coefficient * coefficient
+        gap = energy - energy_direct
+        if not (gap.a <= 0 <= gap.b) or not (energy > 0):
+            raise RuntimeError("autocorrelation closed form fails the energy check")
+
+        def laplace_gap(lam):
+            """int_0^L (h(0) - h(u)) e^{-lam u} du in closed form (j alpha L = j pi)."""
+            decay = iv.exp(-lam * L)
+            e0 = (1 - decay) / lam
+            value = iv.mpf(0)
+            for j in frequencies:
+                omega = j * alpha
+                sign = (-1) ** j
+                q = lam * lam + omega * omega
+                c_int = lam * (1 - sign * decay) / q
+                s_int = omega * (1 - sign * decay) / q
+                uc_int = -(
+                    ((1 - sign * decay) + lam * sign * L * decay) / q
+                    - 2 * lam * lam * (1 - sign * decay) / q ** 2
+                )
+                value += d_at(j) * (L * e0 - (L * c_int - uc_int)) - s_at(j) * s_int
+            return value
+
+        archimedean_integral = iv.mpf(0)
+        for k in range(series_terms + 1):
+            archimedean_integral += 2 * laplace_gap(iv.mpf(k) + iv.mpf(1) / 2)
+        k1 = iv.mpf(series_terms + 1)
+        n_prime_zero = zero
+        h2_bound = zero
+        for j in frequencies:
+            omega = j * alpha
+            n_prime_zero += d_at(j) - s_at(j) * omega
+            h2_bound += abs(s_at(j)) * omega ** 2 + abs(d_at(j)) * (2 * omega + L * omega ** 2)
+        # u/sinh(u/2) in [2 - u^2/12, 2]  =>  T1 = int_0^L u e^{-(K+1)u}/sinh(u/2) du
+        t1 = iv.mpf(
+            [
+                (2 / k1 - 2 * iv.exp(-k1 * L) / k1 - 1 / (6 * k1 ** 3)).a,
+                (2 / k1).b,
+            ]
+        )
+        remainder = (h2_bound / k1 ** 2).b
+        archimedean_integral += n_prime_zero * t1 + iv.mpf([-remainder, remainder])
+
+        constant = (
+            2 * (-iv.euler - 2 * iv.log(2))
+            + 2 * iv.log((1 + iv.exp(-L / 2)) / (1 - iv.exp(-L / 2)))
+            + iv.log(iv.mpf(5) / iv.pi ** 2)
+        )
+
+        rows = {
+            "principal": _symbolic_log_derivative_prime_coefficients(
+                _d20_principal_coefficients_exact(64)
+            ),
+            "euler_classsum": _symbolic_log_derivative_prime_coefficients(
+                _d20_euler_coefficients_exact(64)
+            ),
+        }
+        rayleigh = {}
+        for name, logder in rows.items():
+            arithmetic = iv.mpf(0)
+            # exp(7/2) is between 33 and 34, so n=2,...,33 is the exact support set.
+            for n in range(2, 34):
+                if logder[n]:
+                    lam_n = iv.mpf(0)
+                    for prime, coefficient in logder[n].items():
+                        lam_n += iv.mpf(coefficient) * iv.log(prime)
+                    arithmetic += 2 * lam_n / iv.sqrt(n) * autocorrelation(iv.log(n))
+            rayleigh[name] = (constant * energy + archimedean_integral - arithmetic) / energy
+
+        def bounds(value) -> tuple[float, float]:
+            return (float(value.a), float(value.b))
+
+        principal = rayleigh["principal"]
+        euler = rayleigh["euler_classsum"]
+        return {
+            "schema_version": "1.0.0",
+            "certificate_scope": "ABSOLUTE_FIXED_WITNESS_EXPLICIT_FORMULA_VALUE",
+            "backend": "mpmath.iv",
+            "decimal_digits": decimal_digits,
+            "series_terms": series_terms,
+            "support_length_exact": "7/2",
+            "modes": D20_FIXED_WITNESS_MODES,
+            "integer_coefficients": D20_FIXED_WITNESS_COEFFICIENTS,
+            "principal_rayleigh_interval": bounds(principal),
+            "euler_classsum_rayleigh_interval": bounds(euler),
+            "difference_interval": bounds(principal - euler),
+            "principal_certified_strictly_negative": bool(principal < 0),
+            "euler_classsum_certified_strictly_positive": bool(euler > 0),
+            "t_grid_used": False,
+            "t_tail_needed": False,
+            "series_remainder_bounded": True,
+            "absolute_principal_weil_value_certified": True,
+            "formula_to_target_weil_identity_machine_formalized": False,
+            "proof_authority": False,
+            "rh_proven": False,
+        }
+    finally:
+        iv.dps = previous_dps
