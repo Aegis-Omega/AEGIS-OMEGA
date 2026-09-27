@@ -13,6 +13,7 @@ from harness.sdk.epstein_lattice_weil_probe import (
     evaluate_d20_fixed_integer_witness,
     d20_fixed_witness_arithmetic_decomposition,
     quadratic_euler_first_impulse,
+    certify_d20_fixed_witness_arithmetic_displacement,
 )
 
 
@@ -125,3 +126,38 @@ def test_quadratic_euler_first_impulse_windows() -> None:
     assert d163["local_type"] == "inert"
 
     assert square["log_window"] < hexagonal["log_window"] < d19["log_window"]
+
+
+def test_tail_free_same_discriminant_arithmetic_interval_certificate() -> None:
+    receipt = certify_d20_fixed_witness_arithmetic_displacement()
+
+    assert receipt["certificate_scope"] == (
+        "FINITE_PAIRWISE_ARITHMETIC_DISPLACEMENT_ONLY"
+    )
+    assert receipt["backend"] == "mpmath.iv"
+    assert receipt["support_length_exact"] == "7/2"
+    assert receipt["modes"] == (4, 6, 8, 10, 12, 16, 18)
+    assert receipt["integer_coefficients"] == (22, 10, 6, 3, 2, -2, -1)
+
+    total_lower, total_upper = receipt["total_interval"]
+    leakage_lower, leakage_upper = receipt["non_prime_power_interval"]
+    prime_power_lower, prime_power_upper = receipt["prime_power_interval"]
+    n6_lower, n6_upper = receipt["n6_interval"]
+
+    assert total_lower < total_upper < -5.43
+    assert leakage_lower < leakage_upper < -2.61
+    assert prime_power_lower < prime_power_upper < -2.82
+    assert n6_lower < n6_upper < -1.06
+    assert receipt["certified_strictly_negative"] is True
+
+    rows = {row["n"]: row for row in receipt["symbolic_logder_rows"]}
+    assert rows[6]["prime_power"] is False
+    assert rows[6]["prime_log_coefficients"] == {2: 2, 3: 2}
+
+    assert receipt["archimedean_difference_exactly_zero"] is True
+    assert receipt["tail_bound_needed"] is False
+    assert receipt["t_grid_used"] is False
+    assert receipt["absolute_principal_weil_value_certified"] is False
+    assert receipt["formula_to_target_weil_identity_machine_formalized"] is False
+    assert receipt["proof_authority"] is False
+    assert receipt["rh_proven"] is False
