@@ -522,3 +522,13 @@ Arb (256-bit, 12151 cells + zero cell [0,0.004] + tail ξ ≥ 3000) certifies `F
 `RHKreinZetaBridgeV1.certificate_zero_quadratic_nonneg` (PR #693) this gives, modulo the Arb step (not in Lean),
 `Re Σ_ρ Z_ρ(A_g) ≥ 0` for every moment-zero packet of log-support width < 49/51 (Lean-formalized frontier: 0.693).
 Primal margins: m*(0.9)≈0.067, m*(1.0)≈0.012, m*(1.2)≈7e-5, m*(≥1.5) below double precision. Not RH.
+
+**Krein certificates at L = 0.98 and L = 1.0 (`research/rh/KREIN_ARB_CERTIFICATE_L0.98.json`, `..._L1.0.json`).**
+Same verifier (`verify_krein_arb_v1.py`, Arb 256-bit, unchanged), 399 hats to L+8, δ^{(j)} j ≤ 4:
+L = 0.98 (double, just below 0.98): m = 0.005, 12150 cells, zero-cell bound 1.30e-4, tail F/W ≥ 3.70;
+L = 1.0 (exact): m = 0.0015, 12180 cells, zero-cell bound 1.25e-4, tail F/W ≥ 3.79.
+The earlier "L = 1.0 LP negative" came from the coefficient bound (1e5); with hat bound 1e6 / δ bound 1e7 the LP
+margin is positive, and m_certified is taken below the minimum of F/W on a 0.0002 grid before the Arb check.
+With `certificate_zero_quadratic_nonneg` (PR #693): modulo the Arb step (not in Lean), Re Σ_ρ Z_ρ(A_g) ≥ 0 for every
+moment-zero packet of log-support width < 1. Primal margin m*(L) decays fast (≈0.012 at 1.0, ≈7e-5 at 1.2), so this
+method does not extend to all widths. Not RH.
