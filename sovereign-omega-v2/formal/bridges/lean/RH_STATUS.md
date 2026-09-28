@@ -359,7 +359,16 @@ second-difference cosine sum, and `ξ²F` is enclosed by degree-20 Arb Taylor mo
 `[0.02, 3000]`, with polygamma and exponential remainders. The cell `[0, 0.02]` is closed by `ξ²`-division (lower bound
 `1.03·10⁻⁴`) and `ξ ≥ 3000` by the monotone `Re ψ` tail (`F/W ≥ 4.16`). Receipt: `KREIN_ARB_CERTIFICATE_L0.8.json`. The
 certificate needs large cancelling weights (`Σ|c| ≈ 1.8·10⁷`); with hat weights bounded by `10³` the LP margin at `0.8` is
-negative (`−0.008`). Still open here: the dual step itself (Krein pairing for the `δ^{(j)}` columns) and a Lean proof.
+negative (`−0.008`); with the `δ^{(j)}` columns removed (hats only, `w = 0.02` or `0.01`) it is `−0.012`, so the boundary
+columns are essential. The same check certifies `L = 0.9` with `m = 0.02` (12 039 cells, zero-cell bound `7.9·10⁻⁵`,
+tail `F/W ≥ 4.04`; `KREIN_ARB_CERTIFICATE_L0.9.json`).
+
+`RHKreinDeltaPairingV1.cross_pairing_zero` (Mathlib only, standard axioms): if `G₁, G₂` vanish outside `(a, b)`,
+their cross-correlation is continuous with integrable Fourier transform, and `L ≥ b − a`, then
+`∫ 𝓕G₁·conj(𝓕G₂)·e^{2πiξL} dξ = 0`. With `G₁ = G^{(j₁)}`, `G₂ = G^{(j₂)}` and Mathlib's `fourier_iteratedDeriv`
+this is the pairing of the `δ^{(j)}` columns (`j = j₁ + j₂ ≤ 4`): `g₁` from `moment_zero_parametrization` is smooth
+with support in `[a, b]`, so all its derivatives vanish at the ends. Still open: discharging those hypotheses for
+`g₁^{(j)}` in Lean, the `2π` rescaling to the script's `ξ`, and a Lean proof of the certificate inequality itself.
 
 **Genuine-function columns (T2).** B-splines of order `k` at the window edge replace the `δ^{(j)}` columns, so
 `krein_pairing` applies as stated.
