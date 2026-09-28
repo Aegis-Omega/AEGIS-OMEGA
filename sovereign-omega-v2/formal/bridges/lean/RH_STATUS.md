@@ -367,8 +367,11 @@ tail `F/W ≥ 4.04`; `KREIN_ARB_CERTIFICATE_L0.9.json`).
 their cross-correlation is continuous with integrable Fourier transform, and `L ≥ b − a`, then
 `∫ 𝓕G₁·conj(𝓕G₂)·e^{2πiξL} dξ = 0`. With `G₁ = G^{(j₁)}`, `G₂ = G^{(j₂)}` and Mathlib's `fourier_iteratedDeriv`
 this is the pairing of the `δ^{(j)}` columns (`j = j₁ + j₂ ≤ 4`): `g₁` from `moment_zero_parametrization` is smooth
-with support in `[a, b]`, so all its derivatives vanish at the ends. Still open: discharging those hypotheses for
-`g₁^{(j)}` in Lean, the `2π` rescaling to the script's `ξ`, and a Lean proof of the certificate inequality itself.
+with support in `[a, b]`, so all its derivatives vanish at the ends. `delta_pairing_zero` discharges all of those
+hypotheses for smooth `G` with `tsupport G ⊆ (a, b)`: `∫ ((2πiξ)^{j₁}𝓕G)·conj((2πiξ)^{j₂}𝓕G)·e^{2πiξL} dξ = 0` for
+`L ≥ b − a` (Schwartz decay of `𝓕G^{(j)}`, `fourier_iteratedDeriv`, Fourier inversion). Still open: the `2π`
+rescaling to the script's `ξ`, the assembly with `zero_quadratic_krein_form_v1` (PR #693), and a Lean proof of the
+certificate inequality itself (the Arb check is not a Lean proof).
 
 **Genuine-function columns (T2).** B-splines of order `k` at the window edge replace the `δ^{(j)}` columns, so
 `krein_pairing` applies as stated.

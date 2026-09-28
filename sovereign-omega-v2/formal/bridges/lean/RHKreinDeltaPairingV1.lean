@@ -17,7 +17,9 @@ Not RH.  AUTHORITY_EFFECT = NONE.
 -/
 
 open MeasureTheory FourierTransform Convolution
+open scoped ContDiff
 set_option autoImplicit false
+set_option linter.unusedSectionVars false
 noncomputable section
 
 namespace AEGIS.RHKreinDeltaPairingV1
@@ -94,6 +96,89 @@ theorem cross_pairing_zero (G₁ G₂ : ℝ → ℂ) (a b L : ℝ) (h₁ : Integ
   rw [fourier_cross G₁ G₂ h₁ h₂ ξ, smul_eq_mul]
   ring_nf
 
+/-- `‖𝓕 f ξ‖ ≤ ∫ ‖f‖`. -/
+theorem norm_fourier_le (f : ℝ → ℂ) (ξ : ℝ) : ‖𝓕 f ξ‖ ≤ ∫ x, ‖f x‖ := by
+  rw [Real.fourier_eq]
+  apply (norm_integral_le_integral_norm _).trans
+  simp_rw [Circle.norm_smul]
+  exact le_rfl
+
+section smooth
+variable (G : ℝ → ℂ) (hG : ContDiff ℝ ∞ G) (a b : ℝ) (hts : tsupport G ⊆ Set.Ioo a b)
+include hG hts
+
+theorem hasCompactSupport_of_ts : HasCompactSupport G :=
+  (isCompact_Icc (a := a) (b := b)).of_isClosed_subset (isClosed_tsupport G)
+    (hts.trans Set.Ioo_subset_Icc_self)
+
+theorem iteratedDeriv_support_sub (j : ℕ) :
+    Function.support (iteratedDeriv j G) ⊆ tsupport G := by
+  intro y hy
+  apply support_iteratedFDeriv_subset (𝕜 := ℝ) j
+  intro h
+  apply hy
+  rw [iteratedDeriv_eq_iteratedFDeriv, h]
+  rfl
+
+theorem iteratedDeriv_vanish (j : ℕ) :
+    ∀ y, iteratedDeriv j G y ≠ 0 → y ∈ Set.Ioo a b :=
+  fun _y hy => hts (iteratedDeriv_support_sub G hG a b hts j hy)
+
+theorem iteratedDeriv_contDiff (j : ℕ) : ContDiff ℝ ∞ (iteratedDeriv j G) := by
+  rw [iteratedDeriv_eq_iterate]
+  exact hG.iterate_deriv j
+
+theorem iteratedDeriv_hasCompactSupport (j : ℕ) : HasCompactSupport (iteratedDeriv j G) :=
+  (hasCompactSupport_of_ts G hG a b hts).mono' (iteratedDeriv_support_sub G hG a b hts j)
+
+theorem iteratedDeriv_integrable (j : ℕ) : Integrable (iteratedDeriv j G) :=
+  (iteratedDeriv_contDiff G hG a b hts j).continuous.integrable_of_hasCompactSupport
+    (iteratedDeriv_hasCompactSupport G hG a b hts j)
+
+/-- **Boundary columns `δ^{(j)}` pair to zero.** For smooth `G` with `tsupport G ⊆ (a, b)` and `L ≥ b − a`,
+`∫ ((2πiξ)^{j₁} 𝓕G(ξ)) · conj((2πiξ)^{j₂} 𝓕G(ξ)) · e^{2πiξL} dξ = 0`. -/
+theorem delta_pairing_zero (j₁ j₂ : ℕ) (L : ℝ) (hL : b - a ≤ L) :
+    ∫ ξ : ℝ, ((2 * Real.pi * Complex.I * ξ) ^ j₁ * 𝓕 G ξ) *
+        (starRingEnd ℂ) ((2 * Real.pi * Complex.I * ξ) ^ j₂ * 𝓕 G ξ) *
+        Complex.exp (↑(2 * Real.pi * ξ * L) * Complex.I) = 0 := by
+  have hi1 := iteratedDeriv_integrable G hG a b hts j₁
+  have hi2 := iteratedDeriv_integrable G hG a b hts j₂
+  have hc : Continuous (cross (iteratedDeriv j₁ G) (iteratedDeriv j₂ G)) := by
+    unfold cross
+    exact (iteratedDeriv_hasCompactSupport G hG a b hts j₁).continuous_convolution_left _
+      (iteratedDeriv_contDiff G hG a b hts j₁).continuous
+      (tilde_integrable _ hi2).locallyIntegrable
+  let S1 := (iteratedDeriv_hasCompactSupport G hG a b hts j₁).toSchwartzMap
+    (iteratedDeriv_contDiff G hG a b hts j₁)
+  let S2 := (iteratedDeriv_hasCompactSupport G hG a b hts j₂).toSchwartzMap
+    (iteratedDeriv_contDiff G hG a b hts j₂)
+  have hF1 : Integrable (𝓕 (iteratedDeriv j₁ G)) := by
+    have h0 := (𝓕 S1).integrable (μ := volume)
+    exact h0
+  have hF2c : Continuous (𝓕 (iteratedDeriv j₂ G)) := by
+    have h0 := (𝓕 S2).continuous
+    exact h0
+  have hF : Integrable (𝓕 (cross (iteratedDeriv j₁ G) (iteratedDeriv j₂ G))) := by
+    have heq : 𝓕 (cross (iteratedDeriv j₁ G) (iteratedDeriv j₂ G)) =
+        fun ξ => (starRingEnd ℂ) (𝓕 (iteratedDeriv j₂ G) ξ) * 𝓕 (iteratedDeriv j₁ G) ξ := by
+      funext ξ; rw [fourier_cross _ _ hi1 hi2, mul_comm]
+    rw [heq]
+    refine hF1.bdd_mul (c := ∫ x, ‖iteratedDeriv j₂ G x‖) ?_ ?_
+    · exact (Complex.continuous_conj.comp hF2c).aestronglyMeasurable
+    · exact Filter.Eventually.of_forall fun ξ => by
+        rw [Complex.norm_conj]; exact norm_fourier_le _ ξ
+  have h := cross_pairing_zero (iteratedDeriv j₁ G) (iteratedDeriv j₂ G) a b L hi1 hi2
+    (iteratedDeriv_vanish G hG a b hts j₁) (iteratedDeriv_vanish G hG a b hts j₂) hc hF hL
+  have hall : ∀ n : ℕ, (n : ℕ∞) ≤ (⊤ : ℕ∞) → Integrable (iteratedDeriv n G) :=
+    fun n _ => iteratedDeriv_integrable G hG a b hts n
+  rw [Real.fourier_iteratedDeriv (N := ⊤) hG hall le_top,
+    Real.fourier_iteratedDeriv (N := ⊤) hG hall le_top] at h
+  simpa [smul_eq_mul] using h
+
+end smooth
+
 end AEGIS.RHKreinDeltaPairingV1
 
 #print axioms AEGIS.RHKreinDeltaPairingV1.cross_pairing_zero
+#print axioms AEGIS.RHKreinDeltaPairingV1.iteratedDeriv_integrable
+#print axioms AEGIS.RHKreinDeltaPairingV1.delta_pairing_zero
