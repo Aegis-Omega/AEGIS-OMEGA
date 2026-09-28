@@ -514,3 +514,11 @@ without bound as the packet narrows. RH itself is open; the repository contains 
 with `tsupport G ⊆ (a,b)`, `b−a ≤ L`. The pointwise inequality is the one the Arb certificates check for L=0.8/0.9;
 it is a hypothesis here, not formalized. Still open: identifying `∫W S|𝓕G|²` with the zeta zero quadratic
 (`zero_quadratic_krein_form_v1`, PR #693, after the 2π rescaling and `moment_zero_parametrization`). Not RH.
+
+**Krein certificate at L = 49/51 (`research/rh/KREIN_ARB_CERTIFICATE_L49_51.json`).**
+Arb (256-bit, 12151 cells + zero cell [0,0.004] + tail ξ ≥ 3000) certifies `F(ξ) = W(S−m) + Ĥ ≥ 0` for all real ξ with
+`m = 0.006`, `L = 0.9607843137254902 ≥ 49/51` (399 hats to L+8, δ^{(j)} j ≤ 4), LP from `krein_lp_cutting_plane_v1.py`
+(re-solved until no violation on a 0.001 grid). Primal minimum of the form at this L ≈ 0.026. With
+`RHKreinZetaBridgeV1.certificate_zero_quadratic_nonneg` (PR #693) this gives, modulo the Arb step (not in Lean),
+`Re Σ_ρ Z_ρ(A_g) ≥ 0` for every moment-zero packet of log-support width < 49/51 (Lean-formalized frontier: 0.693).
+Primal margins: m*(0.9)≈0.067, m*(1.0)≈0.012, m*(1.2)≈7e-5, m*(≥1.5) below double precision. Not RH.
