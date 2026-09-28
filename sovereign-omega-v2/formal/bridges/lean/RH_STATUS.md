@@ -471,3 +471,15 @@ hat-kernel certificate that goes past the pointwise-cap ceiling `≈ 0.24`; host
 up to the `≤ 69/200` class), on a 9-parameter `33/16` family per narrow seed, and on `(N+1)`-parameter
 dyadic families for every `N` (`dyadic_tower`), via one generic Toeplitz/Gram engine whose reach grows
 without bound as the packet narrows. RH itself is open; the repository contains no proof of it.
+
+**Krein certificate ⇒ zeta zero quadratic (`RHKreinZetaBridgeV1.lean`, standard axioms).**
+* `zero_quadratic_eq_scert` (unconditional): for every moment-zero packet of log-support width `2r < log 3`,
+  `Re Σ_ρ Z_ρ(A_g) = (1/2π) ∫ S(t)·|Mg(1/2+it)|² dt` with
+  `S(t) = Re ψ(1/4+it/2) − log π − √2·log 2·cos(t log 2)` — every prime-power term with `m ≥ 3` pairs to zero.
+* `certificate_zero_quadratic_lower` / `_nonneg`: if the pointwise Krein certificate
+  `0 ≤ W(t)(S(t)−m) + Re Σ Ĥᵢ + Σ 2Re(dₗ(it)^{jₗ}e^{itL})` holds (`W = (t²+1/4)²`, hats vanishing on `|u| < L`,
+  `L ≤ log 3`), then `Re Σ_ρ Z_ρ(A_g) ≥ (m/2π)∫|Mg|² ≥ 0` for every moment-zero packet of width `2r < L`.
+  Route: `mellin_eq_fourier`, `moment_zero_parametrization` (`Gm = χ''−χ/4`, `|𝓕Gm|² = W|𝓕χ|²`),
+  `RHKreinCertificateV1.certificate_lower_bound`, `zero_quadratic_krein_form_v1`.
+The certificate inequality is checked only by the Arb scripts (L = 0.8, 0.9 on PR #679), not in Lean.
+Class width < 0.9 in log-support; RH needs all widths. Not RH.
