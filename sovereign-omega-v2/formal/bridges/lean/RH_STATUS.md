@@ -507,3 +507,10 @@ hat-kernel certificate that goes past the pointwise-cap ceiling `≈ 0.24`; host
 up to the `≤ 69/200` class), on a 9-parameter `33/16` family per narrow seed, and on `(N+1)`-parameter
 dyadic families for every `N` (`dyadic_tower`), via one generic Toeplitz/Gram engine whose reach grows
 without bound as the packet narrows. RH itself is open; the repository contains no proof of it.
+
+**Krein certificate ⇒ lower bound (`RHKreinCertificateV1.lean`, Mathlib + standard axioms).**
+`certificate_lower_bound`: if `0 ≤ W(ξ)(S(ξ)−m) + Re Σᵢ 𝓕Hᵢ(ξ) + Σₗ 2·Re(dₗ(2πiξ)^{jₗ}e^{2πiξL})` holds pointwise
+(hats `Hᵢ` vanishing on `|u| < L`, boundary columns `δ^{(j)}`), then `m·∫W|𝓕G|² ≤ ∫W S|𝓕G|²` for every smooth `G`
+with `tsupport G ⊆ (a,b)`, `b−a ≤ L`. The pointwise inequality is the one the Arb certificates check for L=0.8/0.9;
+it is a hypothesis here, not formalized. Still open: identifying `∫W S|𝓕G|²` with the zeta zero quadratic
+(`zero_quadratic_krein_form_v1`, PR #693, after the 2π rescaling and `moment_zero_parametrization`). Not RH.
