@@ -1,0 +1,215 @@
+name: AEGIS RH Restricted-Weil V13 Scope Clean
+
+on:
+  pull_request:
+    paths:
+      - 'sovereign-omega-v2/formal/bridges/lean/**'
+      - 'sovereign-omega-v2/formal/receipts/rh-pr679-scope-clean-v1.json'
+      - '.github/workflows/rh-restricted-weil-v13-clean.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  SOURCE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+  LEAN_TOOLCHAIN: leanprover/lean4:v4.33.1
+  MATHLIB_SHA: 0df444a360eaa60ab8c11dca51a86af692955474
+  LI_CRITERION_SHA: 35df682f3b709ffe5fbcfdd452dfa964bd622b87
+  LI_CRITERION_ORIGINAL_MATHLIB_SHA: de5ce8a9a66a4aa68a9bdbb35b63a06d34d9ca11
+  FACTORIZATION_SOURCE_BLOB: 10d38a54580ff72d698a30be64fe1c3c44f862a2
+
+jobs:
+  exact-head:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    steps:
+      - name: Checkout exact external proof source
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          repository: nicholasbulka/li-criterion-rh-equivalence-lean
+          ref: ${{ env.LI_CRITERION_SHA }}
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Checkout exact AEGIS candidate
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          repository: Aegis-Omega/AEGIS-OMEGA
+          ref: ${{ env.SOURCE_SHA }}
+          path: .aegis
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Verify extraction manifest and source blobs
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git -C .aegis rev-parse HEAD)" = "$SOURCE_SHA"
+          python3 - <<'PY'
+          import json, subprocess
+          from pathlib import Path
+          p=Path(".aegis/sovereign-omega-v2/formal/receipts/rh-pr679-scope-clean-v1.json")
+          m=json.loads(p.read_text())
+          assert m["authority_effect"]=="NONE"
+          assert m["rh_proven"] is False
+          assert m["root_module"]=="WeilRHImpliesFinalSignV13"
+          assert m["local_closure_count"]==91
+          for x in m["local_sources"]:
+              got=subprocess.check_output(["git","-C",".aegis","hash-object",x["path"]],text=True).strip()
+              assert got==x["blob_sha"], (x["path"],got,x["blob_sha"])
+          PY
+
+      - name: Rebind external source to pinned Lean and Mathlib
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$LI_CRITERION_SHA"
+          printf '%s\n' "$LEAN_TOOLCHAIN" > lean-toolchain
+          python3 - <<'PY'
+          import os
+          from pathlib import Path
+          p=Path("lakefile.lean")
+          s=p.read_text()
+          old=os.environ["LI_CRITERION_ORIGINAL_MATHLIB_SHA"]
+          new=os.environ["MATHLIB_SHA"]
+          assert old in s
+          p.write_text(s.replace(old,new))
+          PY
+          rm -f lake-manifest.json
+
+      - name: Install pinned elan and Mathlib cache
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl -sSfL https://github.com/leanprover/elan/releases/download/v1.4.2/elan-x86_64-unknown-linux-gnu.tar.gz | tar xz
+          ./elan-init -y --default-toolchain none
+          echo "$HOME/.elan/bin" >> "$GITHUB_PATH"
+          export PATH="$HOME/.elan/bin:$PATH"
+          lake update mathlib
+          python3 - <<'PY'
+          import json, os
+          from pathlib import Path
+          m=json.loads(Path("lake-manifest.json").read_text())
+          p=next(x for x in m["packages"] if x["name"]=="mathlib")
+          assert (p.get("rev") or p.get("inputRev"))==os.environ["MATHLIB_SHA"]
+          PY
+          lake exe cache get
+          lean --version
+
+      - name: Apply audited old-pin compatibility overlay
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git hash-object Hadamard/General/Factorization.lean)" = "$FACTORIZATION_SOURCE_BLOB"
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path("Hadamard/General/Factorization.lean")
+          s=p.read_text()
+          repl=[
+            ("eventually_nhdsWithin_of_forall fun w hw => ite_eq_right hw",
+             "eventually_nhdsWithin_of_forall fun w hw => if_neg hw"),
+            ("have hgz : g z = Q z := ite_eq_left rfl",
+             "have hgz : g z = Q z := by simp [g]"),
+            ("rw [ite_eq_right heq, hQ_eq_div z (hz heq)]",
+             "rw [if_neg heq, hQ_eq_div z (hz heq)]"),
+          ]
+          for a,b in repl:
+              assert s.count(a)==1, a
+              s=s.replace(a,b)
+          p.write_text(s)
+          PY
+          git diff --check -- Hadamard/General/Factorization.lean
+
+      - name: Build pinned external providers
+        shell: bash
+        run: |
+          set -euo pipefail
+          lake build             Hadamard.OrderOne.LogDeriv             Hadamard.OrderOne.LogDerivMultiplicity             Hadamard.OrderOne.TailEstimates             Lc.LiCriterion.Basic             Lc.LiCriterion.HadamardBridge             Lc.LiCriterion.HadamardSummabilityBridge             Lc.LiCriterion.XiGrowth
+
+      - name: Copy and compile exact AEGIS closure
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p .lake/build/lib/lean evidence
+          python3 - <<'PY'
+          import json, re, shutil, subprocess
+          from pathlib import Path
+          m=json.loads(Path(".aegis/sovereign-omega-v2/formal/receipts/rh-pr679-scope-clean-v1.json").read_text())
+          modules={x["module"]:x for x in m["local_sources"]}
+          for name,x in modules.items():
+              shutil.copy2(Path(".aegis")/x["path"], Path(name+".lean"))
+          deps={}
+          r=re.compile(r"^import\s+([A-Za-z0-9_.]+)",re.M)
+          for name in modules:
+              ims=r.findall(Path(name+".lean").read_text())
+              deps[name]={i for i in ims if i in modules}
+          done=[]
+          pending=set(modules)
+          while pending:
+              ready=sorted(n for n in pending if deps[n] <= set(done))
+              assert ready, "cycle or unresolved local dependency: "+repr(sorted(pending))
+              for n in ready:
+                  log=Path("evidence")/(n+".log")
+                  cmd=["lake","env","lean","-o",f".lake/build/lib/lean/{n}.olean",f"{n}.lean"]
+                  p=subprocess.run(cmd,text=True,stdout=subprocess.PIPE,stderr=subprocess.STDOUT)
+                  log.write_text(p.stdout)
+                  print(p.stdout,end="")
+                  if p.returncode: raise SystemExit(p.returncode)
+                  if "sorryAx" in p.stdout: raise SystemExit("sorryAx in "+n)
+                  done.append(n); pending.remove(n)
+          assert len(done)==m["local_closure_count"]==91
+          Path("evidence/compile-order.txt").write_text("\n".join(done)+"\n")
+          PY
+
+      - name: Audit headline theorem axioms
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat > RHScopeCleanAudit.lean <<'EOF'
+          import WeilRHImpliesFinalSignV13
+          #print axioms AEGIS.RHRestrictedWeilBridgeV13.final_sign_implies_rh_v13
+          #print axioms AEGIS.WeilRHImpliesFinalSignV13.rh_implies_final_sign_residual_v13
+          #print axioms AEGIS.WeilRHImpliesFinalSignV13.rh_iff_universal_v13
+          #print axioms AEGIS.WeilRHImpliesFinalSignV13.millennium_moment_iff_rh_v13
+          #print axioms AEGIS.RHRestrictedWeilBridgeV13.restricted_weil_criterion_kernel_bridge_v13
+          EOF
+          lake env lean RHScopeCleanAudit.lean 2>&1 | tee evidence/headline-axioms.log
+          ! grep -F 'sorryAx' evidence/headline-axioms.log
+          for ax in propext Classical.choice Quot.sound; do
+            grep -F "$ax" evidence/headline-axioms.log
+          done
+
+      - name: Emit exact-head receipt
+        if: success()
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import hashlib, json, os
+          from pathlib import Path
+          src=Path(".aegis/sovereign-omega-v2/formal/receipts/rh-pr679-scope-clean-v1.json")
+          audit=Path("evidence/headline-axioms.log")
+          out={
+            "schema":"aegis.rh.scope-clean-replay.v1",
+            "authority_effect":"NONE",
+            "rh_proven":False,
+            "source_sha":os.environ["SOURCE_SHA"],
+            "lean_toolchain":os.environ["LEAN_TOOLCHAIN"],
+            "mathlib_sha":os.environ["MATHLIB_SHA"],
+            "li_criterion_sha":os.environ["LI_CRITERION_SHA"],
+            "local_closure_count":91,
+            "manifest_sha256":hashlib.sha256(src.read_bytes()).hexdigest(),
+            "axiom_log_sha256":hashlib.sha256(audit.read_bytes()).hexdigest(),
+          }
+          Path("evidence/replay-receipt.json").write_text(json.dumps(out,indent=2)+"\n")
+          PY
+
+      - name: Upload replay evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: rh-restricted-weil-v13-scope-clean-${{ env.SOURCE_SHA }}
+          path: evidence/
+          if-no-files-found: error
+          retention-days: 30
