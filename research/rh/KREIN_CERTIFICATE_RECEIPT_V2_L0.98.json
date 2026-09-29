@@ -1,6 +1,7 @@
 {
   "authority_effect": "NONE",
-  "binding_sha256": "a9754bd5979e5caf7153b723ce3545ae273b218d539adda8f0bf7d11aec003a6",
+  "binding_sha256": "ed43069e4f34ec3bee9e7ec2c60afbad6e10b06712046aa50fce8e1643224f69",
+  "canonicalization": "aegis-json-integral-float-v1",
   "certificate": {
     "git_blob_sha": "f08a3c7ec06918290dbc3c6c8d78ae84388b1e2d",
     "path": "research/rh/KREIN_ARB_CERTIFICATE_L0.98.json",

@@ -13,9 +13,12 @@ import argparse
 import copy
 import hashlib
 import json
+import math
+import subprocess
 from pathlib import Path
 
 SCHEMA = "aegis.rh.krein-certificate-receipt.v2"
+CANONICALIZATION = "aegis-json-integral-float-v1"
 HEAD = "163304475c6141d05c64ab773a5eb4fbf66addcc"
 REPOSITORY = "Aegis-Omega/AEGIS-OMEGA"
 VERIFIER_PATH = "research/rh/verify_krein_arb_v1.py"
@@ -66,8 +69,84 @@ class ReceiptError(ValueError):
 
 
 def canonical_sha256(obj: dict) -> str:
-    data = json.dumps(obj, sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode()
+    """Hash sorted compact UTF-8 JSON, normalizing finite integral floats.
+
+    v1 treats 1 and 1.0 alike, preserves booleans/strings, and rejects nonfinite
+    numbers. Other floats use Python's JSON binary64 serialization. This is a
+    receipt-specific scheme, NOT a claim of full RFC 8785/JCS conformance.
+    """
+    def normalize(value):
+        if isinstance(value, float):
+            if not math.isfinite(value):
+                raise ReceiptError("nonfinite JSON number")
+            return int(value) if value.is_integer() else value
+        if isinstance(value, dict):
+            if not all(isinstance(key, str) for key in value):
+                raise ReceiptError("JSON object keys must be strings")
+            return {key: normalize(item) for key, item in value.items()}
+        if isinstance(value, list):
+            return [normalize(item) for item in value]
+        if value is None or isinstance(value, (str, int, bool)):
+            return value
+        raise ReceiptError("unsupported JSON value")
+
+    data = json.dumps(normalize(obj), sort_keys=True, separators=(",", ":"),
+                      ensure_ascii=False, allow_nan=False).encode("utf-8")
     return hashlib.sha256(data).hexdigest()
+
+
+def load_receipt(path: Path) -> dict:
+    """Read the supplied artifact, rejecting duplicate keys and invalid numbers."""
+    def unique_object(pairs):
+        out = {}
+        for key, value in pairs:
+            if key in out:
+                raise ReceiptError(f"duplicate JSON key: {key}")
+            out[key] = value
+        return out
+
+    def invalid_constant(value):
+        raise ReceiptError(f"nonfinite JSON number: {value}")
+
+    try:
+        result = json.loads(path.read_text(encoding="utf-8"),
+                            object_pairs_hook=unique_object,
+                            parse_constant=invalid_constant)
+    except (OSError, UnicodeError, json.JSONDecodeError) as exc:
+        raise ReceiptError(f"cannot read receipt {path}: {exc}") from exc
+    if not isinstance(result, dict):
+        raise ReceiptError("receipt must be a JSON object")
+    return result
+
+
+def verify_git_bindings(receipt: dict, repo_root: Path) -> None:
+    """Verify each path/blob in the actual anchored Git tree, without network I/O."""
+    def git(*args):
+        try:
+            return subprocess.run(
+                ["git", "--no-replace-objects", "-C", str(repo_root), *args],
+                check=True, capture_output=True, text=True, timeout=10,
+            ).stdout
+        except (OSError, subprocess.SubprocessError) as exc:
+            raise ReceiptError(f"cannot inspect anchored Git source: {exc}") from exc
+
+    head = receipt["exact_head"]
+    if git("cat-file", "-t", head).strip() != "commit":
+        raise ReceiptError("exact_head is not a Git commit")
+    references = [
+        (receipt["certificate"]["path"], receipt["certificate"]["git_blob_sha"]),
+        (receipt["lp_candidate"]["path"], receipt["lp_candidate"]["git_blob_sha"]),
+        (receipt["lp_candidate"]["generator_path"],
+         receipt["lp_candidate"]["generator_git_blob_sha"]),
+        (receipt["verifier"]["path"], receipt["verifier"]["git_blob_sha"]),
+    ]
+    for path, blob in references:
+        entry = git("ls-tree", "-z", head, "--", path)
+        expected = {f"{mode} blob {blob}\t{path}\0" for mode in ("100644", "100755")}
+        if entry not in expected:
+            raise ReceiptError(f"path/blob is not in exact_head: {path}")
+        if git("cat-file", "-t", blob).strip() != "blob":
+            raise ReceiptError(f"referenced blob is unavailable: {path}")
 
 
 def make_receipt(name: str) -> dict:
@@ -76,6 +155,7 @@ def make_receipt(name: str) -> dict:
     a = ANCHORS[name]
     core = {
         "schema": SCHEMA,
+        "canonicalization": CANONICALIZATION,
         "status": "BOUND_COMMITTED_CERTIFICATE_METADATA",
         "authority_effect": "NONE",
         "rh_proven": False,
@@ -138,8 +218,10 @@ def validate_receipt(receipt: dict, name: str) -> None:
         raise ReceiptError("authority/RH boundary violated")
 
 
-def run_falsifiers(name: str) -> dict:
-    base = make_receipt(name)
+def run_falsifiers(name: str, base: dict | None = None) -> dict:
+    if base is None:
+        base = load_receipt(Path(__file__).with_name(f"KREIN_CERTIFICATE_RECEIPT_V2_{name}.json"))
+    validate_receipt(base, name)
     mutations = {
         "wrong_head": ("exact_head", "0" * 40),
         "wrong_verifier_blob": ("verifier.git_blob_sha", "1" * 40),
@@ -181,18 +263,32 @@ def run_falsifiers(name: str) -> dict:
 
 
 def main() -> None:
-    ap = argparse.ArgumentParser()
+    ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("anchor", choices=sorted(ANCHORS))
-    ap.add_argument("--out")
+    ap.add_argument("--receipt", type=Path, help="artifact to validate; defaults to committed receipt")
+    ap.add_argument("--repo-root", type=Path, default=Path(__file__).resolve().parents[2],
+                    help="Git checkout containing the exact source commit")
+    ap.add_argument("--generate", action="store_true", help="explicitly generate instead of reading")
+    ap.add_argument("--out", type=Path)
     ap.add_argument("--falsify", action="store_true")
     args = ap.parse_args()
-    receipt = make_receipt(args.anchor)
-    validate_receipt(receipt, args.anchor)
-    payload = run_falsifiers(args.anchor) if args.falsify else receipt
-    text = json.dumps(payload, indent=2, sort_keys=True)
-    print(text)
-    if args.out:
-        Path(args.out).write_text(text + "\n", encoding="utf-8")
+    if args.generate and (args.receipt or args.falsify):
+        ap.error("--generate cannot be combined with --receipt or --falsify")
+    source = args.receipt or Path(__file__).with_name(
+        f"KREIN_CERTIFICATE_RECEIPT_V2_{args.anchor}.json")
+    try:
+        if not args.generate and args.out and args.out.resolve() == source.resolve():
+            raise ReceiptError("validation must not overwrite its input artifact")
+        receipt = make_receipt(args.anchor) if args.generate else load_receipt(source)
+        validate_receipt(receipt, args.anchor)
+        verify_git_bindings(receipt, args.repo_root)
+        payload = run_falsifiers(args.anchor, receipt) if args.falsify else receipt
+        text = json.dumps(payload, indent=2, sort_keys=True, allow_nan=False)
+        if args.out:
+            args.out.write_text(text + "\n", encoding="utf-8")
+        print(text)
+    except (ReceiptError, OSError, UnicodeError) as exc:
+        ap.exit(1, f"receipt validation failed: {exc}\n")
 
 
 if __name__ == "__main__":

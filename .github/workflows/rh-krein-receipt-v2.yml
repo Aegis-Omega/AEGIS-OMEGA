@@ -1,0 +1,77 @@
+name: Krein Receipt V2
+
+on:
+  pull_request:
+    paths:
+      - 'research/rh/krein_certificate_receipt_v2.py'
+      - 'research/rh/test_krein_certificate_receipt_v2.py'
+      - 'research/rh/KREIN_CERTIFICATE_RECEIPT_V2_*.json'
+      - '.github/workflows/rh-krein-receipt-v2.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  exact-head:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    env:
+      CANDIDATE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+      ANCHOR_SHA: 163304475c6141d05c64ab773a5eb4fbf66addcc
+    steps:
+      - name: Checkout exact validator candidate
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ env.CANDIDATE_SHA }}
+          path: candidate
+          fetch-depth: 1
+          persist-credentials: false
+          sparse-checkout-cone-mode: false
+          sparse-checkout: |
+            /research/rh/krein_certificate_receipt_v2.py
+            /research/rh/test_krein_certificate_receipt_v2.py
+            /research/rh/KREIN_CERTIFICATE_RECEIPT_V2_*.json
+
+      - name: Checkout exact certificate source anchor
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ env.ANCHOR_SHA }}
+          path: anchor-source
+          fetch-depth: 1
+          persist-credentials: false
+          sparse-checkout-cone-mode: false
+          sparse-checkout: |
+            /research/rh/KREIN_ARB_CERTIFICATE_L0.98.json
+            /research/rh/KREIN_ARB_CERTIFICATE_L1.0.json
+            /research/rh/krein_lp_L0.98.json
+            /research/rh/krein_lp_L1.0.json
+            /research/rh/verify_krein_arb_v1.py
+            /research/rh/krein_lp_cutting_plane_v1.py
+
+      - name: Verify checkouts and record environment
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git -C candidate rev-parse HEAD)" = "$CANDIDATE_SHA"
+          test "$(git -C anchor-source rev-parse HEAD)" = "$ANCHOR_SHA"
+          printf 'candidate=%s\ncertificate_source=%s\n' "$CANDIDATE_SHA" "$ANCHOR_SHA"
+          python3 --version
+          git --version
+          sha256sum candidate/research/rh/krein_certificate_receipt_v2.py \
+            candidate/research/rh/test_krein_certificate_receipt_v2.py \
+            candidate/research/rh/KREIN_CERTIFICATE_RECEIPT_V2_*.json
+
+      - name: Regression tests and loaded-artifact falsifiers
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m unittest discover -s candidate/research/rh \
+            -p 'test_krein_certificate_receipt_v2.py' -v
+          for anchor in L0.98 L1.0; do
+            python3 candidate/research/rh/krein_certificate_receipt_v2.py \
+              "$anchor" --repo-root anchor-source
+            python3 candidate/research/rh/krein_certificate_receipt_v2.py \
+              "$anchor" --repo-root anchor-source --falsify
+          done
+          echo 'METADATA_BINDING_ONLY; authority_effect=NONE; RH_PROVEN=false'
