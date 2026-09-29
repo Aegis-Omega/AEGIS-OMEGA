@@ -36,6 +36,9 @@ jobs:
     steps:
       - name: Checkout exact head
         uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -44,13 +47,15 @@ jobs:
 
       - name: Record exact head
         shell: bash
+        env:
+          EXPECTED_HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
         run: |
           set -euo pipefail
           echo "HEAD_SHA=$(git rev-parse HEAD)"
-          test "$(git rev-parse HEAD)" = "${GITHUB_SHA}"
+          test "$(git rev-parse HEAD)" = "${EXPECTED_HEAD_SHA}"
 
       - name: Run Tameion Arc evidence tests
         shell: bash
         run: |
           set -euo pipefail
-          python -m unittest -v sovereign-omega-v2/python/tests/test_arc_treasury_witness.py sovereign-omega-v2/python/tests/test_arc_treasury_execution.py sovereign-omega-v2/python/tests/test_arc_erc20_call.py sovereign-omega-v2/python/tests/test_tameion_openmeter_bridge.py sovereign-omega-v2/python/tests/test_tameion_admission_preflight.py sovereign-omega-v2/python/tests/test_tameion_presettlement_bundle.py sovereign-omega-v2/python/tests/test_tameion_metered_evidence_chain.py sovereign-omega-v2/python/tests/test_tameion_demo_cli.py sovereign-omega-v2/python/tests/test_tameion_evidence_chain.py sovereign-omega-v2/python/tests/test_tameion_circle_attestation.py sovereign-omega-v2/python/tests/test_treasury_calibration.py sovereign-omega-v2/python/tests/test_notebook_evidence.py
+          python -m unittest -v sovereign-omega-v2/python/tests/test_arc_treasury_witness.py sovereign-omega-v2/python/tests/test_arc_treasury_execution.py sovereign-omega-v2/python/tests/test_arc_erc20_call.py sovereign-omega-v2/python/tests/test_tameion_openmeter_bridge.py sovereign-omega-v2/python/tests/test_tameion_admission_preflight.py sovereign-omega-v2/python/tests/test_tameion_presettlement_bundle.py sovereign-omega-v2/python/tests/test_tameion_metered_evidence_chain.py sovereign-omega-v2/python/tests/test_tameion_demo_cli.py sovereign-omega-v2/python/tests/test_tameion_evidence_chain.py sovereign-omega-v2/python/tests/test_tameion_circle_attestation.py sovereign-omega-v2/python/tests/test_treasury_calibration.py sovereign-omega-v2/python/tests/test_notebook_evidence.py sovereign-omega-v2/python/tests/test_tameion_evidence_passport.py
