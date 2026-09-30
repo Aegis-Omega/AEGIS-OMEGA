@@ -261,7 +261,7 @@ _STYLE = """
 :root{color-scheme:light}*{box-sizing:border-box}body{margin:0;background:#f3f5f4;
 color:#142e2b;font:16px/1.55 system-ui,sans-serif}main{max-width:1100px;margin:auto;padding:40px 24px}
 header{border-top:6px solid #145a50;padding:28px;background:white}h1{font-size:2rem;margin:.2em 0}
-h2{font-size:1.25rem}section,details{background:white;padding:24px;margin-top:20px;border:1px solid #d8e2de}
+h1,li{overflow-wrap:anywhere}h2{font-size:1.25rem}section,details{background:white;padding:24px;margin-top:20px;border:1px solid #d8e2de}
 .status{font-weight:750;border:2px solid #91610b;background:#fff7df;padding:12px;overflow-wrap:anywhere}
 .eyebrow{font-size:.8rem;letter-spacing:.1em;font-weight:700}code,pre{font-family:ui-monospace,monospace;
 font-size:.8rem;overflow-wrap:anywhere;white-space:pre-wrap}dl{display:grid;grid-template-columns:180px 1fr;
@@ -269,7 +269,7 @@ gap:8px}dd{margin:0;min-width:0}.columns{display:grid;grid-template-columns:1fr 
 .table-wrap{overflow-x:auto}table{border-collapse:collapse;width:100%;font-size:.9rem}
 caption{text-align:left;margin-bottom:12px}th,td{text-align:left;vertical-align:top;border-bottom:1px solid #dde5e1;padding:12px 8px}
 th{background:#f0f5f2}td:last-child{min-width:240px}summary{cursor:pointer;font-weight:650}
-@media(max-width:700px){main{padding:16px}h1{font-size:1.6rem}.columns{display:block}dl{grid-template-columns:1fr}dd{margin-bottom:8px}}
+@media(max-width:700px){main{padding:16px}h1{font-size:1.6rem}table{min-width:640px}.columns{display:block}dl{grid-template-columns:1fr}dd{margin-bottom:8px}}
 @media print{body{background:white}main{padding:0;max-width:none}section,header,details{break-inside:avoid}
 .table-wrap{overflow:visible}table{font-size:9pt}code{font-size:8pt}.columns{display:block}}
 """
