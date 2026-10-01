@@ -207,9 +207,36 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Build offline Tameion Arc evidence packets")
     parser.add_argument("--input", help="JSON input file; defaults to stdin")
     parser.add_argument("--output", help="JSON output file; defaults to stdout")
+    parser.add_argument("--passport-dir", help="New directory for offline JSON/HTML evidence passport")
+    parser.add_argument("--passport-context", help="Explicit source, subject and existing admission preflight JSON")
     args = parser.parse_args(argv)
+    if bool(args.passport_dir) != bool(args.passport_context):
+        parser.error("--passport-dir and --passport-context must be supplied together")
 
-    packet = build_demo_packet(_read_payload(args.input))
+    if args.passport_dir:
+        from harness.sdk.tameion_evidence_passport import (
+            PassportError, build_passport, read_json, write_passport,
+        )
+        try:
+            if args.output:
+                output_path = Path(args.output).resolve()
+                inputs = [Path(args.passport_context).resolve()]
+                if args.input:
+                    inputs.append(Path(args.input).resolve())
+                if output_path.is_relative_to(Path(args.passport_dir).resolve()) or output_path in inputs:
+                    raise PassportError("PASSPORT_OUTPUT_PATH_COLLISION")
+            context = read_json(args.passport_context)
+            packet = build_demo_packet(read_json(args.input))
+            passport = build_passport(packet, context)
+            write_passport(passport, args.passport_dir)
+        except PassportError as exc:
+            print("INVALID " + str(exc), file=__import__("sys").stderr)
+            return 2
+        except SovereignExecutionError:
+            print("INVALID PASSPORT_SOURCE_PACKET_REJECTED", file=__import__("sys").stderr)
+            return 2
+    else:
+        packet = build_demo_packet(_read_payload(args.input))
     encoded = canonical_bytes(packet) + b"\n"
 
     if args.output:
