@@ -12,6 +12,8 @@ from unittest import TestCase, main
 REPO_ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(REPO_ROOT))
 
+import harness.sdk.sovereign_execution as se  # noqa: E402
+
 from harness.sdk.sovereign_execution import (  # noqa: E402
     ADMITTED, DENIED, D1, D2, D3, D4, SCHEMA_VERSION, ZERO_HASH,
     ApprovalGrant, AuthorityEvaluator, AuthorityRequest, CapabilityEvidence,
@@ -243,6 +245,98 @@ class Automaton3Tests(TestCase):
                 self.assertDenied(decision,"UNMAPPED_CAPABILITY"); roots.append(decision.decision_root)
             self.assertEqual(len(set(roots)),1)
             self.assertEqual((self.root/"evidence/run.json").read_bytes(),initial)
+
+
+    def _trajectory_record_type(self):
+        record_type = getattr(se, "AgentTrajectoryRecord", None)
+        self.assertIsNotNone(record_type, "AgentTrajectoryRecord is not implemented")
+        return record_type
+
+    def _trajectory_chain_type(self):
+        chain_type = getattr(se, "TrajectoryChain", None)
+        self.assertIsNotNone(chain_type, "TrajectoryChain is not implemented")
+        return chain_type
+
+    def _trajectory(self, **changes):
+        record_type = self._trajectory_record_type()
+        values = dict(
+            schema_version=SCHEMA_VERSION,
+            sequence=0,
+            execution_identity_root=HASH,
+            policy_decision_root="2" * 64,
+            approval_reference=self.approval_ref,
+            tool="web.fetch",
+            requested_action_digest="3" * 64,
+            network_capable=True,
+            network_policy_outcome="ALLOW",
+            network_destination="https://example.com/v1",
+            tool_input={"query": "status"},
+            result={"ok": True},
+            outcome="SUCCEEDED",
+            parent_trajectory=ZERO_HASH,
+        )
+        values.update(changes)
+        return record_type.from_observation(**values)
+
+    def test_trajectory_record_is_deterministic_and_approval_bound(self):
+        first = self._trajectory()
+        second = self._trajectory()
+        self.assertEqual(first.root, second.root)
+        self.assertNotEqual(first.root, self._trajectory(approval_reference="approval-2").root)
+
+    def test_trajectory_chain_rejects_broken_parent(self):
+        chain_type = self._trajectory_chain_type()
+        chain = chain_type()
+        first = self._trajectory()
+        chain.append(first)
+        second = self._trajectory(sequence=1, parent_trajectory=ZERO_HASH)
+        with self.assertRaisesRegex(SovereignExecutionError, "TRAJECTORY_CHAIN_PARENT_BREAK"):
+            chain.append(second)
+
+    def test_network_capable_trajectory_requires_explicit_policy_and_destination(self):
+        with self.assertRaisesRegex(SovereignExecutionError, "NETWORK_POLICY_REQUIRED"):
+            self._trajectory(network_policy_outcome="NOT_APPLICABLE")
+        with self.assertRaisesRegex(SovereignExecutionError, "NETWORK_DESTINATION_REQUIRED"):
+            self._trajectory(network_destination=None)
+
+    def test_network_deny_cannot_claim_success(self):
+        with self.assertRaisesRegex(SovereignExecutionError, "NETWORK_DENY_CANNOT_SUCCEED"):
+            self._trajectory(network_policy_outcome="DENY", outcome="SUCCEEDED")
+
+    def test_non_network_trajectory_requires_not_applicable_policy(self):
+        with self.assertRaisesRegex(SovereignExecutionError, "NON_NETWORK_POLICY_MUST_BE_NOT_APPLICABLE"):
+            self._trajectory(network_capable=False, network_policy_outcome="ALLOW", network_destination=None)
+        local = self._trajectory(
+            network_capable=False,
+            network_policy_outcome="NOT_APPLICABLE",
+            network_destination=None,
+            tool="filesystem.read",
+        )
+        self.assertEqual(local.network_destination_digest, ZERO_HASH)
+
+    def test_trajectory_observation_never_stores_raw_secrets(self):
+        secret = "super-secret-token-123"
+        record = self._trajectory(
+            tool_input={"authorization": secret, "prompt_secret": "private-prompt", "query": "status"},
+            result={"token": secret, "ok": True},
+        )
+        rendered = repr(record)
+        self.assertNotIn(secret, rendered)
+        self.assertNotIn("private-prompt", rendered)
+        changed = self._trajectory(
+            tool_input={"authorization": "different-secret", "prompt_secret": "private-prompt", "query": "status"},
+            result={"token": secret, "ok": True},
+        )
+        self.assertNotEqual(record.tool_input_digest, changed.tool_input_digest)
+
+    def test_trajectory_chain_verifies_exact_hash_linkage(self):
+        chain_type = self._trajectory_chain_type()
+        chain = chain_type()
+        first = self._trajectory()
+        first_root = chain.append(first)
+        second = self._trajectory(sequence=1, parent_trajectory=first_root, outcome="FAILED")
+        second_root = chain.append(second)
+        self.assertEqual(chain.verify(), second_root)
 
 
 if __name__ == "__main__":

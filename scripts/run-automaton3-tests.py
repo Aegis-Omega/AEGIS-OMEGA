@@ -40,7 +40,7 @@ def main() -> int:
     summary = {
         "schema_version": "1.0.0",
         "suite": "AEGIS_AUTOMATON3_AUTHORITY_ABUSE_V1",
-        "expected_test_count": 41,
+        "expected_test_count": 48,
         "adaptive_attempts": [1, 10, 100],
         "successful_denial_assertions": 34,
         "bypasses": 0 if return_code == 0 else None,
