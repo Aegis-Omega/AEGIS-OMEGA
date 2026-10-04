@@ -47,4 +47,20 @@ assert.equal(before(
   "finalizeExecution(authorityInput, result, extractPostStateDigest(result, 'claude'), observedExecutionOutcome(result))",
 ), true, 'Claude receipt must be finalized only after the side effect returns')
 
+
+assert.equal(source.includes('async function consequentialPost'), true,
+  'consequential POSTs must cross an explicit effect-uncertainty boundary')
+assert.equal(source.includes("external_effect: 'UNKNOWN'"), true,
+  'lost/failed response after admission must not be reported as NOT_EXECUTED')
+assert.equal(source.includes("retry_disposition: 'DO_NOT_RETRY_AUTOMATICALLY'"), true,
+  'unknown external effect must prohibit blind automatic retry')
+assert.equal(source.includes("reason: 'EFFECT_UNKNOWN'"), true,
+  'transport/HTTP ambiguity must remain explicitly unattested')
+assert.equal(source.includes("await consequentialPost('/platform/collaborate'"), true,
+  'collaboration must use the effect-uncertainty boundary')
+assert.equal(source.includes("await consequentialPost('/platform/executions'"), true,
+  'async start must use the effect-uncertainty boundary')
+assert.equal(source.includes("await consequentialPost('/claude'"), true,
+  'governed Claude call must use the effect-uncertainty boundary')
+
 console.log('EXECUTION_RECEIPT_BOUNDARY_PASS admission != execution; terminal receipts are post-result only')
