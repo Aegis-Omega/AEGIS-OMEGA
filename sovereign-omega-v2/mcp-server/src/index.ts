@@ -37,6 +37,38 @@ async function bridgePost(path: string, body: unknown, apiKey = false): Promise<
   return res.json()
 }
 
+
+type ConsequentialPostResult =
+  | { ok: true; result: unknown }
+  | {
+      ok: false
+      failure: {
+        external_effect: 'UNKNOWN'
+        retry_disposition: 'DO_NOT_RETRY_AUTOMATICALLY'
+        execution_attestation: { status: 'UNATTESTED'; reason: 'EFFECT_UNKNOWN' }
+        error_class: string
+        error_digest: string
+      }
+    }
+
+async function consequentialPost(path: string, body: unknown, apiKey = false): Promise<ConsequentialPostResult> {
+  try {
+    return { ok: true, result: await bridgePost(path, body, apiKey) }
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err)
+    return {
+      ok: false,
+      failure: {
+        external_effect: 'UNKNOWN',
+        retry_disposition: 'DO_NOT_RETRY_AUTOMATICALLY',
+        execution_attestation: { status: 'UNATTESTED', reason: 'EFFECT_UNKNOWN' },
+        error_class: err instanceof Error ? err.name : typeof err,
+        error_digest: createHash('sha256').update(message, 'utf8').digest('hex'),
+      },
+    }
+  }
+}
+
 function text(content: unknown): { content: Array<{ type: 'text'; text: string }> } {
   return { content: [{ type: 'text', text: JSON.stringify(content, null, 2) }] }
 }
@@ -218,7 +250,9 @@ server.tool(
     const authorityInput: AuthorityInput = { actionClass: 'D2', authorityDomain: 'agent:shared-state', requestedCapability: 'mcp.collaborate', tool: 'aegis_collaborate', target: '/platform/collaborate', action: { operation: 'collaborate', objective, mode, live: false } }
     const authority = authorizeAction(authorityInput)
     const denial = denied(authority); if (denial) return denial
-    const result = await bridgePost('/platform/collaborate', { objective, mode, live: false }, true)
+    const execution = await consequentialPost('/platform/collaborate', { objective, mode, live: false }, true)
+    if (!execution.ok) return text({ authority, ...execution.failure })
+    const result = execution.result
     const executionAttestation = finalizeExecution(authorityInput, result, extractPostStateDigest(result, 'collaboration'), observedExecutionOutcome(result))
     return text({ authority, result, execution_attestation: executionAttestation })
   },
@@ -232,7 +266,9 @@ server.tool(
     if (!API_KEY) return text({ error: 'AEGIS_API_KEY not set', external_effect: 'NOT_EXECUTED' })
     const authority = authorizeAction({ actionClass: 'D2', authorityDomain: 'workflow:durable', requestedCapability: 'mcp.execution.start', tool: 'aegis_start_execution', target: '/platform/executions', action: { operation: 'start-execution', objective, mode, live: false } })
     const denial = denied(authority); if (denial) return denial
-    const result = await bridgePost('/platform/executions', { objective, mode, live: false }, true)
+    const execution = await consequentialPost('/platform/executions', { objective, mode, live: false }, true)
+    if (!execution.ok) return text({ authority, ...execution.failure })
+    const result = execution.result
     return text({ authority, result, execution_attestation: { status: 'DEFERRED', reason: 'ASYNC_EXECUTION_NOT_TERMINAL' } })
   },
 )
@@ -252,7 +288,9 @@ server.tool(
     const authorityInput: AuthorityInput = { actionClass: 'D3', authorityDomain: 'external:model-call', requestedCapability: 'mcp.claude.call', tool: 'aegis_governed_claude_call', target: '/claude', action: { operation: 'governed-model-call', prompt_digest: createHash('sha256').update(prompt, 'utf8').digest('hex'), has_system: Boolean(system) }, idempotencyKey: idempotency_key, compensationReference: compensation_reference }
     const authority = authorizeAction(authorityInput)
     const denial = denied(authority); if (denial) return denial
-    const result = await bridgePost('/claude', body)
+    const execution = await consequentialPost('/claude', body)
+    if (!execution.ok) return text({ authority, ...execution.failure })
+    const result = execution.result
     const executionAttestation = finalizeExecution(authorityInput, result, extractPostStateDigest(result, 'claude'), observedExecutionOutcome(result))
     return text({ authority, result, execution_attestation: executionAttestation })
   },
