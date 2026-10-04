@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import ast
 import asyncio
 import json
 import sys
@@ -259,8 +260,22 @@ def test_authority_only_entrypoints_do_not_issue_success_mutation_receipts() -> 
     authority_cli = (REPO_ROOT / "scripts/automaton3-authority.py").read_text(encoding="utf-8")
     assert "make_mutation_receipt" not in authority_client
     assert "make_mutation_receipt" not in authority_cli
-    assert '"mutation_receipt"' not in authority_cli
-    assert '"mutation_receipt_root"' not in authority_cli
+    tree = ast.parse(authority_cli)
+    functions = {
+        node.name: ast.get_source_segment(authority_cli, node)
+        for node in tree.body
+        if isinstance(node, ast.FunctionDef)
+    }
+    evaluate_source = functions["evaluate"]
+    finalize_source = functions["finalize"]
+    assert evaluate_source is not None
+    assert finalize_source is not None
+    assert '"mutation_receipt"' not in evaluate_source
+    assert '"mutation_receipt_root"' not in evaluate_source
+    assert '"mutation_receipt"' in finalize_source
+    assert '"mutation_receipt_root"' in finalize_source
+    assert "make_execution_receipt" in finalize_source
+    assert 'execution = payload["execution"]' in finalize_source
     assert '"receipt_root": receipt.root' not in authority_client
 
 
