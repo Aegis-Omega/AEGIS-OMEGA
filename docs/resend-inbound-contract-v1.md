@@ -1,53 +1,51 @@
-# Resend inbound adapter v1 — verified metadata-only boundary
+# Resend inbound adapter v1 — fail-closed local evidence contract
 
-Contract review: **2026-10-04**. Repository baseline: `Aegis-Omega/AEGIS-OMEGA@495bfd85d79abcb2b4f6898fe9c156488492426a`.
+Contract review: **2026-10-04**. Status: **repo-local implementation with offline regression evidence**. This is not a production deployment, Resend webhook registration, inbox creation, email send/reply path, capability grant, or agent-dispatch path.
 
-This change is deliberately **repo-local and non-deployed**. It adds no capability grant, no agent dispatch, no email send/reply path, no Supabase function, no webhook registration, and no Resend API key reader.
+## Provider contract pinned to current Resend behavior
 
-## Provider contract verified before implementation
-
-The current Resend webhook subscription API accepts `email.received` for inbound mail. The current webhook API enum does **not** expose `inbox.email.received`. Resend's Inboxes beta is a resource/thread API; the inbound webhook boundary remains `email.received`.
-
-The adapter therefore accepts exactly one provider event type:
+The adapter accepts exactly one webhook event type:
 
 - `email.received`
 
-Every other event type, including `inbox.email.received`, fails with `EVENT_TYPE_UNSUPPORTED` until a future provider contract is independently verified and reviewed.
+It **rejects** `inbox.email.received` and every other event type with `EVENT_TYPE_UNSUPPORTED`. Resend Inboxes exists as a beta product/resource surface, but the current webhook subscription contract exposed to this integration uses `email.received`; the adapter does not invent a separate beta webhook event from newsletter wording.
 
-Current `EmailReceivedEventData` requires `email_id`, `created_at`, `from`, `to`, `subject`, `message_id`, `bcc`, `cc`, and `attachments`. `received_for` is currently optional. Attachment entries require an `id` and may carry metadata such as filename, content type, disposition, and content ID. The webhook does not carry body bytes or attachment bytes.
+For `email.received`, the signed object must contain only the reviewed fields. Required `data` fields are:
 
-Sources reviewed:
+- `email_id`
+- `created_at`
+- `from`
+- `to`
+- `subject`
+- `message_id`
+- `bcc`
+- `cc`
+- `attachments`
 
-- Resend OpenAPI `EmailReceivedEvent` / `EmailReceivedEventData`
-- Resend Inbound documentation (`email.received`)
-- Resend webhook verification documentation
-- Resend webhook management API event enum
-- Svix manual signature verification contract
+`received_for` is optional signed metadata. It is never treated as identity, approval, authority, or the routing selector.
 
-Read-only account inspection on 2026-10-04 returned:
+The trusted route is selected by the configured receiving-address allowlist. Every normalized address in `data.to` must belong to that allowlist. `from`, `cc`, `bcc`, subject text, Message-ID, `received_for`, and attachment metadata never select authority.
 
-- `list_inboxes`: **0 configured inboxes**
-- `list_webhooks`: **0 configured webhooks**
-- `list_received_emails`: **0 received emails**
+The webhook payload is treated as metadata only. This adapter does not call Resend APIs to fetch message text, HTML, MIME parts, headers, attachment bytes, or download URLs. It does not render HTML or resolve remote URLs. Every admitted observation records `content_state: NOT_FETCHED`, `attachment_content_state: NOT_FETCHED`, `execution_state: NOT_EXECUTED`, and an empty `granted_capabilities` list.
 
-The beta `list_inboxes` call itself succeeded, but there is no configured live inbox or webhook to exercise. No resource was created and no message was sent.
+Unexpected provider fields fail closed with schema drift rather than being silently accepted.
 
-## Existing AEGIS authority model; zero authority expansion
+## Existing AEGIS model; zero authority expansion
 
-The adapter imports the existing classes from `harness/sdk/sovereign_execution.py`:
+The implementation imports the existing AEGIS authority primitives from `harness/sdk/sovereign_execution.py`:
 
 - `ExecutionIdentityEnvelope`
 - `AuthorityRequest`
 - `AuthorityEvaluator`
 - `PolicyDecision`
 - `EventEnvelope`
-- canonical hashing helpers
+- canonical hashing utilities
 
-The reviewed authority-core Git blob is `d0fb7848dc0296b2c95f92dd11265cd7efbb7e88`.
+The adapter does not define a second authority system.
 
-The adapter requests `resend.inbound.observe`, but this is only a **requested capability string**. This change does not register it, alias it to an existing capability, or grant it. The trusted host must supply an existing policy/registry and matching roots.
+The trusted host supplies the runtime identity, route, endpoint scope, signing key(s), durable journal, policy, and capability registry. None of those bindings may be derived from webhook JSON or email content.
 
-Required neutral identity fields include:
+The transport identity must satisfy all of the following neutral bindings:
 
 - `actor_class=TRANSPORT_ADAPTER`
 - `actor_identity=resend-inbound`
@@ -56,12 +54,15 @@ Required neutral identity fields include:
 - `approval_reference=NONE`
 - `tool_identity=resend_inbound`
 - `requested_capability=resend.inbound.observe`
+- `authority_domain=<trusted configured routing domain>`
 
-The external `From` address remains untrusted email data under the payload. A valid Resend webhook signature authenticates the provider delivery; it does **not** authenticate the human sender, establish SPF/DKIM/DMARC success, or convey operator authority.
+`resend.inbound.observe` is a **request name**, not a grant. The inspected capability registry does not map it. This change does not add that mapping and does not alias it to `mcp.execution.read`, `mcp.platform.status`, or any other existing capability.
 
-A valid message with no mapped capability becomes a durable `VERIFIED_NOT_ADMITTED` evidence envelope with the existing evaluator's denial root. No mutation receipt, capability registration, tool dispatch, reply, send, or external action is produced.
+Therefore a correctly signed and normalized message is expected to remain `VERIFIED_NOT_ADMITTED` under the current registry. That is a useful result: the provider observation can be preserved as blocked evidence without turning email into executable agent authority.
 
-## Python interface
+The external From address remains `UNVERIFIED_EMAIL_CLAIM`. A valid Resend/Svix webhook signature authenticates the provider delivery, not mailbox ownership, SPF/DKIM/DMARC status, S/MIME/PGP identity, operator approval, or an AEGIS actor.
+
+## Direct Python interface
 
 ```python
 from harness.sdk.resend_inbound import InboundAdapter, LocalJournal, Route
@@ -69,11 +70,11 @@ from harness.sdk.resend_inbound import InboundAdapter, LocalJournal, Route
 adapter = InboundAdapter(
     secrets=(webhook_signing_secret,),
     route=Route(
-        endpoint_scope="resend-production-endpoint-v1",
-        routing_domain="inbound-email",
-        receiving_addresses=("agent@example.com",),
+        endpoint_scope=endpoint_scope,
+        routing_domain=authority_domain,
+        receiving_addresses=receiving_addresses,
     ),
-    identity=trusted_execution_identity,
+    identity=dedicated_resend_transport_identity,
     evaluator=existing_authority_evaluator,
     registry_root=loaded_registry_root,
     journal=LocalJournal(private_journal_path),
@@ -82,94 +83,115 @@ adapter = InboundAdapter(
 result = adapter.handle(raw_request_bytes, original_header_pairs, method="POST")
 ```
 
-The HTTP host must pass the **original request bytes** and preserve duplicate header evidence as header pairs. Parsing and re-serializing JSON before signature verification is not allowed.
+The caller must preserve the **original raw request bytes** and ordered header pairs. A dictionary that has already collapsed duplicate headers is not equivalent input.
 
-## Verification and bounded input policy
+## Local CLI execution seam
+
+`scripts/resend_inbound_ingest.py` exposes the same adapter through a local stdin/stdout process boundary so an agent/tool can submit an already-received webhook without creating an HTTP bridge or cloud trust boundary.
+
+Input is one JSON object on stdin:
+
+```json
+{
+  "raw_body_base64": "<base64 original body>",
+  "headers": [["Content-Type", "application/json"], ["svix-id", "..."], ["svix-timestamp", "..."], ["svix-signature", "..."]],
+  "method": "POST"
+}
+```
+
+Trusted configuration is environment-bound and is **not accepted in tool/request arguments**:
+
+- `AEGIS_RESEND_EXECUTION_IDENTITY_JSON` — dedicated `ExecutionIdentityEnvelope` for actor `resend-inbound`; deliberately separate from the general `AEGIS_EXECUTION_IDENTITY_JSON` used by other AEGIS execution paths.
+- `AEGIS_RESEND_WEBHOOK_SECRETS_JSON` — JSON array containing one or two `whsec_` signing secrets.
+- `AEGIS_RESEND_RECEIVING_ADDRESSES_JSON` — JSON array of trusted receiving addresses.
+- `AEGIS_RESEND_ENDPOINT_SCOPE` — stable replay/dedup namespace.
+- `AEGIS_RESEND_ROUTING_DOMAIN` — must equal the identity authority domain.
+- `AEGIS_RESEND_JOURNAL_PATH` — absolute path to the private durable SQLite journal.
+
+The CLI loads policy, skill tree, and capability map only from their repository-controlled paths. Missing/malformed trusted configuration fails closed before retaining a candidate. It performs no network I/O, message/attachment fetch, email send/reply, agent dispatch, capability mutation, deployment, or provider mutation.
+
+Every CLI result includes `external_effect: NOT_EXECUTED`.
+
+## Verification and resource limits
 
 | Boundary | v1 policy |
 | --- | --- |
-| Webhook signature | Svix v1 HMAC-SHA256 over `id.timestamp.original_body`; constant-time compare; one or two trusted `whsec_` secrets for rotation. API bearer keys do not authenticate webhooks. |
-| Delivery timestamp | `svix-timestamp` must be within ±300 seconds of the trusted host clock. |
-| Headers | ≤32 pairs and ≤8,192 accounted bytes; duplicate header names, controls, malformed names, and missing signature headers fail closed. |
-| Raw body | Non-empty, ≤65,536 bytes, POST only, explicit JSON content type, no compressed content. |
-| JSON | UTF-8, unique keys, no non-finite numbers, depth ≤16, strict current provider keys. |
-| Event type | Exactly `email.received`; unknown/beta-specific event names fail closed. |
-| Sender | One conservative ASCII dot-atom mailbox with optional constrained display name; domain lowercased only. This is normalization, not sender authentication. |
-| Recipient routing | `data.to` is normalized as provider-signed metadata; every recipient must be in the trusted route allowlist. Display-name transport recipients are rejected. `received_for` is optional metadata and never grants authority. |
-| Address counts | ≤10 addresses per field and ≤20 across `to`, `cc`, `bcc`, and optional `received_for`. |
-| Subject / Message-ID | ≤2,048 / 512 UTF-8 bytes; controls and non-NFC text rejected. Message-ID is not the replay key. |
-| Attachments | ≤8 metadata records; only current webhook metadata fields are accepted. Attachment bytes are **never fetched**; `size` and `download_url` are not accepted webhook fields. |
-| Output content | `content_state=NOT_FETCHED`, `attachment_content_state=NOT_FETCHED`, `execution_state=NOT_EXECUTED`, `granted_capabilities=[]`. |
-| Local journal | Defaults: 1,000 observations and 10,000 delivery IDs. Full, inconsistent, or unavailable storage fails closed. |
+| Webhook signature | Svix v1 HMAC-SHA256 over `id.timestamp.original_body`; strict base64; constant-time comparison; one or two trusted `whsec_` keys. Resend bearer/API keys are not accepted as webhook authentication. |
+| Delivery freshness | `svix-timestamp` must be within ±300 seconds of the trusted host clock. |
+| Request body | Nonempty original bytes, maximum 65,536 bytes; POST only; JSON content type only; compressed content rejected. |
+| Header evidence | At most 32 ordered pairs and 8,192 accounted bytes; duplicate names, malformed names, controls, or missing Svix headers fail closed. |
+| Signature candidates | At most 8 space-separated signature candidates; at least one valid v1 signature is required. |
+| JSON | UTF-8; duplicate keys rejected; nonfinite numbers rejected; maximum nesting depth 16; unexpected object keys fail closed. |
+| Sender | One conservative ASCII dot-atom mailbox; optional constrained display name; domain lowercased only. Local-part case, dots, and `+tag` are preserved. |
+| Recipients | At most 10 per field and 20 total across `to`, `cc`, `bcc`, and optional `received_for`. |
+| Subject / Message-ID | Maximum 2,048 / 512 UTF-8 bytes; controls and non-NFC text rejected. RFC Message-ID is data, not the replay key. |
+| Attachments | At most **8 metadata records**. Only `id`, optional `filename`, `content_type`, `content_disposition`, and `content_id` are accepted. Download URLs, bytes, size assertions, and fetch instructions are rejected as schema drift. No attachment content is fetched. |
+| AEGIS payload | Existing `EventEnvelope.validate` enforces 16,384 bytes. |
+| Local journal | Defaults: 1,000 observations and 10,000 delivery IDs. Full/inconsistent storage fails closed; no eviction or in-memory fallback. |
+| CLI stdin | Maximum 131,072 bytes; base64 body field maximum 90,000 characters. |
 
-The route allowlist is a local safety boundary, not a claim that recipient metadata is a cryptographic identity. The trusted endpoint scope and webhook signing secret bind the provider delivery to the configured adapter instance.
+These are local AEGIS policy bounds, not claims about Resend platform maximums or full RFC mailbox support.
 
-## Replay and crash semantics
+## Replay and crash boundary
 
-The local SQLite journal uses `BEGIN IMMEDIATE` and atomically commits:
+The SQLite journal uses `BEGIN IMMEDIATE` and commits the observation plus delivery record atomically.
 
-1. the normalized logical observation;
-2. its AEGIS event-chain position/root; and
-3. the provider delivery ID.
+Deduplication is scoped by trusted endpoint scope and provider email identity. It survives process restart and signing-key rotation. A new delivery ID for the same normalized provider email remains a duplicate. Reusing a delivery ID for different bytes is rejected. Reusing the logical provider message identity with conflicting normalized metadata is rejected.
 
-The logical message key is derived from provider event family and Resend `email_id`; the database primary key is additionally scoped by trusted `endpoint_scope`.
+There is no automatic dedup TTL. Manual replay later remains a duplicate unless the operator deliberately changes/removes journal state through a separate governed process.
 
-- exact delivery replay → `DUPLICATE`
-- new delivery ID for identical logical email → `DUPLICATE`
-- reused delivery ID with different signed bytes → `DELIVERY_ID_CONFLICT`
-- same logical email ID with conflicting normalized metadata → `MESSAGE_ID_CONFLICT`
-- missing/corrupt/full journal → rejection, never in-memory fallback
+The journal stores normalized metadata, identity/decision/event evidence, and digests. It does **not** store webhook signing secrets, signature headers, or original raw bodies. New journal files are created with mode `0600`.
 
-Deduplication has no automatic TTL. A later operator-approved re-evaluation must be a separate governed workflow; an old denied record does not silently become executable when policy changes.
+The journal is evidence storage, not an executable queue. Database loss destroys replay history; there is no distributed exactly-once guarantee.
 
-The journal intentionally does not store signing secrets, signature headers, or raw request bodies. It does store normalized email metadata and therefore still requires normal data-retention and access controls.
+## Result contract
 
-## Host acknowledgement contract
+| Status | Meaning | Executable effect |
+| --- | --- | --- |
+| `VERIFIED_NOT_ADMITTED` | Provider signature/schema/route verified; existing evaluator denied the requested observation capability; blocked evidence persisted. | `NOT_EXECUTED` |
+| `VERIFIED_OBSERVATION_ONLY` | Existing evaluator explicitly admitted only the D0 observation. | `NOT_EXECUTED` |
+| `DUPLICATE` | Previously recorded delivery/logical message; no new event produced. | `NOT_EXECUTED` |
+| `REJECTED` | Authentication, schema, route, configuration, authority service, or journal boundary failed closed. | `NOT_EXECUTED` |
 
-| Adapter result | Host behavior |
-| --- | --- |
-| `VERIFIED_NOT_ADMITTED` | Durable receipt may be acknowledged with 2xx; never dispatch. |
-| `VERIFIED_OBSERVATION_ONLY` | Durable D0 observation only; 2xx may acknowledge receipt; never interpret as execution authority. |
-| `DUPLICATE` | 2xx may acknowledge; do not dispatch again. |
-| `REJECTED` | Invalid auth/schema/route/size → appropriate 4xx. Missing/inconsistent/full storage or authority service → retryable failure and operator attention. |
+An eventual HTTP wrapper may map durable success/duplicate to 2xx and retryable infrastructure failures to 5xx, but **no HTTP wrapper is introduced here**.
 
-A transport 2xx means the evidence was durably handled, not that AEGIS admitted or executed the email.
+## Offline regression commands
 
-## Local regression commands
+Run from repository root:
 
 ```bash
-python -m unittest discover -s tests -p 'test_resend_inbound.py' -v
-python -m pytest -q tests/test_resend_inbound.py
-python -m compileall -q harness/sdk/resend_inbound.py tests/test_resend_inbound.py
+python -m compileall -q \
+  harness/sdk/resend_inbound.py \
+  scripts/resend_inbound_ingest.py \
+  tests/test_resend_inbound.py \
+  tests/test_resend_inbound_ingest.py
+
+python -W error::ResourceWarning -m unittest discover \
+  -s tests -p 'test_resend_inbound*.py' -v
+
+python -m pytest -q -W error::ResourceWarning \
+  tests/test_resend_inbound.py tests/test_resend_inbound_ingest.py
 ```
 
-The standard-library unittest suite covers current-provider schema, independent Svix known-answer verification, signature tampering, duplicate headers, timestamp windows, replay/restart/concurrency, journal failure/capacity, sender ambiguity, recipient routing, unknown event types, attachment metadata bounds, prompt-like subject text, unavailable policy/registry, and zero-authority behavior.
+The bounded suite covers signature tamper, stale/future delivery timestamps, duplicate headers/JSON keys, sender ambiguity, route mismatch, unsupported event types, schema drift, attachment metadata bounds, replay/dedup across restart, concurrent delivery, journal rollback/capacity/inconsistency, identity/registry/policy mismatch, capability non-inheritance, CLI missing/malformed trusted configuration, dedicated transport identity separation, and CLI subprocess fail-closed behavior.
 
-## Stop condition for live activation
+## Exact source binding and non-claims
 
-Do **not** deploy or register a webhook merely because this adapter passes local tests. Live activation requires all of the following to be separately verified:
+Primary repository: `Aegis-Omega/AEGIS-OMEGA`.
 
-1. a deliberate Resend receiving address or beta Inbox exists;
-2. a public HTTPS endpoint is selected;
-3. endpoint-specific signing secret storage/rotation is configured;
-4. durable journal storage semantics are chosen for that runtime;
-5. exact-head hosted CI is green;
-6. any future capability mapping is reviewed independently instead of being smuggled into transport setup.
+Reviewed base:
 
-Until then, this lane remains a fail-closed evidence adapter only.
+- `main`: `495bfd85d79abcb2b4f6898fe9c156488492426a`
+- authority-core blob `harness/sdk/sovereign_execution.py`: `d0fb7848dc0296b2c95f92dd11265cd7efbb7e88`
 
-## Local ingest execution seam
+This work does **not** claim:
 
-`scripts/resend_inbound_ingest.py` is the local process boundary for agents/tools that need to submit an already-received Resend webhook to this adapter without introducing an HTTP bridge. It reads one JSON request from stdin with `raw_body_base64`, ordered header pairs, and optional `method`, then emits exactly one JSON result.
+- live Resend inbound delivery was received;
+- a Resend webhook or Inbox was created;
+- message bodies or attachment bytes were fetched/scanned;
+- `resend.inbound.observe` is currently granted;
+- an email triggered an agent/tool action;
+- Supabase, Vercel, Cloudflare, or another production endpoint was deployed by this integration;
+- hosted GitHub Actions executed successfully while the repository owner account remains billing-locked.
 
-Trusted host configuration is environment-bound and never accepted from webhook data or tool arguments:
-
-- `AEGIS_EXECUTION_IDENTITY_JSON` — pre-bound `ExecutionIdentityEnvelope` for actor `resend-inbound`, capability `resend.inbound.observe`, observed authority `NONE`;
-- `AEGIS_RESEND_WEBHOOK_SECRETS_JSON` — JSON array of one or two Resend/Svix `whsec_` signing secrets;
-- `AEGIS_RESEND_RECEIVING_ADDRESSES_JSON` — JSON array of configured receiving mailboxes;
-- `AEGIS_RESEND_ENDPOINT_SCOPE` — durable replay/dedup namespace;
-- `AEGIS_RESEND_ROUTING_DOMAIN` — must equal the identity authority domain;
-- `AEGIS_RESEND_JOURNAL_PATH` — absolute path to the private durable SQLite evidence journal.
-
-The CLI loads consequence policy, skill tree and capability map only from their repository-controlled paths. It performs no network I/O, body/attachment fetch, email send/reply, agent dispatch, capability grant, or live provider mutation. Every result includes `external_effect: NOT_EXECUTED`; an unmapped capability remains `VERIFIED_NOT_ADMITTED`. Missing or malformed trusted configuration fails closed before provider data is retained.
-
+The intended admission path remains: provider verification → normalized metadata → dedicated transport identity → existing `AuthorityEvaluator` → evidence journal. Execution authority is a separate decision and is not inferred from email.
