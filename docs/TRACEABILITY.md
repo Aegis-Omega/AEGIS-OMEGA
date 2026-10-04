@@ -78,6 +78,17 @@ Zero cryptographic dependencies in the Rust layer.
 
 ## Layer A — TypeScript Governance Runtime
 
+### src/reporting/dual-report.ts — deterministic dual evidence report contract
+`buildDualReport / renderHumanReport / verifyDualReport` →
+**T1** → docs/REPLAY_CONSTITUTION.md LAW-01 + LAW-02 + Serialization Canon
+→ identical evidence cores must produce deterministic replay-visible outcomes; schema/version
+boundaries must be explicit and machine-readable; TypeScript integrity JSON uses RFC 8785 JCS
+with SHA-256 at the integration boundary.
+**T0 dependency** → `src/core/canonicalize.ts` + `src/core/hashing.ts`
+→ the reporting layer reuses the repository's only permitted canonicalization/hash path and
+adds no independent integrity primitive.
+
+
 ### src/core/canonicalize.ts — RFC 8785 JCS
 `canonicalizeJCS` →
 **T0** → RFC 8785 (external standard) + jcs.test.ts (17/17 tests including emoji/surrogate)

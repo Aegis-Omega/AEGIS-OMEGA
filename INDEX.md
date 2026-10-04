@@ -24,6 +24,7 @@
 | Path | Role | Tier |
 |------|------|------|
 | `src/core/canonicalize.ts` | RFC 8785 JCS → SHA-256 — only permitted hash path | T0 |
+| `src/reporting/dual-report.ts` | Versioned evidence core → bound ML envelope + deterministic human projection | T1 |
 | `src/core/types.ts` | Branded types: UUIDv7, SHA256Hex, BoundedDelta, SequenceNumber | T0 |
 | `src/constitutional/martingale.ts` | `certifyMartingale()` + `assertMartingaleAnchored()` | T0 |
 | `src/constitutional/reduction.ts` | `admitAbstraction()` — blocks T4/T5 constructs | T0 |
@@ -53,6 +54,7 @@
 | Path | Gates Covered | Test Count |
 |------|--------------|------------|
 | `test/unit/jcs.test.ts` | Gate 1 — RFC 8785 conformance | ~20 |
+| `test/unit/dual-report.test.ts` | Dual-report determinism, validation parity, anti-tamper binding | 15 |
 | `test/unit/sequence.test.ts` | Gate 2 — atomic sequences | ~15 |
 | `test/unit/immutable.test.ts` | Gate 3 — immutability | ~12 |
 | `test/unit/reducer.test.ts` | Gate 4 — pure reducers | ~18 |
@@ -67,6 +69,14 @@
 | `test/integration/holonic-triad-proof.test.ts` | Gate 79 — φ-convergence | ~18 |
 | `test/integration/phi-holonic-triad-extension.test.ts` | Gate 80 — φ extension | ~20 |
 | `test/integration/replay-topology-stability.test.ts` | Gate 81 — 3-run determinism | 14 |
+
+---
+
+## Evidence Schemas
+
+| Path | Role | Tier |
+|------|------|------|
+| `schemas/evidence-report.v1.schema.json` | Machine-readable dual evidence report v1 contract | T1 |
 
 ---
 
