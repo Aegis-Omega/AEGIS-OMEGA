@@ -5,11 +5,15 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import re
 import subprocess
 import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
+EXPECTED_TEST_COUNT = 52
+TEST_RESULT_RE = re.compile(r"Ran (\\d+) tests? in ")
+
 TEST_FILES = (
     ROOT / "sovereign-omega-v2/python/tests/test_automaton3.py",
     ROOT / "sovereign-omega-v2/python/tests/test_operator_visibility.py",
@@ -25,6 +29,7 @@ def main() -> int:
 
     outputs: list[str] = []
     return_code = 0
+    observed_test_count = 0
     for test_file in TEST_FILES:
         result = subprocess.run(
             [sys.executable, str(test_file)],
@@ -32,16 +37,27 @@ def main() -> int:
             text=True,
             capture_output=True,
         )
-        outputs.append(result.stdout + result.stderr)
+        output = result.stdout + result.stderr
+        outputs.append(output)
+        counts = TEST_RESULT_RE.findall(output)
+        if len(counts) != 1:
+            return_code = return_code or 4
+        else:
+            observed_test_count += int(counts[0])
         if result.returncode != 0:
             return_code = result.returncode
+
+    if observed_test_count != EXPECTED_TEST_COUNT:
+        return_code = return_code or 5
 
     log = "".join(outputs).replace(str(ROOT), "<REPO>")
     Path(args.log).write_text(log, encoding="utf-8")
     summary = {
         "schema_version": "1.0.0",
         "suite": "AEGIS_AUTOMATON3_AUTHORITY_ABUSE_V1",
-        "expected_test_count": 52,
+        "expected_test_count": EXPECTED_TEST_COUNT,
+        "observed_test_count": observed_test_count,
+        "test_count_complete": observed_test_count == EXPECTED_TEST_COUNT,
         "adaptive_attempts": [1, 10, 100],
         "successful_denial_assertions": 41,
         "bypasses": 0 if return_code == 0 else None,
