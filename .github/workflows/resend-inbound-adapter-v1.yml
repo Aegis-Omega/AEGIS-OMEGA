@@ -1,0 +1,32 @@
+name: Resend inbound adapter v1
+
+on:
+  pull_request:
+    paths:
+      - 'harness/sdk/resend_inbound.py'
+      - 'tests/test_resend_inbound.py'
+      - 'tests/fixtures/resend_inbound/**'
+      - 'docs/resend-inbound-contract-v1.md'
+      - '.github/workflows/resend-inbound-adapter-v1.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  replay:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Bind exact candidate
+        run: |
+          echo "candidate_sha=${GITHUB_SHA}"
+          test -n "${GITHUB_SHA}"
+      - name: Compile adapter and regression
+        run: python -m compileall -q harness/sdk/resend_inbound.py tests/test_resend_inbound.py
+      - name: Run bounded inbound regression
+        run: python -m unittest discover -s tests -p 'test_resend_inbound.py' -v
