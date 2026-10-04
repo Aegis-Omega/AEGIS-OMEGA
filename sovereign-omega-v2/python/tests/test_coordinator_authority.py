@@ -12,6 +12,83 @@ REPO_ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(REPO_ROOT))
 
 from agents import coordinator  # noqa: E402
+from harness.sdk.skill_authority import compute_registry_root  # noqa: E402
+
+
+
+def write_valid_registry(tmp_path: Path, skill_id: str = "observed") -> Path:
+    evidence = tmp_path / "evidence" / "run.json"
+    evidence.parent.mkdir(parents=True, exist_ok=True)
+    evidence.write_text("{}\n", encoding="utf-8")
+    tree = {
+        "schema_version": "2.0.0",
+        "version": "2.0.0",
+        "phase": 2,
+        "authority_state": "NON_AUTHORITATIVE_UNTIL_OBSERVED",
+        "source_commit": "a" * 40,
+        "doc_count": 0,
+        "skills": [{
+            "skill_id": skill_id,
+            "observation_state": "OBSERVED",
+            "validated_runs": 3,
+            "confidence": 0.9,
+            "recency_score": 0.9,
+            "failure_rate": 0.0,
+            "failure_rate_observed": 0.0,
+            "last_validated": "2026-10-04T00:00:00+00:00",
+            "evidence_refs": ["evidence/run.json"],
+        }],
+    }
+    root = compute_registry_root(tree)
+    tree["registry_root"] = root
+    tree["genesis_seal"] = root
+    path = tmp_path / "skill_tree.json"
+    path.write_text(json.dumps(tree, sort_keys=True), encoding="utf-8")
+    return path
+
+
+def write_empty_lineage(tmp_path: Path) -> Path:
+    path = tmp_path / "agents" / "adaptive_lineage.json"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps({
+        "genesis_hash": "0" * 64,
+        "terminal_hash": "0" * 64,
+        "event_count": 0,
+        "events": [],
+    }, sort_keys=True), encoding="utf-8")
+    return path
+
+
+def full_admitted_decision(registry_root: str, score: str = "0.720000") -> dict[str, Any]:
+    decision_root = "3" * 64
+    identity_root = "4" * 64
+    workspace_binding = "5" * 64
+    action_digest = "6" * 64
+    return {
+        "outcome": "ADMITTED",
+        "authority_score": score,
+        "denial_codes": [],
+        "decision_root": decision_root,
+        "execution_identity_root": identity_root,
+        "workspace_binding": workspace_binding,
+        "requested_action_digest": action_digest,
+        "policy_decision": {
+            "schema_version": "1.0.0",
+            "outcome": "ADMITTED",
+            "authority_score": score,
+            "action_class": "D1",
+            "authority_domain": "agent:dispatch",
+            "requested_capability": "coordinator.dispatch",
+            "tool": "agents.coordinator:dispatch",
+            "target_digest": "7" * 64,
+            "identity_root": identity_root,
+            "workspace_binding": workspace_binding,
+            "registry_root": registry_root,
+            "policy_root": "8" * 64,
+            "denial_codes": (),
+            "decision_root": decision_root,
+        },
+    }
 
 
 def router(tmp_path: Path, capability_map: dict[str, str] | None = None) -> coordinator.SkillRouter:
@@ -267,3 +344,134 @@ def test_authority_only_entrypoints_do_not_issue_success_mutation_receipts() -> 
 def test_legacy_admission_to_success_receipt_constructor_is_removed() -> None:
     sovereign_execution = (REPO_ROOT / "harness/sdk/sovereign_execution.py").read_text(encoding="utf-8")
     assert "def make_mutation_receipt(" not in sovereign_execution
+
+
+def test_coordinator_evidence_state_binds_verified_registry_and_lineage(tmp_path: Path) -> None:
+    registry_path = write_valid_registry(tmp_path)
+    lineage_path = write_empty_lineage(tmp_path)
+    state = coordinator._coordinator_evidence_state(
+        skill_tree_path=registry_path,
+        lineage_path=lineage_path,
+        repo_root=tmp_path,
+    )
+    assert state["status"] == "ESTABLISHED"
+    assert state["skill_registry_root"] == json.loads(registry_path.read_text(encoding="utf-8"))["registry_root"]
+    assert state["adaptive_lineage_root"] == "0" * 64
+    assert state["adaptive_lineage_event_count"] == 0
+    assert len(state["state_root"]) == 64
+
+
+def test_coordinator_evidence_state_rejects_tampered_lineage(tmp_path: Path) -> None:
+    registry_path = write_valid_registry(tmp_path)
+    lineage_path = write_empty_lineage(tmp_path)
+    lineage_path.write_text(json.dumps({
+        "genesis_hash": "0" * 64,
+        "terminal_hash": "f" * 64,
+        "event_count": 1,
+        "events": [{
+            "sequence": 0,
+            "event_type": "CAPABILITY_EVOLUTION",
+            "skill_id": "engineering",
+            "from_tier": "T2",
+            "to_tier": "T2",
+            "evidence": "tampered",
+            "timestamp_ms": 1,
+            "prev_hash": "0" * 64,
+            "entry_hash": "f" * 64,
+        }],
+    }, sort_keys=True), encoding="utf-8")
+    state = coordinator._coordinator_evidence_state(
+        skill_tree_path=registry_path,
+        lineage_path=lineage_path,
+        repo_root=tmp_path,
+    )
+    assert state["status"] == "UNAVAILABLE"
+    assert state["reason"] == "ADAPTIVE_LINEAGE_INVALID"
+
+
+def test_dispatch_attests_only_after_verified_evidence_state_mutation(tmp_path: Path, monkeypatch: Any) -> None:
+    registry_path = write_valid_registry(tmp_path)
+    write_empty_lineage(tmp_path)
+    instance = coordinator.SkillRouter(
+        skill_tree_path=registry_path,
+        repo_root=tmp_path,
+        capability_map={"observed_cap": "observed"},
+    )
+    pre_registry_root = json.loads(registry_path.read_text(encoding="utf-8"))["registry_root"]
+    role = coordinator.AgentRole.ENGINEERING
+    knowledge = {
+        "status": "ESTABLISHED",
+        "reason_codes": [],
+        "snapshot_digest": "9" * 64,
+        "source_head_sha": "a" * 40,
+        "source_tree_sha": "b" * 40,
+        "receipt_hash": "c" * 64,
+    }
+    monkeypatch.setattr(coordinator, "_skill_router", instance)
+    monkeypatch.setattr(coordinator._legacy, "_skill_router", instance)
+    monkeypatch.setattr(coordinator._legacy, "EVENT_ROUTING", {"test": [role]})
+    monkeypatch.setattr(coordinator._legacy, "_load_agent_defs", lambda: {"agents": {role.value: {"capabilities": ["observed_cap"]}}})
+    monkeypatch.setattr(coordinator._legacy, "_event_to_instruction", lambda *_args: "same task")
+    monkeypatch.setattr(coordinator, "establish_repository_knowledge", lambda **_kwargs: knowledge)
+    monkeypatch.setattr(coordinator, "authorize_from_environment", lambda **_kwargs: full_admitted_decision(pre_registry_root))
+
+    async def mutating_run_agent(_task: Any) -> Any:
+        tree = json.loads(registry_path.read_text(encoding="utf-8"))
+        updated = coordinator.record_skill_observation(
+            tree,
+            skill_id="observed",
+            success=True,
+            observed_at="2026-10-04T01:00:00+00:00",
+            repo_root=tmp_path,
+        )
+        registry_path.write_text(json.dumps(updated, sort_keys=True), encoding="utf-8")
+        return {"status": "executed", "is_valid": True}
+
+    monkeypatch.setattr(coordinator._legacy, "run_agent", mutating_run_agent)
+    results = asyncio.run(coordinator.dispatch_event("test", {}))
+    assert results == [{"status": "executed", "is_valid": True}]
+    attestations = coordinator.last_dispatch_execution_attestations()
+    assert len(attestations) == 1
+    assert attestations[0]["status"] == "ATTESTED"
+    receipt = attestations[0]["mutation_receipt"]
+    assert receipt["outcome"] == "SUCCEEDED"
+    assert receipt["pre_state_digest"] != receipt["post_state_digest"]
+    assert receipt["post_state_digest"] == attestations[0]["post_state"]["state_root"]
+
+
+def test_dispatch_dry_run_without_evidence_mutation_is_unattested(tmp_path: Path, monkeypatch: Any) -> None:
+    registry_path = write_valid_registry(tmp_path)
+    write_empty_lineage(tmp_path)
+    instance = coordinator.SkillRouter(
+        skill_tree_path=registry_path,
+        repo_root=tmp_path,
+        capability_map={"observed_cap": "observed"},
+    )
+    pre_registry_root = json.loads(registry_path.read_text(encoding="utf-8"))["registry_root"]
+    role = coordinator.AgentRole.ENGINEERING
+    knowledge = {
+        "status": "ESTABLISHED",
+        "reason_codes": [],
+        "snapshot_digest": "9" * 64,
+        "source_head_sha": "a" * 40,
+        "source_tree_sha": "b" * 40,
+        "receipt_hash": "c" * 64,
+    }
+    monkeypatch.setattr(coordinator, "_skill_router", instance)
+    monkeypatch.setattr(coordinator._legacy, "_skill_router", instance)
+    monkeypatch.setattr(coordinator._legacy, "EVENT_ROUTING", {"test": [role]})
+    monkeypatch.setattr(coordinator._legacy, "_load_agent_defs", lambda: {"agents": {role.value: {"capabilities": ["observed_cap"]}}})
+    monkeypatch.setattr(coordinator._legacy, "_event_to_instruction", lambda *_args: "same task")
+    monkeypatch.setattr(coordinator, "establish_repository_knowledge", lambda **_kwargs: knowledge)
+    monkeypatch.setattr(coordinator, "authorize_from_environment", lambda **_kwargs: full_admitted_decision(pre_registry_root))
+
+    async def dry_run_agent(_task: Any) -> Any:
+        return {"status": "dry-run", "governance": {"dry_run": True}, "is_valid": True}
+
+    monkeypatch.setattr(coordinator._legacy, "run_agent", dry_run_agent)
+    asyncio.run(coordinator.dispatch_event("test", {}))
+    attestations = coordinator.last_dispatch_execution_attestations()
+    assert len(attestations) == 1
+    assert attestations[0]["status"] == "UNATTESTED"
+    assert attestations[0]["reason"] == "NO_EVIDENCE_STATE_CHANGE"
+    assert "mutation_receipt" not in attestations[0]
