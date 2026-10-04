@@ -9,9 +9,8 @@ from typing import Any
 
 from harness.sdk.sovereign_execution import (
     ADMITTED, ApprovalGrant, AuthorityEvaluator, AuthorityRequest,
-    ExecutionIdentityEnvelope, ZERO_HASH, canonical_hash,
-    load_capability_registry, load_policy, make_mutation_receipt,
-    verify_workspace,
+    ExecutionIdentityEnvelope, canonical_hash,
+    load_capability_registry, load_policy, verify_workspace,
 )
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -82,18 +81,11 @@ def authorize_from_environment(*, action_class: str, authority_domain: str, requ
         idempotency_key=idempotency_key, compensation_reference=compensation_reference,
     )
     decision = AuthorityEvaluator(policy=policy, registry=registry, repository_root=REPO_ROOT).evaluate(request, approval=approval)
-    receipt = make_mutation_receipt(
-        identity_root=identity_root, workspace_binding=identity.workspace_binding,
-        decision=decision, pre_state_digest=identity.expected_pre_state,
-        action_digest=action_digest, result={"authority_outcome": decision.outcome},
-        post_state_digest=identity.expected_pre_state, parent_receipt=ZERO_HASH, sequence=0,
-    )
     return {
         "outcome": decision.outcome,
         "authority_score": decision.authority_score,
         "denial_codes": list(decision.denial_codes),
         "decision_root": decision.decision_root,
-        "receipt_root": receipt.root,
         "execution_identity_root": identity_root,
         "workspace_binding": identity.workspace_binding,
         "observation": asdict(workspace.observation),
