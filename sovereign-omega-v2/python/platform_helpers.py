@@ -15,9 +15,9 @@ PLATFORM_CONTRACT_VERSION = '1.0.0'
 PLATFORM_GIT_SHA = os.environ.get('AEGIS_GIT_SHA', 'dev')
 
 # ── Swarm model configuration (env-overridable) ───────────────────────────────
-# Fable 5 has adaptive thinking always on. Set AEGIS_SWARM_THINKING=false only
-# when using an older model that does not support thinking (e.g. Haiku 4.5).
-SWARM_MODEL = os.environ.get('AEGIS_SWARM_MODEL', 'claude-opus-4-8')
+# Claude 5.5 supports adaptive thinking. AEGIS_SWARM_MODEL remains env-overridable
+# so platform-specific model IDs can be pinned without changing direct-API defaults.
+SWARM_MODEL = os.environ.get('AEGIS_SWARM_MODEL', 'claude-opus-5-5')
 SWARM_THINKING = os.environ.get('AEGIS_SWARM_THINKING', 'true').lower() not in ('0', 'false', 'no')
 
 VALID_MODES = frozenset({
