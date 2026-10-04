@@ -114,6 +114,20 @@ The CLI loads policy, skill tree, and capability map only from their repository-
 
 Every CLI result includes `external_effect: NOT_EXECUTED`.
 
+## MCP exposure
+
+The existing MCP server exposes this local process seam as `aegis_resend_inbound_observe`. The tool accepts only:
+
+- `raw_body_base64`
+- ordered `headers` pairs
+- `method=POST`
+
+Webhook signing secrets, receiving-address allowlists, replay scope, routing domain, journal path, and the dedicated Resend transport identity are **not tool arguments**. They remain trusted host environment bindings consumed by the Python CLI.
+
+The MCP wrapper performs no HTTP request and does not call the general Automaton-3 `AEGIS_EXECUTION_IDENTITY_JSON` path. It synchronously invokes `scripts/resend_inbound_ingest.py`, enforces a 15-second/1-MiB subprocess bound, and accepts only structured output that retains `external_effect: NOT_EXECUTED`. Missing process output, nonzero process exit, malformed JSON, malformed `codes`, or any response claiming an executed effect is converted to a local `REJECTED` result.
+
+The wrapper adds no Resend credentials and no capability mapping. It is transport exposure only; the Python adapter remains the provider-signature and authority-decision boundary.
+
 ## Verification and resource limits
 
 | Boundary | v1 policy |
