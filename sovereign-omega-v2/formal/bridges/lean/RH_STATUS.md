@@ -532,3 +532,11 @@ margin is positive, and m_certified is taken below the minimum of F/W on a 0.000
 With `certificate_zero_quadratic_nonneg` (PR #693): modulo the Arb step (not in Lean), Re Σ_ρ Z_ρ(A_g) ≥ 0 for every
 moment-zero packet of log-support width < 1. Primal margin m*(L) decays fast (≈0.012 at 1.0, ≈7e-5 at 1.2), so this
 method does not extend to all widths. Not RH.
+
+**Globalization chain to RH (`RHGlobalizationChainV13.lean`, kernel, standard axioms only).** Lean counterpart of
+Coq `Globalization.v`, now wired to `final_sign_implies_rh_v13`, so the Weil criterion is no longer a hypothesis:
+`rh_of_sign_on_exhaustion` (sign on every class of an exhausting packet family ⇒ RH) and
+`rh_of_vanishing_error_on_exhaustion` (increasing exhausting family, sign up to ε_n → 0 ⇒ RH).
+`uniform_lower_bound_collapses`: for a degree-2 homogeneous form a uniform bound −ε forces ≥ 0, so the error term buys
+nothing over exact sign. The remaining hypothesis is exactly the sign on every support width — the content of RH.
+Built locally against the #679 closure (Lean 4.33.1, Mathlib 0df444a); not yet replayed in CI.
