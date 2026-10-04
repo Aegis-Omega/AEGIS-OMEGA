@@ -905,27 +905,3 @@ def make_execution_receipt(*, identity_root: str, workspace_binding: str, decisi
     )
     receipt.validate()
     return receipt
-
-
-def make_mutation_receipt(*, identity_root: str, workspace_binding: str, decision: PolicyDecision, pre_state_digest: str, action_digest: str, result: Any, post_state_digest: str, parent_receipt: str, sequence: int) -> MutationReceipt:
-    outcome = "SUCCEEDED" if decision.outcome == ADMITTED else "DENIED"
-    denial = "NONE" if decision.outcome == ADMITTED else (decision.denial_codes[0] if decision.denial_codes else "UNSPECIFIED_DENIAL")
-    return MutationReceipt(
-        receipt_version=SCHEMA_VERSION,
-        execution_identity_root=identity_root,
-        workspace_binding=workspace_binding,
-        policy_decision_root=decision.decision_root,
-        authority_score=decision.authority_score,
-        authority_domain=decision.authority_domain,
-        action_class=decision.action_class,
-        tool=decision.tool,
-        target=decision.target_digest,
-        pre_state_digest=pre_state_digest,
-        requested_action_digest=action_digest,
-        result_digest=canonical_hash("AEGIS_ACTION_RESULT_V1", deterministic_redaction(result)),
-        post_state_digest=post_state_digest,
-        parent_receipt=parent_receipt,
-        sequence=sequence,
-        outcome=outcome,
-        denial_code=denial,
-    )
