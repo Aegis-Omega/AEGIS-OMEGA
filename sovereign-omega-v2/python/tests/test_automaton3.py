@@ -18,7 +18,7 @@ from harness.sdk.sovereign_execution import (  # noqa: E402
     DurableExecutionRecord, DurableExecutionRegistry, EventEnvelope,
     ExecutionIdentityEnvelope, MutationReceipt, ReceiptChain,
     SovereignExecutionError, WriterLeaseManager, canonical_bytes, canonical_hash,
-    compute_workspace_binding, verify_workspace,
+    compute_workspace_binding, make_execution_receipt, verify_workspace,
 )
 
 REMOTE = "https://github.com/Aegis-Omega/AEGIS-OMEGA.git"
@@ -183,6 +183,77 @@ class Automaton3Tests(TestCase):
     def test_26_hook_failure(self): self.assertDenied(AuthorityEvaluator(policy=None,registry={}).evaluate(self.request()),"AUTHORITY_SERVICE_UNAVAILABLE")
     def test_27_authority_service_unavailable(self): self.test_26_hook_failure()
     def test_28_registry_unavailable(self): self.assertDenied(AuthorityEvaluator(policy=POLICY,registry=None).evaluate(self.request()),"REGISTRY_UNAVAILABLE")
+
+    def test_29a_execution_receipt_binds_actual_result_and_post_state(self):
+        decision = self.evaluator.evaluate(self.request(), approval=self.approval())
+        result = {"status": "executed", "artifact_hash": "a" * 64}
+        receipt = make_execution_receipt(
+            identity_root=self.identity.root,
+            workspace_binding=self.binding,
+            decision=decision,
+            pre_state_digest=ZERO_HASH,
+            action_digest=self.identity.action_digest,
+            result=result,
+            post_state_digest="6" * 64,
+            parent_receipt=ZERO_HASH,
+            sequence=0,
+            execution_outcome="SUCCEEDED",
+        )
+        self.assertEqual(receipt.outcome, "SUCCEEDED")
+        self.assertEqual(receipt.post_state_digest, "6" * 64)
+        self.assertEqual(
+            receipt.result_digest,
+            canonical_hash("AEGIS_ACTION_RESULT_V1", result),
+        )
+
+    def test_29b_execution_receipt_preserves_failed_outcome(self):
+        decision = self.evaluator.evaluate(self.request(), approval=self.approval())
+        receipt = make_execution_receipt(
+            identity_root=self.identity.root,
+            workspace_binding=self.binding,
+            decision=decision,
+            pre_state_digest=ZERO_HASH,
+            action_digest=self.identity.action_digest,
+            result={"error": "bridge failed"},
+            post_state_digest="7" * 64,
+            parent_receipt=ZERO_HASH,
+            sequence=0,
+            execution_outcome="FAILED",
+        )
+        self.assertEqual(receipt.outcome, "FAILED")
+        self.assertEqual(receipt.denial_code, "NONE")
+
+    def test_29c_execution_receipt_rejects_denied_authority(self):
+        decision = self.evaluator.evaluate(self.request(requested_capability="unknown"), approval=self.approval())
+        with self.assertRaisesRegex(SovereignExecutionError, "EXECUTION_RECEIPT_REQUIRES_ADMITTED_AUTHORITY"):
+            make_execution_receipt(
+                identity_root=self.identity.root,
+                workspace_binding=self.binding,
+                decision=decision,
+                pre_state_digest=ZERO_HASH,
+                action_digest=self.identity.action_digest,
+                result={"status": "must-not-attest"},
+                post_state_digest="8" * 64,
+                parent_receipt=ZERO_HASH,
+                sequence=0,
+                execution_outcome="SUCCEEDED",
+            )
+
+    def test_29d_execution_receipt_rejects_missing_post_state(self):
+        decision = self.evaluator.evaluate(self.request(), approval=self.approval())
+        with self.assertRaisesRegex(SovereignExecutionError, "post_state_digest:INVALID_SHA256"):
+            make_execution_receipt(
+                identity_root=self.identity.root,
+                workspace_binding=self.binding,
+                decision=decision,
+                pre_state_digest=ZERO_HASH,
+                action_digest=self.identity.action_digest,
+                result={"status": "executed"},
+                post_state_digest="",
+                parent_receipt=ZERO_HASH,
+                sequence=0,
+                execution_outcome="SUCCEEDED",
+            )
 
     def test_29_receipt_chain_break(self):
         chain=ReceiptChain(); base=dict(receipt_version=SCHEMA_VERSION,execution_identity_root=HASH,workspace_binding=self.binding,policy_decision_root="2"*64,authority_score="0.0",authority_domain="git",action_class=D2,tool="git",target="3"*64,pre_state_digest=ZERO_HASH,requested_action_digest="4"*64,result_digest="5"*64,post_state_digest="6"*64,outcome="SUCCEEDED",denial_code="NONE")
