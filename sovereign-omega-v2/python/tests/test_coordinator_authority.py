@@ -30,7 +30,6 @@ def denied_decision(code: str, *, root: str = "1" * 64) -> dict[str, Any]:
         "authority_score": "0.000000",
         "denial_codes": [code],
         "decision_root": root,
-        "receipt_root": "2" * 64,
     }
 
 
@@ -40,7 +39,6 @@ def admitted_decision(score: str = "0.720000", *, root: str = "3" * 64) -> dict[
         "authority_score": score,
         "denial_codes": [],
         "decision_root": root,
-        "receipt_root": "4" * 64,
     }
 
 
@@ -254,3 +252,13 @@ def test_dispatch_binds_established_repository_knowledge_into_authority_and_task
     }
     assert len(executed) == 1
     assert executed[0].context["repository_knowledge"] == calls[0]["action"]["repository_knowledge"]
+
+
+def test_authority_only_entrypoints_do_not_issue_success_mutation_receipts() -> None:
+    authority_client = (REPO_ROOT / "harness/sdk/authority_client.py").read_text(encoding="utf-8")
+    authority_cli = (REPO_ROOT / "scripts/automaton3-authority.py").read_text(encoding="utf-8")
+    assert "make_mutation_receipt" not in authority_client
+    assert "make_mutation_receipt" not in authority_cli
+    assert '"mutation_receipt"' not in authority_cli
+    assert '"mutation_receipt_root"' not in authority_cli
+    assert '"receipt_root": receipt.root' not in authority_client
