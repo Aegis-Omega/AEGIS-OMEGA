@@ -38,13 +38,13 @@ assert.equal(source.includes("observedExecutionOutcome(result)"), true,
 assert.equal(before(
   source,
   "await bridgePost('/platform/collaborate'",
-  "finalizeExecution(authorityInput, result, extractPostStateDigest(result, 'collaboration'))",
+  "finalizeExecution(authorityInput, result, extractPostStateDigest(result, 'collaboration'), observedExecutionOutcome(result))",
 ), true, 'collaboration receipt must be finalized only after the side effect returns')
 
 assert.equal(before(
   source,
   "await bridgePost('/claude'",
-  "finalizeExecution(authorityInput, result, extractPostStateDigest(result, 'claude'))",
+  "finalizeExecution(authorityInput, result, extractPostStateDigest(result, 'claude'), observedExecutionOutcome(result))",
 ), true, 'Claude receipt must be finalized only after the side effect returns')
 
 console.log('EXECUTION_RECEIPT_BOUNDARY_PASS admission != execution; terminal receipts are post-result only')
