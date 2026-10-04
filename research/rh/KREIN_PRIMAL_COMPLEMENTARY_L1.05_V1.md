@@ -48,4 +48,4 @@ Finite-subspace minima remain upper bounds on the unrestricted infimum. This res
 - Parent PR #699 head: `6399141cffaaca98d2dc96890810cd9a5551f455`
 - Existing convergence script blob: `982bb18e3d8acdf88cde795d4fcd921d9581a972`
 - Existing L=1.05 result blob: `24db597371010c6a5dc39f599c07c311e1c5bafc`
-- Complementary script blob: `d0c57a522be15169b964a2088eb8ce2367e7248c`
+- Complementary script blob: `81c13703df9a48ef7e9387811c4c359e73dd8ab4`
