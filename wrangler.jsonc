@@ -6,8 +6,13 @@
   "observability": {
     "enabled": true
   },
+  // The WebGPU page is a Vite app: serve its build output, not the source tree
+  // (raw /src/main.ts is served as video/mp2t and browsers refuse to run it).
+  "build": {
+    "command": "npm ci --prefix aegisomega-webgpu && npm run build --prefix aegisomega-webgpu"
+  },
   "assets": {
-    "directory": "aegisomega-webgpu",
+    "directory": "aegisomega-webgpu/dist",
     "binding": "ASSETS"
   },
   "compatibility_flags": [
