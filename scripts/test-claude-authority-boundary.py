@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import os
 import subprocess
 from pathlib import Path
 from unittest import TestCase, main
@@ -57,21 +58,41 @@ class ClaudeAuthorityConfigurationTests(TestCase):
 
 
 class ClaudeAuthorityGuardBehaviorTests(TestCase):
-    def run_guard(self, tool_name: str, tool_input: dict) -> dict:
+    def run_guard(
+        self,
+        tool_name: str,
+        tool_input: dict,
+        *,
+        env_overrides: dict[str, str | None] | None = None,
+    ) -> dict:
         self.assertTrue(AUTHORITY_GUARD.is_file(), "Claude authority guard is missing")
+        env = os.environ.copy()
+        for key, value in (env_overrides or {}).items():
+            if value is None:
+                env.pop(key, None)
+            else:
+                env[key] = value
+
         proc = subprocess.run(
             ["python3", str(AUTHORITY_GUARD)],
             input=json.dumps({"tool_name": tool_name, "tool_input": tool_input}),
             text=True,
             capture_output=True,
             check=False,
+            env=env,
         )
         self.assertEqual(proc.returncode, 0, proc.stderr)
         self.assertTrue(proc.stdout.strip(), "guard emitted no decision")
         return json.loads(proc.stdout)
 
-    def decision(self, tool_name: str, tool_input: dict) -> str:
-        result = self.run_guard(tool_name, tool_input)
+    def decision(
+        self,
+        tool_name: str,
+        tool_input: dict,
+        *,
+        env_overrides: dict[str, str | None] | None = None,
+    ) -> str:
+        result = self.run_guard(tool_name, tool_input, env_overrides=env_overrides)
         return result["hookSpecificOutput"]["permissionDecision"]
 
     def test_every_bash_git_push_is_denied(self) -> None:
@@ -85,6 +106,59 @@ class ClaudeAuthorityGuardBehaviorTests(TestCase):
 
     def test_non_push_bash_is_allowed(self) -> None:
         self.assertEqual(self.decision("Bash", {"command": "git status --short"}), "allow")
+
+    def test_restricted_network_git_is_denied_with_machine_readable_handoff(self) -> None:
+        commands = (
+            "git clone https://git-user:git-secret@github.com/Aegis-Omega/AEGIS-OMEGA.git",
+            "git ls-remote origin HEAD",
+            "git fetch origin main",
+            "git pull --ff-only",
+        )
+        for command in commands:
+            with self.subTest(command=command):
+                result = self.run_guard(
+                    "Bash",
+                    {"command": command},
+                    env_overrides={
+                        "NETWORK": "caas_packages_only",
+                        "HTTPS_PROXY": "https://proxy-user:proxy-secret@proxy.invalid:8443",
+                    },
+                )
+                output = result["hookSpecificOutput"]
+                self.assertEqual(output["permissionDecision"], "deny")
+                handoff = json.loads(output["permissionDecisionReason"])
+                self.assertEqual(handoff["event"], "AEGIS_REPO_ACCESS_HANDOFF")
+                self.assertEqual(handoff["classification"], "SANDBOX_EGRESS_RESTRICTED")
+                self.assertEqual(handoff["action"], "STOP_DIRECT_GIT")
+                self.assertEqual(handoff["recommended_transport"], "CONNECTED_GITHUB_TRANSPORT")
+                self.assertEqual(handoff["transport_api_boundary"], "PLATFORM_OWNED_NOT_REPO_CALLABLE")
+                self.assertFalse(handoff["connected_transport_invoked"])
+                rendered = json.dumps(result, sort_keys=True)
+                self.assertNotIn("git-secret", rendered)
+                self.assertNotIn("proxy-secret", rendered)
+                self.assertNotIn("proxy.invalid", rendered)
+
+    def test_restricted_dns_mutation_is_denied_without_blocking_dns_reads(self) -> None:
+        restricted = {"NETWORK": "caas_packages_only"}
+        mutation = "printf 'nameserver 1.1.1.1' | sudo tee /etc/resolv.conf"
+        self.assertEqual(
+            self.decision("Bash", {"command": mutation}, env_overrides=restricted),
+            "deny",
+        )
+        self.assertEqual(
+            self.decision("Bash", {"command": "cat /etc/resolv.conf"}, env_overrides=restricted),
+            "allow",
+        )
+
+    def test_unrestricted_environment_preserves_direct_network_git(self) -> None:
+        self.assertEqual(
+            self.decision(
+                "Bash",
+                {"command": "git ls-remote origin HEAD"},
+                env_overrides={"NETWORK": None},
+            ),
+            "allow",
+        )
 
     def test_github_content_writes_require_explicit_non_main_branch(self) -> None:
         for tool in GITHUB_CONTENT_WRITERS:
