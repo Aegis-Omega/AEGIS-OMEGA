@@ -38,7 +38,7 @@ def main() -> int:
         )
         output = result.stdout + result.stderr
         outputs.append(output)
-        match = re.search(r"Ran (\\d+) tests? in", output)
+        match = re.search(r"Ran (\d+) tests? in", output)
         if match is None:
             count_parse_failed = True
         else:
