@@ -262,3 +262,8 @@ def test_authority_only_entrypoints_do_not_issue_success_mutation_receipts() -> 
     assert '"mutation_receipt"' not in authority_cli
     assert '"mutation_receipt_root"' not in authority_cli
     assert '"receipt_root": receipt.root' not in authority_client
+
+
+def test_legacy_admission_to_success_receipt_constructor_is_removed() -> None:
+    sovereign_execution = (REPO_ROOT / "harness/sdk/sovereign_execution.py").read_text(encoding="utf-8")
+    assert "def make_mutation_receipt(" not in sovereign_execution
