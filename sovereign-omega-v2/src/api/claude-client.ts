@@ -46,12 +46,15 @@ export interface ConstitutionalMessage {
   readonly content: string
 }
 
+export type ClaudeEffort = 'low' | 'medium' | 'high' | 'xhigh' | 'max'
+
 export interface ConstitutionalRequest {
   readonly messages: readonly ConstitutionalMessage[]
   readonly model: string
   readonly max_tokens: number
   readonly system?: string
   readonly temperature?: number
+  readonly effort?: ClaudeEffort
   readonly use_constitutional_prompt?: boolean
 }
 
@@ -93,6 +96,10 @@ export class ConstitutionalClaudeClient {
 
   /** Send a message through the constitutional pipeline. Returns a hash-linked response. */
   async send(request: ConstitutionalRequest): Promise<ConstitutionalResponse> {
+    if (isClaude55Model(request.model) && request.temperature !== undefined) {
+      throw new ClaudeClientError('CLAUDE_5_5_UNSUPPORTED_PARAMETER:temperature')
+    }
+
     const systemPrompt = request.use_constitutional_prompt !== false
       ? (request.system
           ? `${AEGIS_CONSTITUTIONAL_SYSTEM_PROMPT}\n\n---\n\n${request.system}`
@@ -113,6 +120,9 @@ export class ConstitutionalClaudeClient {
         content: m.content,
       })),
       ...(request.temperature !== undefined ? { temperature: request.temperature } : {}),
+      ...(isClaude55Model(request.model) && request.effort !== undefined
+        ? { output_config: { effort: request.effort } }
+        : {}),
     })
 
     const response_text = response.content
@@ -194,13 +204,19 @@ export class ConstitutionalClaudeClient {
     })
   }
 
-  /** Send with extended thinking enabled (Sonnet/Opus only). */
+  /** Send with governed thinking. Claude 5.5 uses adaptive thinking + effort. */
   async think(
     messages: readonly ConstitutionalMessage[],
-    model = 'claude-sonnet-4-6',
-    thinkingBudget = 8000,
+    model = 'claude-sonnet-5-5',
+    effortOrBudget: ClaudeEffort | number = 'high',
     maxTokens = 16000,
   ): Promise<ConstitutionalResponse> {
+    if (isClaude55Model(model) && typeof effortOrBudget === 'number') {
+      throw new ClaudeClientError('CLAUDE_5_5_MANUAL_THINKING_BUDGET_UNSUPPORTED')
+    }
+    if (!isClaude55Model(model) && typeof effortOrBudget !== 'number') {
+      throw new ClaudeClientError('LEGACY_CLAUDE_MODEL_REQUIRES_NUMERIC_THINKING_BUDGET')
+    }
     const systemPrompt = AEGIS_CONSTITUTIONAL_SYSTEM_PROMPT
 
     const request_hash = await hashValue({
@@ -209,14 +225,23 @@ export class ConstitutionalClaudeClient {
       thinking: true,
     })
 
+    const thinkingRequest = isClaude55Model(model)
+      ? {
+          thinking: { type: 'adaptive' as const },
+          output_config: { effort: effortOrBudget as ClaudeEffort },
+        }
+      : {
+          thinking: {
+            type: 'enabled' as const,
+            budget_tokens: effortOrBudget as number,
+          },
+        }
+
     const response = await this._client.messages.create({
       model,
       max_tokens: maxTokens,
       system: systemPrompt,
-      thinking: {
-        type: 'enabled',
-        budget_tokens: thinkingBudget,
-      },
+      ...thinkingRequest,
       messages: messages.map(m => ({
         role: m.role as 'user' | 'assistant',
         content: m.content,
