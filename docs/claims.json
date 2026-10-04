@@ -246,16 +246,18 @@
     },
     {
       "id": "CLM-205",
-      "claim": "Phase 4 - offline verifier CLI.",
-      "tier": "Proposed",
-      "eq": "EQ-D",
+      "claim": "An independent, standard-library offline CLI verifies Phase-1 ExecutionEnvelope integrity, expected anchors, genesis-relative sequence/linkage, and terminal hashes without importing the producer implementation; it deliberately does not verify signatures, client principals, transparency logs, provider execution, or model execution.",
+      "tier": "Verified",
+      "eq": "EQ-A",
       "dependencies": [
         "CLM-006"
       ],
       "evidence": [
-        "Spec: (design only)"
+        "Code: scripts/aegis-envelope-verify.py",
+        "Test: sovereign-omega-v2/python/tests/test_offline_envelope_verifier.py"
       ],
-      "fails_if": "Presented as shipped before a CLI + test exist."
+      "fails_if": "The CLI accepts body tampering, a broken sequence/prev_hash link, a mismatched caller-supplied expected hash/root, raw float or non-finite JSON, an unsupported field set, or a non-null signature without cryptographic verification; or the verifier imports canonical_envelope.py instead of independently recomputing the Phase-1 canonical hash.",
+      "verified_against": "a722051f176fac74f984431e544ae0ff53e7e586"
     },
     {
       "id": "CLM-206",
