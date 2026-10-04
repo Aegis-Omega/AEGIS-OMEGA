@@ -412,7 +412,7 @@ def bind_cutoff_free_galerkin_verification(
     are bound separately so later replay can detect semantic or arithmetic
     tampering without confusing integrity with theorem authority.
     """
-    from harness.sdk.proof_trace import (
+    from harness.sdk.proof_trace_sdk import (
         DENIED,
         NO_AUTHORITY,
         OK,

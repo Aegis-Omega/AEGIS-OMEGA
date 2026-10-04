@@ -24,7 +24,7 @@ from dataclasses import asdict, dataclass
 from fractions import Fraction
 from typing import Iterable
 
-from harness.sdk.proof_trace import (
+from harness.sdk.proof_trace_sdk import (
     DENIED,
     NO_AUTHORITY,
     OK,

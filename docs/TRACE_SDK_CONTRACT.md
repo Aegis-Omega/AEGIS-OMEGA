@@ -20,7 +20,7 @@ Observation != Truth
 External telemetry != AEGIS admission
 ```
 
-The runtime contract is implemented in `harness/sdk/proof_trace.py`.
+The runtime contract is implemented in `harness/sdk/proof_trace_sdk.py`.
 
 ## 1. Trace header
 
