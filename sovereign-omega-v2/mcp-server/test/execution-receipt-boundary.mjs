@@ -28,6 +28,13 @@ assert.equal(source.includes('POST_STATE_UNAVAILABLE'), true,
 assert.equal(source.includes('ASYNC_EXECUTION_NOT_TERMINAL'), true,
   'async initiation must not be attested as terminal success')
 
+assert.equal(source.includes('function observedExecutionOutcome'), true,
+  'MCP boundary must classify an observed invalid chain as failed execution')
+assert.equal(source.includes("chain_valid'] === false"), true,
+  'chain_valid=false must be an explicit failed-execution signal')
+assert.equal(source.includes("observedExecutionOutcome(result)"), true,
+  'collaboration finalizer must consume the observed execution outcome')
+
 assert.equal(before(
   source,
   "await bridgePost('/platform/collaborate'",
