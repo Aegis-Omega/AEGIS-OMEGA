@@ -456,6 +456,18 @@ class InboundTests(unittest.TestCase):
         self.assertEqual(result.status,'VERIFIED_NOT_ADMITTED')
         self.assertLessEqual(len(json.dumps(result.event.payload).encode()),16384)
 
+    def test_payload_schema_artifact_matches_emitted_shape(self):
+        schema = json.loads((ROOT / "schemas/resend-inbound-metadata.v1.schema.json").read_text(encoding="utf-8"))
+        result = self.call()
+        self.assertEqual(result.event.payload_schema, "resend-inbound-metadata.v1")
+        self.assertEqual(schema["properties"]["content_type"]["const"], result.event.payload["content_type"])
+        data_schema = schema["properties"]["data"]
+        self.assertFalse(data_schema["additionalProperties"])
+        self.assertEqual(set(data_schema["required"]), set(result.event.payload["data"]))
+        self.assertEqual(set(data_schema["properties"]), set(result.event.payload["data"]))
+        self.assertEqual(data_schema["properties"]["granted_capabilities"]["const"], [])
+        self.assertEqual(data_schema["properties"]["execution_state"]["const"], "NOT_EXECUTED")
+
     def test_adapter_uses_exact_original_identity_core(self):
         raw=(ROOT/'harness/sdk/sovereign_execution.py').read_bytes()
         blob=hashlib.sha1(b'blob '+str(len(raw)).encode()+b'\0'+raw).hexdigest()
