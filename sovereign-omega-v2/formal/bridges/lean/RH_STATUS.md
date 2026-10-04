@@ -540,3 +540,10 @@ Coq `Globalization.v`, now wired to `final_sign_implies_rh_v13`, so the Weil cri
 `uniform_lower_bound_collapses`: for a degree-2 homogeneous form a uniform bound −ε forces ≥ 0, so the error term buys
 nothing over exact sign. The remaining hypothesis is exactly the sign on every support width — the content of RH.
 Built locally against the #679 closure (Lean 4.33.1, Mathlib 0df444a); not yet replayed in CI.
+
+**Connected window chain (`RHWindowConnectedV13.lean`, kernel, standard axioms only).** Joins
+`RHHatCoxClass693V13.hat_coercive`, `WeilWindowExhaustionV1` and `final_sign_implies_rh_v13`:
+`window_693_arithmetic_nonpositive` closes the log window `[−693/2000, 693/2000]` (and every smaller one), and
+`rh_of_windows_above_693` / `rh_of_nat_windows` give RH from the sign on the windows `L > 693/2000`, equivalently on
+the integer windows `[−n, n]`. Those remaining windows are open (Arb certificates reach support length 1.8, i.e. window
+radius 0.9, outside the kernel). Built locally on the #679 closure (118 modules).
