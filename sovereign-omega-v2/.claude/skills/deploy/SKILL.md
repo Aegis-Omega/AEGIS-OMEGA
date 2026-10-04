@@ -1,6 +1,6 @@
 ---
 name: deploy
-description: Full production deployment workflow for the AEGIS ecosystem. Covers Vercel (hub, platform-picker, hook-generator, content-calendar), Cloud Run (aegisomega.com services), and the Python bridge. Invoked when the user says "deploy", "ship to prod", "push to Vercel", "go live", "release", or asks how to get any AEGIS product running in production.
+description: Full production deployment workflow for the AEGIS ecosystem. Covers Vercel, Cloudflare DNS/Worker, Supabase edge functions, and evidence-bound release verification. Invoked when the user says "deploy", "ship to prod", "push to Vercel", "go live", "release", or asks how to get any AEGIS product running in production.
 ---
 
 # Deploy Skill
@@ -25,138 +25,133 @@ If either fails: T0_ABORT. Do not deploy.
 
 ### Prerequisites
 ```bash
-npm install -g vercel   # once, globally
-vercel login            # authenticate — uses tarikskalic33@gmail.com
+npm install -g vercel
+vercel login
 ```
 
 ### Deploy hub (aegisomega.com landing page)
 ```bash
 cd hub
 npm ci
-npm run build           # must exit 0 — tsc -b && vite build
+npm run build
 
-# Preview deploy (staging URL, no custom domain):
+# Preview first:
 vercel
 
-# Production deploy (hits aegisomega.com):
+# Production only after preview verification:
 vercel --prod
 ```
 
-Expected output:
+Expected production surface:
+
 ```
-✓ Deployed to Production
-  https://aegisomega.com  (custom domain, DNS via Cloudflare)
-  https://hub-one-kappa.vercel.app  (Vercel preview URL)
+https://aegisomega.com
 ```
+
+The apex is served through Vercel. Do not point the apex back to legacy GCP/Cloud Run.
 
 ### Deploy commercial products
 ```bash
-# Each product is an independent Vercel project:
-cd platform-picker && npm ci && npm run build && vercel --prod
-cd hook-generator  && npm ci && npm run build && vercel --prod
+cd platform-picker  && npm ci && npm run build && vercel --prod
+cd hook-generator   && npm ci && npm run build && vercel --prod
 cd content-calendar && npm ci && npm run build && vercel --prod
 ```
 
-### Environment variables (set in Vercel dashboard or via CLI)
-```bash
-# Per-product, set via dashboard: vercel.com → project → Settings → Environment Variables
-# OR via CLI:
-vercel env add VITE_DASHSCOPE_API_KEY production    # Qwen API key
-vercel env add VITE_DASHSCOPE_MODEL production      # qwen-plus (default)
-vercel env add VITE_BRIDGE_URL production           # optional: bridge proxy URL
+### Environment variables
 
-# Hub-specific (optional — overlay live bridge telemetry):
-vercel env add VITE_BRIDGE_URL production           # e.g. https://bridge.aegisomega.com
+Use Vercel project environment settings or the CLI. Never commit tokens or secrets.
+
+```bash
+vercel env add VITE_DASHSCOPE_API_KEY production
+vercel env add VITE_DASHSCOPE_MODEL production
+vercel env add VITE_BRIDGE_URL production
 ```
 
-### Vercel project setup (first time only)
-```bash
-cd hub
-vercel link    # links to existing project OR creates new
-# Root Directory: hub
-# Build Command: npm run build
-# Output Directory: dist
-# Framework: Vite
-```
+### Token-based deploy
 
-### Token-based deploy (CI / non-interactive)
 ```bash
-# Export token (from vercel.com → Account Settings → Tokens):
-export VERCEL_TOKEN="your_token_here"   # NEVER commit this
-
+export VERCEL_TOKEN="..."
 vercel --prod --yes --token "$VERCEL_TOKEN"
 ```
 
 ---
 
-## 2. Cloud Run — Core AEGIS Services
+## 2. Cloudflare Worker — API Edge
 
-**Domain:** `aegisomega.com` (Cloudflare DNS → Cloud Run)
-**Region:** `europe-west3`
-**GCP account:** `info@aegisomega.com`
+The current API custom-domain owner is the Cloudflare Worker declared by `/wrangler.jsonc`.
 
-### Authenticate
-```bash
-gcloud auth login
-gcloud config set project <PROJECT_ID>   # find via: gcloud projects list
-gcloud config set run/region europe-west3
+Canonical custom domain:
+
+```
+aegis-vertex.aegisomega.com
 ```
 
-### Deploy via GitHub Actions (preferred — no credentials on disk)
+The route is declared with `custom_domain: true`. Cloudflare provisions the certificate when the Worker custom-domain binding is active.
+
+### Deploy
+
 ```bash
-# This is automatic on push to main via WIF:
-git push origin main   # triggers .github/workflows/deploy.yml
+npx wrangler deploy
 ```
 
-### Manual Cloud Run deploy
-```bash
-# Build and push container:
-docker build -t europe-west3-docker.pkg.dev/<PROJECT>/aegis/<service>:latest .
-docker push europe-west3-docker.pkg.dev/<PROJECT>/aegis/<service>:latest
+### Hard rule
 
-# Deploy:
-gcloud run deploy <service-name> \
-  --image europe-west3-docker.pkg.dev/<PROJECT>/aegis/<service>:latest \
-  --region europe-west3 \
-  --allow-unauthenticated \
-  --min-instances 1
-```
-
-### Services on Cloud Run
-| Service | Port | Purpose |
-|---------|------|---------|
-| `python-bridge` | 7890 | Python governance bridge (bridge.py) |
-| `sovereign-omega` | 8080 | TypeScript governance runtime |
-| `studio` | 3001 | Observability studio (projection only) |
-
-### Python bridge deploy
-```bash
-cd sovereign-omega-v2
-# Bridge is containerized — Dockerfile at python/Dockerfile (create if missing):
-gcloud run deploy python-bridge \
-  --source . \
-  --port 7890 \
-  --region europe-west3 \
-  --set-env-vars "CORRUPTION_THRESHOLD=0,EPOCH_FAILSAFE=true"
-```
+Do **not** create or restore a legacy Cloud Run DNS mapping for `aegis-vertex.aegisomega.com`. A stale DNS record can conflict with the Cloudflare Worker custom-domain binding and reintroduce DNS/TLS failures.
 
 ---
 
-## 3. Domain & DNS (Cloudflare)
+## 3. Domain & DNS Control Plane
 
-**DNS is managed at Cloudflare.** Do not modify DNS records without checking here first.
+### Registrar and authoritative DNS
+
+- Registrar: **Squarespace Domains**
+- Authoritative DNS: **Cloudflare**
+- Nameserver set: the active `olivia` / `remy` Cloudflare pair established on 2026-07-02
+- Do not restore the stale `noor` / `west` delegation.
+
+### Current canonical routing
 
 ```
-aegisomega.com     → Cloud Run (governance runtime)
-hub.aegisomega.com → Vercel (hub landing page)
-bridge.aegisomega.com → Cloud Run (Python bridge — only if making bridge public)
+aegisomega.com                  → Vercel apex (76.76.21.21)
+www.aegisomega.com              → Vercel
+platform.aegisomega.com         → Vercel
+hooks.aegisomega.com            → Vercel
+calendar.aegisomega.com         → Vercel DNS record exists; project attachment must still be verified
+cockpit.aegisomega.com          → Vercel DNS record exists; project/certificate attachment must still be verified
+aegis-vertex.aegisomega.com     → Cloudflare Worker custom domain
 ```
 
-To verify:
-```bash
-curl -I https://aegisomega.com/health   # should return 200 from Python bridge
-curl -I https://hub.aegisomega.com      # should return 200 from Vercel
+### OpenAI tenant-domain verification records
+
+These records are verification-only and carry no AEGIS execution authority:
+
 ```
+TXT _openai-site-verification.aegisomega.com
+    openai-site-verification=zchKhAC2vSCoUTOKmlHN9tiwmpzfL81-vX2oA7-nG3c
+
+TXT _cf-custom-hostname.aegisomega.com
+    958133c2-046b-4684-b34e-08ac9a553228
+```
+
+Hosted verification is implemented by:
+
+```
+scripts/verify-openai-domain-dns.py
+.github/workflows/openai-domain-dns-verification.yml
+```
+
+A DNS PASS proves public TXT visibility only. OpenAI Admin Console must independently transition the domain from pending to verified.
+
+### DNS mutation rules
+
+Before any mutation:
+
+1. Resolve the intended hostname and current owner.
+2. Confirm the target platform.
+3. Preserve unrelated MX/SPF/DKIM records.
+4. Never replace the entire Cloudflare zone for a single service change.
+5. Never change nameservers unless the whole-zone migration is intentional and independently reviewed.
+6. Record exact before/after values and a verification receipt.
 
 ---
 
@@ -165,10 +160,8 @@ curl -I https://hub.aegisomega.com      # should return 200 from Vercel
 Payment flows use Supabase edge functions to issue server-side tokens.
 
 **Critical invariant:** Tokens MUST be minted server-side. Never client-side.
-(Client-side minting was a critical vulnerability patched 2026-05-30.)
 
 ```bash
-# Deploy edge functions:
 supabase functions deploy verify-payment --project-ref <ref>
 supabase functions deploy issue-token    --project-ref <ref>
 ```
@@ -179,27 +172,32 @@ supabase functions deploy issue-token    --project-ref <ref>
 
 ```
 [ ] Gate 8 passes: npm run test && npm run typecheck && npm run build
-[ ] verify-hashes.mjs exits 0 (frozen files intact)
-[ ] No .env files staged: git status | grep env → empty
+[ ] verify-hashes.mjs exits 0
+[ ] No .env files staged
+[ ] Exact candidate SHA recorded
 [ ] Vercel env vars set for the target environment
-[ ] If touching payment flows: server-side token minting verified
-[ ] Hub: npm run build exits 0 in hub/ directory specifically
-[ ] VITE_BRIDGE_URL: either set correctly or unset (graceful fallback)
+[ ] Payment flows still mint tokens server-side
+[ ] Hub build passes in hub/
+[ ] Worker changes match wrangler.jsonc and custom-domain ownership
+[ ] DNS changes, if any, preserve unrelated MX/SPF/DKIM records
+[ ] Hosted DNS verification receipt captured when OpenAI domain verification is in scope
 ```
 
 ---
 
 ## 6. Rollback
 
-```bash
-# Vercel — instant rollback via dashboard or CLI:
-vercel rollback <deployment-url>
+### Vercel
 
-# Cloud Run — traffic split or previous revision:
-gcloud run services update-traffic <service> \
-  --to-revisions <previous-revision>=100 \
-  --region europe-west3
+```bash
+vercel rollback <deployment-url>
 ```
+
+### Cloudflare Worker
+
+Roll back to a known-good Worker deployment/version or redeploy the known-good commit. Do **not** use a GCP/Cloud Run rollback as a substitute for the current Worker/Vercel architecture.
+
+DNS rollback must restore the exact previous record values rather than recreate historical infrastructure from old documentation.
 
 ---
 
@@ -218,5 +216,5 @@ L5: Gate 8 is not a pre-deploy ritual.
 L6: Test pass ≠ Correctness.
     Gate 8 pass ≠ "the feature works."
     Deploy to staging. Observe. Then deploy to prod.
-    The golden path must be tested manually — type checkers cannot do this.
+    The golden path must be tested manually.
 ```
