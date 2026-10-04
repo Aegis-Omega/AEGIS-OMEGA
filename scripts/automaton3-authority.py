@@ -17,11 +17,13 @@ from harness.sdk.sovereign_execution import (  # noqa: E402
     AuthorityEvaluator,
     AuthorityRequest,
     ExecutionIdentityEnvelope,
+    PolicyDecision,
     ZERO_HASH,
     canonical_hash,
     decision_dict,
     load_capability_registry,
     load_policy,
+    make_execution_receipt,
     verify_workspace,
 )
 
@@ -110,9 +112,44 @@ def evaluate(payload: dict) -> dict:
         return deny("AUTHORITY_EVALUATION_ERROR", str(exc))
 
 
+def finalize(payload: dict) -> dict:
+    authority = evaluate(payload)
+    if authority.get("outcome") != ADMITTED:
+        return {
+            **deny("EXECUTION_FINALIZE_AUTHORITY_NOT_ADMITTED"),
+            "authority": authority,
+        }
+    try:
+        identity = ExecutionIdentityEnvelope(**payload["identity"])
+        identity_root = identity.root
+        decision = PolicyDecision(**authority["policy_decision"])
+        execution = payload["execution"]
+        receipt = make_execution_receipt(
+            identity_root=identity_root,
+            workspace_binding=identity.workspace_binding,
+            decision=decision,
+            pre_state_digest=identity.expected_pre_state,
+            action_digest=canonical_hash("AEGIS_REQUESTED_ACTION_V1", payload.get("action", {})),
+            result=execution["result"],
+            post_state_digest=execution["post_state_digest"],
+            parent_receipt=execution.get("parent_receipt", ZERO_HASH),
+            sequence=int(execution.get("sequence", 0)),
+            execution_outcome=execution["outcome"],
+        )
+        return {
+            "schema_version": "1.0.0",
+            "outcome": receipt.outcome,
+            "authority_decision_root": decision.decision_root,
+            "mutation_receipt": asdict(receipt),
+            "mutation_receipt_root": receipt.root,
+        }
+    except Exception as exc:
+        return deny("EXECUTION_RECEIPT_ERROR", str(exc))
+
+
 def main() -> int:
     parser = argparse.ArgumentParser()
-    parser.add_argument("command", choices=["evaluate"])
+    parser.add_argument("command", choices=["evaluate", "finalize"])
     parser.add_argument("--input", default="-")
     parser.add_argument("--output", default="-")
     args = parser.parse_args()
@@ -122,7 +159,7 @@ def main() -> int:
     except json.JSONDecodeError as exc:
         result = deny("INPUT_JSON_MALFORMED", str(exc))
     else:
-        result = evaluate(payload)
+        result = evaluate(payload) if args.command == "evaluate" else finalize(payload)
     rendered = json.dumps(result, ensure_ascii=False, sort_keys=True, separators=(",", ":")) + "\n"
     if args.output == "-":
         sys.stdout.write(rendered)
