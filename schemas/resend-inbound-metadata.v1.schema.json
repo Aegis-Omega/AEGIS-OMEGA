@@ -1,0 +1,64 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://aegisomega.com/schemas/resend-inbound-metadata.v1.schema.json",
+  "title": "AEGIS Resend Inbound Metadata V1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["content_type", "data"],
+  "properties": {
+    "content_type": {"const": "application/vnd.aegis.resend-inbound-metadata+json"},
+    "data": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "provider", "event_type", "email_id", "sender", "sender_authentication",
+        "subject", "message_id", "received_at", "received_for", "to", "cc", "bcc",
+        "attachments", "attachment_count", "attachment_content_state", "content_state",
+        "execution_state", "granted_capabilities", "trust"
+      ],
+      "properties": {
+        "provider": {"const": "resend"},
+        "event_type": {"const": "email.received"},
+        "email_id": {"type": "string", "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"},
+        "sender": {"type": "string", "minLength": 3, "maxLength": 254},
+        "sender_authentication": {"const": "UNVERIFIED_EMAIL_CLAIM"},
+        "subject": {"type": "string", "maxLength": 2048},
+        "message_id": {"type": "string", "minLength": 1, "maxLength": 512},
+        "received_at": {"type": "string", "format": "date-time"},
+        "received_for": {"$ref": "#/$defs/address_array"},
+        "to": {"$ref": "#/$defs/address_array"},
+        "cc": {"$ref": "#/$defs/address_array"},
+        "bcc": {"$ref": "#/$defs/address_array"},
+        "attachments": {
+          "type": "array",
+          "maxItems": 8,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["id"],
+            "properties": {
+              "id": {"type": "string", "minLength": 1, "maxLength": 256, "pattern": "^[A-Za-z0-9._:/@+#=-]+$"},
+              "filename": {"type": "string", "maxLength": 512},
+              "content_type": {"type": "string", "minLength": 1, "maxLength": 256},
+              "content_disposition": {"enum": ["inline", "attachment"]},
+              "content_id": {"type": "string", "maxLength": 512}
+            }
+          }
+        },
+        "attachment_count": {"type": "integer", "minimum": 0, "maximum": 8},
+        "attachment_content_state": {"const": "NOT_FETCHED"},
+        "content_state": {"const": "NOT_FETCHED"},
+        "execution_state": {"const": "NOT_EXECUTED"},
+        "granted_capabilities": {"const": []},
+        "trust": {"const": "UNTRUSTED_EMAIL_DATA"}
+      }
+    }
+  },
+  "$defs": {
+    "address_array": {
+      "type": "array",
+      "maxItems": 10,
+      "items": {"type": "string", "minLength": 3, "maxLength": 254}
+    }
+  }
+}
