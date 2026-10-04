@@ -8,6 +8,7 @@ python3 complement_lp.py "$L" "$CT" "$XI0" "$STEP"                       # compl
 python3 verify_krein_slack_arb.py complement_lp.json "$M" 3000 0.05 sbar.json > krein_slack.log
 python3 complement_trace_arb.py "$L" "$N" sbar.json > trace.log            # trace_arb.json
 python3 feshbach_blocks_arb.py "$L" "$N" "$NP" > blocks.log                # blocks_N${N}_NP${NP}.json
-CINF=$(python3 -c "import json; from flint import arb; t=json.load(open('trace_arb.json')); print((arb('$M')-arb(t['trPTP_upper'])).lower())")
+# exact decimal strictly below the certified lower bound (a ball-valued c_inf inflates the Cholesky radii)
+CINF=$(python3 -c "import json, math; from flint import arb; t=json.load(open('trace_arb.json')); v=float((arb('$M')-arb(t['trPTP_upper'])).lower().mid()); print(f'{math.floor(v*1e11)/1e11 - 1e-11:.11f}')")
 python3 schur_arb.py "blocks_N${N}_NP${NP}.json" "$CINF" "$MU" | tee schur.log
 rm -f *.py; rm -rf __pycache__

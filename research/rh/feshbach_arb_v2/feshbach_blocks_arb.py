@@ -71,23 +71,19 @@ import os
 TAIL_ORDER = int(os.environ.get('TAIL_ORDER', '1'))
 Amax = max(abs(a_) for a_ in alpha).upper()
 ONES = [arb(1)] * len(band)
-if TAIL_ORDER == 1:
-    c1 = 10 / (pi * pi * NP)
-    Tail = outer(alpha) * c1 + outer(ONES) * (c1 * K2 * K2) + outer(bvec) * (c1 * pi * pi * Cc * Cc) \
-         + outer(avec) * (c1 * pi * pi * Cc * Cc * beta ** 4 / (NP * NP))
-    Eco = 10 * (Amax + K2) ** 2 * N * N * (2 * N + 1) / (3 * pi * pi * arb(NP - N) ** 3)
-else:
-    # Second order: 1/(n-m) = 1/n + m/n^2 + m^2/(n^2 (n-m)).
-    #   (Qv)_n = [l1 + b_n l0]/(pi n) + [l1' + b_n l0']/(pi n^2) + pole_n + rho_n,
-    #   l1' = sum alpha_m m v_m, l0' = sum m v_m, |b_n| <= K2,
-    #   |pole_n| <= Cc |lb|/|n| + Cc beta^2 |la|/n^2,
-    #   |rho_n| <= (Amax + K2) N^2 ||v||_1 / (pi n^2 (|n| - N)).
-    # Cauchy-Schwarz over 7 terms; sum_{|n|>NP} n^-2 <= 2/NP, n^-4 <= 2/(3 NP^3), n^-4 (n-N)^-2 <= 2/(5 (NP-N)^5).
-    c1 = 14 / (pi * pi * NP); c2 = 14 / (3 * pi * pi * arb(NP) ** 3)
-    alpha_m = [a_ * m for a_, m in zip(alpha, band)]; mvec = [arb(m) for m in band]
-    Tail = outer(alpha) * c1 + outer(ONES) * (c1 * K2 * K2) + outer(bvec) * (c1 * pi * pi * Cc * Cc) \
-         + outer(alpha_m) * c2 + outer(mvec) * (c2 * K2 * K2) + outer(avec) * (c2 * pi * pi * Cc * Cc * beta ** 4)
-    Eco = 14 * (Amax + K2) ** 2 * arb(N) ** 4 * (2 * N + 1) / (5 * pi * pi * arb(NP - N) ** 5)
+# Order-K expansion  1/(n-m) = sum_{j<K} m^j/n^(j+1) + m^K/(n^K (n-m)):
+#   (Qv)_n = sum_{j<K} [l_alpha^(j) + b_n l_1^(j)]/(pi n^(j+1)) + pole_n + rho_n,
+#   l_alpha^(j) = sum alpha_m m^j v_m,  l_1^(j) = sum m^j v_m,  |b_n| <= K2,
+#   |pole_n| <= Cc |lb|/|n| + Cc beta^2 |la|/n^2,  |rho_n| <= (Amax + K2) N^K ||v||_1 / (pi |n|^K (|n| - N)).
+# Cauchy-Schwarz over 2K+3 terms; sum_{|n|>NP} n^-(2j+2) <= 2/((2j+1) NP^(2j+1)),
+# sum n^-2K (n-N)^-2 <= 2/((2K+1)(NP-N)^(2K+1)).  K = 1, 2 reproduce the v2 constants exactly.
+K = TAIL_ORDER; f = 2 * K + 3
+Tail = acb_mat(2 * N + 1, 2 * N + 1)
+for j in range(K):
+    cj = f * 2 / ((2 * j + 1) * pi * pi * arb(NP) ** (2 * j + 1))
+    Tail += outer([a_ * arb(m) ** j for a_, m in zip(alpha, band)]) * cj + outer([arb(m) ** j for m in band]) * (cj * K2 * K2)
+Tail += outer(bvec) * (f * 2 / (pi * pi * NP) * pi * pi * Cc * Cc) + outer(avec) * (f * 2 / (3 * pi * pi * arb(NP) ** 3) * pi * pi * Cc * Cc * beta ** 4)
+Eco = f * 2 * (Amax + K2) ** 2 * arb(N) ** (2 * K) * (2 * N + 1) / ((2 * K + 1) * pi * pi * arb(NP - N) ** (2 * K + 1))
 print('K2', K2, 'Amax', Amax, 'Eco', Eco)
 Ib = acb_mat(2 * N + 1, 2 * N + 1)
 for i in range(2 * N + 1): Ib[i, i] = Eco
@@ -95,10 +91,10 @@ Zh = Z.conjugate().transpose()
 A11 = Zh * Qb * Z; G11 = Zh * Z
 CB = Zh * (RR + Tail + Ib) * Z - A11 * G11.inv() * A11
 def mid(M): return [[complex(float(M[i, j].real.mid()), float(M[i, j].imag.mid())) for j in range(M.ncols())] for i in range(M.nrows())]
-blocks = {"L": str(L), "N": N, "NP": NP, "K2": K2.str(30), "Amax": Amax.str(30), "tail_coef": c1.str(30), "Eco": Eco.str(30),
-          "A11": [[(A11[i, j].real.str(40), A11[i, j].imag.str(40)) for j in range(k)] for i in range(k)],
-          "G11": [[(G11[i, j].real.str(40), G11[i, j].imag.str(40)) for j in range(k)] for i in range(k)],
-          "CB": [[(CB[i, j].real.str(40), CB[i, j].imag.str(40)) for j in range(k)] for i in range(k)]}
+blocks = {"L": str(L), "N": N, "NP": NP, "K2": K2.str(30), "Amax": Amax.str(30), "tail_order": K, "Eco": Eco.str(30),
+          "A11": [[(A11[i, j].real.str(70), A11[i, j].imag.str(70)) for j in range(k)] for i in range(k)],
+          "G11": [[(G11[i, j].real.str(70), G11[i, j].imag.str(70)) for j in range(k)] for i in range(k)],
+          "CB": [[(CB[i, j].real.str(70), CB[i, j].imag.str(70)) for j in range(k)] for i in range(k)]}
 json.dump(blocks, open(f"blocks_N{N}_NP{NP}.json", "w"), indent=0)
 import numpy as np
 A = np.array(mid(A11)); G = np.array(mid(G11)); C = np.array(mid(CB))

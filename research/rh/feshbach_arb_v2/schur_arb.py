@@ -2,7 +2,7 @@
 S = R + iJ with J antisymmetric; v*Sv >= v*(R - ||J|| I)v, ||J|| <= k max|J_ij|.  Interval Cholesky of R - ||J|| I."""
 import sys, json
 from flint import arb, acb, ctx
-ctx.prec = 192
+ctx.prec = 320
 P = json.load(open(sys.argv[1])); cinf = arb(sys.argv[2])
 def M(name): return [[acb(arb(re), arb(im)) for re, im in row] for row in P[name]]
 A, G, C = M('A11'), M('G11'), M('CB'); k = len(A)

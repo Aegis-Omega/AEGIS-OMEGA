@@ -578,4 +578,6 @@ L = 1.2 (N = 100, c_∞ ≥ 1.9206, Ritz λ₁ = 6.64e-5) and Q(G) ≥ 2.1e-6‖
 c_∞ ≥ 1.888, Ritz λ₁ = 2.32e-6), both with the prime 3 in the window. The low-block residual falls like N^(−1.6);
 the binding cost beyond 1.3 was the crude row-tail term ∝ N³/NP³. A second-order expansion of 1/(n − m) brings the
 remainder to ∝ N⁴/NP⁵ and certifies Q(G) ≥ 5e-8‖G‖² at L = 1.4 (prime powers 2, 3, 4; N = 160; c_∞ ≥ 1.421;
-Ritz λ₁ = 5.53e-8). Fixed widths, not RH.
+Ritz λ₁ = 5.53e-8). An order-4 tail expansion (remainder ∝ N⁸/NP⁹) certifies Q(G) ≥ 4.5e-12‖G‖² at L = 1.6
+(N = 200, c_∞ ≥ 1.323, Ritz λ₁ = 5.35e-12): Zhu's window, but for the moment-zero restriction rather than his full form
+(8.9e-18 there), so the two numbers measure different things. Fixed widths, not RH.
