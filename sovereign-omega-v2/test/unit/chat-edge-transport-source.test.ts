@@ -29,6 +29,24 @@ describe('chat edge transport source contract', () => {
     expect(source).toContain("const CHAT_ENABLE_AZURE  = Deno.env.get('CHAT_ENABLE_AZURE') === 'true'")
   })
 
+  it('rejects unknown providers instead of treating them as DashScope', () => {
+    expect(source).toContain("provider !== 'dashscope' && provider !== 'openai' && provider !== 'nebius' && provider !== 'azure'")
+    expect(source).toContain("error: 'unsupported provider'")
+  })
+
+  it('never reroutes a disabled explicit provider to another backend', () => {
+    expect(source).not.toContain('falling back to dashscope')
+    expect(source).toContain("provider_status: 'disabled'")
+    expect(source).toContain('No alternative provider was called.')
+  })
+
+  it('requires both OpenAI model and credential before provider mesh work', () => {
+    const gate = source.indexOf("if (useOpenAI && (!OPENAI_MODEL.trim() || !OPENAI_API_KEY.trim()))")
+    const meshClient = source.indexOf('const providerMesh = createClient', gate)
+    expect(gate).toBeGreaterThan(-1)
+    expect(meshClient).toBeGreaterThan(gate)
+  })
+
   it('does not introduce an automatic POST retry loop', () => {
     expect(source).toContain('no automatic retry for POST inference')
     expect(source).not.toMatch(/for\s*\([^)]*attempt[^)]*\)/i)

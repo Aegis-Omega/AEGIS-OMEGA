@@ -16,7 +16,7 @@ const NEBIUS_MODEL = Deno.env.get('NEBIUS_MODEL') ?? ''
 // Server-side provider gates. `provider` arrives in the public request body, so
 // the client-side VITE_ENABLE_* flags cannot actually gate the paid backends.
 // A requested provider is only honored when its server flag is explicitly 'true';
-// otherwise the request falls back to the default (dashscope).
+// otherwise the request is denied. An explicit provider is never rerouted.
 const CHAT_ENABLE_OPENAI = Deno.env.get('CHAT_ENABLE_OPENAI') === 'true'
 const CHAT_ENABLE_NEBIUS = Deno.env.get('CHAT_ENABLE_NEBIUS') === 'true'
 const CHAT_ENABLE_AZURE  = Deno.env.get('CHAT_ENABLE_AZURE') === 'true'
@@ -89,25 +89,17 @@ Deno.serve(async (req) => {
       { role: 'user', content: message },
     ]
 
-    let useOpenAI = provider === 'openai'
-    let useNebius = provider === 'nebius'
-    let useAzure = provider === 'azure'
-
-    // Server-side gate: a client cannot force a paid backend by setting `provider`.
-    // If the provider's server flag is off, fall back to the default (dashscope).
-    if (useOpenAI && !CHAT_ENABLE_OPENAI) {
-      console.error('OpenAI provider requested but CHAT_ENABLE_OPENAI is not "true" — falling back to dashscope')
-      useOpenAI = false
-    }
-    if (useNebius && !CHAT_ENABLE_NEBIUS) {
-      console.error('Nebius provider requested but CHAT_ENABLE_NEBIUS is not "true" — falling back to dashscope')
-      useNebius = false
-    }
-    if (useAzure && !CHAT_ENABLE_AZURE) {
-      console.error('Azure provider requested but CHAT_ENABLE_AZURE is not "true" — falling back to dashscope')
-      useAzure = false
+    // The TypeScript request annotation is not a runtime validation boundary.
+    // Unknown or disabled providers must not silently select another paid backend.
+    if (provider !== 'dashscope' && provider !== 'openai' && provider !== 'nebius' && provider !== 'azure') {
+      return new Response(JSON.stringify({ error: 'unsupported provider' }), {
+        status: 400, headers: { ...CORS, 'Content-Type': 'application/json' },
+      })
     }
 
+    const useOpenAI = provider === 'openai'
+    const useNebius = provider === 'nebius'
+    const useAzure = provider === 'azure'
     const providerId = useAzure
       ? 'azure-openai'
       : useOpenAI
@@ -115,6 +107,32 @@ Deno.serve(async (req) => {
         : useNebius
           ? 'nebius-token-factory'
           : 'dashscope'
+
+    // Preserve the established HTTP 200 unavailable response contract while
+    // stopping before mesh/Vault reads, inference, or cross-provider fallback.
+    if ((useOpenAI && !CHAT_ENABLE_OPENAI) || (useNebius && !CHAT_ENABLE_NEBIUS) || (useAzure && !CHAT_ENABLE_AZURE)) {
+      return new Response(JSON.stringify({
+        error: 'AI unavailable',
+        reply: "The requested AI provider is disabled. No alternative provider was called.",
+        provider_status: 'disabled',
+        provider: providerId,
+      }), {
+        status: 200, headers: { ...CORS, 'Content-Type': 'application/json' },
+      })
+    }
+
+    // An explicit model and credential are both required. Do not attempt an
+    // empty Bearer credential, infer API access from ChatGPT, or choose a model.
+    if (useOpenAI && (!OPENAI_MODEL.trim() || !OPENAI_API_KEY.trim())) {
+      return new Response(JSON.stringify({
+        error: 'AI unavailable',
+        reply: "The requested AI provider is not configured. No alternative provider was called.",
+        provider_status: 'unconfigured',
+        provider: providerId,
+      }), {
+        status: 200, headers: { ...CORS, 'Content-Type': 'application/json' },
+      })
+    }
 
     const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? ''
     const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
@@ -159,14 +177,7 @@ Deno.serve(async (req) => {
       })
     }
 
-    // OpenAI and Nebius require explicit models — never send guessed model ids.
-    if (useOpenAI && !OPENAI_MODEL) {
-      console.error('OpenAI error: OPENAI_MODEL must be set (no hardcoded default)')
-      return new Response(JSON.stringify({ error: 'AI unavailable', reply: "I'm having trouble connecting right now. Try again in a moment." }), {
-        status: 200, headers: { ...CORS, 'Content-Type': 'application/json' },
-      })
-    }
-
+    // Nebius also requires an explicit model and credential.
     if (useNebius && (!NEBIUS_MODEL || !NEBIUS_API_KEY)) {
       console.error('Nebius error: NEBIUS_MODEL and NEBIUS_API_KEY must be set')
       return new Response(JSON.stringify({ error: 'AI unavailable', reply: "I'm having trouble connecting right now. Try again in a moment." }), {
