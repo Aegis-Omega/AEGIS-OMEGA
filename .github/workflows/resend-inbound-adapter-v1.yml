@@ -9,6 +9,10 @@ on:
       - 'scripts/resend_inbound_ingest.py'
       - 'tests/fixtures/resend_inbound/**'
       - 'docs/resend-inbound-contract-v1.md'
+      - 'sovereign-omega-v2/mcp-server/src/index.ts'
+      - 'sovereign-omega-v2/mcp-server/src/resend-inbound.ts'
+      - 'sovereign-omega-v2/mcp-server/test/resend-inbound.mjs'
+      - 'sovereign-omega-v2/mcp-server/package.json'
       - '.github/workflows/resend-inbound-adapter-v1.yml'
   workflow_dispatch:
 
@@ -45,3 +49,8 @@ jobs:
         run: python -m compileall -q harness/sdk/resend_inbound.py scripts/resend_inbound_ingest.py tests/test_resend_inbound.py tests/test_resend_inbound_ingest.py
       - name: Run bounded inbound regression
         run: python -W error::ResourceWarning -m unittest discover -s tests -p 'test_resend_inbound*.py' -v
+      - name: Build and test MCP inbound wrapper
+        working-directory: sovereign-omega-v2/mcp-server
+        run: |
+          npm ci
+          npm run test:resend-inbound
