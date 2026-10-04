@@ -94,7 +94,7 @@ def _coordinator_evidence_state(
 
     lineage_file = Path(lineage_path)
     if not lineage_file.is_file():
-        return {"status": "UNAVAILABLE", "reason": "ADAPTIVE_LINEAGE_UNAVAILABLE"}
+        return {"status": "UNAVAILABLE", "reason": "ADAPTIVE_LINEAGE_UNAVAILABLE", "skill_registry_root": registry_receipt.registry_root}
     try:
         from agents.evolution import AdaptiveLineage
 
@@ -107,12 +107,14 @@ def _coordinator_evidence_state(
         return {
             "status": "UNAVAILABLE",
             "reason": "ADAPTIVE_LINEAGE_UNAVAILABLE",
+            "skill_registry_root": registry_receipt.registry_root,
             "error_class": type(exc).__name__,
         }
     if not valid or not _is_sha256_hex(lineage_root):
         return {
             "status": "UNAVAILABLE",
             "reason": "ADAPTIVE_LINEAGE_INVALID",
+            "skill_registry_root": registry_receipt.registry_root,
             "first_bad_index": first_bad_index,
         }
     if (
@@ -123,6 +125,7 @@ def _coordinator_evidence_state(
         return {
             "status": "UNAVAILABLE",
             "reason": "ADAPTIVE_LINEAGE_METADATA_MISMATCH",
+            "skill_registry_root": registry_receipt.registry_root,
         }
 
     body = {
@@ -484,12 +487,44 @@ async def dispatch_event(event_type: str, payload: dict) -> list["AgentResult"]:
     attestations: list[dict[str, Any]] = []
     lineage_path = _skill_router._repo_root / "agents" / "adaptive_lineage.json"
 
-    for _, role, _receipt, authority in admitted:
+    for _, role, _receipt, _routing_authority in admitted:
+        execution_authority = _skill_router._central_decision(
+            role=role.value,
+            task_instruction=instruction_sample,
+            repository_knowledge=knowledge,
+        )
+        if execution_authority.get("outcome") != ADMITTED:
+            attestations.append({
+                "role": role.value,
+                "status": "DENIED",
+                "reason": "EXECUTION_REAUTH_DENIED",
+                "decision_root": execution_authority.get("decision_root"),
+                "denial_codes": list(execution_authority.get("denial_codes", [])),
+            })
+            continue
+
         pre_state = _coordinator_evidence_state(
             skill_tree_path=_skill_router._skill_tree_path,
             lineage_path=lineage_path,
             repo_root=_skill_router._repo_root,
         )
+        policy_detail = execution_authority.get("policy_decision")
+        authority_registry_root = policy_detail.get("registry_root") if isinstance(policy_detail, dict) else None
+        observed_registry_root = pre_state.get("skill_registry_root")
+        if (
+            isinstance(authority_registry_root, str)
+            and isinstance(observed_registry_root, str)
+            and authority_registry_root != observed_registry_root
+        ):
+            attestations.append({
+                "role": role.value,
+                "status": "DENIED",
+                "reason": "EXECUTION_PRE_STATE_CHANGED_AFTER_AUTHORIZATION",
+                "authority_registry_root": authority_registry_root,
+                "observed_registry_root": observed_registry_root,
+            })
+            continue
+
         task = _legacy.AgentTask(
             task_id=str(_legacy.uuid.uuid4()),
             role=role,
@@ -509,7 +544,7 @@ async def dispatch_event(event_type: str, payload: dict) -> list["AgentResult"]:
             repo_root=_skill_router._repo_root,
         )
         attestation = _finalize_coordinator_execution(
-            authority=authority,
+            authority=execution_authority,
             result=result,
             pre_state=pre_state,
             post_state=post_state,
