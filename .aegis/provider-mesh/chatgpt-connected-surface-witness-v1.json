@@ -1,0 +1,634 @@
+{
+  "schema": "AEGIS_CHATGPT_CONNECTED_SURFACE_WITNESS_V1",
+  "source_surface": "CHATGPT_CONNECTED_APPS",
+  "authority_effect": "NONE",
+  "runtime_snapshot_roots": [
+    "e7ed81df146f16bb97cff0488a9f4f1b30cb431eb3e54421b3d329f72c655469",
+    "6ea2d6d2d3e28219097803de40339027df20ef1640c2a7d2f71550b65e16a24d",
+    "e14be5a506eb64d218c5798e8ce7d68f34a2e76dfa9ff52591384c27bfd88a02",
+    "e527bde05b6d47396889cbbd03035195939d1d49ba03723c808b6aa6a8471010",
+    "d77cb7ea05b17c69658da3ae28442592700b30cfae587aa00b4ad8d7c6045361",
+    "77006c7aab77f507f10480c43fd25421fc4fef54e6a63837329978b9d1ba5ea7",
+    "815326ec5d171179b3576c08075fdb2255d84969ea18e1c60bd7eab58af0408c"
+  ],
+  "observations": [
+    {
+      "provider_id": "chatgpt-github",
+      "capability": "REPOSITORY_READ",
+      "probe_operation": "get_repo",
+      "outcome": "READ_SUCCESS",
+      "result_count": 1,
+      "evidence_hash": "8ea83d5ef36bad8269c3f6f14177d57b7e0b93c9419ec4c810a51b0ad9612bea",
+      "runtime_snapshot_root": "e7ed81df146f16bb97cff0488a9f4f1b30cb431eb3e54421b3d329f72c655469",
+      "selection_receipt_hash": "3ab4165d2aa11301b97670d3a383e411869a7de48a395c4589e8ab8bfca73a4c"
+    },
+    {
+      "provider_id": "chatgpt-google-drive",
+      "capability": "DOCUMENT_RETRIEVAL",
+      "probe_operation": "search",
+      "outcome": "READ_SUCCESS",
+      "result_count": 1,
+      "evidence_hash": "a06f155dd55f5d050ada423a70403277d1c31152146c8b85e5910c64c88fb56f",
+      "runtime_snapshot_root": "e7ed81df146f16bb97cff0488a9f4f1b30cb431eb3e54421b3d329f72c655469",
+      "selection_receipt_hash": "ef10b2e6a8f98e38e8c101a26f6662671299e0b42992e6f926f51d70c71ea652"
+    },
+    {
+      "provider_id": "chatgpt-gmail",
+      "capability": "EMAIL_RETRIEVAL",
+      "probe_operation": "search_email_ids",
+      "outcome": "READ_SUCCESS",
+      "result_count": 1,
+      "evidence_hash": "83fdedda0412e1144d6e5ab5283151bbc36c600507f83a7b961fe175982bc9f8",
+      "runtime_snapshot_root": "e7ed81df146f16bb97cff0488a9f4f1b30cb431eb3e54421b3d329f72c655469",
+      "selection_receipt_hash": "4617e0f8d4da105e15934c44d66170070d28bcf6fc576e1272fa514dc52e3c5b"
+    },
+    {
+      "provider_id": "chatgpt-google-calendar",
+      "capability": "CALENDAR_READ",
+      "probe_operation": "list_calendars",
+      "outcome": "READ_SUCCESS",
+      "result_count": 1,
+      "evidence_hash": "efeb81d3d58033c847484e2bfbb7c9d22263231edbf54b222f6394c68dad9a75",
+      "runtime_snapshot_root": "e7ed81df146f16bb97cff0488a9f4f1b30cb431eb3e54421b3d329f72c655469",
+      "selection_receipt_hash": "fd27ae5b40090de13edebd5b96787b9b3f8680ad9dff520f779a0615493ea81b"
+    },
+    {
+      "provider_id": "chatgpt-slack",
+      "capability": "COLLABORATION_READ",
+      "probe_operation": "slack_read_user_profile",
+      "outcome": "READ_SUCCESS",
+      "result_count": 1,
+      "evidence_hash": "2d4e4864ce42fe06645ce72410bb9e6eb47659c20eff9fe7071d22eb031b1ff6",
+      "runtime_snapshot_root": "6ea2d6d2d3e28219097803de40339027df20ef1640c2a7d2f71550b65e16a24d",
+      "selection_receipt_hash": "67508a888954e515a9be331eea87fff7d16374fe1468f90acbbe47925d4775cd"
+    },
+    {
+      "provider_id": "chatgpt-notion",
+      "capability": "KNOWLEDGE_BASE_READ",
+      "probe_operation": "fetch_self",
+      "outcome": "READ_SUCCESS",
+      "result_count": 1,
+      "evidence_hash": "5e38e9f9cb014be7473eb8acee7f0041c7e5bd752fbc2517a25922181622887d",
+      "runtime_snapshot_root": "6ea2d6d2d3e28219097803de40339027df20ef1640c2a7d2f71550b65e16a24d",
+      "selection_receipt_hash": "fe97085489dd192b0bc0f6d8d05e330c91164e82f355729a8b06dc61c9810bc9"
+    },
+    {
+      "provider_id": "chatgpt-linear",
+      "capability": "WORK_TRACKING_READ",
+      "probe_operation": "list_documents",
+      "outcome": "READ_SUCCESS",
+      "result_count": 0,
+      "evidence_hash": "00ad50390344f50120b323b086f59cbd9daf1ecdd5463cb926b46d83a4163cfc",
+      "runtime_snapshot_root": "6ea2d6d2d3e28219097803de40339027df20ef1640c2a7d2f71550b65e16a24d",
+      "selection_receipt_hash": "ecfbe25577393f9c0e2a67f6d6adede5c8f7a4c4a056e35cb7e4b850722c95a6"
+    },
+    {
+      "provider_id": "chatgpt-hubspot",
+      "capability": "CRM_READ",
+      "probe_operation": "discover_hubspot_schema",
+      "outcome": "READ_SUCCESS",
+      "result_count": 1,
+      "evidence_hash": "9f6097ac5fadb4ee094e138656215a3db8386bdcc4718703431748b5747ccebe",
+      "runtime_snapshot_root": "6ea2d6d2d3e28219097803de40339027df20ef1640c2a7d2f71550b65e16a24d",
+      "selection_receipt_hash": "efc614cf651eddc168da5f94edf688ec23fccfe9772e64863c449bb9a34f7e45"
+    },
+    {
+      "provider_id": "chatgpt-ads-manager",
+      "capability": "ADS_MANAGER_READ",
+      "probe_operation": "list_ad_accounts",
+      "outcome": "ACCOUNT_UNAVAILABLE",
+      "observation_state": "OBSERVED_UNAVAILABLE",
+      "blocker_code": "NO_ACCESSIBLE_AD_ACCOUNTS",
+      "result_count": 0,
+      "evidence_hash": "6254e17cf94dc9231547e344fb21f81069f6ba1d4808aca2153f469e6852ffcb",
+      "runtime_snapshot_root": "e14be5a506eb64d218c5798e8ce7d68f34a2e76dfa9ff52591384c27bfd88a02",
+      "selection_outcome": "DENIED",
+      "selection_receipt_hash": "2465a17d41c01e64eddd160a3ccf4f3b6972b0338b5849f69d3bbb406ce28da6"
+    },
+    {
+      "provider_id": "chatgpt-legalquants-transactional",
+      "capability": "LEGAL_TRANSACTIONAL_GUIDANCE",
+      "probe_operation": "skills_read_lq_start",
+      "outcome": "READ_SUCCESS",
+      "observation_state": "OBSERVED_AVAILABLE",
+      "blocker_code": null,
+      "result_count": 1,
+      "evidence_hash": "b52067b55c2c50bd3313f300e1bef3ff220371471aeb7258737f442c2606f2fc",
+      "runtime_snapshot_root": "e14be5a506eb64d218c5798e8ce7d68f34a2e76dfa9ff52591384c27bfd88a02",
+      "selection_outcome": "SELECTED",
+      "selection_receipt_hash": "bf9d9344b379e834eb5d6a275ab969fffe89c90f533f74f7266a8dd2ef65ce75"
+    },
+    {
+      "provider_id": "chatgpt-semrush",
+      "capability": "SEO_INTELLIGENCE",
+      "probe_operation": "domain_overview",
+      "outcome": "BILLING_BLOCKED",
+      "observation_state": "BILLING_BLOCKED",
+      "blocker_code": "NO_API_UNITS",
+      "result_count": 0,
+      "evidence_hash": "faf37338f630fe71a9dfbb1ae01dd6a254302391e6ee4b8dc333659655f2d750",
+      "runtime_snapshot_root": "e14be5a506eb64d218c5798e8ce7d68f34a2e76dfa9ff52591384c27bfd88a02",
+      "selection_outcome": "DENIED",
+      "selection_receipt_hash": "64425a209832df208e109ea52efe06a9f96949171a36c8d26dd6a72d4cb67fe4"
+    },
+    {
+      "provider_id": "chatgpt-linkedin",
+      "capability": "PROFESSIONAL_PROFILE_SEARCH",
+      "probe_operation": "linkedin_search_people",
+      "outcome": "READ_SUCCESS",
+      "observation_state": "OBSERVED_AVAILABLE",
+      "blocker_code": null,
+      "result_count": 0,
+      "evidence_hash": "1a8f1c739b9cc211677169170cef489accf0c6287deb559d13caf777abb3975f",
+      "runtime_snapshot_root": "e14be5a506eb64d218c5798e8ce7d68f34a2e76dfa9ff52591384c27bfd88a02",
+      "selection_outcome": "SELECTED",
+      "selection_receipt_hash": "0d4df66a04268b1a49fcfd3c748073bdc21505c243234006506b4bfccf2cbcba"
+    },
+    {
+      "provider_id": "chatgpt-blockscout",
+      "capability": "BLOCKCHAIN_DATA_READ",
+      "probe_operation": "unlock_blockchain_analysis",
+      "outcome": "NETWORK_REACHABLE",
+      "observation_state": "NETWORK_REACHABLE",
+      "blocker_code": "SKILL_FETCH_UNAVAILABLE",
+      "result_count": 1,
+      "evidence_hash": "76eb44c6502654c34ade8acb44264564674a506e301b878844ba2463b569be12",
+      "runtime_snapshot_root": "e14be5a506eb64d218c5798e8ce7d68f34a2e76dfa9ff52591384c27bfd88a02",
+      "selection_outcome": "DENIED",
+      "selection_receipt_hash": "b444bdec846b4813f43885fe1cff15e496de422d7c56014a24c5e44a884d4209"
+    },
+    {
+      "provider_id": "chatgpt-sofa",
+      "capability": "AGENT_KNOWLEDGE_READ",
+      "probe_operation": "sofa_search_and_get_post",
+      "outcome": "READ_SUCCESS",
+      "observation_state": "OBSERVED_AVAILABLE",
+      "blocker_code": "GUIDANCE_DECLARATION_UNKNOWN",
+      "result_count": 2,
+      "evidence_hash": "98c118bb7617e7c42a2f6c7d01a83b94a19529112473c2607a58bf2655a88b9b",
+      "runtime_snapshot_root": "e14be5a506eb64d218c5798e8ce7d68f34a2e76dfa9ff52591384c27bfd88a02",
+      "selection_outcome": "SELECTED",
+      "selection_receipt_hash": "f8d79373e75baafd41f038e169f8909296189400988c9a0cca45b59338fe02dd"
+    },
+    {
+      "provider_id": "chatgpt-dropbox",
+      "capability": "DOCUMENT_RETRIEVAL",
+      "probe_operation": "who_am_i",
+      "outcome": "READ_SUCCESS",
+      "observation_state": "OBSERVED_AVAILABLE",
+      "blocker_code": null,
+      "result_count": 1,
+      "evidence_hash": "93ef7092b6970a9e527bf6b4719614059ea4648d7131f33faa62b0bf2d0f7cf4",
+      "runtime_snapshot_root": "e527bde05b6d47396889cbbd03035195939d1d49ba03723c808b6aa6a8471010",
+      "selection_outcome": "SELECTED",
+      "selection_receipt_hash": "650df2d33668c0cc2cb6075c47952e715053054813ea7c9e71961101c1398da3"
+    },
+    {
+      "provider_id": "chatgpt-sharepoint",
+      "capability": "DOCUMENT_RETRIEVAL",
+      "probe_operation": "get_profile",
+      "outcome": "READ_SUCCESS",
+      "observation_state": "OBSERVED_AVAILABLE",
+      "blocker_code": null,
+      "result_count": 1,
+      "evidence_hash": "cbcd52517b84fe36e17e4f27df7fe4f37dbf0f88103ab75f901a6c44148b62bd",
+      "runtime_snapshot_root": "e527bde05b6d47396889cbbd03035195939d1d49ba03723c808b6aa6a8471010",
+      "selection_outcome": "ELIGIBLE_NOT_SELECTED",
+      "selection_receipt_hash": null
+    },
+    {
+      "provider_id": "chatgpt-outlook-email",
+      "capability": "EMAIL_RETRIEVAL",
+      "probe_operation": "get_profile",
+      "outcome": "READ_SUCCESS",
+      "observation_state": "OBSERVED_AVAILABLE",
+      "blocker_code": null,
+      "result_count": 1,
+      "evidence_hash": "344faed00555a4d4c5838f346e67867fb11c0ff57ce7d5b659cf74460e5ca974",
+      "runtime_snapshot_root": "e527bde05b6d47396889cbbd03035195939d1d49ba03723c808b6aa6a8471010",
+      "selection_outcome": "SELECTED",
+      "selection_receipt_hash": "20a9006109aa6ab736933b5b72e0fb8021f1a3d2034a2e5be3c1874a3685b412"
+    },
+    {
+      "provider_id": "chatgpt-outlook-calendar",
+      "capability": "CALENDAR_READ",
+      "probe_operation": "get_profile",
+      "outcome": "READ_SUCCESS",
+      "observation_state": "OBSERVED_AVAILABLE",
+      "blocker_code": null,
+      "result_count": 1,
+      "evidence_hash": "1b1cca8765b51b3e66ae1cf9297a7bb3dcb7ef839bb6418152b47485803d40e1",
+      "runtime_snapshot_root": "e527bde05b6d47396889cbbd03035195939d1d49ba03723c808b6aa6a8471010",
+      "selection_outcome": "SELECTED",
+      "selection_receipt_hash": "abff17d1daa04ddf8ead5777ef4374fb4c8ecc53211afc88c3348c7446135175"
+    },
+    {
+      "provider_id": "chatgpt-scite",
+      "capability": "SCIENTIFIC_LITERATURE_READ",
+      "probe_operation": "search_literature",
+      "outcome": "QUOTA_EXHAUSTED",
+      "observation_state": "OBSERVED_UNAVAILABLE",
+      "blocker_code": "MCP_MONTHLY_LIMIT_REACHED",
+      "result_count": 0,
+      "evidence_hash": "1d35d8cb86dd306bbbdc83a437efcc096cb782868b32541f0757ace321af70e3",
+      "runtime_snapshot_root": "e527bde05b6d47396889cbbd03035195939d1d49ba03723c808b6aa6a8471010",
+      "selection_outcome": "DENIED",
+      "selection_receipt_hash": "c6249659715ad246dbb4739fb78b063b0efb5818d26e87a4dfe3f416380cf248"
+    },
+    {
+      "provider_id": "chatgpt-hugging-face",
+      "capability": "MODEL_HUB_READ",
+      "probe_operation": "hf_whoami",
+      "outcome": "READ_SUCCESS",
+      "observation_state": "OBSERVED_AVAILABLE",
+      "blocker_code": null,
+      "result_count": 1,
+      "evidence_hash": "b23d5f3c7d10bff92d67eaa2b296fc4ae1b7f9876dc157b7932c34ea0468e94f",
+      "runtime_snapshot_root": "e527bde05b6d47396889cbbd03035195939d1d49ba03723c808b6aa6a8471010",
+      "selection_outcome": "SELECTED",
+      "selection_receipt_hash": "0713c77b95298b63cccf6d674df91a447bc318ccb0e02c3f9ec3337da7cce1f4"
+    },
+    {
+      "provider_id": "chatgpt-gitlab",
+      "capability": "REPOSITORY_READ",
+      "probe_operation": "get_current_user",
+      "outcome": "READ_SUCCESS",
+      "observation_state": "OBSERVED_AVAILABLE",
+      "blocker_code": null,
+      "result_count": 1,
+      "evidence_hash": "7eae5f7bedf2f8066ae09626dcc32d3ee11158e65d20f9a335dcea309653ac40",
+      "runtime_snapshot_root": "e527bde05b6d47396889cbbd03035195939d1d49ba03723c808b6aa6a8471010",
+      "selection_outcome": "SELECTED",
+      "selection_receipt_hash": "51a94bebe7995566cd7d5e652e76d12e7f95fa53b5b70ec8101a1a2bf570eef2"
+    },
+    {
+      "provider_id": "chatgpt-vercel",
+      "capability": "DEPLOYMENT_PLATFORM_READ",
+      "probe_operation": "list_teams",
+      "outcome": "READ_SUCCESS",
+      "observation_state": "OBSERVED_AVAILABLE",
+      "blocker_code": null,
+      "result_count": 0,
+      "evidence_hash": "b00fc42d3e8ee52d62af3b2a919d567ca861f7dce69e339a69c69a118e313a77",
+      "runtime_snapshot_root": "e527bde05b6d47396889cbbd03035195939d1d49ba03723c808b6aa6a8471010",
+      "selection_outcome": "SELECTED",
+      "selection_receipt_hash": "65e08afffdd2bcba11e8fca916a5fa761baac1ac1236a976de18a289d3398e33"
+    },
+    {
+      "provider_id": "chatgpt-canva",
+      "capability": "DESIGN_WORKSPACE_READ",
+      "probe_operation": "search",
+      "outcome": "READ_SUCCESS",
+      "observation_state": "OBSERVED_AVAILABLE",
+      "blocker_code": null,
+      "result_count": 0,
+      "evidence_hash": "e0c301935999a5f94cf6a8353ed8c795cfd56ff0fe4e1562ed9570e383d192d5",
+      "runtime_snapshot_root": "d77cb7ea05b17c69658da3ae28442592700b30cfae587aa00b4ad8d7c6045361",
+      "selection_outcome": "SELECTED",
+      "selection_receipt_hash": "7fa730ab855cfe50fee530ecb6ac4f2f7a98b8c09239a91326188c52ff61ebed"
+    },
+    {
+      "provider_id": "chatgpt-figma",
+      "capability": "DESIGN_WORKSPACE_READ",
+      "probe_operation": "whoami",
+      "outcome": "READ_SUCCESS",
+      "observation_state": "OBSERVED_AVAILABLE",
+      "blocker_code": null,
+      "result_count": 1,
+      "evidence_hash": "2543eb1234543c9ba18e7b035a7113960f1f425804dda863de88499356789e6d",
+      "runtime_snapshot_root": "d77cb7ea05b17c69658da3ae28442592700b30cfae587aa00b4ad8d7c6045361",
+      "selection_outcome": "ELIGIBLE_NOT_SELECTED",
+      "selection_receipt_hash": null
+    },
+    {
+      "provider_id": "chatgpt-adobe",
+      "capability": "CREATIVE_ASSET_READ",
+      "probe_operation": "asset_search",
+      "outcome": "READ_SUCCESS",
+      "observation_state": "OBSERVED_AVAILABLE",
+      "blocker_code": null,
+      "result_count": 0,
+      "evidence_hash": "39ee1b6bc03b5e41c52f3c55227acd89f73aa76908d0c572f9cfc94769cbf84b",
+      "runtime_snapshot_root": "d77cb7ea05b17c69658da3ae28442592700b30cfae587aa00b4ad8d7c6045361",
+      "selection_outcome": "SELECTED",
+      "selection_receipt_hash": "e8e59d36b754237cfd9201f7606ada27433e8a39c4dd74f061cdfe12ed34b139"
+    },
+    {
+      "provider_id": "chatgpt-gamma",
+      "capability": "PRESENTATION_WORKSPACE_READ",
+      "probe_operation": "get_gammas",
+      "outcome": "READ_SUCCESS",
+      "observation_state": "OBSERVED_AVAILABLE",
+      "blocker_code": null,
+      "result_count": 1,
+      "evidence_hash": "0f380d7d1c6bef717c77db41e675ce42e85a7cc7a2ac870c0a71e0ee9fe1b6ad",
+      "runtime_snapshot_root": "d77cb7ea05b17c69658da3ae28442592700b30cfae587aa00b4ad8d7c6045361",
+      "selection_outcome": "SELECTED",
+      "selection_receipt_hash": "527e5f8a39a39626ae268d2e51296adcb731cb1640a94b4ae347b9e63c8b87a8"
+    },
+    {
+      "provider_id": "chatgpt-airtable",
+      "capability": "OPERATIONS_DATA_READ",
+      "probe_operation": "list_bases",
+      "outcome": "READ_SUCCESS",
+      "observation_state": "OBSERVED_AVAILABLE",
+      "blocker_code": null,
+      "result_count": 1,
+      "evidence_hash": "e8fc330000d02382f3a3b4501e680db48b465453a40720d41d708aea0d6ac31b",
+      "runtime_snapshot_root": "d77cb7ea05b17c69658da3ae28442592700b30cfae587aa00b4ad8d7c6045361",
+      "selection_outcome": "SELECTED",
+      "selection_receipt_hash": "393d9ffc8170f5937dac83a9ccfcbbfd4abe961f6f94d122d93d5487ed2ac0ee"
+    },
+    {
+      "provider_id": "chatgpt-statsig",
+      "capability": "EXPERIMENTATION_PLATFORM_READ",
+      "probe_operation": "get_context",
+      "outcome": "READ_SUCCESS",
+      "observation_state": "OBSERVED_AVAILABLE",
+      "blocker_code": null,
+      "result_count": 1,
+      "evidence_hash": "1576825b546c1ef716afb23978489a259e7ccf32b152cdc6ee43f29cba29bd73",
+      "runtime_snapshot_root": "d77cb7ea05b17c69658da3ae28442592700b30cfae587aa00b4ad8d7c6045361",
+      "selection_outcome": "SELECTED",
+      "selection_receipt_hash": "bd250a671606da432a0c695f68cdc37d9471611ab6c733ab7de80a1d2036b237"
+    },
+    {
+      "provider_id": "chatgpt-resend",
+      "capability": "EMAIL_DELIVERY_READ",
+      "probe_operation": "list_domains",
+      "outcome": "READ_SUCCESS",
+      "observation_state": "OBSERVED_AVAILABLE",
+      "blocker_code": null,
+      "result_count": 0,
+      "evidence_hash": "988592ad34c81202d8fc04fd3c77325dcabbde79d5a5931b8cbc6d180686aabf",
+      "runtime_snapshot_root": "d77cb7ea05b17c69658da3ae28442592700b30cfae587aa00b4ad8d7c6045361",
+      "selection_outcome": "SELECTED",
+      "selection_receipt_hash": "fd5e067ee2f2e648d6357592d2f7e8ee40e7a1e3b54ca831ae4849f64db12094"
+    },
+    {
+      "provider_id": "chatgpt-exa",
+      "capability": "WEB_RESEARCH",
+      "probe_operation": "web_search_exa",
+      "outcome": "READ_SUCCESS",
+      "observation_state": "OBSERVED_AVAILABLE",
+      "blocker_code": null,
+      "result_count": 0,
+      "evidence_hash": "66d739095a2061d4172e8921c447f38848a96ebffb4313a4b7d89847ac4c47d1",
+      "runtime_snapshot_root": "77006c7aab77f507f10480c43fd25421fc4fef54e6a63837329978b9d1ba5ea7",
+      "selection_outcome": "SELECTED",
+      "selection_receipt_hash": "b3db4fcc2d318aeea7ecec7cb37d6e15dc457fcb46bebeb12fe60a6a87f0b2fa"
+    },
+    {
+      "provider_id": "chatgpt-consensus",
+      "capability": "SCIENTIFIC_LITERATURE_READ",
+      "probe_operation": "search",
+      "outcome": "READ_SUCCESS",
+      "observation_state": "OBSERVED_AVAILABLE",
+      "blocker_code": null,
+      "result_count": 0,
+      "evidence_hash": "1e43d1e6d7fbba5b8f771a8874dfe4db6912268cc86492e9ef3172da8d21624a",
+      "runtime_snapshot_root": "77006c7aab77f507f10480c43fd25421fc4fef54e6a63837329978b9d1ba5ea7",
+      "selection_outcome": "ELIGIBLE_NOT_SELECTED",
+      "selection_receipt_hash": null
+    },
+    {
+      "provider_id": "chatgpt-scispace",
+      "capability": "SCIENTIFIC_LITERATURE_READ",
+      "probe_operation": "search_papers",
+      "outcome": "READ_SUCCESS",
+      "observation_state": "OBSERVED_AVAILABLE",
+      "blocker_code": null,
+      "result_count": 10,
+      "evidence_hash": "e6d84ccc7c8eb82281d70e88a4c8ff9babcfdd4d0decd0c4513ca05812b8a474",
+      "runtime_snapshot_root": "77006c7aab77f507f10480c43fd25421fc4fef54e6a63837329978b9d1ba5ea7",
+      "selection_outcome": "ELIGIBLE_NOT_SELECTED",
+      "selection_receipt_hash": null
+    },
+    {
+      "provider_id": "chatgpt-alphaxiv",
+      "capability": "SCIENTIFIC_LITERATURE_READ",
+      "probe_operation": "discover_papers",
+      "outcome": "READ_SUCCESS",
+      "observation_state": "OBSERVED_AVAILABLE",
+      "blocker_code": null,
+      "result_count": 0,
+      "evidence_hash": "d040d1b5be4cee431420319281dd00a266ec1f3bed7d5d7d8f9b7fbcf8b37b5f",
+      "runtime_snapshot_root": "77006c7aab77f507f10480c43fd25421fc4fef54e6a63837329978b9d1ba5ea7",
+      "selection_outcome": "SELECTED",
+      "selection_receipt_hash": "45572e5b20d18ee861647ab3f8ef329991abb405ce9892a79cbe938cf69f1a7c"
+    },
+    {
+      "provider_id": "chatgpt-genomic-intelligence",
+      "capability": "GENOMIC_INTELLIGENCE_READ",
+      "probe_operation": "list_models",
+      "outcome": "READ_SUCCESS",
+      "observation_state": "OBSERVED_AVAILABLE",
+      "blocker_code": null,
+      "result_count": 7,
+      "evidence_hash": "9b55bdad1bdcbc0873d31ada0b27dc3a331a112afaf998ffc28323c4c12d508d",
+      "runtime_snapshot_root": "77006c7aab77f507f10480c43fd25421fc4fef54e6a63837329978b9d1ba5ea7",
+      "selection_outcome": "SELECTED",
+      "selection_receipt_hash": "f74cdde081abf9fde2bc310f95ba8c1c7d2257a591bd0be5ee78e24cc19cdab0"
+    },
+    {
+      "provider_id": "chatgpt-powers-index",
+      "capability": "INSTITUTIONAL_INTELLIGENCE_READ",
+      "probe_operation": "get_app_architecture_overview",
+      "outcome": "READ_SUCCESS",
+      "observation_state": "OBSERVED_AVAILABLE",
+      "blocker_code": null,
+      "result_count": 1,
+      "evidence_hash": "4a56f92207fc8e7bf21694d153c4ce5d595de81b3850dd82c1425013848d899c",
+      "runtime_snapshot_root": "77006c7aab77f507f10480c43fd25421fc4fef54e6a63837329978b9d1ba5ea7",
+      "selection_outcome": "SELECTED",
+      "selection_receipt_hash": "f1323f866f412f0c7f6e2643af9373a8ba6675d5bcbb388796897f367232fe9b"
+    },
+    {
+      "provider_id": "chatgpt-digitalocean",
+      "capability": "CLOUD_INFRASTRUCTURE_READ",
+      "probe_operation": "account_get_information",
+      "outcome": "READ_SUCCESS",
+      "observation_state": "OBSERVED_AVAILABLE",
+      "blocker_code": null,
+      "result_count": 1,
+      "evidence_hash": "58dbe212e9cd9dcc89297aca25c1a0a81bc0ea713e46539854abe270467d6780",
+      "runtime_snapshot_root": "815326ec5d171179b3576c08075fdb2255d84969ea18e1c60bd7eab58af0408c",
+      "selection_outcome": "SELECTED",
+      "selection_receipt_hash": "bd1e6135b18f51f3ed83fe833ac480807776adc306579ba22cb2e480402d6a81"
+    },
+    {
+      "provider_id": "chatgpt-railway",
+      "capability": "CLOUD_INFRASTRUCTURE_READ",
+      "probe_operation": "whoami",
+      "outcome": "READ_SUCCESS",
+      "observation_state": "OBSERVED_AVAILABLE",
+      "blocker_code": null,
+      "result_count": 1,
+      "evidence_hash": "b5dc3d1841f785352b7462828e81c63b4db8a95b2f7fd31ef3b2d1d5e7c4757a",
+      "runtime_snapshot_root": "815326ec5d171179b3576c08075fdb2255d84969ea18e1c60bd7eab58af0408c",
+      "selection_outcome": "ELIGIBLE_NOT_SELECTED",
+      "selection_receipt_hash": null
+    },
+    {
+      "provider_id": "chatgpt-clickhouse",
+      "capability": "DATABASE_PLATFORM_READ",
+      "probe_operation": "get_organizations",
+      "outcome": "READ_SUCCESS",
+      "observation_state": "OBSERVED_AVAILABLE",
+      "blocker_code": null,
+      "result_count": 0,
+      "evidence_hash": "6d81e966b8d1a3ab34e5370dc9a8c5eddd417d28bb322094c0d8118de968a9e4",
+      "runtime_snapshot_root": "815326ec5d171179b3576c08075fdb2255d84969ea18e1c60bd7eab58af0408c",
+      "selection_outcome": "SELECTED",
+      "selection_receipt_hash": "c4503d7373eb1c0e2ac3bcd3118411f5c877568e56c99385060999de6c6809f2"
+    },
+    {
+      "provider_id": "chatgpt-neon",
+      "capability": "DATABASE_PLATFORM_READ",
+      "probe_operation": "list_organizations",
+      "outcome": "READ_SUCCESS",
+      "observation_state": "OBSERVED_AVAILABLE",
+      "blocker_code": null,
+      "result_count": 0,
+      "evidence_hash": "8365125b2ee2f663daf612eea06d1f0cab30e16b932d495e7d762067c6c6960b",
+      "runtime_snapshot_root": "815326ec5d171179b3576c08075fdb2255d84969ea18e1c60bd7eab58af0408c",
+      "selection_outcome": "ELIGIBLE_NOT_SELECTED",
+      "selection_receipt_hash": null
+    }
+  ],
+  "probe_diagnostics": [
+    {
+      "provider_id": "chatgpt-linear",
+      "diagnostic": "Initial invocation rejected advertised link_id as an unexpected property; retry without link_id succeeded.",
+      "authority_effect": "NONE"
+    },
+    {
+      "provider_id": "chatgpt-sofa",
+      "diagnostic": "Guidance declaration compatibility remained unknown, but read/search/get-post capability succeeded; compatibility status is advisory and did not grant write authority.",
+      "authority_effect": "NONE"
+    },
+    {
+      "provider_id": "chatgpt-blockscout",
+      "diagnostic": "Session initialization succeeded, but the required Blockscout analysis skill could not be fetched through the available resource/web surface; blockchain-data routing therefore remained denied.",
+      "authority_effect": "NONE"
+    },
+    {
+      "provider_id": "chatgpt-scite",
+      "diagnostic": "Live literature-search probe was blocked by the connector monthly MCP usage limit; scientific-literature routing remained denied.",
+      "authority_effect": "NONE"
+    },
+    {
+      "provider_id": "chatgpt-sharepoint",
+      "diagnostic": "Live profile probe succeeded. SharePoint is an eligible DOCUMENT_RETRIEVAL candidate but was not selected because deterministic routing selected another fresh provider.",
+      "authority_effect": "NONE"
+    },
+    {
+      "provider_id": "chatgpt-vercel",
+      "diagnostic": "Live list-teams probe completed successfully with zero returned teams; provider execution succeeded without asserting that a Vercel project exists.",
+      "authority_effect": "NONE"
+    },
+    {
+      "provider_id": "chatgpt-canva",
+      "diagnostic": "Canva plugin connection was restored during this session. A subsequent live read probe succeeded with zero matching AEGIS designs, which is valid provider execution evidence without asserting content exists.",
+      "authority_effect": "NONE"
+    },
+    {
+      "provider_id": "chatgpt-figma",
+      "diagnostic": "Figma account-level identity read succeeded. Figma is a fresh DESIGN_WORKSPACE_READ candidate but deterministic routing selected another fresh provider.",
+      "authority_effect": "NONE"
+    },
+    {
+      "provider_id": "chatgpt-adobe",
+      "diagnostic": "Adobe mandatory initialization completed and a Creative Cloud asset search executed successfully with zero matching AEGIS assets.",
+      "authority_effect": "NONE"
+    },
+    {
+      "provider_id": "chatgpt-resend",
+      "diagnostic": "Resend domain listing executed successfully with zero returned domains; the provider is readable without asserting configured sending domains.",
+      "authority_effect": "NONE"
+    },
+    {
+      "provider_id": "chatgpt-consensus",
+      "diagnostic": "Consensus search executed successfully and remains a fresh SCIENTIFIC_LITERATURE_READ fallback candidate.",
+      "authority_effect": "NONE"
+    },
+    {
+      "provider_id": "chatgpt-scispace",
+      "diagnostic": "SciSpace search executed successfully and remains a fresh SCIENTIFIC_LITERATURE_READ fallback candidate.",
+      "authority_effect": "NONE"
+    },
+    {
+      "provider_id": "chatgpt-alphaxiv",
+      "diagnostic": "alphaXiv discovery executed successfully and was deterministically selected for SCIENTIFIC_LITERATURE_READ.",
+      "authority_effect": "NONE"
+    },
+    {
+      "provider_id": "chatgpt-genomic-intelligence",
+      "diagnostic": "Genomic Intelligence model-catalog read succeeded; no prediction or biological correctness claim is implied.",
+      "authority_effect": "NONE"
+    },
+    {
+      "provider_id": "chatgpt-powers-index",
+      "diagnostic": "Powers Index architecture overview read succeeded; capability is informational only and grants no institutional action authority.",
+      "authority_effect": "NONE"
+    },
+    {
+      "provider_id": "chatgpt-exa",
+      "diagnostic": "Exa web-search execution succeeded; zero counted top-level results in the normalized probe does not negate successful provider execution.",
+      "authority_effect": "NONE"
+    },
+    {
+      "provider_id": "chatgpt-digitalocean",
+      "diagnostic": "DigitalOcean account-information read succeeded and was deterministically selected for CLOUD_INFRASTRUCTURE_READ.",
+      "authority_effect": "NONE"
+    },
+    {
+      "provider_id": "chatgpt-railway",
+      "diagnostic": "Railway identity read succeeded and remains a fresh CLOUD_INFRASTRUCTURE_READ fallback candidate.",
+      "authority_effect": "NONE"
+    },
+    {
+      "provider_id": "chatgpt-clickhouse",
+      "diagnostic": "ClickHouse organization listing executed successfully with zero returned organizations and was selected for DATABASE_PLATFORM_READ; zero rows do not imply connector failure.",
+      "authority_effect": "NONE"
+    },
+    {
+      "provider_id": "chatgpt-neon",
+      "diagnostic": "Neon organization listing executed successfully with zero returned organizations and remains a fresh DATABASE_PLATFORM_READ fallback candidate.",
+      "authority_effect": "NONE"
+    }
+  ],
+  "evidence_boundary": {
+    "account_identifiers_included": false,
+    "retrieved_content_included": false,
+    "credentials_included": false,
+    "write_authority_granted": false,
+    "merge_authority_granted": false,
+    "deploy_authority_granted": false
+  },
+  "superseded_runtime_receipts": [
+    {
+      "reason": "CANONICAL_PREIMAGE_MISMATCH",
+      "authority_effect": "NONE",
+      "receipts": [
+        "0545783f036d6800c4bfb25aa713a3e613261188e1b07143314ef319171845f2",
+        "c07aff8b90440aea9257554fdef60686b2d7888d04f76c0d9f558273d64eb4cb",
+        "16c6f87dac9525f737bf2b84b5faa7d5b86d7112f8b33138c1e0ef9b8ed2434f",
+        "2f96134e3dfb907cdcc7b946cb8a6edf30670a36632b86136b97c1d949a736d4",
+        "1e6cb5570f83e5baf9828648da7d48d1ba7c75a0ed6145c845198e0ac8473961",
+        "a3fde42132ff27f15d49384c316ae98ea266fd1420656106fa8e1f45d6b9a44f"
+      ]
+    }
+  ],
+  "knowledge_consultation": {
+    "provider_id": "chatgpt-sofa",
+    "post_id": "094ea5ab-8f71-4580-a506-c9b8355db8d7",
+    "applied_boundary": "LIVE_INVOCATION_SCHEMA_OVERRIDES_ADVERTISED_ARGUMENT_ASSUMPTIONS; TRANSPORT_METADATA_STAYS_SEPARATE_FROM_DECLARED_BUSINESS_INPUTS",
+    "authority_effect": "NONE"
+  },
+  "freshness": {
+    "latest_runtime_snapshot_root": "815326ec5d171179b3576c08075fdb2255d84969ea18e1c60bd7eab58af0408c",
+    "note": "Entries from earlier snapshots are historical evidence unless refreshed; routing remains governed by provider_runtime_latest_v1 freshness and state.",
+    "authority_effect": "NONE"
+  }
+}

@@ -32,6 +32,34 @@ export type ProviderCapabilityV1 =
   | 'DATABASE'
   | 'HTTP_EGRESS'
   | 'SYMBOLIC_COMPUTE'
+  | 'REPOSITORY_READ'
+  | 'DOCUMENT_RETRIEVAL'
+  | 'EMAIL_RETRIEVAL'
+  | 'CALENDAR_READ'
+  | 'COLLABORATION_READ'
+  | 'KNOWLEDGE_BASE_READ'
+  | 'WORK_TRACKING_READ'
+  | 'CRM_READ'
+  | 'ADS_MANAGER_READ'
+  | 'LEGAL_TRANSACTIONAL_GUIDANCE'
+  | 'SEO_INTELLIGENCE'
+  | 'PROFESSIONAL_PROFILE_SEARCH'
+  | 'BLOCKCHAIN_DATA_READ'
+  | 'AGENT_KNOWLEDGE_READ'
+  | 'SCIENTIFIC_LITERATURE_READ'
+  | 'MODEL_HUB_READ'
+  | 'DEPLOYMENT_PLATFORM_READ'
+  | 'DESIGN_WORKSPACE_READ'
+  | 'CREATIVE_ASSET_READ'
+  | 'PRESENTATION_WORKSPACE_READ'
+  | 'OPERATIONS_DATA_READ'
+  | 'EXPERIMENTATION_PLATFORM_READ'
+  | 'EMAIL_DELIVERY_READ'
+  | 'GENOMIC_INTELLIGENCE_READ'
+  | 'INSTITUTIONAL_INTELLIGENCE_READ'
+  | 'CLOUD_INFRASTRUCTURE_READ'
+  | 'DATABASE_PLATFORM_READ'
+  | 'MEETING_KNOWLEDGE_READ'
 
 export type ProviderObservationStateV1 =
   | 'UNKNOWN'
@@ -152,6 +180,34 @@ const ALL_CAPABILITIES = new Set<ProviderCapabilityV1>([
   'DATABASE',
   'HTTP_EGRESS',
   'SYMBOLIC_COMPUTE',
+  'REPOSITORY_READ',
+  'DOCUMENT_RETRIEVAL',
+  'EMAIL_RETRIEVAL',
+  'CALENDAR_READ',
+  'COLLABORATION_READ',
+  'KNOWLEDGE_BASE_READ',
+  'WORK_TRACKING_READ',
+  'CRM_READ',
+  'ADS_MANAGER_READ',
+  'LEGAL_TRANSACTIONAL_GUIDANCE',
+  'SEO_INTELLIGENCE',
+  'PROFESSIONAL_PROFILE_SEARCH',
+  'BLOCKCHAIN_DATA_READ',
+  'AGENT_KNOWLEDGE_READ',
+  'SCIENTIFIC_LITERATURE_READ',
+  'MODEL_HUB_READ',
+  'DEPLOYMENT_PLATFORM_READ',
+  'DESIGN_WORKSPACE_READ',
+  'CREATIVE_ASSET_READ',
+  'PRESENTATION_WORKSPACE_READ',
+  'OPERATIONS_DATA_READ',
+  'EXPERIMENTATION_PLATFORM_READ',
+  'EMAIL_DELIVERY_READ',
+  'GENOMIC_INTELLIGENCE_READ',
+  'INSTITUTIONAL_INTELLIGENCE_READ',
+  'CLOUD_INFRASTRUCTURE_READ',
+  'DATABASE_PLATFORM_READ',
+  'MEETING_KNOWLEDGE_READ',
 ])
 const ALL_STATES = new Set<ProviderObservationStateV1>([
   'UNKNOWN',
@@ -606,4 +662,310 @@ export const DECLARED_PROVIDER_CATALOG_V1: readonly ProviderDescriptorV1[] = [
     declared_capabilities: ['SYMBOLIC_COMPUTE'],
     authority_effect: 'NONE',
   },
+  {
+    schema_version: PROVIDER_MESH_SCHEMA_VERSION,
+    provider_id: 'chatgpt-github',
+    planes: ['INTELLIGENCE'],
+    declared_capabilities: ['REPOSITORY_READ'],
+    authority_effect: 'NONE',
+  },
+  {
+    schema_version: PROVIDER_MESH_SCHEMA_VERSION,
+    provider_id: 'chatgpt-google-drive',
+    planes: ['INTELLIGENCE'],
+    declared_capabilities: ['DOCUMENT_RETRIEVAL'],
+    authority_effect: 'NONE',
+  },
+  {
+    schema_version: PROVIDER_MESH_SCHEMA_VERSION,
+    provider_id: 'chatgpt-gmail',
+    planes: ['INTELLIGENCE'],
+    declared_capabilities: ['EMAIL_RETRIEVAL'],
+    authority_effect: 'NONE',
+  },
+  {
+    schema_version: PROVIDER_MESH_SCHEMA_VERSION,
+    provider_id: 'chatgpt-google-calendar',
+    planes: ['INTELLIGENCE'],
+    declared_capabilities: ['CALENDAR_READ'],
+    authority_effect: 'NONE',
+  },
+  {
+    schema_version: PROVIDER_MESH_SCHEMA_VERSION,
+    provider_id: 'chatgpt-slack',
+    planes: ['INTELLIGENCE'],
+    declared_capabilities: ['COLLABORATION_READ'],
+    authority_effect: 'NONE',
+  },
+  {
+    schema_version: PROVIDER_MESH_SCHEMA_VERSION,
+    provider_id: 'chatgpt-notion',
+    planes: ['INTELLIGENCE'],
+    declared_capabilities: ['KNOWLEDGE_BASE_READ'],
+    authority_effect: 'NONE',
+  },
+  {
+    schema_version: PROVIDER_MESH_SCHEMA_VERSION,
+    provider_id: 'chatgpt-linear',
+    planes: ['INTELLIGENCE'],
+    declared_capabilities: ['WORK_TRACKING_READ'],
+    authority_effect: 'NONE',
+  },
+  {
+    schema_version: PROVIDER_MESH_SCHEMA_VERSION,
+    provider_id: 'chatgpt-hubspot',
+    planes: ['INTELLIGENCE'],
+    declared_capabilities: ['CRM_READ'],
+    authority_effect: 'NONE',
+  },
+  {
+    schema_version: PROVIDER_MESH_SCHEMA_VERSION,
+    provider_id: 'chatgpt-ads-manager',
+    planes: ['INTELLIGENCE'],
+    declared_capabilities: ['ADS_MANAGER_READ'],
+    authority_effect: 'NONE',
+  },
+  {
+    schema_version: PROVIDER_MESH_SCHEMA_VERSION,
+    provider_id: 'chatgpt-legalquants-transactional',
+    planes: ['INTELLIGENCE'],
+    declared_capabilities: ['LEGAL_TRANSACTIONAL_GUIDANCE'],
+    authority_effect: 'NONE',
+  },
+  {
+    schema_version: PROVIDER_MESH_SCHEMA_VERSION,
+    provider_id: 'chatgpt-semrush',
+    planes: ['INTELLIGENCE'],
+    declared_capabilities: ['SEO_INTELLIGENCE'],
+    authority_effect: 'NONE',
+  },
+  {
+    schema_version: PROVIDER_MESH_SCHEMA_VERSION,
+    provider_id: 'chatgpt-linkedin',
+    planes: ['INTELLIGENCE'],
+    declared_capabilities: ['PROFESSIONAL_PROFILE_SEARCH'],
+    authority_effect: 'NONE',
+  },
+  {
+    schema_version: PROVIDER_MESH_SCHEMA_VERSION,
+    provider_id: 'chatgpt-blockscout',
+    planes: ['INTELLIGENCE'],
+    declared_capabilities: ['BLOCKCHAIN_DATA_READ'],
+    authority_effect: 'NONE',
+  },
+  {
+    schema_version: PROVIDER_MESH_SCHEMA_VERSION,
+    provider_id: 'chatgpt-sofa',
+    planes: ['INTELLIGENCE'],
+    declared_capabilities: ['AGENT_KNOWLEDGE_READ'],
+    authority_effect: 'NONE',
+  },
+  {
+    schema_version: PROVIDER_MESH_SCHEMA_VERSION,
+    provider_id: 'chatgpt-dropbox',
+    planes: ['INTELLIGENCE'],
+    declared_capabilities: ['DOCUMENT_RETRIEVAL'],
+    authority_effect: 'NONE',
+  },
+  {
+    schema_version: PROVIDER_MESH_SCHEMA_VERSION,
+    provider_id: 'chatgpt-sharepoint',
+    planes: ['INTELLIGENCE'],
+    declared_capabilities: ['DOCUMENT_RETRIEVAL'],
+    authority_effect: 'NONE',
+  },
+  {
+    schema_version: PROVIDER_MESH_SCHEMA_VERSION,
+    provider_id: 'chatgpt-outlook-email',
+    planes: ['INTELLIGENCE'],
+    declared_capabilities: ['EMAIL_RETRIEVAL'],
+    authority_effect: 'NONE',
+  },
+  {
+    schema_version: PROVIDER_MESH_SCHEMA_VERSION,
+    provider_id: 'chatgpt-outlook-calendar',
+    planes: ['INTELLIGENCE'],
+    declared_capabilities: ['CALENDAR_READ'],
+    authority_effect: 'NONE',
+  },
+  {
+    schema_version: PROVIDER_MESH_SCHEMA_VERSION,
+    provider_id: 'chatgpt-scite',
+    planes: ['INTELLIGENCE'],
+    declared_capabilities: ['SCIENTIFIC_LITERATURE_READ'],
+    authority_effect: 'NONE',
+  },
+  {
+    schema_version: PROVIDER_MESH_SCHEMA_VERSION,
+    provider_id: 'chatgpt-hugging-face',
+    planes: ['INTELLIGENCE'],
+    declared_capabilities: ['MODEL_HUB_READ'],
+    authority_effect: 'NONE',
+  },
+  {
+    schema_version: PROVIDER_MESH_SCHEMA_VERSION,
+    provider_id: 'chatgpt-gitlab',
+    planes: ['INTELLIGENCE'],
+    declared_capabilities: ['REPOSITORY_READ'],
+    authority_effect: 'NONE',
+  },
+  {
+    schema_version: PROVIDER_MESH_SCHEMA_VERSION,
+    provider_id: 'chatgpt-vercel',
+    planes: ['INTELLIGENCE'],
+    declared_capabilities: ['DEPLOYMENT_PLATFORM_READ'],
+    authority_effect: 'NONE',
+  },
+
+  {
+    schema_version: PROVIDER_MESH_SCHEMA_VERSION,
+    provider_id: 'chatgpt-canva',
+    planes: ['INTELLIGENCE'],
+    declared_capabilities: ['DESIGN_WORKSPACE_READ'],
+    authority_effect: 'NONE',
+  },
+  {
+    schema_version: PROVIDER_MESH_SCHEMA_VERSION,
+    provider_id: 'chatgpt-figma',
+    planes: ['INTELLIGENCE'],
+    declared_capabilities: ['DESIGN_WORKSPACE_READ'],
+    authority_effect: 'NONE',
+  },
+  {
+    schema_version: PROVIDER_MESH_SCHEMA_VERSION,
+    provider_id: 'chatgpt-adobe',
+    planes: ['INTELLIGENCE'],
+    declared_capabilities: ['CREATIVE_ASSET_READ'],
+    authority_effect: 'NONE',
+  },
+  {
+    schema_version: PROVIDER_MESH_SCHEMA_VERSION,
+    provider_id: 'chatgpt-gamma',
+    planes: ['INTELLIGENCE'],
+    declared_capabilities: ['PRESENTATION_WORKSPACE_READ'],
+    authority_effect: 'NONE',
+  },
+  {
+    schema_version: PROVIDER_MESH_SCHEMA_VERSION,
+    provider_id: 'chatgpt-airtable',
+    planes: ['INTELLIGENCE'],
+    declared_capabilities: ['OPERATIONS_DATA_READ'],
+    authority_effect: 'NONE',
+  },
+  {
+    schema_version: PROVIDER_MESH_SCHEMA_VERSION,
+    provider_id: 'chatgpt-statsig',
+    planes: ['INTELLIGENCE'],
+    declared_capabilities: ['EXPERIMENTATION_PLATFORM_READ'],
+    authority_effect: 'NONE',
+  },
+  {
+    schema_version: PROVIDER_MESH_SCHEMA_VERSION,
+    provider_id: 'chatgpt-resend',
+    planes: ['INTELLIGENCE'],
+    declared_capabilities: ['EMAIL_DELIVERY_READ'],
+    authority_effect: 'NONE',
+  },
+
+  {
+    schema_version: PROVIDER_MESH_SCHEMA_VERSION,
+    provider_id: 'chatgpt-exa',
+    planes: ['INTELLIGENCE'],
+    declared_capabilities: ['WEB_RESEARCH'],
+    authority_effect: 'NONE',
+  },
+  {
+    schema_version: PROVIDER_MESH_SCHEMA_VERSION,
+    provider_id: 'chatgpt-consensus',
+    planes: ['INTELLIGENCE'],
+    declared_capabilities: ['SCIENTIFIC_LITERATURE_READ'],
+    authority_effect: 'NONE',
+  },
+  {
+    schema_version: PROVIDER_MESH_SCHEMA_VERSION,
+    provider_id: 'chatgpt-scispace',
+    planes: ['INTELLIGENCE'],
+    declared_capabilities: ['SCIENTIFIC_LITERATURE_READ'],
+    authority_effect: 'NONE',
+  },
+  {
+    schema_version: PROVIDER_MESH_SCHEMA_VERSION,
+    provider_id: 'chatgpt-alphaxiv',
+    planes: ['INTELLIGENCE'],
+    declared_capabilities: ['SCIENTIFIC_LITERATURE_READ'],
+    authority_effect: 'NONE',
+  },
+  {
+    schema_version: PROVIDER_MESH_SCHEMA_VERSION,
+    provider_id: 'chatgpt-genomic-intelligence',
+    planes: ['INTELLIGENCE'],
+    declared_capabilities: ['GENOMIC_INTELLIGENCE_READ'],
+    authority_effect: 'NONE',
+  },
+  {
+    schema_version: PROVIDER_MESH_SCHEMA_VERSION,
+    provider_id: 'chatgpt-powers-index',
+    planes: ['INTELLIGENCE'],
+    declared_capabilities: ['INSTITUTIONAL_INTELLIGENCE_READ'],
+    authority_effect: 'NONE',
+  },
+
+  {
+    schema_version: PROVIDER_MESH_SCHEMA_VERSION,
+    provider_id: 'chatgpt-railway',
+    planes: ['INTELLIGENCE'],
+    declared_capabilities: ['CLOUD_INFRASTRUCTURE_READ'],
+    authority_effect: 'NONE',
+  },
+  {
+    schema_version: PROVIDER_MESH_SCHEMA_VERSION,
+    provider_id: 'chatgpt-digitalocean',
+    planes: ['INTELLIGENCE'],
+    declared_capabilities: ['CLOUD_INFRASTRUCTURE_READ'],
+    authority_effect: 'NONE',
+  },
+  {
+    schema_version: PROVIDER_MESH_SCHEMA_VERSION,
+    provider_id: 'chatgpt-neon',
+    planes: ['INTELLIGENCE'],
+    declared_capabilities: ['DATABASE_PLATFORM_READ'],
+    authority_effect: 'NONE',
+  },
+  {
+    schema_version: PROVIDER_MESH_SCHEMA_VERSION,
+    provider_id: 'chatgpt-clickhouse',
+    planes: ['INTELLIGENCE'],
+    declared_capabilities: ['DATABASE_PLATFORM_READ'],
+    authority_effect: 'NONE',
+  },
+
+  {
+    schema_version: PROVIDER_MESH_SCHEMA_VERSION,
+    provider_id: 'chatgpt-wolfram',
+    planes: ['INTELLIGENCE'],
+    declared_capabilities: ['SYMBOLIC_COMPUTE'],
+    authority_effect: 'NONE',
+  },
+  {
+    schema_version: PROVIDER_MESH_SCHEMA_VERSION,
+    provider_id: 'chatgpt-tavily',
+    planes: ['INTELLIGENCE'],
+    declared_capabilities: ['WEB_RESEARCH'],
+    authority_effect: 'NONE',
+  },
+  {
+    schema_version: PROVIDER_MESH_SCHEMA_VERSION,
+    provider_id: 'chatgpt-zoom',
+    planes: ['INTELLIGENCE'],
+    declared_capabilities: ['MEETING_KNOWLEDGE_READ'],
+    authority_effect: 'NONE',
+  },
+  {
+    schema_version: PROVIDER_MESH_SCHEMA_VERSION,
+    provider_id: 'chatgpt-granola',
+    planes: ['INTELLIGENCE'],
+    declared_capabilities: ['MEETING_KNOWLEDGE_READ'],
+    authority_effect: 'NONE',
+  },
+
 ]
