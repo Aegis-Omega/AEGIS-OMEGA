@@ -154,7 +154,19 @@ function extractPostStateDigest(result: unknown, kind: 'collaboration' | 'claude
   return null
 }
 
-function finalizeExecution(input: AuthorityInput, result: unknown, postStateDigest: string | null): AutomatonResult {
+function observedExecutionOutcome(result: unknown): 'SUCCEEDED' | 'FAILED' {
+  if (!result || typeof result !== 'object') return 'SUCCEEDED'
+  const outer = result as Record<string, unknown>
+  const inner = outer['data'] && typeof outer['data'] === 'object'
+    ? outer['data'] as Record<string, unknown>
+    : undefined
+  for (const record of inner ? [outer, inner] : [outer]) {
+    if (record['chain_valid'] === false || record['blocked'] === true) return 'FAILED'
+  }
+  return 'SUCCEEDED'
+}
+
+function finalizeExecution(input: AuthorityInput, result: unknown, postStateDigest: string | null, executionOutcome: 'SUCCEEDED' | 'FAILED' | 'ROLLED_BACK'): AutomatonResult {
   if (!postStateDigest) {
     return { status: 'UNATTESTED', reason: 'POST_STATE_UNAVAILABLE' }
   }
@@ -165,7 +177,7 @@ function finalizeExecution(input: AuthorityInput, result: unknown, postStateDige
   const finalized = runAutomaton('finalize', {
     ...built.payload!,
     execution: {
-      outcome: 'SUCCEEDED',
+      outcome: executionOutcome,
       result,
       post_state_digest: postStateDigest,
       parent_receipt: '0'.repeat(64),
@@ -207,7 +219,7 @@ server.tool(
     const authority = authorizeAction(authorityInput)
     const denial = denied(authority); if (denial) return denial
     const result = await bridgePost('/platform/collaborate', { objective, mode, live: false }, true)
-    const executionAttestation = finalizeExecution(authorityInput, result, extractPostStateDigest(result, 'collaboration'))
+    const executionAttestation = finalizeExecution(authorityInput, result, extractPostStateDigest(result, 'collaboration'), observedExecutionOutcome(result))
     return text({ authority, result, execution_attestation: executionAttestation })
   },
 )
@@ -241,7 +253,7 @@ server.tool(
     const authority = authorizeAction(authorityInput)
     const denial = denied(authority); if (denial) return denial
     const result = await bridgePost('/claude', body)
-    const executionAttestation = finalizeExecution(authorityInput, result, extractPostStateDigest(result, 'claude'))
+    const executionAttestation = finalizeExecution(authorityInput, result, extractPostStateDigest(result, 'claude'), observedExecutionOutcome(result))
     return text({ authority, result, execution_attestation: executionAttestation })
   },
 )
