@@ -230,16 +230,22 @@ HTML_DASHBOARD = """
         const response = await fetch('/trigger-quantum', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ prompt: promptText })
+          body: JSON.stringify({ prompt: promptText }),
+          signal: AbortSignal.timeout(10000)
         });
+        if (!response.ok) throw new Error(`trigger HTTP ${response.status}`);
         const data = await response.json();
         const txId = data.transaction_id;
         logToConsole(`Job Accepted & Queued (ID: ${txId.slice(0,8)}...)`, 'info');
 
-        // Poll for results
+        // Poll for results with a finite wall-clock budget.
         let completed = false;
-        while (!completed) {
-          const pollResp = await fetch(`/job-status/${txId}`);
+        const deadline = Date.now() + 60000;
+        while (!completed && Date.now() < deadline) {
+          const pollResp = await fetch(`/job-status/${txId}`, {
+            signal: AbortSignal.timeout(5000)
+          });
+          if (!pollResp.ok) throw new Error(`poll HTTP ${pollResp.status}`);
           const pollData = await pollResp.json();
           if (pollData.status === 'completed') {
             completed = true;
@@ -247,10 +253,13 @@ HTML_DASHBOARD = """
             document.getElementById("val-loss").textContent = res.quantum_loss;
             document.getElementById("val-purity").textContent = res.average_subsystem_purity;
             logToConsole(`Success! Purity verified: ${res.average_subsystem_purity}`, 'success');
+          } else if (pollData.status === 'failed') {
+            throw new Error(pollData.error || 'quantum job failed');
           } else {
             await new Promise(r => setTimeout(r, 600));
           }
         }
+        if (!completed) throw new Error('job polling timed out after 60s');
       } catch (err) {
         logToConsole(`Error sending payload: ` + err, 'info');
       }

@@ -1,5 +1,6 @@
 import { createClient } from 'jsr:@supabase/supabase-js@2'
 import { CORS } from '../_shared/cors.ts'
+import { fetchWithTimeout, readTextBounded } from '../_shared/http.ts'
 
 const DASHSCOPE_API_KEY_ENV = Deno.env.get('DASHSCOPE_API_KEY') ?? ''
 const DASHSCOPE_URL = 'https://dashscope-intl.aliyuncs.com/compatible-mode/v1/chat/completions'
@@ -15,7 +16,7 @@ const NEBIUS_MODEL = Deno.env.get('NEBIUS_MODEL') ?? ''
 // Server-side provider gates. `provider` arrives in the public request body, so
 // the client-side VITE_ENABLE_* flags cannot actually gate the paid backends.
 // A requested provider is only honored when its server flag is explicitly 'true';
-// otherwise the request falls back to the default (dashscope).
+// otherwise the request is denied. An explicit provider is never rerouted.
 const CHAT_ENABLE_OPENAI = Deno.env.get('CHAT_ENABLE_OPENAI') === 'true'
 const CHAT_ENABLE_NEBIUS = Deno.env.get('CHAT_ENABLE_NEBIUS') === 'true'
 const CHAT_ENABLE_AZURE  = Deno.env.get('CHAT_ENABLE_AZURE') === 'true'
@@ -24,6 +25,18 @@ const AZURE_OPENAI_API_KEY = Deno.env.get('AZURE_OPENAI_API_KEY') ?? ''
 const AZURE_OPENAI_DEPLOYMENT = Deno.env.get('AZURE_OPENAI_DEPLOYMENT') ?? ''
 const AZURE_OPENAI_API_VERSION = Deno.env.get('AZURE_OPENAI_API_VERSION') ?? '2024-10-21'
 const DEFAULT_SYSTEM = `You are the AEGIS Omega AI assistant helping content creators. Be concise, direct, and practical.`
+function readPositiveIntEnv(name: string, fallback: number): number {
+  const raw = Deno.env.get(name)
+  if (!raw) return fallback
+
+  const parsed = Number(raw)
+  return Number.isFinite(parsed) && parsed > 0 ? Math.floor(parsed) : fallback
+}
+
+// One bounded transport policy for every paid/free model provider. Deliberately
+// no automatic retry for POST inference: without provider-level idempotency a
+// retry could duplicate execution and cost.
+const CHAT_UPSTREAM_TIMEOUT_MS = readPositiveIntEnv('CHAT_UPSTREAM_TIMEOUT_MS', 60_000)
 
 let dashScopeKeyCache: string | null | undefined
 
@@ -76,25 +89,17 @@ Deno.serve(async (req) => {
       { role: 'user', content: message },
     ]
 
-    let useOpenAI = provider === 'openai'
-    let useNebius = provider === 'nebius'
-    let useAzure = provider === 'azure'
-
-    // Server-side gate: a client cannot force a paid backend by setting `provider`.
-    // If the provider's server flag is off, fall back to the default (dashscope).
-    if (useOpenAI && !CHAT_ENABLE_OPENAI) {
-      console.error('OpenAI provider requested but CHAT_ENABLE_OPENAI is not "true" — falling back to dashscope')
-      useOpenAI = false
-    }
-    if (useNebius && !CHAT_ENABLE_NEBIUS) {
-      console.error('Nebius provider requested but CHAT_ENABLE_NEBIUS is not "true" — falling back to dashscope')
-      useNebius = false
-    }
-    if (useAzure && !CHAT_ENABLE_AZURE) {
-      console.error('Azure provider requested but CHAT_ENABLE_AZURE is not "true" — falling back to dashscope')
-      useAzure = false
+    // The TypeScript request annotation is not a runtime validation boundary.
+    // Unknown or disabled providers must not silently select another paid backend.
+    if (provider !== 'dashscope' && provider !== 'openai' && provider !== 'nebius' && provider !== 'azure') {
+      return new Response(JSON.stringify({ error: 'unsupported provider' }), {
+        status: 400, headers: { ...CORS, 'Content-Type': 'application/json' },
+      })
     }
 
+    const useOpenAI = provider === 'openai'
+    const useNebius = provider === 'nebius'
+    const useAzure = provider === 'azure'
     const providerId = useAzure
       ? 'azure-openai'
       : useOpenAI
@@ -102,6 +107,32 @@ Deno.serve(async (req) => {
         : useNebius
           ? 'nebius-token-factory'
           : 'dashscope'
+
+    // Preserve the established HTTP 200 unavailable response contract while
+    // stopping before mesh/Vault reads, inference, or cross-provider fallback.
+    if ((useOpenAI && !CHAT_ENABLE_OPENAI) || (useNebius && !CHAT_ENABLE_NEBIUS) || (useAzure && !CHAT_ENABLE_AZURE)) {
+      return new Response(JSON.stringify({
+        error: 'AI unavailable',
+        reply: "The requested AI provider is disabled. No alternative provider was called.",
+        provider_status: 'disabled',
+        provider: providerId,
+      }), {
+        status: 200, headers: { ...CORS, 'Content-Type': 'application/json' },
+      })
+    }
+
+    // An explicit model and credential are both required. Do not attempt an
+    // empty Bearer credential, infer API access from ChatGPT, or choose a model.
+    if (useOpenAI && (!OPENAI_MODEL.trim() || !OPENAI_API_KEY.trim())) {
+      return new Response(JSON.stringify({
+        error: 'AI unavailable',
+        reply: "The requested AI provider is not configured. No alternative provider was called.",
+        provider_status: 'unconfigured',
+        provider: providerId,
+      }), {
+        status: 200, headers: { ...CORS, 'Content-Type': 'application/json' },
+      })
+    }
 
     const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? ''
     const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
@@ -146,14 +177,7 @@ Deno.serve(async (req) => {
       })
     }
 
-    // OpenAI and Nebius require explicit models — never send guessed model ids.
-    if (useOpenAI && !OPENAI_MODEL) {
-      console.error('OpenAI error: OPENAI_MODEL must be set (no hardcoded default)')
-      return new Response(JSON.stringify({ error: 'AI unavailable', reply: "I'm having trouble connecting right now. Try again in a moment." }), {
-        status: 200, headers: { ...CORS, 'Content-Type': 'application/json' },
-      })
-    }
-
+    // Nebius also requires an explicit model and credential.
     if (useNebius && (!NEBIUS_MODEL || !NEBIUS_API_KEY)) {
       console.error('Nebius error: NEBIUS_MODEL and NEBIUS_API_KEY must be set')
       return new Response(JSON.stringify({ error: 'AI unavailable', reply: "I'm having trouble connecting right now. Try again in a moment." }), {
@@ -185,7 +209,7 @@ Deno.serve(async (req) => {
         : useNebius ? NEBIUS_URL
           : DASHSCOPE_URL
 
-    const resp = await fetch(url, {
+    const resp = await fetchWithTimeout(url, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -218,10 +242,10 @@ Deno.serve(async (req) => {
         max_tokens: 512,
         temperature: 0.7,
       }),
-    })
+    }, CHAT_UPSTREAM_TIMEOUT_MS)
 
     if (!resp.ok) {
-      const err = await resp.text()
+      const err = await readTextBounded(resp)
       console.error(
         useAzure
           ? 'Azure OpenAI error:'
@@ -249,7 +273,8 @@ Deno.serve(async (req) => {
       headers: { ...CORS, 'Content-Type': 'application/json' },
     })
   } catch (e) {
-    console.error('chat function error:', e)
+    const detail = e instanceof Error ? `${e.name}: ${e.message}` : String(e)
+    console.error('chat function error:', detail)
     return new Response(JSON.stringify({ reply: "Something went wrong. Please try again." }), {
       status: 200, headers: { ...CORS, 'Content-Type': 'application/json' },
     })

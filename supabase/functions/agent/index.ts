@@ -5,6 +5,7 @@
 // Returns: { result: string, actions: string[] }
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { CORS } from '../_shared/cors.ts'
+import { fetchWithTimeout } from '../_shared/http.ts'
 
 const ANTHROPIC_API_KEY = Deno.env.get('ANTHROPIC_API_KEY') ?? ''
 const NOTIFY_SECRET     = Deno.env.get('NOTIFY_SECRET') ?? ''
@@ -64,7 +65,7 @@ async function runTool(name: string, input: Record<string, unknown>): Promise<st
 
   if (name === 'send_notification') {
     const notifyUrl = `${SUPABASE_URL}/functions/v1/notify`
-    const res = await fetch(notifyUrl, {
+    const res = await fetchWithTimeout(notifyUrl, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'x-notify-secret': NOTIFY_SECRET },
       body: JSON.stringify(input),
@@ -83,7 +84,7 @@ async function runAgent(task: string, context?: string): Promise<{ result: strin
   const actions: string[] = []
 
   for (let turn = 0; turn < 5; turn++) {
-    const res = await fetch('https://api.anthropic.com/v1/messages', {
+    const res = await fetchWithTimeout('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: {
         'x-api-key': ANTHROPIC_API_KEY,
@@ -150,7 +151,7 @@ Deno.serve(async (req) => {
     // Optionally notify owner with the result
     if (notify) {
       const notifyUrl = `${SUPABASE_URL}/functions/v1/notify`
-      await fetch(notifyUrl, {
+      await fetchWithTimeout(notifyUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'x-notify-secret': NOTIFY_SECRET },
         body: JSON.stringify({ channel: 'both', subject: `Agent result: ${task.slice(0, 60)}`, text: result }),

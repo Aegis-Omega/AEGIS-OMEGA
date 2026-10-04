@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from typing import Any, AsyncGenerator, Literal
+from urllib.parse import quote
 
 from .client import (
     AegisError, CollaborationResult, ExecutionHandle, Mode,
@@ -53,9 +54,14 @@ class AsyncAegisClient:
 
     async def _request(self, method: str, path: str, body: dict[str, Any] | None = None) -> dict[str, Any]:
         async with self._sess().request(method, f"{self._base}{path}", json=body) as resp:
-            raw = await resp.json()
             if not resp.ok:
+                try:
+                    raw = await resp.json()
+                except Exception:
+                    detail = (await resp.text())[:2_048]
+                    raise AegisError(detail or str(resp.status), code="INTERNAL", status=resp.status)
                 raise AegisError(raw.get("error", str(resp.status)), code=raw.get("code", "INTERNAL"), status=resp.status)
+            raw = await resp.json()
             return raw  # type: ignore[return-value]
 
     async def status(self) -> PlatformStatus:
@@ -83,7 +89,8 @@ class AsyncAegisClient:
 
     async def stream_execution(self, execution_id: str) -> AsyncGenerator[dict[str, Any], None]:
         """Async SSE consumer — yields one dict per SSE event until completion or error."""
-        url = f"{self._base}/platform/executions/live?id={execution_id}"
+        safe_id = quote(execution_id, safe="")
+        url = f"{self._base}/platform/executions/live?id={safe_id}"
         async with self._sess().get(url, headers={"Accept": "text/event-stream"}) as resp:
             buf = ""
             async for raw_line in resp.content:

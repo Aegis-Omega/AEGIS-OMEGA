@@ -128,12 +128,73 @@ describe('PlatformClient collaborate/startExecution envelope validation', () => 
   })
 })
 
+describe('PlatformClient transport hardening', () => {
+  it('attaches a bounded abort signal to non-stream requests', async () => {
+    const fetchSpy = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: () => Promise.resolve(VALID_ENVELOPE),
+      body: null,
+    })
+    global.fetch = fetchSpy as unknown as typeof fetch
+
+    const bounded = new PlatformClient({
+      apiKey: 'aegis_test_key',
+      endpoint: 'http://localhost:7890',
+      timeoutMs: 1_234,
+    })
+    await bounded.status()
+
+    const init = fetchSpy.mock.calls[0]![1] as RequestInit
+    expect(init.signal).toBeDefined()
+  })
+
+  it('normalizes request timeouts to PlatformApiError without changing HTTP contracts', async () => {
+    const timeout = new Error('timed out')
+    timeout.name = 'TimeoutError'
+    global.fetch = vi.fn().mockRejectedValue(timeout) as unknown as typeof fetch
+
+    const bounded = new PlatformClient({
+      apiKey: 'aegis_test_key',
+      endpoint: 'http://localhost:7890',
+      timeoutMs: 25,
+    })
+
+    await expect(bounded.status()).rejects.toMatchObject({
+      name: 'PlatformApiError',
+      code: 'INTERNAL',
+      status: 0,
+      message: 'Request timed out after 25ms',
+    })
+  })
+
+  it('rejects invalid timeout configuration at construction', () => {
+    expect(() => new PlatformClient({
+      apiKey: 'aegis_test_key',
+      endpoint: 'http://localhost:7890',
+      timeoutMs: 0,
+    })).toThrow(RangeError)
+  })
+})
+
 describe('PlatformClient deleteExecution', () => {
   it('204 response succeeds without throwing', async () => {
     global.fetch = vi.fn().mockResolvedValue({
       ok: true, status: 204, json: () => Promise.resolve({}), body: null,
     }) as unknown as typeof fetch
     await expect(client.deleteExecution('exec-del-1')).resolves.toBeUndefined()
+  })
+
+  it('percent-encodes execution IDs before placing them in the URL path', async () => {
+    const fetchSpy = vi.fn().mockResolvedValue({
+      ok: true, status: 204, json: () => Promise.resolve({}), body: null,
+    })
+    global.fetch = fetchSpy as unknown as typeof fetch
+
+    await client.deleteExecution('exec/with space?x=1')
+
+    expect(String(fetchSpy.mock.calls[0]![0]))
+      .toContain('/platform/executions/exec%2Fwith%20space%3Fx%3D1')
   })
 
   it('401 on DELETE throws with UNAUTHORIZED code', async () => {

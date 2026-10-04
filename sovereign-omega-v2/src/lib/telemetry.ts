@@ -29,14 +29,24 @@ function notify(s: TelemetryState): void {
 }
 
 async function fetchOnce(signal: AbortSignal): Promise<void> {
+  const controller = new AbortController()
+  const timer = setTimeout(() => controller.abort(), 4_000)
+  const onAbort = () => controller.abort()
+
+  if (signal.aborted) controller.abort()
+  else signal.addEventListener('abort', onAbort, { once: true })
+
   try {
-    const res = await fetch(`${BRIDGE}/telemetry`, { signal })
+    const res = await fetch(`${BRIDGE}/telemetry`, { signal: controller.signal })
     if (!res.ok) { notify({ status: 'error', message: `Bridge ${res.status}` }); return }
     const data = (await res.json()) as TelemetrySnapshot
     notify({ status: 'online', data })
   } catch (err) {
     if ((err as Error).name === 'AbortError') return
     notify({ status: 'offline' })
+  } finally {
+    clearTimeout(timer)
+    signal.removeEventListener('abort', onAbort)
   }
 }
 

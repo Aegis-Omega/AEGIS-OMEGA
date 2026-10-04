@@ -13,6 +13,8 @@
 export const ADMIN_CLIENT_SCHEMA_VERSION = '1.0.0' as const
 const ANTHROPIC_API_BASE = 'https://api.anthropic.com'
 const ANTHROPIC_VERSION = '2023-06-01'
+const DEFAULT_ADMIN_TIMEOUT_MS = 30_000
+const MAX_ADMIN_ERROR_BODY_CHARS = 2_048
 
 export interface OrgInfo {
   readonly id: string
@@ -37,25 +39,42 @@ export interface WorkspaceInfo {
 
 export class AdminClient {
   private readonly _adminKey: string
+  private readonly _timeoutMs: number
 
-  constructor(adminKey?: string) {
+  constructor(adminKey?: string, timeoutMs = DEFAULT_ADMIN_TIMEOUT_MS) {
     const key = adminKey ?? process.env.ANTHROPIC_ADMIN_API_KEY
     if (!key) throw new Error('[ADMIN_CLIENT] ANTHROPIC_ADMIN_API_KEY not set')
+    if (!Number.isFinite(timeoutMs) || timeoutMs <= 0) {
+      throw new RangeError('[ADMIN_CLIENT] timeoutMs must be a finite positive number')
+    }
     this._adminKey = key
+    this._timeoutMs = Math.floor(timeoutMs)
   }
 
   private async _fetch<T>(path: string, options: RequestInit = {}): Promise<T> {
-    const res = await fetch(`${ANTHROPIC_API_BASE}${path}`, {
-      ...options,
-      headers: {
-        'anthropic-version': ANTHROPIC_VERSION,
-        'x-api-key': this._adminKey,
-        'content-type': 'application/json',
-        ...(options.headers ?? {}),
-      },
-    })
+    const signal = options.signal ?? AbortSignal.timeout(this._timeoutMs)
+    let res: Response
+
+    try {
+      res = await fetch(`${ANTHROPIC_API_BASE}${path}`, {
+        ...options,
+        signal,
+        headers: {
+          'anthropic-version': ANTHROPIC_VERSION,
+          'x-api-key': this._adminKey,
+          'content-type': 'application/json',
+          ...(options.headers ?? {}),
+        },
+      })
+    } catch (error) {
+      if (error instanceof Error && (error.name === 'AbortError' || error.name === 'TimeoutError')) {
+        throw new Error(`[ADMIN_API] timeout after ${this._timeoutMs}ms ${path}`)
+      }
+      throw error
+    }
+
     if (!res.ok) {
-      const body = await res.text()
+      const body = (await res.text()).slice(0, MAX_ADMIN_ERROR_BODY_CHARS)
       throw new Error(`[ADMIN_API] ${res.status} ${path}: ${body}`)
     }
     return res.json() as Promise<T>

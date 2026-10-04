@@ -6,6 +6,7 @@
 //   NOTIFY_SECRET (optional, for owner alerts)
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { CORS } from '../_shared/cors.ts'
+import { fetchWithTimeout } from '../_shared/http.ts'
 import { issueGrantToken } from '../_shared/jwt.ts'
 
 const PAYPAL_CLIENT_ID     = Deno.env.get('PAYPAL_CLIENT_ID') ?? ''
@@ -28,7 +29,7 @@ const EXPLORER_GLOBAL_DAILY_CAP = 100
 
 async function getPayPalToken(): Promise<string> {
   const creds = btoa(`${PAYPAL_CLIENT_ID}:${PAYPAL_CLIENT_SECRET}`)
-  const resp = await fetch(`${PAYPAL_BASE}/v1/oauth2/token`, {
+  const resp = await fetchWithTimeout(`${PAYPAL_BASE}/v1/oauth2/token`, {
     method:  'POST',
     headers: { 'Authorization': `Basic ${creds}`, 'Content-Type': 'application/x-www-form-urlencoded' },
     body:    'grant_type=client_credentials',
@@ -50,7 +51,7 @@ async function sendApiKey(email: string, tier: string, rawKey: string): Promise<
     subject: `Your AEGIS API key — ${tier} tier`,
     html: `<div style="font-family:monospace;max-width:600px;margin:0 auto;padding:24px"><h2>Your AEGIS Platform API Key</h2><p>Tier: <strong>${tier}</strong> (${prices[tier] ?? ''})<br>Call limit: <strong>${limits[tier] ?? '?'} requests</strong></p><div style="background:#0f0f0f;color:#00ff88;padding:16px;border-radius:8px;font-size:14px;word-break:break-all">${rawKey}</div><p style="margin-top:16px">Use as HTTP header:<br><code>x-api-key: ${rawKey}</code></p><pre style="background:#1a1a1a;padding:12px;border-radius:6px;font-size:12px">curl -X POST https://aegis-vertex.aegisomega.com/platform/collaborate -H "x-api-key: ${rawKey}" -H "Content-Type: application/json" -d '{"objective":"Analyse our Q2 revenue","mode":"analysis","live":false}'</pre><p style="color:#666;font-size:12px">Docs: <a href="https://aegisomega.com/platform">aegisomega.com/platform</a><br>Support: api@aegisomega.com</p></div>`,
   }
-  const res = await fetch('https://api.resend.com/emails', {
+  const res = await fetchWithTimeout('https://api.resend.com/emails', {
     method: 'POST',
     headers: { Authorization: `Bearer ${RESEND_API_KEY}`, 'Content-Type': 'application/json' },
     body: JSON.stringify(body),
@@ -59,7 +60,7 @@ async function sendApiKey(email: string, tier: string, rawKey: string): Promise<
 }
 
 async function captureOrder(token: string, orderId: string): Promise<CaptureResult> {
-  const resp = await fetch(`${PAYPAL_BASE}/v2/checkout/orders/${orderId}/capture`, {
+  const resp = await fetchWithTimeout(`${PAYPAL_BASE}/v2/checkout/orders/${orderId}/capture`, {
     method:  'POST',
     headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
   })
@@ -176,7 +177,7 @@ Deno.serve(async (req) => {
   const notifyUrl    = `${Deno.env.get('SUPABASE_URL')}/functions/v1/notify`
   const notifySecret = Deno.env.get('NOTIFY_SECRET') ?? ''
   const tierLabel    = { explorer: 'Explorer (free)', operator: 'Operator ($49)', sovereign: 'Sovereign ($499)' }
-  fetch(notifyUrl, {
+  fetchWithTimeout(notifyUrl, {
     method:  'POST',
     headers: { 'Content-Type': 'application/json', 'x-notify-secret': notifySecret },
     body:    JSON.stringify({

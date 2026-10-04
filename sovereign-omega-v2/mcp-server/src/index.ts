@@ -16,12 +16,23 @@ import { createHash } from 'node:crypto'
 const BRIDGE = (process.env['AEGIS_BRIDGE_URL'] ?? 'http://localhost:7890').replace(/\/$/, '')
 const API_KEY = process.env['AEGIS_API_KEY'] ?? ''
 
+function positiveTimeout(value: string | undefined, fallback: number): number {
+  const parsed = Number(value)
+  return Number.isFinite(parsed) && parsed > 0 ? Math.floor(parsed) : fallback
+}
+
+const BRIDGE_READ_TIMEOUT_MS = positiveTimeout(process.env['AEGIS_BRIDGE_READ_TIMEOUT_MS'], 10_000)
+const BRIDGE_ACTION_TIMEOUT_MS = positiveTimeout(process.env['AEGIS_BRIDGE_ACTION_TIMEOUT_MS'], 120_000)
+
 const server = new McpServer({ name: 'aegis-constitutional-swarm', version: '0.2.0' })
 
 async function bridgeGet(path: string, apiKey = false): Promise<unknown> {
   const headers: Record<string, string> = { 'Content-Type': 'application/json' }
   if (apiKey && API_KEY) headers['X-API-Key'] = API_KEY
-  const res = await fetch(`${BRIDGE}${path}`, { headers })
+  const res = await fetch(`${BRIDGE}${path}`, {
+    headers,
+    signal: AbortSignal.timeout(BRIDGE_READ_TIMEOUT_MS),
+  })
   if (!res.ok) throw new Error(`Bridge ${path} → HTTP ${res.status}`)
   return res.json()
 }
@@ -29,9 +40,14 @@ async function bridgeGet(path: string, apiKey = false): Promise<unknown> {
 async function bridgePost(path: string, body: unknown, apiKey = false): Promise<unknown> {
   const headers: Record<string, string> = { 'Content-Type': 'application/json' }
   if (apiKey && API_KEY) headers['X-API-Key'] = API_KEY
-  const res = await fetch(`${BRIDGE}${path}`, { method: 'POST', headers, body: JSON.stringify(body) })
+  const res = await fetch(`${BRIDGE}${path}`, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify(body),
+    signal: AbortSignal.timeout(BRIDGE_ACTION_TIMEOUT_MS),
+  })
   if (!res.ok) {
-    const err = await res.text().catch(() => `HTTP ${res.status}`)
+    const err = await res.text().then(value => value.slice(0, 2_048)).catch(() => `HTTP ${res.status}`)
     throw new Error(`Bridge ${path} → ${err}`)
   }
   return res.json()

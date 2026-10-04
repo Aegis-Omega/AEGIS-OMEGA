@@ -16,6 +16,10 @@ app.use(express.json({limit: process?.env?.API_PAYLOAD_MAX_SIZE || "7mb"}));
 
 const PORT = process?.env?.API_BACKEND_PORT || 5000;
 const API_BACKEND_HOST = process?.env?.API_BACKEND_HOST || "127.0.0.1";
+const parsedProxyTimeoutMs = Number(process?.env?.API_PROXY_TIMEOUT_MS || 120000);
+const API_PROXY_TIMEOUT_MS = Number.isFinite(parsedProxyTimeoutMs) && parsedProxyTimeoutMs > 0
+  ? Math.floor(parsedProxyTimeoutMs)
+  : 120000;
 
 const GOOGLE_CLOUD_LOCATION = process?.env?.GOOGLE_CLOUD_LOCATION;
 const GOOGLE_CLOUD_PROJECT = process?.env?.GOOGLE_CLOUD_PROJECT;
@@ -244,6 +248,9 @@ app.post('/api-proxy', async (req, res) => {
       method: method || 'POST',
       headers: {...apiHeaders, ...headers},
       body: body ? body : undefined,
+      // Streaming calls remain open until their stream ends; non-streaming
+      // calls must not pin a worker forever on an unreachable upstream.
+      signal: apiClient.isStreaming ? undefined : AbortSignal.timeout(API_PROXY_TIMEOUT_MS),
     };
 
     // 5. Make the call to the API
@@ -268,6 +275,15 @@ app.post('/api-proxy', async (req, res) => {
 
       const decoder = new TextDecoder();
       let deltaChunk = '';
+
+      // Stop consuming an upstream stream after the downstream client leaves.
+      // This avoids paying for / buffering tokens that no caller can receive.
+      const abortUpstreamOnDisconnect = () => {
+        if (apiResponse.body && typeof apiResponse.body.destroy === 'function') {
+          apiResponse.body.destroy(new Error('Downstream client disconnected'));
+        }
+      };
+      res.once('close', abortUpstreamOnDisconnect);
       apiResponse.body.on('data', (encodedChunk) => {
         if (res.writableEnded) return; // Prevent writing after res.end()
 
@@ -292,6 +308,7 @@ app.post('/api-proxy', async (req, res) => {
 
       apiResponse.body.on('end', () => {
         deltaChunk = '';
+        res.off('close', abortUpstreamOnDisconnect);
         console.log(`[Node Proxy] Vertex stream finished and all data processed for ${apiClient.name}`);
         res.end();
       });

@@ -18,6 +18,7 @@
 //   SUPABASE_URL + SUPABASE_SERVICE_ROLE_KEY auto-injected
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { CORS } from '../_shared/cors.ts'
+import { fetchWithTimeout } from '../_shared/http.ts'
 
 const GITHUB_WEBHOOK_SECRET = Deno.env.get('GITHUB_WEBHOOK_SECRET') ?? ''
 const RESEND_API_KEY         = Deno.env.get('RESEND_API_KEY') ?? ''
@@ -53,7 +54,7 @@ async function verifyGitHubSignature(body: string, sig: string, secret: string):
 async function sendApiKey(email: string, tier: string, rawKey: string, githubUsername: string): Promise<void> {
   if (!RESEND_API_KEY) return
   const limits: Record<string, string> = { explorer: '10', operator: '500', sovereign: 'unlimited' }
-  await fetch('https://api.resend.com/emails', {
+  await fetchWithTimeout('https://api.resend.com/emails', {
     method: 'POST',
     headers: { Authorization: `Bearer ${RESEND_API_KEY}`, 'Content-Type': 'application/json' },
     body: JSON.stringify({
@@ -232,7 +233,7 @@ Deno.serve(async (req) => {
 
     // Notify owner
     const notifyUrl = `${Deno.env.get('SUPABASE_URL')}/functions/v1/notify`
-    fetch(notifyUrl, {
+    fetchWithTimeout(notifyUrl, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'x-notify-secret': Deno.env.get('NOTIFY_SECRET') ?? '' },
       body: JSON.stringify({

@@ -34,6 +34,7 @@ export default function App() {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ api_key: key, event: 'trial_started', properties: { product: 'cockpit', distinct_id: 'anonymous' } }),
+      signal: AbortSignal.timeout(5_000),
     }).catch(() => {/* observational only */})
   }, [])
 

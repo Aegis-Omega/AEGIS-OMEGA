@@ -50,7 +50,7 @@ function makeHeaders(): HeadersInit {
 
 async function getRepoTree(owner: string, repo: string): Promise<readonly GitHubTreeEntry[]> {
   const url = `${GITHUB_BASE}/repos/${owner}/${repo}/git/trees/HEAD?recursive=1`
-  const res = await fetch(url, { headers: makeHeaders() })
+  const res = await fetch(url, { headers: makeHeaders(), signal: AbortSignal.timeout(20_000) })
   if (!res.ok) {
     if (res.status === 404) throw new Error(`repo not found: ${owner}/${repo}`)
     if (res.status === 403 || res.status === 429) throw new Error(`rate limited — use --token`)
@@ -62,7 +62,7 @@ async function getRepoTree(owner: string, repo: string): Promise<readonly GitHub
 
 async function getFileContent(owner: string, repo: string, filePath: string): Promise<string> {
   const url = `${GITHUB_BASE}/repos/${owner}/${repo}/contents/${encodeURIComponent(filePath)}`
-  const res = await fetch(url, { headers: makeHeaders() })
+  const res = await fetch(url, { headers: makeHeaders(), signal: AbortSignal.timeout(20_000) })
   if (!res.ok) throw new Error(`cannot fetch ${filePath}: HTTP ${res.status}`)
   const data = await res.json() as { content?: string; encoding?: string }
   if (data.encoding === 'base64' && data.content) {

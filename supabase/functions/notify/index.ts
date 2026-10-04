@@ -4,6 +4,7 @@
 // Called internally by agent and any other function.
 // Auth: pass internal secret via X-Notify-Secret header (set NOTIFY_SECRET env var)
 import { CORS } from '../_shared/cors.ts'
+import { fetchWithTimeout } from '../_shared/http.ts'
 
 const RESEND_API_KEY    = Deno.env.get('RESEND_API_KEY') ?? ''
 const SLACK_WEBHOOK_URL = Deno.env.get('SLACK_WEBHOOK_URL') ?? ''
@@ -19,7 +20,7 @@ interface NotifyPayload {
 
 async function sendEmail(subject: string, text: string, html?: string): Promise<void> {
   if (!RESEND_API_KEY) { console.warn('RESEND_API_KEY not set — skipping email'); return }
-  const res = await fetch('https://api.resend.com/emails', {
+  const res = await fetchWithTimeout('https://api.resend.com/emails', {
     method: 'POST',
     headers: { 'Authorization': `Bearer ${RESEND_API_KEY}`, 'Content-Type': 'application/json' },
     body: JSON.stringify({
@@ -38,7 +39,7 @@ async function sendEmail(subject: string, text: string, html?: string): Promise<
 
 async function sendSlack(text: string): Promise<void> {
   if (!SLACK_WEBHOOK_URL) { console.warn('SLACK_WEBHOOK_URL not set — skipping Slack'); return }
-  const res = await fetch(SLACK_WEBHOOK_URL, {
+  const res = await fetchWithTimeout(SLACK_WEBHOOK_URL, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ text }),

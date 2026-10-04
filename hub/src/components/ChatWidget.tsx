@@ -3,6 +3,7 @@ import { MessageSquare, X, Send, Loader2 } from 'lucide-react'
 
 const SUPABASE_URL = (import.meta.env.VITE_SUPABASE_URL as string) ?? 'https://rwehltdwpsncnwxzkwik.supabase.co'
 const ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY as string
+const CHAT_REQUEST_TIMEOUT_MS = 65_000
 
 interface Message { role: 'user' | 'assistant'; content: string }
 
@@ -47,12 +48,23 @@ export function ChatWidget() {
       const res = await fetch(`${SUPABASE_URL}/functions/v1/chat`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${ANON_KEY}` },
-        body: JSON.stringify({ message: input.trim(), history, system: SYSTEM }),
+        body: JSON.stringify({ message: userMsg.content, history, system: SYSTEM }),
+        signal: AbortSignal.timeout(CHAT_REQUEST_TIMEOUT_MS),
       })
-      const data = await res.json()
+      if (!res.ok) {
+        const detail = (await res.text()).slice(0, 2_048)
+        throw new Error(`chat HTTP ${res.status}: ${detail}`)
+      }
+      const data = await res.json() as { reply?: string }
       setMessages(prev => [...prev, { role: 'assistant', content: data.reply ?? "Sorry, couldn't reach the AI. Try again in a moment." }])
-    } catch {
-      setMessages(prev => [...prev, { role: 'assistant', content: "Connection error. Check your internet and try again." }])
+    } catch (error) {
+      const timedOut = error instanceof Error && (error.name === 'TimeoutError' || error.name === 'AbortError')
+      setMessages(prev => [...prev, {
+        role: 'assistant',
+        content: timedOut
+          ? "The request timed out. Try again in a moment."
+          : "Connection error. Check your internet and try again.",
+      }])
     } finally {
       setLoading(false)
     }

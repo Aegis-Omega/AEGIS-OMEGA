@@ -113,10 +113,12 @@ Return JSON:
 }`,
       }],
     }),
+    signal: AbortSignal.timeout(90_000),
   })
 
   if (!res.ok) {
-    throw new Error(`Anthropic ${res.status}: ${await res.text()}`)
+    const detail = (await res.text()).slice(0, 2_048)
+    throw new Error(`Anthropic ${res.status}: ${detail}`)
   }
 
   const msg = await res.json() as { content: Array<{ type: string; text: string }> }

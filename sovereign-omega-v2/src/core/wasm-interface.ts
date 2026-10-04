@@ -65,7 +65,7 @@ export function getWasmKernel(): WasmKernel { return _kernel }
 
 export async function loadWasmKernel(wasmPath: string): Promise<WasmKernel> {
   try {
-    const { instance } = await WebAssembly.instantiateStreaming(fetch(wasmPath))
+    const { instance } = await WebAssembly.instantiateStreaming(fetch(wasmPath, { signal: AbortSignal.timeout(15_000) }))
     _kernel = {
       loaded: true,
       hash: null, // set at build time from manifest

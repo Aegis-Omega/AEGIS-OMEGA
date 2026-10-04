@@ -56,21 +56,32 @@ function _fetch(path, method, body) {
   };
   if (body) options.payload = JSON.stringify(body);
 
+  const normalizedMethod = (method || 'get').toLowerCase();
+  const retryable = normalizedMethod === 'get';
+  const maxAttempts = retryable ? 3 : 1;
   let delay = 2000;
-  for (let attempt = 0; attempt < 3; attempt++) {
+
+  for (let attempt = 0; attempt < maxAttempts; attempt++) {
     try {
       const resp = UrlFetchApp.fetch(_getBaseUrl() + path, options);
       const code = resp.getResponseCode();
       if (code === 200) return JSON.parse(resp.getContentText());
-      if (code === 429 || code >= 500) { Utilities.sleep(delay); delay *= 2; continue; }
+
+      if (retryable && (code === 429 || code >= 500) && attempt + 1 < maxAttempts) {
+        Utilities.sleep(delay);
+        delay *= 2;
+        continue;
+      }
       return { error: 'HTTP ' + code + ': ' + resp.getContentText().slice(0, 200) };
     } catch (e) {
+      if (!retryable || attempt + 1 >= maxAttempts) {
+        return { error: 'Connection error: ' + e.toString() };
+      }
       Utilities.sleep(delay);
       delay *= 2;
-      if (attempt === 2) return { error: 'Connection error: ' + e.toString() };
     }
   }
-  return { error: 'Timeout — too many retries' };
+  return { error: 'Read failed after retries' };
 }
 
 // ── Core: run a full 39-agent collaboration cycle ────────────────────────────

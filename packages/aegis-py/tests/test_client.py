@@ -101,7 +101,7 @@ def test_http_401_raises_unauthorized():
     client = AegisClient("aegis_bad_key", base_url=BASE)
     err_body = json.dumps({"error": "Invalid key", "code": "UNAUTHORIZED"}).encode()
     http_err = urllib.error.HTTPError(url=BASE, code=401, msg="Unauthorized", hdrs=None, fp=None)  # type: ignore[arg-type]
-    http_err.read = lambda: err_body  # type: ignore[method-assign]
+    http_err.read = lambda *_args: err_body  # type: ignore[method-assign]
     with patch("urllib.request.urlopen", side_effect=http_err):
         try:
             client.collaborate("test")
@@ -109,6 +109,29 @@ def test_http_401_raises_unauthorized():
         except AegisError as exc:
             assert exc.code == "UNAUTHORIZED"
             assert exc.status == 401
+
+
+def test_network_error_is_normalized():
+    client = AegisClient("aegis_test_key", base_url=BASE)
+    with patch("urllib.request.urlopen", side_effect=urllib.error.URLError("offline")):
+        try:
+            client.collaborate("test")
+            assert False, "should have raised"
+        except AegisError as exc:
+            assert exc.code == "NETWORK"
+            assert exc.status == 0
+
+
+def test_delete_execution_percent_encodes_id():
+    resp = MagicMock()
+    resp.__enter__ = MagicMock(return_value=resp)
+    resp.__exit__ = MagicMock(return_value=False)
+    client = AegisClient("aegis_test_key", base_url=BASE)
+    with patch("urllib.request.urlopen", return_value=resp) as urlopen:
+        client.delete_execution("exec/with space?x=1")
+
+    req = urlopen.call_args.args[0]
+    assert req.full_url.endswith("/platform/executions/exec%2Fwith%20space%3Fx%3D1")
 
 
 def test_empty_api_key_raises():
