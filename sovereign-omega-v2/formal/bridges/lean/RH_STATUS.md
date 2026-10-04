@@ -525,10 +525,18 @@ Primal margins: m*(0.9)≈0.067, m*(1.0)≈0.012, m*(1.2)≈7e-5, m*(≥1.5) bel
 
 **Krein certificates at L = 0.98 and L = 1.0 (`research/rh/KREIN_ARB_CERTIFICATE_L0.98.json`, `..._L1.0.json`).**
 Same verifier (`verify_krein_arb_v1.py`, Arb 256-bit, unchanged), 399 hats to L+8, δ^{(j)} j ≤ 4:
-L = 0.98 (double, just below 0.98): m = 0.005, 12150 cells, zero-cell bound 1.30e-4, tail F/W ≥ 3.70;
-L = 1.0 (exact): m = 0.0015, 12180 cells, zero-cell bound 1.25e-4, tail F/W ≥ 3.79.
+L = 0.98 (double, just below 0.98): m = 0.005, 12157 cells, zero-cell bound 1.30e-4, tail F/W ≥ 3.70;
+L = 1.0 (exact): m = 0.0015, 12186 cells, zero-cell bound 1.25e-4, tail F/W ≥ 3.79.
 The earlier "L = 1.0 LP negative" came from the coefficient bound (1e5); with hat bound 1e6 / δ bound 1e7 the LP
 margin is positive, and m_certified is taken below the minimum of F/W on a 0.0002 grid before the Arb check.
 With `certificate_zero_quadratic_nonneg` (PR #693): modulo the Arb step (not in Lean), Re Σ_ρ Z_ρ(A_g) ≥ 0 for every
 moment-zero packet of log-support width < 1. Primal margin m*(L) decays fast (≈0.012 at 1.0, ≈7e-5 at 1.2), so this
 method does not extend to all widths. Not RH.
+
+
+**L = 1.05 finite-subspace diagnostic (receipt-v2 continuation).**
+`research/rh/krein_primal_convergence_v2.py` analytically replays the current sine-product primal basis and only
+numerically integrates the outer frequency variable. At `T=3000`, `dt=0.02`, the finite-section minimum decreases
+from `0.0035075542` at dimension 32 to `0.0033284004` at dimension 256. This is only an upper bound on the
+unrestricted infimum: it does not prove positivity, but it also does not furnish a negative obstruction at `L=1.05`.
+Exact diagnostic payload: `research/rh/KREIN_PRIMAL_CONVERGENCE_L1.05_V2.json`. Not RH.
