@@ -48,7 +48,7 @@ for _p in (_SELF_DIR, os.path.join(_SELF_DIR, "..")):
 
 ANTHROPIC_API_KEY = os.environ.get("ANTHROPIC_API_KEY", "")
 REDIS_URL = os.environ.get("REDIS_URL", "redis://localhost:6379")
-DEFAULT_MODEL = os.environ.get("AEGIS_DEFAULT_MODEL", "claude-opus-4-8")
+DEFAULT_MODEL = os.environ.get("AEGIS_DEFAULT_MODEL", "claude-opus-5-5")
 CHAIN_KEY = "aegis:chain"
 GENESIS_HASH = "0" * 64
 MAX_CHAIN_ENTRIES = 50_000  # Redis list cap
@@ -300,6 +300,22 @@ async def metrics():
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
+_CLAUDE_55_MODELS = frozenset({"claude-opus-5-5", "claude-sonnet-5-5"})
+_CLAUDE_55_UNSUPPORTED_SAMPLING = ("temperature", "top_p", "top_k")
+
+
+def _validate_claude55_request(model: str, kwargs: dict[str, Any]) -> None:
+    """Fail closed on request fields rejected by Claude 5.5."""
+    if model not in _CLAUDE_55_MODELS:
+        return
+    for name in _CLAUDE_55_UNSUPPORTED_SAMPLING:
+        if name in kwargs and kwargs[name] is not None:
+            raise HTTPException(
+                400,
+                detail=f"CLAUDE_5_5_UNSUPPORTED_PARAMETER:{name}",
+            )
+
+
 def _classify_tier(messages: list[dict]) -> str:
     """Simple epistemic tier from message content — real impl would use CCIL-Ψ."""
     total = sum(len(m.get("content", "")) for m in messages)
@@ -313,6 +329,8 @@ def _classify_tier(messages: list[dict]) -> str:
 async def _call_claude(messages: list[dict], model: str, system: str | None, max_tokens: int, **kwargs) -> dict:
     if not state.anthropic:
         raise HTTPException(503, "ANTHROPIC_API_KEY not configured")
+
+    _validate_claude55_request(model, kwargs)
 
     req_kwargs: dict[str, Any] = {
         "model": model,
