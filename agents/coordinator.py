@@ -13,14 +13,16 @@ import json
 import os
 import subprocess
 import time
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, is_dataclass
 from pathlib import Path
 from typing import Any
 
 from agents import coordinator_legacy as _legacy
 from harness.sdk.authority_client import authorize_from_environment
 from harness.sdk.repository_knowledge import build_snapshot, verify_snapshot
+from harness.sdk.skill_authority import evaluate_registry
 from harness.sdk.skill_routing import ADMITTED, DENIED, SkillRoutingReceipt, record_skill_observation
+from harness.sdk.sovereign_execution import PolicyDecision, ZERO_HASH, canonical_hash, make_execution_receipt
 
 for _name in dir(_legacy):
     if not _name.startswith("__") and _name not in globals():
@@ -59,6 +61,175 @@ def _repository_knowledge_binding(knowledge: dict[str, Any]) -> dict[str, str]:
         "snapshot_digest": str(knowledge["snapshot_digest"]),
         "source_head_sha": str(knowledge["source_head_sha"]),
         "source_tree_sha": str(knowledge["source_tree_sha"]),
+    }
+
+
+def _is_sha256_hex(value: Any) -> bool:
+    return isinstance(value, str) and len(value) == 64 and all(ch in "0123456789abcdef" for ch in value)
+
+
+def _coordinator_evidence_state(
+    *,
+    skill_tree_path: str | Path,
+    lineage_path: str | Path,
+    repo_root: str | Path,
+) -> dict[str, Any]:
+    try:
+        tree = json.loads(Path(skill_tree_path).read_text(encoding="utf-8"))
+        if not isinstance(tree, dict):
+            raise ValueError("skill registry must be an object")
+        registry_receipt = evaluate_registry(tree, repo_root=repo_root)
+    except (OSError, TypeError, ValueError, json.JSONDecodeError) as exc:
+        return {
+            "status": "UNAVAILABLE",
+            "reason": "SKILL_REGISTRY_UNAVAILABLE",
+            "error_class": type(exc).__name__,
+        }
+    if registry_receipt.outcome != ADMITTED or not _is_sha256_hex(registry_receipt.registry_root):
+        return {
+            "status": "UNAVAILABLE",
+            "reason": "SKILL_REGISTRY_INVALID",
+            "violations": list(registry_receipt.violations),
+        }
+
+    lineage_file = Path(lineage_path)
+    if not lineage_file.is_file():
+        return {"status": "UNAVAILABLE", "reason": "ADAPTIVE_LINEAGE_UNAVAILABLE"}
+    try:
+        from agents.evolution import AdaptiveLineage
+
+        raw_lineage = json.loads(lineage_file.read_text(encoding="utf-8"))
+        lineage = AdaptiveLineage.load(path=lineage_file)
+        valid, first_bad_index = lineage.verify_chain()
+        lineage_root = lineage.terminal_hash()
+        event_count = len(lineage.events)
+    except (OSError, TypeError, ValueError, json.JSONDecodeError) as exc:
+        return {
+            "status": "UNAVAILABLE",
+            "reason": "ADAPTIVE_LINEAGE_UNAVAILABLE",
+            "error_class": type(exc).__name__,
+        }
+    if not valid or not _is_sha256_hex(lineage_root):
+        return {
+            "status": "UNAVAILABLE",
+            "reason": "ADAPTIVE_LINEAGE_INVALID",
+            "first_bad_index": first_bad_index,
+        }
+    if (
+        not isinstance(raw_lineage, dict)
+        or raw_lineage.get("terminal_hash") != lineage_root
+        or raw_lineage.get("event_count") != event_count
+    ):
+        return {
+            "status": "UNAVAILABLE",
+            "reason": "ADAPTIVE_LINEAGE_METADATA_MISMATCH",
+        }
+
+    body = {
+        "skill_registry_root": registry_receipt.registry_root,
+        "adaptive_lineage_root": lineage_root,
+        "adaptive_lineage_event_count": event_count,
+    }
+    return {
+        "status": "ESTABLISHED",
+        **body,
+        "state_root": canonical_hash("AEGIS_COORDINATOR_EVIDENCE_STATE_V1", body),
+    }
+
+
+def _execution_result_payload(result: Any) -> Any:
+    if is_dataclass(result):
+        return asdict(result)
+    if isinstance(result, (dict, list, str, int, float, bool)) or result is None:
+        return result
+    return {"result_type": type(result).__name__}
+
+
+def _observed_agent_execution_outcome(result: Any) -> str:
+    payload = _execution_result_payload(result)
+    if isinstance(payload, dict):
+        governance = payload.get("governance")
+        if isinstance(governance, dict) and governance.get("dry_run") is True:
+            return "DRY_RUN"
+        if payload.get("is_valid") is False:
+            return "FAILED"
+        if str(payload.get("status", "")).casefold() in {"failed", "error"}:
+            return "FAILED"
+        output = payload.get("output")
+        if isinstance(output, str) and "ERROR" in output[:200]:
+            return "FAILED"
+    return "SUCCEEDED"
+
+
+def _finalize_coordinator_execution(
+    *,
+    authority: dict[str, Any],
+    result: Any,
+    pre_state: dict[str, Any],
+    post_state: dict[str, Any],
+) -> dict[str, Any]:
+    if pre_state.get("status") != "ESTABLISHED":
+        return {"status": "UNATTESTED", "reason": "PRE_STATE_UNAVAILABLE", "pre_state": pre_state}
+    if post_state.get("status") != "ESTABLISHED":
+        return {"status": "UNATTESTED", "reason": "POST_STATE_UNAVAILABLE", "post_state": post_state}
+
+    pre_root = pre_state.get("state_root")
+    post_root = post_state.get("state_root")
+    if pre_root == post_root:
+        return {
+            "status": "UNATTESTED",
+            "reason": "NO_EVIDENCE_STATE_CHANGE",
+            "pre_state": pre_state,
+            "post_state": post_state,
+        }
+
+    observed_outcome = _observed_agent_execution_outcome(result)
+    if observed_outcome == "DRY_RUN":
+        return {
+            "status": "UNATTESTED",
+            "reason": "DRY_RUN_STATE_MUTATION",
+            "pre_state": pre_state,
+            "post_state": post_state,
+        }
+
+    policy_raw = authority.get("policy_decision")
+    if not isinstance(policy_raw, dict):
+        return {"status": "UNATTESTED", "reason": "AUTHORITY_DECISION_DETAIL_UNAVAILABLE"}
+    if policy_raw.get("registry_root") != pre_state.get("skill_registry_root"):
+        return {
+            "status": "UNATTESTED",
+            "reason": "AUTHORITY_REGISTRY_PRE_STATE_MISMATCH",
+            "authority_registry_root": policy_raw.get("registry_root"),
+            "observed_registry_root": pre_state.get("skill_registry_root"),
+        }
+
+    try:
+        decision = PolicyDecision(**policy_raw)
+        receipt = make_execution_receipt(
+            identity_root=str(authority["execution_identity_root"]),
+            workspace_binding=str(authority["workspace_binding"]),
+            decision=decision,
+            pre_state_digest=str(pre_root),
+            action_digest=str(authority["requested_action_digest"]),
+            result=_execution_result_payload(result),
+            post_state_digest=str(post_root),
+            parent_receipt=ZERO_HASH,
+            sequence=0,
+            execution_outcome=observed_outcome,
+        )
+    except (KeyError, TypeError, ValueError) as exc:
+        return {
+            "status": "UNATTESTED",
+            "reason": "EXECUTION_RECEIPT_ERROR",
+            "error_class": type(exc).__name__,
+        }
+
+    return {
+        "status": "ATTESTED",
+        "mutation_receipt": asdict(receipt),
+        "mutation_receipt_root": receipt.root,
+        "pre_state": pre_state,
+        "post_state": post_state,
     }
 
 
@@ -182,6 +353,25 @@ class SkillRouter(_legacy.SkillRouter):
     def capability_score(self, capability: str) -> float:
         return self.capability_decision(capability).authority_score
 
+    def _role_routing_receipt_from_decision(
+        self,
+        role: "AgentRole",
+        decision: dict[str, Any],
+        *,
+        repository_knowledge: dict[str, Any] | None = None,
+    ) -> RoleRoutingReceipt:
+        outcome = decision.get("outcome", DENIED)
+        score = float(decision.get("authority_score", "0")) if outcome == ADMITTED else 0.0
+        reasons = tuple(sorted(set(decision.get("denial_codes", []))))
+        root = str(decision.get("decision_root") or "")
+        evidence_hashes: tuple[str, ...]
+        if repository_knowledge is None:
+            evidence_hashes = (root,)
+        else:
+            knowledge_receipt = str(repository_knowledge.get("receipt_hash", ""))
+            evidence_hashes = tuple(item for item in (knowledge_receipt, root) if item)
+        return RoleRoutingReceipt("2.0.0", ROLE_RECEIPT_KIND, role.value, outcome, score, evidence_hashes, reasons, root)
+
     def role_routing_receipt(
         self,
         role: "AgentRole",
@@ -195,17 +385,11 @@ class SkillRouter(_legacy.SkillRouter):
             task_instruction=task_instruction,
             repository_knowledge=repository_knowledge,
         )
-        outcome = decision.get("outcome", DENIED)
-        score = float(decision.get("authority_score", "0")) if outcome == ADMITTED else 0.0
-        reasons = tuple(sorted(set(decision.get("denial_codes", []))))
-        root = str(decision.get("decision_root") or "")
-        evidence_hashes: tuple[str, ...]
-        if repository_knowledge is None:
-            evidence_hashes = (root,)
-        else:
-            knowledge_receipt = str(repository_knowledge.get("receipt_hash", ""))
-            evidence_hashes = tuple(item for item in (knowledge_receipt, root) if item)
-        return RoleRoutingReceipt("2.0.0", ROLE_RECEIPT_KIND, role.value, outcome, score, evidence_hashes, reasons, root)
+        return self._role_routing_receipt_from_decision(
+            role,
+            decision,
+            repository_knowledge=repository_knowledge,
+        )
 
     def score_role_for_task(self, role: "AgentRole", task_instruction: str, agent_defs: dict[str, Any]) -> float:
         return self.role_routing_receipt(role, task_instruction, agent_defs).authority_score
@@ -231,6 +415,7 @@ _legacy.SkillRouter = SkillRouter
 _skill_router = SkillRouter()
 _legacy._skill_router = _skill_router
 _last_dispatch_receipts: tuple[RoleRoutingReceipt, ...] = ()
+_last_dispatch_execution_attestations: tuple[dict[str, Any], ...] = ()
 
 
 def _knowledge_denial_receipts(
@@ -255,7 +440,8 @@ def _knowledge_denial_receipts(
 
 
 async def dispatch_event(event_type: str, payload: dict) -> list["AgentResult"]:
-    global _last_dispatch_receipts
+    global _last_dispatch_receipts, _last_dispatch_execution_attestations
+    _last_dispatch_execution_attestations = ()
     candidate_roles = _legacy.EVENT_ROUTING.get(event_type, [_legacy.AgentRole.ENGINEERING])
 
     knowledge = establish_repository_knowledge(repo_root=_legacy._REPO_ROOT)
@@ -276,24 +462,34 @@ async def dispatch_event(event_type: str, payload: dict) -> list["AgentResult"]:
 
     definitions = _legacy._load_agent_defs(); agent_defs = definitions.get("agents", {})
     instruction_sample = _legacy._event_to_instruction(event_type, payload, candidate_roles[0])
-    indexed = [
-        (
-            index,
-            role,
-            _skill_router.role_routing_receipt(
-                role,
-                instruction_sample,
-                agent_defs,
-                repository_knowledge=knowledge,
-            ),
+    indexed: list[tuple[int, AgentRole, RoleRoutingReceipt, dict[str, Any]]] = []
+    for index, role in enumerate(candidate_roles):
+        authority = _skill_router._central_decision(
+            role=role.value,
+            task_instruction=instruction_sample,
+            repository_knowledge=knowledge,
         )
-        for index, role in enumerate(candidate_roles)
-    ]
+        receipt = _skill_router._role_routing_receipt_from_decision(
+            role,
+            authority,
+            repository_knowledge=knowledge,
+        )
+        indexed.append((index, role, receipt, authority))
+
     _last_dispatch_receipts = tuple(item[2] for item in indexed)
     admitted = [item for item in indexed if item[2].outcome == ADMITTED]
     admitted.sort(key=lambda item: (-item[2].authority_score, item[0]))
+
     results: list[AgentResult] = []
-    for _, role, _receipt in admitted:
+    attestations: list[dict[str, Any]] = []
+    lineage_path = _skill_router._repo_root / "agents" / "adaptive_lineage.json"
+
+    for _, role, _receipt, authority in admitted:
+        pre_state = _coordinator_evidence_state(
+            skill_tree_path=_skill_router._skill_tree_path,
+            lineage_path=lineage_path,
+            repo_root=_skill_router._repo_root,
+        )
         task = _legacy.AgentTask(
             task_id=str(_legacy.uuid.uuid4()),
             role=role,
@@ -305,7 +501,22 @@ async def dispatch_event(event_type: str, payload: dict) -> list["AgentResult"]:
             },
             max_ralph_cycles=3,
         )
-        results.append(await _legacy.run_agent(task))
+        result = await _legacy.run_agent(task)
+        results.append(result)
+        post_state = _coordinator_evidence_state(
+            skill_tree_path=_skill_router._skill_tree_path,
+            lineage_path=lineage_path,
+            repo_root=_skill_router._repo_root,
+        )
+        attestation = _finalize_coordinator_execution(
+            authority=authority,
+            result=result,
+            pre_state=pre_state,
+            post_state=post_state,
+        )
+        attestations.append({"role": role.value, **attestation})
+
+    _last_dispatch_execution_attestations = tuple(attestations)
     return results
 
 
@@ -313,8 +524,13 @@ def last_dispatch_receipts() -> tuple[dict[str, Any], ...]:
     return tuple(asdict(receipt) for receipt in _last_dispatch_receipts)
 
 
+def last_dispatch_execution_attestations() -> tuple[dict[str, Any], ...]:
+    return tuple(dict(attestation) for attestation in _last_dispatch_execution_attestations)
+
+
 _legacy.dispatch_event = dispatch_event
 _legacy.last_dispatch_receipts = last_dispatch_receipts
+_legacy.last_dispatch_execution_attestations = last_dispatch_execution_attestations
 
 
 def main() -> None:
