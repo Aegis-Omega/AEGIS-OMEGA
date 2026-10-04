@@ -131,6 +131,13 @@ class DeployEligibilityMatrixTests(unittest.TestCase):
             self.assertIn("exit 0", command)
             self.assertIn("exit 1", command)
 
+    def test_probe_file_is_not_a_deploy_surface(self) -> None:
+        probe = ["scripts/test_deploy_eligibility_gate.py"]
+        for policy in VERCEL.values():
+            self.assertFalse(path_touches(probe, policy["paths"]))
+        policy = CLOUDFLARE["aegisomega"]
+        self.assertFalse(path_touches(probe, policy["paths"], policy["exact_paths"]))
+
     def test_cloudflare_provider_watch_paths_are_not_faked_in_wrangler(self) -> None:
         wrangler = (ROOT / "wrangler.jsonc").read_text()
         for forbidden in ("path_includes", "path_excludes", "branch_includes", "branch_excludes"):
