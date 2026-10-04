@@ -147,6 +147,20 @@ describe('Dual Report Contract V1', () => {
     await expect(buildDualReport(duplicateClaim)).rejects.toThrow('duplicate claim_id')
   })
 
+  it('rejects duplicate evidence references inside one claim', async () => {
+    const invalid: EvidenceReportCore = {
+      ...structuredClone(BASE_CORE),
+      claims: [
+        {
+          ...BASE_CORE.claims[0]!,
+          evidence_ids: ['evidence.main', 'evidence.main'],
+        },
+      ],
+    }
+
+    await expect(buildDualReport(invalid)).rejects.toThrow('claim contains duplicate evidence_id')
+  })
+
   it('rejects malformed or uppercase exact-head identifiers', async () => {
     for (const commitSha of ['deadbeef', MAIN_SHA.toUpperCase()]) {
       const invalid: EvidenceReportCore = {
@@ -158,6 +172,26 @@ describe('Dual Report Contract V1', () => {
       }
       await expect(buildDualReport(invalid)).rejects.toThrow('git object id')
     }
+  })
+
+  it('rejects invalid repository bindings, impossible UTC dates, and whitespace-only text', async () => {
+    const badRepository: EvidenceReportCore = {
+      ...structuredClone(BASE_CORE),
+      exact_head: { ...BASE_CORE.exact_head, repository: 'not-a-repo-slug' },
+    }
+    await expect(buildDualReport(badRepository)).rejects.toThrow('owner/repository form')
+
+    const badDate: EvidenceReportCore = {
+      ...structuredClone(BASE_CORE),
+      generated_at: '2026-02-31T06:58:00Z',
+    }
+    await expect(buildDualReport(badDate)).rejects.toThrow('real UTC calendar timestamp')
+
+    const whitespaceSummary: EvidenceReportCore = {
+      ...structuredClone(BASE_CORE),
+      summary: '   \n  ',
+    }
+    await expect(buildDualReport(whitespaceSummary)).rejects.toThrow('non-empty string')
   })
 
   it('allows unverified claims without evidence while keeping them explicit', async () => {
@@ -203,10 +237,7 @@ describe('Dual Report Contract V1', () => {
 
   it('renders a stable human projection from an already-validated core', async () => {
     const built = await buildDualReport(BASE_CORE)
-    const rerendered = renderHumanReport(
-      built.machine.core,
-      built.machine.integrity.core_sha256
-    )
+    const rerendered = await renderHumanReport(built.machine.core)
 
     expect(rerendered).toBe(built.human)
   })

@@ -104,6 +104,7 @@ export interface DualReportVerification {
 
 const SHA256_RE = /^[0-9a-f]{64}$/
 const GIT_OID_RE = /^(?:[0-9a-f]{40}|[0-9a-f]{64})$/
+const REPOSITORY_RE = /^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/
 const RFC3339_UTC_RE = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$/
 const ID_RE = /^[A-Za-z0-9][A-Za-z0-9._:/-]{0,127}$/
 
@@ -177,20 +178,32 @@ function assertSha256(value: unknown, name: string): asserts value is SHA256Hex 
   }
 }
 
+function assertUtcTimestamp(value: unknown, name: string): asserts value is string {
+  assertNonEmptyString(value, name)
+  if (!RFC3339_UTC_RE.test(value)) {
+    throw new TypeError(name + ' must use second-precision UTC RFC3339')
+  }
+  const expectedIso = value.slice(0, -1) + '.000Z'
+  const parsed = new Date(value)
+  if (Number.isNaN(parsed.getTime()) || parsed.toISOString() !== expectedIso) {
+    throw new TypeError(name + ' must be a real UTC calendar timestamp')
+  }
+}
+
 function assertReportCore(core: unknown): asserts core is EvidenceReportCore {
   assertExactKeys(core, 'core', CORE_KEYS)
   const value = core as Record<string, unknown>
 
   assertId(value.report_id, 'core.report_id')
   assertNonEmptyString(value.title, 'core.title')
-  assertNonEmptyString(value.generated_at, 'core.generated_at')
-  if (!RFC3339_UTC_RE.test(value.generated_at)) {
-    throw new TypeError('core.generated_at must use second-precision UTC RFC3339')
-  }
+  assertUtcTimestamp(value.generated_at, 'core.generated_at')
 
   assertExactKeys(value.exact_head, 'core.exact_head', EXACT_HEAD_KEYS)
   const head = value.exact_head as Record<string, unknown>
   assertNonEmptyString(head.repository, 'core.exact_head.repository')
+  if (!REPOSITORY_RE.test(head.repository)) {
+    throw new TypeError('core.exact_head.repository must use owner/repository form')
+  }
   assertNonEmptyString(head.commit_sha, 'core.exact_head.commit_sha')
   if (!GIT_OID_RE.test(head.commit_sha)) {
     throw new TypeError('core.exact_head.commit_sha must be a lowercase 40- or 64-hex git object id')
@@ -241,7 +254,12 @@ function assertReportCore(core: unknown): asserts core is EvidenceReportCore {
     if ((item.status === 'VERIFIED' || item.status === 'FALSIFIED') && item.evidence_ids.length === 0) {
       throw new TypeError('verified or falsified claims require evidence_ids')
     }
+    const claimEvidenceIds = new Set<string>()
     for (const evidenceId of item.evidence_ids) {
+      if (claimEvidenceIds.has(evidenceId)) {
+        throw new TypeError('claim contains duplicate evidence_id: ' + evidenceId)
+      }
+      claimEvidenceIds.add(evidenceId)
       if (!evidenceIds.has(evidenceId)) {
         throw new TypeError('claim references unknown evidence_id: ' + evidenceId)
       }
@@ -271,7 +289,7 @@ function inline(value: string): string {
   return value.replace(/\s+/g, ' ').trim()
 }
 
-export function renderHumanReport(core: Readonly<EvidenceReportCore>, coreSha256: SHA256Hex): string {
+function renderHumanProjection(core: Readonly<EvidenceReportCore>, coreSha256: SHA256Hex): string {
   const lines: string[] = [
     '# ' + inline(core.title),
     '',
@@ -338,6 +356,15 @@ export function renderHumanReport(core: Readonly<EvidenceReportCore>, coreSha256
   return lines.join('\n')
 }
 
+export async function renderHumanReport(core: EvidenceReportCore): Promise<string> {
+  assertReportCore(core)
+  const cloned = structuredClone(core)
+  assertReportCore(cloned)
+  const frozenCore = deepFreeze(cloned) as Readonly<EvidenceReportCore>
+  const coreSha256 = await hashValue(frozenCore)
+  return renderHumanProjection(frozenCore, coreSha256)
+}
+
 export async function buildDualReport(core: EvidenceReportCore): Promise<BuiltDualReport> {
   assertReportCore(core)
 
@@ -346,7 +373,7 @@ export async function buildDualReport(core: EvidenceReportCore): Promise<BuiltDu
   const frozenCore = deepFreeze(cloned) as Readonly<EvidenceReportCore>
 
   const coreSha256 = await hashValue(frozenCore)
-  const human = renderHumanReport(frozenCore, coreSha256)
+  const human = renderHumanProjection(frozenCore, coreSha256)
   const humanSha256 = await hashString(human)
 
   const machine = deepFreeze({
@@ -383,7 +410,7 @@ export async function verifyDualReport(machine: unknown, human: string): Promise
     }
   }
 
-  const expectedHuman = renderHumanReport(machine.core, actualCoreSha256)
+  const expectedHuman = renderHumanProjection(machine.core, actualCoreSha256)
   if (human !== expectedHuman) {
     return {
       ok: false,
