@@ -183,9 +183,8 @@
   },
   "schema": "aegis.rh.krein-primal-complementary-basis.v1",
   "source_binding": {
-    "complementary_script_git_blob_sha": "81c13703df9a48ef7e9387811c4c359e73dd8ab4",
+    "complementary_script_git_blob_sha": "d0c57a522be15169b964a2088eb8ce2367e7248c",
     "complementary_script_path": "research/rh/krein_primal_complementary_basis_v1.py",
-    "complementary_script_sha256": "acea475b7f50e9dab978e64e5a6e2675d9485e5b908981c66f11042c80157783",
     "existing_result_git_blob_sha": "24db597371010c6a5dc39f599c07c311e1c5bafc",
     "existing_result_path": "research/rh/KREIN_PRIMAL_CONVERGENCE_L1.05_V2.json",
     "existing_script_git_blob_sha": "982bb18e3d8acdf88cde795d4fcd921d9581a972",
