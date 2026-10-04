@@ -571,3 +571,9 @@ tr(P T P) ≤ 0.03249 by Gauss–Legendre with Bernstein-ellipse error balls, so
 31×31 Schur matrix at μ = 0.0025 (fails at 0.0026). Hence Q(G) ≥ 0.0025‖G‖² for every moment-zero G of log-support
 width 1.05, ten times the previous 0.00025. `run_all.sh` reproduces it end to end; `RECEIPT.json` lists the unformalized
 identifications. Fixed width, not RH.
+
+**Feshbach certificates past log 3 (T1, Arb; `research/rh/feshbach_arb_v2/`).** The same pipeline with every prime
+power q < e^L in the symbol (Krein LP, Arb verifier) and a larger Fourier block certifies Q(G) ≥ 5e-5‖G‖² at
+L = 1.2 (N = 100, c_∞ ≥ 1.9206, Ritz λ₁ = 6.64e-5) and Q(G) ≥ 2.1e-6‖G‖² at L = 1.3 (rows to |n| = 42000,
+c_∞ ≥ 1.888, Ritz λ₁ = 2.32e-6), both with the prime 3 in the window. The low-block residual falls like N^(−1.6);
+the binding cost beyond 1.3 is the crude row-tail term ∝ N³/NP³. Fixed widths, not RH.
