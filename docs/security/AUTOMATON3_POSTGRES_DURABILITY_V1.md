@@ -52,7 +52,7 @@ A deployment must create or select a dedicated runtime database role and grant o
 
 ## Admission tests
 
-The Automaton-3 deterministic suite is expanded from 41 to 51 tests. The new ten tests bind the Postgres slice into the existing receipt path and check private-schema confinement, no `SECURITY DEFINER` widening, row locks, action/idempotency uniqueness, atomic cancel/orphan lease revocation, PUBLIC revocation, fencing-token/receipt parity, durable-root parity, and fail-closed connection handling.
+The Automaton-3 deterministic suite is expanded from 41 to 53 tests. Twelve PostgreSQL durability tests check private-schema confinement, no `SECURITY DEFINER` widening, row locks, action/idempotency uniqueness, atomic cancel/orphan lease revocation, PUBLIC revocation, fencing-token/receipt parity, durable-root parity, fail-closed connection handling, and—critically—that the SQL contract, adapter, durability tests, and this specification are themselves hash-bound into the Automaton-3 exact-candidate manifest. The summary also states `distributed_exact_once_claimed=false` and the admission validator rejects an overclaim.
 
 ## What is not yet admitted
 

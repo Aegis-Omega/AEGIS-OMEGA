@@ -279,5 +279,21 @@ class PostgresDurabilityAdapterParityTests(TestCase):
         self.assertEqual(fake.rollbacks, 1)
 
 
+    def test_candidate_manifest_binds_postgres_durability_sources(self):
+        validator = (ROOT / "scripts/validate-automaton3.py").read_text(encoding="utf-8")
+        for required in (
+            "harness/sdk/postgres_durable_execution.py",
+            "harness/sdk/sql/automaton3_postgres_durability_v1.sql",
+            "sovereign-omega-v2/python/tests/test_automaton3_postgres_durability.py",
+            "docs/security/AUTOMATON3_POSTGRES_DURABILITY_V1.md",
+        ):
+            self.assertIn(required, validator)
+
+    def test_summary_declares_postgres_contract_without_exact_once_overclaim(self):
+        runner = (ROOT / "scripts/run-automaton3-tests.py").read_text(encoding="utf-8")
+        self.assertIn('"postgres_durability_contract_asserted": True', runner)
+        self.assertIn('"distributed_exact_once_claimed": False', runner)
+
+
 if __name__ == "__main__":
     main(verbosity=2)
