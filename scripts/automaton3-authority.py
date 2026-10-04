@@ -11,6 +11,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
+from harness.sdk.dual_report import build_dual_report  # noqa: E402
 from harness.sdk.sovereign_execution import (  # noqa: E402
     ADMITTED,
     ApprovalGrant,
@@ -129,19 +130,43 @@ def main() -> int:
     parser.add_argument("command", choices=["evaluate"])
     parser.add_argument("--input", default="-")
     parser.add_argument("--output", default="-")
+    parser.add_argument("--human-output")
     args = parser.parse_args()
     raw = sys.stdin.read() if args.input == "-" else Path(args.input).read_text(encoding="utf-8")
+    payload = None
     try:
         payload = json.loads(raw)
     except json.JSONDecodeError as exc:
         result = deny("INPUT_JSON_MALFORMED", str(exc))
     else:
         result = evaluate(payload)
+
+    source_commit = None
+    if isinstance(payload, dict):
+        identity_payload = payload.get("identity")
+        if isinstance(identity_payload, dict):
+            source_commit = identity_payload.get("source_commit")
+    try:
+        result = build_dual_report(result, source_commit=source_commit)
+    except Exception as exc:
+        result = build_dual_report(
+            deny("REPORT_CONTRACT_ERROR", str(exc)),
+            source_commit=None,
+        )
+
     rendered = json.dumps(result, ensure_ascii=False, sort_keys=True, separators=(",", ":")) + "\n"
     if args.output == "-":
         sys.stdout.write(rendered)
     else:
         Path(args.output).write_text(rendered, encoding="utf-8")
+
+    if args.human_output:
+        human = result["reports"]["human"]["markdown"]
+        if args.human_output == "-":
+            sys.stderr.write(human)
+        else:
+            Path(args.human_output).write_text(human, encoding="utf-8")
+
     return 0 if result.get("outcome") == ADMITTED else 3
 
 

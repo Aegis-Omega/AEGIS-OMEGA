@@ -1,0 +1,91 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:aegis:dual-report:v1",
+  "title": "AEGIS dual authority report v1",
+  "type": "object",
+  "required": [
+    "outcome",
+    "source_commit_state",
+    "source_commit",
+    "reports"
+  ],
+  "properties": {
+    "outcome": {
+      "enum": ["ADMITTED", "DENIED"]
+    },
+    "source_commit_state": {
+      "enum": ["BOUND", "UNAVAILABLE"]
+    },
+    "source_commit": {
+      "oneOf": [
+        {"pattern": "^[0-9a-f]{40,64}$"},
+        {"const": "UNAVAILABLE"}
+      ]
+    },
+    "reports": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "report_kind",
+        "machine",
+        "human",
+        "binding"
+      ],
+      "properties": {
+        "schema_version": {"const": "1.0.0"},
+        "report_kind": {"const": "AUTOMATON3_AUTHORITY_DECISION"},
+        "machine": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["content_type", "canonicalization", "payload_sha256"],
+          "properties": {
+            "content_type": {
+              "const": "application/vnd.aegis.authority-report+json;version=1"
+            },
+            "canonicalization": {
+              "const": "utf-8;json-sort-keys;compact-separators;allow-nan=false"
+            },
+            "payload_sha256": {
+              "pattern": "^[0-9a-f]{64}$"
+            }
+          }
+        },
+        "human": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["content_type", "sha256", "markdown"],
+          "properties": {
+            "content_type": {"const": "text/markdown; charset=utf-8"},
+            "sha256": {"pattern": "^[0-9a-f]{64}$"},
+            "markdown": {"type": "string", "minLength": 1}
+          }
+        },
+        "binding": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["attestation_root", "bundle_root"],
+          "properties": {
+            "attestation_root": {"pattern": "^[0-9a-f]{64}$"},
+            "bundle_root": {"pattern": "^[0-9a-f]{64}$"}
+          }
+        }
+      }
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "outcome": {"const": "ADMITTED"}
+        }
+      },
+      "then": {
+        "properties": {
+          "source_commit_state": {"const": "BOUND"},
+          "source_commit": {"pattern": "^[0-9a-f]{40,64}$"}
+        }
+      }
+    }
+  ]
+}
