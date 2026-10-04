@@ -525,10 +525,73 @@ Primal margins: m*(0.9)≈0.067, m*(1.0)≈0.012, m*(1.2)≈7e-5, m*(≥1.5) bel
 
 **Krein certificates at L = 0.98 and L = 1.0 (`research/rh/KREIN_ARB_CERTIFICATE_L0.98.json`, `..._L1.0.json`).**
 Same verifier (`verify_krein_arb_v1.py`, Arb 256-bit, unchanged), 399 hats to L+8, δ^{(j)} j ≤ 4:
-L = 0.98 (double, just below 0.98): m = 0.005, 12150 cells, zero-cell bound 1.30e-4, tail F/W ≥ 3.70;
-L = 1.0 (exact): m = 0.0015, 12180 cells, zero-cell bound 1.25e-4, tail F/W ≥ 3.79.
+L = 0.98 (double, just below 0.98): m = 0.005, 12157 cells, zero-cell bound 1.30e-4, tail F/W ≥ 3.70;
+L = 1.0 (exact): m = 0.0015, 12186 cells, zero-cell bound 1.25e-4, tail F/W ≥ 3.79.
 The earlier "L = 1.0 LP negative" came from the coefficient bound (1e5); with hat bound 1e6 / δ bound 1e7 the LP
 margin is positive, and m_certified is taken below the minimum of F/W on a 0.0002 grid before the Arb check.
 With `certificate_zero_quadratic_nonneg` (PR #693): modulo the Arb step (not in Lean), Re Σ_ρ Z_ρ(A_g) ≥ 0 for every
 moment-zero packet of log-support width < 1. Primal margin m*(L) decays fast (≈0.012 at 1.0, ≈7e-5 at 1.2), so this
 method does not extend to all widths. Not RH.
+
+
+**L = 1.05 finite-subspace diagnostic (receipt-v2 continuation).**
+`research/rh/krein_primal_convergence_v2.py` analytically replays the current sine-product primal basis and only
+numerically integrates the outer frequency variable. At `T=3000`, `dt=0.02`, the finite-section minimum decreases
+from `0.0035075542` at dimension 32 to `0.0033284004` at dimension 256. This is only an upper bound on the
+unrestricted infimum: it does not prove positivity, but it also does not furnish a negative obstruction at `L=1.05`.
+Exact diagnostic payload: `research/rh/KREIN_PRIMAL_CONVERGENCE_L1.05_V2.json`. Not RH.
+
+**Krein certificate at L = 1.05 (`research/rh/KREIN_ARB_CERTIFICATE_L1.05.json`).**
+Same frozen verifier (`verify_krein_arb_v1.py`, blob 84453dbc, Arb 256-bit), 399 hats to L+8, δ^{(j)} j ≤ 4,
+exact hat support `min(uk) − w − L = 5/2^58 ≥ 0`: m = 0.00025, 13116 cells, zero-cell bound 7.07e-3,
+tail F/W ≥ 2.45. The raw LP is numerically singular at L ≥ 1 (HiGHS status 4: neighbouring hat columns are
+nearly collinear on small ξ). `research/rh/krein_lp_svd_cp_v1.py` solves the row-scaled LP over the 252 leading
+left singular vectors with |d4| ≤ 3 and a 0.0005-grid cutting plane; the payload `krein_lp_L1.05.json` is its
+iterate 2 (float fine-grid minimum 3.33e-4). With `certificate_zero_quadratic_nonneg` (PR #693): modulo the Arb
+step (not in Lean), Re Σ_ρ Z_ρ(A_g) ≥ 0 for every moment-zero packet of log-support width < 1.05. The primal
+upper bound at this width is m*(1.05) ≈ 3.3e-3, and m*(L) keeps decaying roughly like e^{−30(L−1)} on [1, 1.38],
+so this method still cannot reach all widths. Not RH.
+
+**Full-space Feshbach feasibility at L = 1.05 (T1, floating point; `research/rh/krein_feshbach_feasibility_v1.py`).**
+The Ritz values above are upper bounds. A full-space lower bound follows from the Schur rule
+`A11 − μ − C_B/(c_∞ − μ) ≻ 0 ⇒ A ≥ μ` on the moment-zero subspace, with P1 the 24 lowest Ritz vectors of a 54-dim
+moment-zero spline basis. `C_B = ⟨P_L M_S φ_i, P_L M_S φ_j⟩ − A11²` bounds `BB*` from above. The complement floor uses a
+genuine Krein certificate (hats plus order-19 edge splines, as in `RHKreinGenuineCertificateV1`) with slack allowed on
+`|ξ| ≤ 40`: `A − c ≥ −P_L M_s P_L`, hence `c_∞ ≥ c − ‖P2 T_s P2‖`. Without the Krein columns this bound gives
+`c_∞ ≈ −2.1`; with them, `c_∞ ≥ 0.729` (HS bound; the Ritz complement floor is 2.48). Schur margins: `+8.7e-4` at
+μ = 0.0015, `+3.7e-4` at μ = 0.002, negative at 0.0025. Payload: `KREIN_FESHBACH_FEASIBILITY_L1.05_V1.json`.
+Promotion to a certificate needs Arb enclosures of `A11`, `C_B` (including the ξ > 3000 tail), the slack
+inequality on all ξ, and the HS norm of `T_s`. If they hold, m ≥ 0.0015 at L = 1.05, 6× the certified 0.00025. Not RH.
+
+**Full-space Feshbach certificate at L = 1.05 (T1, Arb; `research/rh/feshbach_arb_v1/`).** With V the moment-zero
+part of the 33 Fourier modes |m| ≤ 16 and the complement taken inside H (not L²[0, L]), every ingredient is enclosed:
+A11, G11 and C_B from the cutoff-free CvS/CCM entries (rows |n| ≤ 10000 plus an explicit 1/n tail); the complement
+Krein inequality W(S − 0.99) + Ĥ + W s̄ ≥ 0 with hats only and a step slack on [0.05, 40] (12040 Taylor cells);
+tr(P T P) ≤ 0.03249 by Gauss–Legendre with Bernstein-ellipse error balls, so c_∞ ≥ 0.9575; interval Cholesky of the
+31×31 Schur matrix at μ = 0.0025 (fails at 0.0026). Hence Q(G) ≥ 0.0025‖G‖² for every moment-zero G of log-support
+width 1.05, ten times the previous 0.00025. `run_all.sh` reproduces it end to end; `RECEIPT.json` lists the unformalized
+identifications. Fixed width, not RH.
+
+**Feshbach certificates past log 3 (T1, Arb; `research/rh/feshbach_arb_v2/`).** The same pipeline with every prime
+power q < e^L in the symbol (Krein LP, Arb verifier) and a larger Fourier block certifies Q(G) ≥ 5e-5‖G‖² at
+L = 1.2 (N = 100, c_∞ ≥ 1.9206, Ritz λ₁ = 6.64e-5) and Q(G) ≥ 2.1e-6‖G‖² at L = 1.3 (rows to |n| = 42000,
+c_∞ ≥ 1.888, Ritz λ₁ = 2.32e-6), both with the prime 3 in the window. The low-block residual falls like N^(−1.6);
+the binding cost beyond 1.3 was the crude row-tail term ∝ N³/NP³. A second-order expansion of 1/(n − m) brings the
+remainder to ∝ N⁴/NP⁵ and certifies Q(G) ≥ 5e-8‖G‖² at L = 1.4 (prime powers 2, 3, 4; N = 160; c_∞ ≥ 1.421;
+Ritz λ₁ = 5.53e-8). An order-4 tail expansion (remainder ∝ N⁸/NP⁹) certifies Q(G) ≥ 4.5e-12‖G‖² at L = 1.6
+(N = 200, c_∞ ≥ 1.323, Ritz λ₁ = 5.35e-12): Zhu's window, but for the moment-zero restriction rather than his full form
+(8.9e-18 there), so the two numbers measure different things. Fixed widths, not RH.
+
+**Feshbach certificate at L = 1.8 (T1, Arb; `research/rh/feshbach_arb_v2/L1.8/`).** With the prime 5 in the window
+(prime powers 2, 3, 4, 5) the Krein LP certifies m = 1.05 (zero cell narrowed to [0, 0.01]); the complement trace
+at N = 400 is ≤ 0.0701, so c_∞ ≥ 0.9799. An order-8 row tail with weighted Cauchy–Schwarz gives C_B = 3.2e-18 on the
+bottom Ritz vector (λ₁ = 4.534e-17, Arb inverse iteration), and the 799-dimensional interval Cholesky certifies
+Q(G) ≥ 4e-17‖G‖² for every moment-zero G in L²[0, 1.8] (fails at 4.2e-17). At N = 300 the complement trace was 0.44
+and the Schur step failed. Fixed width, not RH.
+
+**L = 1.05 Krein step on the Lean digamma minorant (T1).** The fork's `RHKreinDigammaLowerBoundV1` /
+`RHKreinDigammaMonotonicityV1` give a kernel-checked lower bound for Re ψ(1/4 + it/2) that is valid on a whole cell
+from its left endpoint. Replacing Arb's digamma by that bound (`verify_krein_slack_lemma.py`, 1024 series terms),
+the L = 1.05 Krein + slack certificate still holds at m = 0.99 on 12523 exact-rational cells
+(`research/rh/feshbach_arb_v1/lean_digamma/`), so the μ = 0.0025 certificate no longer depends on Arb for the
+archimedean weight. The prime/hat cosines per cell, the CvS identification and the Feshbach step remain unformalized.

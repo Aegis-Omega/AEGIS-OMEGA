@@ -21,7 +21,7 @@ for it in range(12):
         idx=np.where(F<0)[0]; worst=min(worst,F.min() if len(F) else 0)
         bad+=list(f[idx])
     print(f'it={it} m={m:.6f} npts={len(xi)} violations={len(bad)} worst={worst:.3g}',flush=True)
-    json.dump({"L":L,"w":w,"span":span,"uk":uk.tolist(),"coef":coef.tolist(),"m":m,"bound":hb},open(f'krein_lp_{tag}.json','w'))
+    json.dump({"schema":"aegis.rh.krein-lp-candidate.v2","L":L,"w":w,"span":span,"uk":uk.tolist(),"coef":coef.tolist(),"m":m,"bound":hb,"hat_bound":hb,"delta_bound":db,"xi_max":xi_max,"initial_dxi":0.01,"iterations_completed":it+1},open(f'krein_lp_{tag}.json','w'))
     if not bad: break
     bad=np.array(bad)
     # add violating points plus neighbours
