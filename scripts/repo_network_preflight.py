@@ -45,29 +45,39 @@ def classify_access(
             "classification": "SANDBOX_EGRESS_RESTRICTED",
             "direct_git_available": False,
             "recommended_transport": CONNECTED_TRANSPORT,
+            "handoff_required": True,
+            "connected_transport_invoked": False,
         }
     if not dns_ok:
         return {
             "classification": "DNS_RESOLUTION_FAILED",
             "direct_git_available": False,
             "recommended_transport": CONNECTED_TRANSPORT,
+            "handoff_required": True,
+            "connected_transport_invoked": False,
         }
     if not tcp_ok:
         return {
             "classification": "TCP_EGRESS_FAILED",
             "direct_git_available": False,
             "recommended_transport": CONNECTED_TRANSPORT,
+            "handoff_required": True,
+            "connected_transport_invoked": False,
         }
     if not git_remote_ok:
         return {
             "classification": "GIT_REMOTE_UNAVAILABLE",
             "direct_git_available": False,
             "recommended_transport": CONNECTED_TRANSPORT,
+            "handoff_required": True,
+            "connected_transport_invoked": False,
         }
     return {
         "classification": "READY",
         "direct_git_available": True,
         "recommended_transport": DIRECT_GIT,
+        "handoff_required": False,
+        "connected_transport_invoked": False,
     }
 
 
@@ -138,7 +148,6 @@ def probe_repository_access(
     policy = network["network_policy"]
     policy_text = str(policy).strip().casefold() if policy else ""
 
-    remote_configured = _git_remote_configured(repo_root)
     if policy_text in RESTRICTED_NETWORK_POLICIES:
         classification = classify_access(
             network_policy=str(policy),
@@ -152,10 +161,11 @@ def probe_repository_access(
             "dns_probe": "SKIPPED_BY_POLICY",
             "tcp_probe": "SKIPPED_BY_POLICY",
             "git_remote_probe": "SKIPPED_BY_POLICY",
-            "git_remote_configured": remote_configured,
+            "git_remote_configured": "SKIPPED_BY_POLICY",
             "network_environment": network,
         }
 
+    remote_configured = _git_remote_configured(repo_root)
     dns_ok, addresses = _resolve(host, port)
     tcp_ok = _tcp_connect(addresses, port, timeout) if dns_ok else False
     git_remote_ok = _git_remote_reachable(repo_root, timeout) if dns_ok and tcp_ok else False
