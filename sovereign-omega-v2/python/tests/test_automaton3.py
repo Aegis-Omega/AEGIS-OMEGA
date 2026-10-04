@@ -12,6 +12,7 @@ from unittest import TestCase, main
 REPO_ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(REPO_ROOT))
 
+import harness.sdk.sovereign_execution as sovereign_execution  # noqa: E402
 from harness.sdk.sovereign_execution import (  # noqa: E402
     ADMITTED, DENIED, D1, D2, D3, D4, SCHEMA_VERSION, ZERO_HASH,
     ApprovalGrant, AuthorityEvaluator, AuthorityRequest, CapabilityEvidence,
@@ -243,6 +244,100 @@ class Automaton3Tests(TestCase):
                 self.assertDenied(decision,"UNMAPPED_CAPABILITY"); roots.append(decision.decision_root)
             self.assertEqual(len(set(roots)),1)
             self.assertEqual((self.root/"evidence/run.json").read_bytes(),initial)
+
+
+    def trajectory_api(self):
+        self.assertTrue(
+            hasattr(sovereign_execution, "AgentTrajectoryRecord"),
+            "AgentTrajectoryRecord is missing",
+        )
+        self.assertTrue(
+            hasattr(sovereign_execution, "TrajectoryChain"),
+            "TrajectoryChain is missing",
+        )
+        record_type = sovereign_execution.AgentTrajectoryRecord
+        self.assertTrue(
+            hasattr(record_type, "from_observation"),
+            "AgentTrajectoryRecord.from_observation is missing",
+        )
+        return record_type, sovereign_execution.TrajectoryChain
+
+    def make_trajectory(self, **changes):
+        record_type, _ = self.trajectory_api()
+        values = dict(
+            sequence=0,
+            execution_identity_root=self.identity.root,
+            policy_decision_root="5" * 64,
+            action_class=D2,
+            authority_domain="network:https",
+            approval_reference=self.approval_ref,
+            tool="web.fetch",
+            requested_action_digest="6" * 64,
+            network_capable=True,
+            network_policy_outcome="ALLOW",
+            network_destination="https://api.example.test/v1/resource",
+            tool_input={"prompt": "bounded request", "authorization": "Bearer sk-test-secret"},
+            result={"status": 200, "api_key": "result-secret"},
+            outcome="SUCCEEDED",
+            parent_trajectory=ZERO_HASH,
+        )
+        values.update(changes)
+        return record_type.from_observation(**values)
+
+    def test_trajectory_deterministic_replay(self):
+        first = self.make_trajectory()
+        second = self.make_trajectory()
+        self.assertEqual(first, second)
+        self.assertEqual(first.root, second.root)
+        self.assertRegex(first.root, r"^[0-9a-f]{64}$")
+
+    def test_trajectory_chain_rejects_broken_parent(self):
+        _, chain_type = self.trajectory_api()
+        chain = chain_type()
+        first = self.make_trajectory()
+        first_root = chain.append(first)
+        self.assertEqual(first_root, first.root)
+        second = self.make_trajectory(
+            sequence=1,
+            parent_trajectory=ZERO_HASH,
+            network_capable=False,
+            network_policy_outcome="NOT_APPLICABLE",
+            network_destination=None,
+            tool="git",
+            authority_domain="github:contents",
+        )
+        with self.assertRaisesRegex(SovereignExecutionError, "TRAJECTORY_CHAIN_PARENT_BREAK"):
+            chain.append(second)
+
+    def test_trajectory_network_action_requires_explicit_policy(self):
+        with self.assertRaisesRegex(SovereignExecutionError, "TRAJECTORY_NETWORK_POLICY_REQUIRED"):
+            self.make_trajectory(network_policy_outcome="NOT_APPLICABLE")
+
+    def test_trajectory_consequential_action_requires_approval_binding(self):
+        with self.assertRaisesRegex(SovereignExecutionError, "TRAJECTORY_APPROVAL_REQUIRED"):
+            self.make_trajectory(approval_reference="NONE")
+
+    def test_trajectory_record_never_contains_raw_secret_prompt_or_result(self):
+        record = self.make_trajectory(
+            tool_input={
+                "prompt": "private prompt body",
+                "token": "top-secret-token",
+                "nested": {"password": "top-secret-password"},
+            },
+            result={
+                "text": "sensitive model result",
+                "authorization": "Bearer result-secret",
+            },
+        )
+        encoded = json.dumps(record.__dict__, sort_keys=True)
+        for forbidden in (
+            "private prompt body",
+            "top-secret-token",
+            "top-secret-password",
+            "sensitive model result",
+            "result-secret",
+        ):
+            self.assertNotIn(forbidden, encoded)
 
 
 if __name__ == "__main__":

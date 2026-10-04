@@ -30,6 +30,29 @@ The deterministic `repository_root` and `workspace_root` are the logical root `.
 - CI invokes the same core module for policy, workspace, lease, durable execution, event, and receipt tests.
 - D0 read-only MCP resources remain key-free and cannot mutate state.
 
+
+## Agent trajectory evidence
+
+`AgentTrajectoryRecord` and `TrajectoryChain` add an append-only, deterministic
+observability layer for governed agent/tool execution. A trajectory record binds
+the execution identity root, policy-decision root, action class, authority domain,
+approval reference, tool, requested-action digest, network-policy outcome,
+destination digest, redacted-input digest, result digest, outcome, sequence, and
+parent trajectory root.
+
+This layer is evidence-only. It cannot mint, increase, preserve, or substitute
+operational authority, and it does not participate in `AuthorityEvaluator`
+admission. D2–D4 trajectory evidence is invalid without an explicit approval
+reference. Network-capable observations are invalid without an explicit
+`ALLOW` or `DENY` network-policy result and a destination digest; non-network
+observations must use `NOT_APPLICABLE`.
+
+Raw prompts, credentials, authorization material, tool inputs, tool outputs, and
+network destinations are not retained in trajectory records. Sensitive fields are
+deterministically redacted before hashing, so replay can prove equality without
+turning the audit chain into a secret or prompt store.
+
+
 ## External-runtime boundary
 
 This PR implements a deterministic local reference model and interfaces for durable execution. It does not claim that Temporal, LangGraph, Kubernetes, or any cloud worker runtime is deployed.
