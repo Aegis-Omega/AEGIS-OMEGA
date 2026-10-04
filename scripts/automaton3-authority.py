@@ -22,7 +22,6 @@ from harness.sdk.sovereign_execution import (  # noqa: E402
     decision_dict,
     load_capability_registry,
     load_policy,
-    make_mutation_receipt,
     verify_workspace,
 )
 
@@ -98,17 +97,6 @@ def evaluate(payload: dict) -> dict:
         )
         approval = ApprovalGrant(**payload["approval"]) if payload.get("approval") else None
         decision = AuthorityEvaluator(policy=policy, registry=registry, repository_root=ROOT).evaluate(request, approval=approval)
-        receipt = make_mutation_receipt(
-            identity_root=identity_root,
-            workspace_binding=identity.workspace_binding,
-            decision=decision,
-            pre_state_digest=request_payload.get("pre_state_digest", ZERO_HASH),
-            action_digest=action_digest,
-            result={"authority_outcome": decision.outcome},
-            post_state_digest=request_payload.get("post_state_digest", request_payload.get("pre_state_digest", ZERO_HASH)),
-            parent_receipt=request_payload.get("parent_receipt", ZERO_HASH),
-            sequence=int(request_payload.get("sequence", 0)),
-        )
         return {
             "schema_version": "1.0.0",
             "outcome": decision.outcome,
@@ -116,8 +104,6 @@ def evaluate(payload: dict) -> dict:
             "workspace_binding": identity.workspace_binding,
             "workspace_decision_root": workspace.decision_root,
             "policy_decision": decision_dict(decision),
-            "mutation_receipt": asdict(receipt),
-            "mutation_receipt_root": receipt.root,
             "observation": asdict(workspace.observation),
         }
     except Exception as exc:
