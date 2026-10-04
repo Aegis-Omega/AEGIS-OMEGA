@@ -15,14 +15,17 @@ RUN pip install --no-cache-dir \
     pyyaml==6.0.2 \
     anyio==4.6.2
 
-# serve.py at /app, agents package at /app/agents, harness data at /app/harness.
-# evolution.py computes _REPO_ROOT = dirname(agents) = /app, so it finds
-# /app/harness/skill_tree.json. serve.py's path setup adds /app to sys.path.
+# serve.py keeps the route/API compatibility surface. secure_serve.py overlays
+# unconditional auth for sensitive routes and swaps in the concurrent audit
+# chain. startup_guard.py refuses unauthenticated production startup.
 COPY vertex/serve.py /app/serve.py
+COPY vertex/secure_serve.py /app/secure_serve.py
+COPY vertex/audit_chain_v2.py /app/audit_chain_v2.py
+COPY vertex/startup_guard.py /app/startup_guard.py
 COPY agents /app/agents
 COPY harness /app/harness
 
 ENV PORT=8080
 EXPOSE 8080
 
-CMD ["python", "serve.py"]
+CMD ["python", "startup_guard.py"]

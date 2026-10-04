@@ -1,18 +1,20 @@
 #!/usr/bin/env tsx
 /**
  * AEGIS Horizontal Gene Transfer (HGT) Scanner
- * Usage: npx tsx scripts/hgt-scan.ts [--out <file>] [--token <github-token>]
+ * Usage: GITHUB_TOKEN=<token> npx tsx scripts/hgt-scan.ts [--out <file>]
  *
  * Scans upstream skill repositories for SKILL.md files via GitHub public API.
  * Converts detected skills into constitutional SkillRecords.
  * Produces a replay-certifiable HGTRecord.
  *
  * No auth required for public repos (60 req/hr unauthenticated, 5000/hr with token).
+ * Authentication is environment-only: command-line tokens are rejected so secrets
+ * are not exposed through shell history or process listings.
  *
  * Example:
  *   npx tsx scripts/hgt-scan.ts
  *   npx tsx scripts/hgt-scan.ts --out skills-hgt.json
- *   npx tsx scripts/hgt-scan.ts --token ghp_yourtoken --out skills-hgt.json
+ *   GITHUB_TOKEN=<token> npx tsx scripts/hgt-scan.ts --out skills-hgt.json
  */
 
 import fs from 'node:fs'
@@ -27,8 +29,11 @@ import {
 } from '../src/skill-harness/hgt/hgt-scanner.js'
 
 const args = process.argv.slice(2)
+if (args.includes('--token')) {
+  throw new Error('CLI_TOKEN_DENIED: set GITHUB_TOKEN in the environment instead of using --token')
+}
 const outArg = args[args.indexOf('--out') + 1] ?? null
-const tokenArg = args[args.indexOf('--token') + 1] ?? process.env['GITHUB_TOKEN'] ?? null
+const tokenArg = process.env['GITHUB_TOKEN'] ?? null
 
 const SEQ = 1n as import('../src/core/types.js').SequenceNumber
 
@@ -53,7 +58,7 @@ async function getRepoTree(owner: string, repo: string): Promise<readonly GitHub
   const res = await fetch(url, { headers: makeHeaders() })
   if (!res.ok) {
     if (res.status === 404) throw new Error(`repo not found: ${owner}/${repo}`)
-    if (res.status === 403 || res.status === 429) throw new Error(`rate limited — use --token`)
+    if (res.status === 403 || res.status === 429) throw new Error(`rate limited — set GITHUB_TOKEN`)
     throw new Error(`GitHub API ${res.status}: ${owner}/${repo}`)
   }
   const data = await res.json() as { tree?: GitHubTreeEntry[] }
@@ -96,8 +101,8 @@ async function scanRepo(source: HGTSourceConfig): Promise<{ repoId: string; file
 }
 
 console.log('\nAEGIS HGT Scanner — cross-repo skill ingestion\n')
-if (tokenArg) console.log(`Auth: GitHub token (5000 req/hr)\n`)
-else console.log(`Auth: none (60 req/hr — pass --token to increase)\n`)
+if (tokenArg) console.log(`Auth: GitHub token from environment (5000 req/hr)\n`)
+else console.log(`Auth: none (60 req/hr — set GITHUB_TOKEN to increase)\n`)
 
 const allScanResults = []
 let grandAdmitted = 0

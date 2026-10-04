@@ -1,0 +1,49 @@
+{
+  "schema_version": "AEGIS_ZERO_UPPER_LOCALIZATION_V1",
+  "namespace": "mathematics.rh.zero_localization.upper",
+  "evidence_class": "FORMAL_THEOREM_CANDIDATE",
+  "parent_zero_truncation": {
+    "aegis_revision": "7f37b1bc1489623522368c9de93c28a563cc869f",
+    "zero_truncation_receipt_sha256": "b11d7c22417c325235c8a82831b6c6883311d73afd723ab94e9da8f3d8a3c7a6",
+    "zero_truncation_artifact_sha256": "7f4e68762258a208f3136a43e5896017d5428152766958326580ea8f3c2c0819",
+    "formal_conjectures_revision": "74b736b53ce688f57bad186b5dd862daaeeb708e",
+    "mathlib_revision": "0df444a360eaa60ab8c11dca51a86af692955474",
+    "lean_toolchain": "leanprover/lean4:v4.33.1"
+  },
+  "upstream_mathlib": [
+    {
+      "path": "Mathlib/NumberTheory/LSeries/ZetaZeros.lean",
+      "revision": "0df444a360eaa60ab8c11dca51a86af692955474",
+      "git_blob_sha": "0b8046e67ae5d1e613366e86fdf6b205eea3a6b1",
+      "objects": ["riemannZetaZeros", "mem_riemannZetaZeros"]
+    },
+    {
+      "path": "Mathlib/NumberTheory/LSeries/Nonvanishing.lean",
+      "revision": "0df444a360eaa60ab8c11dca51a86af692955474",
+      "git_blob_sha": "610bd56365d49c5ffa9ebeb29e0a383c768248e2",
+      "objects": ["riemannZeta_ne_zero_of_one_le_re"]
+    }
+  ],
+  "formal_source": {
+    "path": "sovereign-omega-v2/formal/bridges/lean/ZeroUpperLocalizationV1.lean",
+    "sha256": "14e1a500fbed63591aa18bd0436bbb2e3e845e1cee74fff2acfea230c78f3628"
+  },
+  "scope": {
+    "zeta_zero_upper_real_bound_lt_one": "CANDIDATE",
+    "lower_zero_localization": "OPEN",
+    "full_critical_strip_localization": "OPEN",
+    "height_truncation_equivalence": "OPEN",
+    "radial_limit_existence": "OPEN",
+    "explicit_formula_theorem": "OPEN",
+    "rh_equivalence": "OPEN"
+  },
+  "promotion_requested": false,
+  "declared_disposition": {
+    "decision": "HOLD_RESEARCH_ONLY",
+    "rh_proved": false,
+    "rh_disproved": false,
+    "claim_promotion": "BLOCKED",
+    "merge": "NOT_PERFORMED",
+    "authority_effect": "NONE"
+  }
+}

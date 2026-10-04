@@ -1,0 +1,50 @@
+{
+  "schema_version": "AEGIS_ZERO_NONPOSITIVE_INTEGER_V1",
+  "namespace": "mathematics.rh.zero_localization.nonpositive_integer_reduction",
+  "evidence_class": "FORMAL_THEOREM_CANDIDATE",
+  "parent_upper_localization": {
+    "aegis_revision": "7364684165501a271ecf5a0fdbc4158b13e6f557",
+    "upper_localization_receipt_sha256": "48648fae3fa78759acabf8473c08d618d99ff62a9239d23722dd72244a29daf7",
+    "upper_localization_artifact_sha256": "bcbcc1ff968e43e048eac31dc35bd0f4a2c831750ec014819de8af8a02c67ab0",
+    "formal_conjectures_revision": "74b736b53ce688f57bad186b5dd862daaeeb708e",
+    "mathlib_revision": "0df444a360eaa60ab8c11dca51a86af692955474",
+    "lean_toolchain": "leanprover/lean4:v4.33.1"
+  },
+  "upstream_mathlib": [
+    {
+      "path": "Mathlib/NumberTheory/LSeries/RiemannZeta.lean",
+      "revision": "0df444a360eaa60ab8c11dca51a86af692955474",
+      "git_blob_sha": "3c92195fce20df7fda41cfd823b3266f83cf3070",
+      "objects": ["riemannZeta_one_sub", "riemannZeta_zero"]
+    },
+    {
+      "path": "Mathlib/NumberTheory/LSeries/Nonvanishing.lean",
+      "revision": "0df444a360eaa60ab8c11dca51a86af692955474",
+      "git_blob_sha": "610bd56365d49c5ffa9ebeb29e0a383c768248e2",
+      "objects": ["riemannZeta_ne_zero_of_one_le_re"]
+    }
+  ],
+  "formal_source": {
+    "path": "sovereign-omega-v2/formal/bridges/lean/ZeroNonpositiveIntegerV1.lean",
+    "sha256": "0b5b08a0b6e86150937fe528a957903847df1ed51f03de3fdfd118a8e2f1c118"
+  },
+  "scope": {
+    "nonpositive_zero_is_neg_nat": "CANDIDATE",
+    "negative_integer_parity_classification": "OPEN",
+    "lower_zero_localization": "OPEN",
+    "full_critical_strip_localization": "OPEN",
+    "height_truncation_equivalence": "OPEN",
+    "radial_limit_existence": "OPEN",
+    "explicit_formula_theorem": "OPEN",
+    "rh_equivalence": "OPEN"
+  },
+  "promotion_requested": false,
+  "declared_disposition": {
+    "decision": "HOLD_RESEARCH_ONLY",
+    "rh_proved": false,
+    "rh_disproved": false,
+    "claim_promotion": "BLOCKED",
+    "merge": "NOT_PERFORMED",
+    "authority_effect": "NONE"
+  }
+}

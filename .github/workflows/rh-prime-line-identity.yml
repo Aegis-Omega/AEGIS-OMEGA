@@ -1,0 +1,122 @@
+name: RH Prime Line Identity
+
+on:
+  pull_request:
+    paths:
+      - 'sovereign-omega-v2/formal/bridges/lean/Weil*.lean'
+      - 'sovereign-omega-v2/formal/bridges/lean/MellinDecayEstimateV1.lean'
+      - '.github/workflows/rh-prime-line-identity.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  SOURCE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+  MATHLIB_SHA: 0df444a360eaa60ab8c11dca51a86af692955474
+  LEAN_TOOLCHAIN: leanprover/lean4:v4.33.1
+
+jobs:
+  prime-line:
+    name: verify Mellin inversion and prime-line identity at exact head
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - name: Checkout pinned Mathlib
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          repository: leanprover-community/mathlib4
+          ref: ${{ env.MATHLIB_SHA }}
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Checkout exact AEGIS source
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          repository: Aegis-Omega/AEGIS-OMEGA
+          ref: ${{ env.SOURCE_SHA }}
+          path: .aegis
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Verify source and toolchain pins
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$MATHLIB_SHA"
+          test "$(git -C .aegis rev-parse HEAD)" = "$SOURCE_SHA"
+          test "$(cat lean-toolchain)" = "$LEAN_TOOLCHAIN"
+          git -C .aegis rev-parse HEAD > exact-source.log
+          sha256sum lake-manifest.json >> exact-source.log
+
+      - name: Install pinned elan and obtain Mathlib cache
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl -sSfL https://github.com/leanprover/elan/releases/download/v1.4.2/elan-x86_64-unknown-linux-gnu.tar.gz | tar xz
+          ./elan-init -y --default-toolchain none
+          export PATH="$HOME/.elan/bin:$PATH"
+          echo "$HOME/.elan/bin" >> "$GITHUB_PATH"
+          lake exe cache get
+          lean --version >> exact-source.log
+
+      - name: Compile exact Mellin prerequisites and prime-line identity
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p .lake/build/lib/lean
+          proof_compile_failed=0
+          for f in WeilCriterionCompactSmoothV1 ZeroCriticalStripV1 ZeroHeightFiniteSumV1 ZeroHeightLimitContractV1 ZeroHeightSummabilityBridgeV1 ZeroMajorantSummabilityV1 ZeroHeightShellMassV1 ZeroShellQuadraticBoundV1 ZeroShellAnalyticSynthesisV1 MellinDecayEstimateV1 WeilMellinInversionV1 WeilPrimeLineIdentityV1; do
+            cp ".aegis/sovereign-omega-v2/formal/bridges/lean/$f.lean" "$f.lean"
+            sha256sum "$f.lean" >> exact-source.log
+            if ! lake env lean -o ".lake/build/lib/lean/$f.olean" "$f.lean" 2>&1 | tee "$f.log"; then
+              proof_compile_failed=1
+            fi
+          done
+          test "$proof_compile_failed" = 0
+
+      - name: Audit every public theorem dependency closure
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY_AUDIT_SOURCE'
+          from pathlib import Path
+          import json, re
+          modules = ['WeilMellinInversionV1', 'WeilPrimeLineIdentityV1']
+          names = [
+              'weil_compact_smooth_mellin_convergent_all_v1',
+              'weil_compact_smooth_mellin_vertical_integrable_all_v1',
+              'weil_compact_smooth_mellin_inversion_v1',
+          ]
+          names += re.findall(r'^theorem ([a-zA-Z0-9_]+)', Path('WeilPrimeLineIdentityV1.lean').read_text(), re.M)
+          assert len(names) == 10, names
+          Path('expected-theorems.json').write_text(json.dumps(names, indent=2) + '\n')
+          Path('WeilPrimeLineAudit.lean').write_text('\n'.join(['import ' + mod for mod in modules] + ['#print axioms ' + name for name in names]) + '\n')
+          PY_AUDIT_SOURCE
+          lake env lean WeilPrimeLineAudit.lean 2>&1 | tee prime-line-axioms.log
+          python3 - <<'PY_AUDIT_LOG'
+          from pathlib import Path
+          import json, re
+          names = json.loads(Path('expected-theorems.json').read_text())
+          log = Path('prime-line-axioms.log').read_text()
+          assert 'sorryAx' not in log
+          for name in names:
+              match = re.search(re.escape("'" + name + "' depends on axioms: ") + r"\[([^\]]*)\]", log, re.S)
+              assert match, name
+              axioms = {x.strip() for x in match[1].split(',') if x.strip()}
+              assert axioms <= {'propext', 'Classical.choice', 'Quot.sound'}, (name, axioms)
+          print('PASS: 10 theorem closures audited; authority_effect=NONE; RH=NOT_PROVEN')
+          PY_AUDIT_LOG
+
+      - name: Upload exact-head proof evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: rh-prime-line-${{ env.SOURCE_SHA }}
+          path: |
+            exact-source.log
+            *.log
+            prime-line-axioms.log
+            expected-theorems.json
+          if-no-files-found: warn
+          retention-days: 30

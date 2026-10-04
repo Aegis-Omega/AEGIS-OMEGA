@@ -18,6 +18,7 @@
 Require Import Coq.Arith.Arith.
 Require Import Coq.Arith.Compare_dec.
 Require Import Coq.Lists.List.
+Require Import Lia.
 
 (* ─── SITRState ──────────────────────────────────────────────── *)
 
@@ -126,60 +127,30 @@ Proof.
   apply join_monotone.
 Qed.
 
-(** Theorem: join is associative. *)
+(** Theorem: join is associative.
+
+    join picks whichever argument has the greater ordinal, so associativity
+    follows from totality of <= on nat. After discharging the two inner
+    comparisons, cases (a<=b, ~b<=c) and (~a<=b, b<=c) close by reflexivity;
+    the two remaining cases need the transitive fact about a vs c. *)
 Theorem join_associative : forall a b c : SITRState,
   join (join a b) c = join a (join b c).
 Proof.
-  intros a b c.
-  unfold join.
+  intros a b c. unfold join.
   destruct (Nat.leb (ordinal a) (ordinal b)) eqn:Hab;
-  destruct (Nat.leb (ordinal b) (ordinal c)) eqn:Hbc.
-  - (* ordinal a <= b  and  b <= c  =>  join a b = b, join b c = c *)
-    simpl.
-    rewrite Hbc.
-    apply Nat.leb_le in Hab.
-    apply Nat.leb_le in Hbc.
-    assert (ordinal a <= ordinal c) by lia.
-    rewrite (proj2 (Nat.leb_le _ _) H).
-    reflexivity.
-  - (* ordinal a <= b  and  ~(b <= c) *)
-    simpl.
-    rewrite Hbc.
-    apply Nat.leb_le in Hab.
-    apply Nat.leb_nle in Hbc.
-    assert (~ ordinal a <= ordinal c) by lia.
-    rewrite (proj2 (Nat.leb_nle _ _) H).
-    reflexivity.
-  - (* ~(ordinal a <= b)  and  b <= c  =>  join a b = a *)
-    simpl.
-    rewrite Hab.
-    apply Nat.leb_nle in Hab.
-    apply Nat.leb_le in Hbc.
-    assert (ordinal b <= ordinal c) by exact Hbc.
-    destruct (Nat.leb (ordinal a) (ordinal c)) eqn:Hac.
-    + apply Nat.leb_le in Hac.
-      (* ordinal b <= c but a > b, so we need to compare a vs c *)
-      (* join a (join b c) = join a c; since Hac: a <= c, result is c *)
-      (* but join a b = a since ~(a <= b), so join (join a b) c = join a c = c *)
-      reflexivity.
-    + apply Nat.leb_nle in Hac.
-      (* a > c and b <= c means a > b and a > c; join a c = a *)
-      (* join a b = a; join a (join b c) = join a c = a *)
-      reflexivity.
-  - (* ~(a <= b)  and  ~(b <= c) *)
-    simpl.
-    rewrite Hab.
-    apply Nat.leb_nle in Hab.
-    apply Nat.leb_nle in Hbc.
-    assert (~ ordinal b <= ordinal c) by exact Hbc.
-    destruct (Nat.leb (ordinal a) (ordinal c)) eqn:Hac.
-    + apply Nat.leb_le in Hac.
-      (* a <= c but a > b and b > c — contradiction since a > b > c but a <= c *)
-      lia.
-    + apply Nat.leb_nle in Hac.
-      (* a > c: join a c = a; also join b c = b (since b > c) *)
-      (* join a b = a (since a > b); join a (join b c) = join a b = a *)
-      rewrite Hab. reflexivity.
+  destruct (Nat.leb (ordinal b) (ordinal c)) eqn:Hbc;
+  rewrite ?Hab, ?Hbc;
+  try reflexivity.
+  - (* a <= b  and  b <= c  =>  a <= c, both sides reduce to c *)
+    apply Nat.leb_le in Hab. apply Nat.leb_le in Hbc.
+    assert (Hac : Nat.leb (ordinal a) (ordinal c) = true)
+      by (apply Nat.leb_le; lia).
+    rewrite Hac. reflexivity.
+  - (* ~(a <= b)  and  ~(b <= c)  =>  ~(a <= c), both sides reduce to a *)
+    apply Nat.leb_nle in Hab. apply Nat.leb_nle in Hbc.
+    assert (Hac : Nat.leb (ordinal a) (ordinal c) = false)
+      by (apply Nat.leb_nle; lia).
+    rewrite Hac. reflexivity.
 Qed.
 
 (* ─── Additional Properties ─────────────────────────────────── *)

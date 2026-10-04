@@ -1,0 +1,41 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://aegis-omega.local/schemas/collective/provider-session-identity-v1.schema.json",
+  "title": "AEGIS UCI Provider Session Identity V1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "session_kind",
+    "provider",
+    "model",
+    "session_id",
+    "repository",
+    "head_sha",
+    "capability_ids",
+    "policy_commitment",
+    "authority_epoch",
+    "skill_catalog_root",
+    "organism_state_root",
+    "authority"
+  ],
+  "properties": {
+    "schema_version": { "const": "1.0.0" },
+    "session_kind": { "const": "PROVIDER_SESSION_IDENTITY_V1" },
+    "provider": { "type": "string", "pattern": "^[A-Za-z0-9._:/@+\\-]{1,128}$" },
+    "model": { "type": "string", "pattern": "^[A-Za-z0-9._:/@+\\-]{1,128}$" },
+    "session_id": { "type": "string", "pattern": "^[A-Za-z0-9._:/@+\\-]{1,128}$" },
+    "repository": { "type": "string", "pattern": "^[A-Za-z0-9._-]{1,100}/[A-Za-z0-9._-]{1,100}$" },
+    "head_sha": { "type": "string", "pattern": "^[0-9a-f]{40,64}$" },
+    "capability_ids": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": { "type": "string", "pattern": "^[A-Za-z0-9._:/@+\\-]{1,128}$" }
+    },
+    "policy_commitment": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "authority_epoch": { "type": "integer", "minimum": 0 },
+    "skill_catalog_root": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "organism_state_root": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "authority": { "const": "IDENTITY_ONLY_NOT_AUTHORIZATION" }
+  }
+}

@@ -1,0 +1,202 @@
+name: RH Zero Height Limit Contract
+
+on:
+  pull_request:
+    paths:
+      - 'sovereign-omega-v2/formal/bridges/lean/ZeroHeightLimitContractV1.lean'
+      - 'sovereign-omega-v2/formal/bridges/lean/ZeroHeightFiniteSumV1.lean'
+      - 'sovereign-omega-v2/formal/bridges/zero_height_limit_contract_v1.json'
+      - 'sovereign-omega-v2/formal/tests/test_zero_height_limit_contract_v1.py'
+      - '.github/workflows/rh-zero-height-limit-contract.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  SOURCE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+  SOURCE_BLOB_SHA: 5d0d065113d9076db4eab6cf4be7a9868eec56a4
+  PARENT_SUM_SHA: 88e404935984aeb676ca1e0168572b79a389c556
+  PARENT_SUM_RECEIPT: bbc83343feed887a646d81da50e7000f3f50faa34959450f348acb1d97be4b2a
+  PARENT_SUM_ARTIFACT: 8359ca273d79a751af956e46f23c60d49369c7474e4b7ca17ed3189815baa73f
+  PARENT_SUM_SOURCE_BLOB: 94415f65ae85e1e9993916a22891ca2248d65d4d
+  FORMAL_CONJECTURES_SHA: 74b736b53ce688f57bad186b5dd862daaeeb708e
+  FORMAL_CONJECTURES_RH_BLOB_SHA: c8d38bef385eb15661c3daf7449625b66b019b2a
+  MATHLIB_SHA: 0df444a360eaa60ab8c11dca51a86af692955474
+  LEAN_TOOLCHAIN: leanprover/lean4:v4.33.1
+  HAUSDORFF_BLOB_SHA: 035464532dbc48a094702ce5046ec3a46ed23824
+
+jobs:
+  height-limit-contract:
+    name: pinned symmetric height limit contract
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - name: Checkout exact AEGIS candidate
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ env.SOURCE_SHA }}
+          fetch-depth: 1
+
+      - name: Bind exact candidate and formal sources
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$SOURCE_SHA"
+          test "$(git hash-object sovereign-omega-v2/formal/bridges/lean/ZeroHeightLimitContractV1.lean)" = "$SOURCE_BLOB_SHA"
+          test "$(git hash-object sovereign-omega-v2/formal/bridges/lean/ZeroHeightFiniteSumV1.lean)" = "$PARENT_SUM_SOURCE_BLOB"
+          python3 -m unittest sovereign-omega-v2/formal/tests/test_zero_height_limit_contract_v1.py -v
+
+      - name: Verify parent evidence and fail-closed manifest
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json, os
+          from pathlib import Path
+          m = json.loads(Path('sovereign-omega-v2/formal/bridges/zero_height_limit_contract_v1.json').read_text())
+          assert m['schema_version'] == 'AEGIS_ZERO_HEIGHT_LIMIT_CONTRACT_V1'
+          c = m['candidate']
+          assert c['formal_source_git_blob_sha'] == os.environ['SOURCE_BLOB_SHA']
+          p = m['verified_parent_evidence']['finite_height_multiplicity_sum']
+          assert (p['aegis_revision'], p['receipt_sha256'], p['artifact_sha256'], p['formal_source_git_blob_sha']) == (
+              os.environ['PARENT_SUM_SHA'], os.environ['PARENT_SUM_RECEIPT'],
+              os.environ['PARENT_SUM_ARTIFACT'], os.environ['PARENT_SUM_SOURCE_BLOB'])
+          e = m['external_environment']
+          assert e['formal_conjectures_revision'] == os.environ['FORMAL_CONJECTURES_SHA']
+          assert e['formal_conjectures_rh_blob_sha'] == os.environ['FORMAL_CONJECTURES_RH_BLOB_SHA']
+          assert e['mathlib_revision'] == os.environ['MATHLIB_SHA']
+          assert e['lean_toolchain'] == os.environ['LEAN_TOOLCHAIN']
+          h = m['upstream_mathlib'][0]
+          assert h['path'] == 'Mathlib/Topology/Separation/Hausdorff.lean'
+          assert h['git_blob_sha'] == os.environ['HAUSDORFF_BLOB_SHA']
+          s = m['scope']
+          assert s['finite_height_multiplicity_sum_parent'] == 'VERIFIED'
+          assert s['height_limit_contract'] == 'CANDIDATE'
+          assert s['height_limit_uniqueness'] == 'CANDIDATE'
+          for key in ('height_limit_existence','zero_sum_convergence','height_radial_equivalence','explicit_formula_theorem','critical_line_re_half','weil_criterion_bridge','rh_equivalence'):
+              assert s[key] == 'OPEN'
+          assert m['promotion_requested'] is False
+          assert m['declared_disposition']['claim_promotion'] == 'BLOCKED'
+          assert m['declared_disposition']['merge'] == 'NOT_PERFORMED'
+          assert m['declared_disposition']['authority_effect'] == 'NONE'
+          PY
+
+      - name: Checkout pinned Formal Conjectures project
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          repository: google-deepmind/formal-conjectures
+          ref: ${{ env.FORMAL_CONJECTURES_SHA }}
+          path: .external/formal-conjectures
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Verify external pins
+        working-directory: .external/formal-conjectures
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$FORMAL_CONJECTURES_SHA"
+          test "$(git hash-object FormalConjectures/Millenium/RiemannHypothesis.lean)" = "$FORMAL_CONJECTURES_RH_BLOB_SHA"
+          test "$(tr -d '\r\n' < lean-toolchain)" = "$LEAN_TOOLCHAIN"
+          python3 - <<'PY'
+          import json, os
+          from pathlib import Path
+          m = json.loads(Path('lake-manifest.json').read_text())
+          p = next(x for x in m['packages'] if x['name'] == 'mathlib')
+          assert (p.get('rev') or p.get('inputRev')) == os.environ['MATHLIB_SHA']
+          PY
+
+      - name: Install pinned elan
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl -sSfL https://github.com/leanprover/elan/releases/download/v1.4.2/elan-x86_64-unknown-linux-gnu.tar.gz | tar xz
+          ./elan-init -y --default-toolchain none
+          echo "$HOME/.elan/bin" >> "$GITHUB_PATH"
+
+      - name: Get pinned Mathlib cache
+        working-directory: .external/formal-conjectures
+        shell: bash
+        run: lake exe cache get
+
+      - name: Bind pinned Hausdorff source
+        working-directory: .external/formal-conjectures
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git -C .lake/packages/mathlib rev-parse HEAD)" = "$MATHLIB_SHA"
+          test "$(git -C .lake/packages/mathlib hash-object Mathlib/Topology/Separation/Hausdorff.lean)" = "$HAUSDORFF_BLOB_SHA"
+          grep -F 'theorem tendsto_nhds_unique' .lake/packages/mathlib/Mathlib/Topology/Separation/Hausdorff.lean
+
+      - name: Compile parent finite sum and height limit contract
+        working-directory: .external/formal-conjectures
+        shell: bash
+        run: |
+          set -euo pipefail
+          lean --version | tee "$GITHUB_WORKSPACE/zero-height-limit-contract-lean-version.txt"
+          cp "$GITHUB_WORKSPACE/sovereign-omega-v2/formal/bridges/lean/ZeroHeightFiniteSumV1.lean" ./ZeroHeightFiniteSumV1.lean
+          cp "$GITHUB_WORKSPACE/sovereign-omega-v2/formal/bridges/lean/ZeroHeightLimitContractV1.lean" ./ZeroHeightLimitContractV1.lean
+          mkdir -p .lake/build/lib/lean
+          lake env lean -o .lake/build/lib/lean/ZeroHeightFiniteSumV1.olean ZeroHeightFiniteSumV1.lean 2>&1 | tee "$GITHUB_WORKSPACE/zero-height-limit-parent-lean.log"
+          lake env lean ZeroHeightLimitContractV1.lean 2>&1 | tee "$GITHUB_WORKSPACE/zero-height-limit-contract-lean.log"
+          ! grep -F 'sorryAx' "$GITHUB_WORKSPACE/zero-height-limit-parent-lean.log"
+          ! grep -F 'sorryAx' "$GITHUB_WORKSPACE/zero-height-limit-contract-lean.log"
+
+      - name: Emit fail-closed height-limit-contract receipt
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import hashlib, json, os
+          from pathlib import Path
+          source = Path('sovereign-omega-v2/formal/bridges/lean/ZeroHeightLimitContractV1.lean')
+          parent = Path('sovereign-omega-v2/formal/bridges/lean/ZeroHeightFiniteSumV1.lean')
+          manifest = Path('sovereign-omega-v2/formal/bridges/zero_height_limit_contract_v1.json')
+          log = Path('zero-height-limit-contract-lean.log').read_text()
+          assert 'sorryAx' not in log
+          receipt = {
+            'schema_version':'AEGIS_ZERO_HEIGHT_LIMIT_CONTRACT_RECEIPT_V1',
+            'source_commit':os.environ['SOURCE_SHA'],
+            'formal_source_git_blob_sha':os.environ['SOURCE_BLOB_SHA'],
+            'formal_source_sha256':hashlib.sha256(source.read_bytes()).hexdigest(),
+            'parent_sum_source_sha256':hashlib.sha256(parent.read_bytes()).hexdigest(),
+            'manifest_sha256':hashlib.sha256(manifest.read_bytes()).hexdigest(),
+            'parent_sum_revision':os.environ['PARENT_SUM_SHA'],
+            'parent_sum_receipt_sha256':os.environ['PARENT_SUM_RECEIPT'],
+            'formal_conjectures_revision':os.environ['FORMAL_CONJECTURES_SHA'],
+            'mathlib_revision':os.environ['MATHLIB_SHA'],
+            'lean_toolchain':os.environ['LEAN_TOOLCHAIN'],
+            'height_limit_contract':'VERIFIED_WITHIN_DECLARED_SCOPE',
+            'height_limit_uniqueness':'VERIFIED_WITHIN_DECLARED_SCOPE',
+            'height_limit_existence':'OPEN',
+            'zero_sum_convergence':'OPEN',
+            'height_radial_equivalence':'OPEN',
+            'explicit_formula_theorem':'OPEN',
+            'critical_line_re_half':'OPEN',
+            'weil_criterion_bridge':'OPEN',
+            'rh_equivalence':'OPEN',
+            'rh_proved':False,
+            'rh_disproved':False,
+            'claim_promotion':'BLOCKED',
+            'decision':'HOLD_RESEARCH_ONLY',
+            'merge':'NOT_PERFORMED',
+            'authority_effect':'NONE'
+          }
+          canonical = json.dumps(receipt, sort_keys=True, separators=(',', ':'))
+          receipt['receipt_sha256'] = hashlib.sha256(canonical.encode()).hexdigest()
+          Path('zero-height-limit-contract-receipt.json').write_text(json.dumps(receipt, sort_keys=True, indent=2)+'\n')
+          print(Path('zero-height-limit-contract-receipt.json').read_text())
+          PY
+
+      - name: Upload height-limit-contract evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: rh-zero-height-limit-contract-${{ env.SOURCE_SHA }}
+          path: |
+            zero-height-limit-contract-lean-version.txt
+            zero-height-limit-parent-lean.log
+            zero-height-limit-contract-lean.log
+            zero-height-limit-contract-receipt.json
+          if-no-files-found: error
+          retention-days: 30

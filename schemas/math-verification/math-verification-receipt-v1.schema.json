@@ -1,0 +1,26 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://aegis-omega/schemas/math-verification/math-verification-receipt-v1.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version","receipt_kind","claim_id","claim_digest","assumptions_digest","formalization_binding_digest","verdict","verification_level","accepted_kernel_result_hashes","rejected_kernel_result_hashes","proof_artifact_hashes","counterexample_artifact_hashes","diagnostics","policy_commitment","authority_epoch","receipt_hash","authority"],
+  "properties": {
+    "schema_version": {"const": "1.0.0"},
+    "receipt_kind": {"const": "MATH_VERIFICATION_RECEIPT_V1"},
+    "claim_id": {"type": "string", "minLength": 1, "maxLength": 160},
+    "claim_digest": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "assumptions_digest": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "formalization_binding_digest": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "verdict": {"enum": ["PROVED","DISPROVED","UNRESOLVED"]},
+    "verification_level": {"enum": ["SINGLE_KERNEL","CROSS_KERNEL"]},
+    "accepted_kernel_result_hashes": {"type": "array", "uniqueItems": true, "items": {"type": "string", "pattern": "^[0-9a-f]{64}$"}},
+    "rejected_kernel_result_hashes": {"type": "array", "uniqueItems": true, "items": {"type": "string", "pattern": "^[0-9a-f]{64}$"}},
+    "proof_artifact_hashes": {"type": "array", "uniqueItems": true, "items": {"type": "string", "pattern": "^[0-9a-f]{64}$"}},
+    "counterexample_artifact_hashes": {"type": "array", "uniqueItems": true, "items": {"type": "string", "pattern": "^[0-9a-f]{64}$"}},
+    "diagnostics": {"type": "array", "uniqueItems": true, "items": {"type": "string"}},
+    "policy_commitment": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "authority_epoch": {"type": "integer", "minimum": 0},
+    "receipt_hash": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "authority": {"const": "FORMAL_MATH_EVIDENCE_ONLY"}
+  }
+}

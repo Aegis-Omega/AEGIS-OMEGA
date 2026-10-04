@@ -1,0 +1,57 @@
+{
+  "schema_version": "AEGIS_RH_EXTERNAL_TARGET_V1",
+  "target_id": "google-deepmind/formal-conjectures::RiemannHypothesis.riemannHypothesis",
+  "namespace": "mathematics.rh.external_reference",
+  "evidence_class": "EXTERNAL_FORMAL_TARGET",
+  "external_source": {
+    "repository": "google-deepmind/formal-conjectures",
+    "revision": "74b736b53ce688f57bad186b5dd862daaeeb708e",
+    "coordinate": "FormalConjectures/Millenium/RiemannHypothesis.lean::RiemannHypothesis.riemannHypothesis",
+    "lean_toolchain": "leanprover/lean4:v4.33.1",
+    "mathlib_revision": "0df444a360eaa60ab8c11dca51a86af692955474",
+    "source_statement": "@[category research open, AMS 11]\ntheorem riemannHypothesis : RiemannHypothesis := by\n  sorry\n",
+    "source_statement_sha256": "ca7957df321986a4d0fe6d3bfa78e9ca815ee505e1d93effd6559b8f2476aa25",
+    "upstream_category": "research open",
+    "upstream_proof_status": "NOT_PROVEN"
+  },
+  "aegis_source": {
+    "repository": "Aegis-Omega/AEGIS-OMEGA",
+    "revision": "41ad4ea70c09eb2b88c8457d3b7185c5db4f986a",
+    "coordinate": "sovereign-omega-v2/formal/theories/Weil/Globalization.v::globalization_ready_implies_global_weil_positivity_v1",
+    "source_statement": "Theorem globalization_ready_implies_global_weil_positivity_v1 :\n  forall\n    (QR : FiniteQuadraticFamilyV1)\n    (QW : QuadraticFormV1)\n    (eps : nat -> O0RealV1),\n    GlobalizationReadyV1 QR QW eps ->\n    GlobalizationTargetV1 QW.\n",
+    "source_statement_sha256": "52c43c47ecc64f6ca03635ca6cc9231f144e15417e4fecdbdeb31649639837c1",
+    "claim_scope": "CONDITIONAL_GLOBAL_WEIL_POSITIVITY_ONLY"
+  },
+  "semantic_obstruction": {
+    "status": "PROOF_SOURCE_PINNED",
+    "source_path": "sovereign-omega-v2/formal/bridges/coq/SemanticBridgeObstruction.v",
+    "source_sha256": "7e293e1ecf5de8af4c5e05ae9c760a74b7e035bdc7d74705e267b5286e028d12",
+    "coq_toolchain": "8.20",
+    "theorems": [
+      "zero_quadratic_form_global_weil_positivity_v1",
+      "universal_global_weil_bridge_iff_target_v1"
+    ],
+    "claim_scope": "ABSTRACT_QW_INSUFFICIENCY_ONLY",
+    "result": "ABSTRACT_QW_REQUIRES_CONCRETE_WEIL_IDENTIFICATION",
+    "rh_effect": "NONE"
+  },
+  "bridge": {
+    "status": "OPEN",
+    "promotion_requested": false,
+    "required_gates": {
+      "external_source_digest_verified": true,
+      "aegis_source_digest_verified": true,
+      "aegis_weil_semantics_mapped_to_mathlib": false,
+      "semantic_implication_to_mathlib_rh_proved": false,
+      "lean_axiom_audit_no_sorryAx": false,
+      "clean_room_independent_replay": false,
+      "independent_authority_receipt_verified": false
+    }
+  },
+  "declared_disposition": {
+    "rh_proved": false,
+    "claim_promotion": "BLOCKED",
+    "merge": "NOT_PERFORMED",
+    "authority_effect": "NONE"
+  }
+}

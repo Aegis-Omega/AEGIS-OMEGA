@@ -1,0 +1,28 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://aegis-omega.local/schemas/structural-value-claim-evaluation.v1.schema.json",
+  "title": "StructuralValueClaimEvaluationV1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["evaluation_kind", "claim_root", "status", "failing_metric_ids"],
+  "properties": {
+    "evaluation_kind": {"const": "STRUCTURAL_VALUE_CLAIM_EVALUATION_V1"},
+    "claim_root": {"type": "string", "pattern": "^(?!0{64}$)[0-9a-f]{64}$"},
+    "status": {"enum": ["SATISFIED", "FALSIFIED"]},
+    "failing_metric_ids": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {"type": "string", "minLength": 1, "pattern": "^[A-Za-z0-9._:/@+#=-]+$"}
+    }
+  },
+  "allOf": [
+    {
+      "if": {"properties": {"status": {"const": "SATISFIED"}}, "required": ["status"]},
+      "then": {"properties": {"failing_metric_ids": {"maxItems": 0}}}
+    },
+    {
+      "if": {"properties": {"status": {"const": "FALSIFIED"}}, "required": ["status"]},
+      "then": {"properties": {"failing_metric_ids": {"minItems": 1}}}
+    }
+  ]
+}

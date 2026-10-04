@@ -1,0 +1,36 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://aegisomega.com/schemas/admission-record.v1.schema.json",
+  "title": "AEGIS AdmissionRecord V1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "record_kind",
+    "transition_id",
+    "complete_verification_root",
+    "source_admission_policy_commitment",
+    "admission_policy_commitment",
+    "prior_state_commitment",
+    "next_state_commitment",
+    "authority_epoch",
+    "fence_commitment",
+    "sequence",
+    "prior_admission_root"
+  ],
+  "properties": {
+    "record_kind": {"const": "ADMISSION_RECORD_V1"},
+    "transition_id": {"$ref": "#/$defs/hash"},
+    "complete_verification_root": {"$ref": "#/$defs/hash"},
+    "source_admission_policy_commitment": {"$ref": "#/$defs/hash"},
+    "admission_policy_commitment": {"$ref": "#/$defs/hash"},
+    "prior_state_commitment": {"$ref": "#/$defs/hash"},
+    "next_state_commitment": {"$ref": "#/$defs/hash"},
+    "authority_epoch": {"type": "integer", "minimum": 0},
+    "fence_commitment": {"$ref": "#/$defs/hash"},
+    "sequence": {"type": "integer", "minimum": 1},
+    "prior_admission_root": {"$ref": "#/$defs/hash"}
+  },
+  "$defs": {
+    "hash": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+  }
+}

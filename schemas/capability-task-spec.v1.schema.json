@@ -1,0 +1,25 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://aegis-omega.local/schemas/capability-task-spec.v1.schema.json",
+  "title": "CapabilityTaskSpecV1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "task_kind", "task_id", "axis", "domain", "hidden_case_commitment",
+    "checker_commitment", "budget_commitment", "human_reference_commitment",
+    "trial_count", "contamination_class", "suite_policy_commitment"
+  ],
+  "properties": {
+    "task_kind": {"const": "CAPABILITY_TASK_SPEC_V1"},
+    "task_id": {"type": "string", "minLength": 1, "pattern": "^[A-Za-z0-9._:/@+#=-]+$"},
+    "axis": {"enum": ["NOVEL_ABSTRACTION_TRANSFER", "CROSS_DOMAIN_GENERALITY", "TOOL_AND_ENVIRONMENT_AGENCY", "LONG_HORIZON_RELIABILITY", "SAFE_ADAPTATION", "METACOGNITIVE_CALIBRATION"]},
+    "domain": {"type": "string", "minLength": 1, "pattern": "^[A-Za-z0-9._:/@+#=-]+$"},
+    "hidden_case_commitment": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "checker_commitment": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "budget_commitment": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "human_reference_commitment": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "trial_count": {"type": "integer", "minimum": 1},
+    "contamination_class": {"enum": ["HELD_OUT", "PUBLIC", "SUSPECTED", "EXPOSED"]},
+    "suite_policy_commitment": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+  }
+}

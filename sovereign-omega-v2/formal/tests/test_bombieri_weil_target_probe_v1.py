@@ -1,0 +1,28 @@
+from pathlib import Path
+import unittest
+
+ROOT = Path(__file__).resolve().parents[1]
+SOURCE = ROOT / "bridges" / "lean" / "BombieriWeilTargetProbe.lean"
+
+
+class BombieriWeilTargetProbeTests(unittest.TestCase):
+    def test_probe_uses_concrete_mathlib_objects(self):
+        text = SOURCE.read_text(encoding="utf-8")
+        self.assertIn("def BombieriTestFunctionV1", text)
+        self.assertIn("ContDiff ℝ ∞ f", text)
+        self.assertIn("HasCompactSupport f", text)
+        self.assertIn("tsupport f ⊆ Set.Ioi 0", text)
+        self.assertIn("def BombieriMellinV1", text)
+        self.assertIn("mellin f.1", text)
+        self.assertIn("RiemannHypothesis", text)
+        self.assertIn("riemannZeta", text)
+        self.assertIn("completedRiemannZeta₀_one_sub", text)
+
+    def test_probe_has_no_proof_escape_holes(self):
+        text = SOURCE.read_text(encoding="utf-8")
+        for forbidden in ("sorry", "axiom ", "opaque "):
+            self.assertNotIn(forbidden, text.lower())
+
+
+if __name__ == "__main__":
+    unittest.main()

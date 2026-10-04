@@ -1,0 +1,26 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://aegis-omega.local/schemas/collective/provider-contribution-store-v1.schema.json",
+  "title": "AEGIS UCI Provider Contribution Store V1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "store_kind", "artifacts", "records"],
+  "properties": {
+    "schema_version": { "const": "1.0.0" },
+    "store_kind": { "const": "UCI_PROVIDER_CONTRIBUTION_STORE_V1" },
+    "artifacts": {
+      "type": "object",
+      "additionalProperties": false,
+      "patternProperties": {
+        "^[0-9a-f]{64}$": { "$ref": "provider-contribution-artifact-v1.schema.json" }
+      }
+    },
+    "records": {
+      "type": "object",
+      "additionalProperties": false,
+      "patternProperties": {
+        "^[0-9a-f]{64}$": { "$ref": "provider-contribution-record-v1.schema.json" }
+      }
+    }
+  }
+}

@@ -1,0 +1,142 @@
+name: RH Emergency Lean Replay
+
+on:
+  push:
+    branches:
+      - 'integration/rh-final-closure-v1'
+    paths:
+      - 'sovereign-omega-v2/formal/bridges/lean/**'
+      - '.github/workflows/rh-emergency-lean-replay.yml'
+  pull_request:
+    paths:
+      - 'sovereign-omega-v2/formal/bridges/lean/**'
+      - '.github/workflows/rh-emergency-lean-replay.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  SOURCE_SHA: ${{ github.sha }}
+  MATHLIB_SHA: 0df444a360eaa60ab8c11dca51a86af692955474
+  LEAN_TOOLCHAIN: leanprover/lean4:v4.33.1
+
+jobs:
+  lean:
+    name: emergency exact-head Lean compile
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Checkout pinned Mathlib
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          repository: leanprover-community/mathlib4
+          ref: ${{ env.MATHLIB_SHA }}
+          persist-credentials: false
+          fetch-depth: 1
+
+      - name: Checkout exact AEGIS head
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          repository: Aegis-Omega/AEGIS-OMEGA
+          ref: ${{ env.SOURCE_SHA }}
+          path: .aegis
+          persist-credentials: false
+          fetch-depth: 1
+
+      - name: Verify exact pins
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$MATHLIB_SHA"
+          test "$(git -C .aegis rev-parse HEAD)" = "$SOURCE_SHA"
+          test "$(cat lean-toolchain)" = "$LEAN_TOOLCHAIN"
+
+      - name: Install elan and Mathlib cache
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl -sSfL https://raw.githubusercontent.com/leanprover/elan/master/elan-init.sh | sh -s -- -y --default-toolchain none
+          echo "$HOME/.elan/bin" >> "$GITHUB_PATH"
+          export PATH="$HOME/.elan/bin:$PATH"
+          lake exe cache get
+          lean --version
+
+      - name: Compile final RH integration chain
+        shell: bash
+        run: |
+          set -euo pipefail
+          ROOT=.aegis/sovereign-omega-v2/formal/bridges/lean
+          mkdir -p .lake/build/lib/lean evidence
+          modules=(
+            WeilCriterionCompactSmoothV1
+            WeilPrimeSummabilityV1
+            WeilArchimedeanConvergenceV1
+            WeilAutocorrelationRealityV1
+            WeilAutocorrelationClosureV1
+            WeilFiniteSourceCalculusV1
+            WeilArchSineKernelV1
+            WeilArchSineKernelIntegerV1
+            WeilArchFiniteQuadraticV1
+            WeilArchTailIntegralV1
+            WeilThreeBlockRationalV1
+            WeilMixedClosureV2
+            WeilThreeBlockComplexV2
+            WeilMixedAlgebraV2
+            WeilDisjointEnergyV2
+            WeilThreeBlockAnalyticConstantsV21
+            WeilLogCoordinateIsometryV21
+            WeilThreeBlockNormBridgeV21
+            WeilThreeBlockTranslatedPacketsV22
+            WeilWidthPrimeVanishingV23
+            WeilDiagonalKernelReductionV21
+            WeilArchimedeanCothTailV1
+            WeilWidthDiagonalArchFrontierV24
+            WeilWidthArchCorrelationV25
+            WeilWidthArchBudgetV26
+            WeilWidthArchIntegralV27
+            WeilThreeBlockCrossPrimeV28
+            WeilThreeBlockCrossPrimeWindowV29
+            WeilThreeBlockPrimeEvaluationV30
+            WeilThreeBlockCrossAssemblyV30
+            WeilSeparatedArchBridgeV31
+            WeilMomentKillerConstructionV1
+            WeilLogTransportCanonicalV1
+            WeilTwoPointPositivityV1
+            WeilAbjadFourPhaseBridgeV1
+            RHNarrowMomentPacketV1
+            RHFinalClosureSpineV1
+            RHNarrowRetainedSignV1
+            RHTranslatedKernelDominanceV1
+            RHFourBlockBoundObstructionV1
+          )
+          for m in "${modules[@]}"; do
+            cp "$ROOT/$m.lean" "$m.lean"
+            echo "=== $m ==="
+            lake env lean -o ".lake/build/lib/lean/$m.olean" "$m.lean" 2>&1 | tee "evidence/$m.log"
+          done
+
+      - name: Audit axioms
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat > RHFinalAudit.lean <<'EOF'
+          import RHTranslatedKernelDominanceV1
+          import RHNarrowRetainedSignV1
+          #print axioms AEGIS.RHFinalClosureV1.final_sign_residual_iff_weil_negativity_v1
+          #print axioms AEGIS.RHTranslatedKernelDominanceV1.zero_shift_component_dominance_iff_final_sign_v1
+          #print axioms AEGIS.RHNarrowMomentPacketV1.gNarrow_moments
+          #print axioms AEGIS.RHNarrowMomentPacketV1.gNarrow_width
+          #print axioms AEGIS.RHNarrowRetainedSignV1.narrow_three_block_sign_v1
+          EOF
+          lake env lean RHFinalAudit.lean 2>&1 | tee evidence/axioms.log
+          ! grep -F 'sorryAx' evidence/axioms.log
+
+      - name: Upload logs
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: rh-emergency-lean-${{ env.SOURCE_SHA }}
+          path: evidence/
+          if-no-files-found: warn
+          retention-days: 14

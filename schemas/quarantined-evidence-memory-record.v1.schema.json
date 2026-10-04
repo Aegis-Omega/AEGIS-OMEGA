@@ -1,0 +1,32 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://aegisomega.com/schemas/quarantined-evidence-memory-record.v1.schema.json",
+  "title": "AEGIS QuarantinedEvidenceMemoryRecord V1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "record_kind",
+    "content_digest",
+    "media_type",
+    "producer_ref",
+    "source_ref",
+    "memory_class",
+    "epistemic_tier",
+    "authority",
+    "authority_weight_bps"
+  ],
+  "properties": {
+    "record_kind": {"const": "QUARANTINED_EVIDENCE_MEMORY_RECORD_V1"},
+    "content_digest": {"$ref": "#/$defs/hash"},
+    "media_type": {"type": "string", "minLength": 1, "maxLength": 128},
+    "producer_ref": {"type": "string", "minLength": 1, "maxLength": 512},
+    "source_ref": {"type": "string", "minLength": 1, "maxLength": 512},
+    "memory_class": {"enum": ["EVIDENCE", "WORK_RESULT", "CALIBRATION", "CAPABILITY"]},
+    "epistemic_tier": {"const": "T2"},
+    "authority": {"const": "EVIDENCE_ONLY"},
+    "authority_weight_bps": {"const": 0}
+  },
+  "$defs": {
+    "hash": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+  }
+}

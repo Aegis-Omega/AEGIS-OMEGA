@@ -1,0 +1,73 @@
+{
+  "schema_version": "AEGIS_ZERO_HEIGHT_SHELL_MASS_V1",
+  "candidate": {
+    "formal_source": "sovereign-omega-v2/formal/bridges/lean/ZeroHeightShellMassV1.lean",
+    "formal_source_git_blob_sha": "e7af2be4e5f0b1bbb1f605bbee19e919b92e5bd0"
+  },
+  "verified_parent_evidence": {
+    "majorant_summability_bridge": {
+      "aegis_revision": "d23cb372232f7033f33f248e30e760f3839a916f",
+      "receipt_sha256": "e2b011452f646b9836b5be5bb7216514c769b745453ac049265737cc1b2e4d5a",
+      "artifact_sha256": "cdb8fc621e525153c3e58c2eaf9d33b02892635700c51b47fa35c9b2bc50c7b1",
+      "formal_source_git_blob_sha": "4c100d1f84188deddd1e00dc6cb8aca851fc4eea"
+    },
+    "critical_strip": {
+      "aegis_revision": "fb49502c3ec558e47fe62218288a3f86d5288a6e",
+      "receipt_sha256": "7431124210ac182204612e4edf5af46e11b1c30bc876fd39377ebd3251e2fd4a",
+      "artifact_sha256": "5c3f0f25c110eb93fc14373b339cd21db95d4a5595043d38a491dbd69e0d9fe9",
+      "formal_source_git_blob_sha": "8dd25b1e5bf55d902fe5b57e8572e8e564d4c983"
+    }
+  },
+  "local_dependency_sources": {
+    "height_summability_bridge_git_blob_sha": "f72516a9ee50f8b5457f4a99c55ddc296d15d8dd",
+    "height_limit_contract_git_blob_sha": "5d0d065113d9076db4eab6cf4be7a9868eec56a4",
+    "finite_height_sum_git_blob_sha": "94415f65ae85e1e9993916a22891ca2248d65d4d"
+  },
+  "external_environment": {
+    "formal_conjectures_revision": "74b736b53ce688f57bad186b5dd862daaeeb708e",
+    "formal_conjectures_rh_blob_sha": "c8d38bef385eb15661c3daf7449625b66b019b2a",
+    "mathlib_revision": "0df444a360eaa60ab8c11dca51a86af692955474",
+    "lean_toolchain": "leanprover/lean4:v4.33.1"
+  },
+  "upstream_mathlib": [
+    {
+      "path": "Mathlib/Topology/Algebra/InfiniteSum/Real.lean",
+      "git_blob_sha": "32b87fa4ac3121786c310fa7b31ef263de567d13",
+      "required_declaration": "summable_partition"
+    },
+    {
+      "path": "Mathlib/Algebra/Order/Floor/Semiring.lean",
+      "git_blob_sha": "8af0bf21b086d4dd5ae3c92c52e6b2d5c5ae9235",
+      "required_declaration": "Nat.le_ceil"
+    },
+    {
+      "path": "Mathlib/NumberTheory/LSeries/ZetaZeros.lean",
+      "git_blob_sha": "0b8046e67ae5d1e613366e86fdf6b205eea3a6b1",
+      "required_declaration": "IsCompact.inter_riemannZetaZeros_finite"
+    }
+  ],
+  "scope": {
+    "height_shell_index": "CANDIDATE",
+    "height_shell_finiteness": "CANDIDATE",
+    "shell_mass_definition": "CANDIDATE",
+    "norm_summability_shell_equivalence": "CANDIDATE",
+    "shell_mass_implies_zero_summability": "CANDIDATE",
+    "shell_mass_implies_height_limit_existence": "CANDIDATE",
+    "actual_shell_mass_summability": "OPEN",
+    "shell_mass_decay_bound": "OPEN",
+    "weil_class_shell_mass_summability": "OPEN",
+    "conditional_symmetric_convergence": "OPEN",
+    "height_radial_equivalence": "OPEN",
+    "explicit_formula_theorem": "OPEN",
+    "critical_line_re_half": "OPEN",
+    "weil_criterion_bridge": "OPEN",
+    "rh_equivalence": "OPEN"
+  },
+  "promotion_requested": false,
+  "declared_disposition": {
+    "claim_promotion": "BLOCKED",
+    "decision": "HOLD_RESEARCH_ONLY",
+    "merge": "NOT_PERFORMED",
+    "authority_effect": "NONE"
+  }
+}

@@ -1,0 +1,85 @@
+{
+  "schema_version": "1.0.0",
+  "corpus_kind": "UCI3_PROVIDER_CONTRIBUTION_VECTORS_V1",
+  "invalid_sessions": [
+    {
+      "id": "session-authority-promotion",
+      "patch": { "authority": "PERMIT" },
+      "expected_error": "PROVIDER_SESSION_AUTHORITY_INVALID"
+    },
+    {
+      "id": "session-effect-receipt-injection",
+      "patch": { "effect_receipt": { "outcome": "VERIFIED" } },
+      "expected_error": "PROVIDER_SESSION_UNKNOWN_FIELD"
+    },
+    {
+      "id": "session-provider-not-admitted",
+      "patch": { "provider": "anthropic" },
+      "expected_error": "PROVIDER_SESSION_PROVIDER_NOT_ALLOWED"
+    },
+    {
+      "id": "session-stale-policy",
+      "patch": { "policy_commitment": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb" },
+      "expected_error": "PROVIDER_SESSION_POLICY_MISMATCH"
+    }
+  ],
+  "invalid_contribution_inputs": [
+    {
+      "id": "stale-lease-generation",
+      "mutation": "stale_generation",
+      "expected_error": "PROVIDER_CLAIM_GENERATION_MISMATCH"
+    },
+    {
+      "id": "wrong-fencing-token",
+      "mutation": "wrong_fence",
+      "expected_error": "PROVIDER_CLAIM_FENCE_MISMATCH"
+    },
+    {
+      "id": "wrong-work-node",
+      "mutation": "wrong_work_node",
+      "expected_error": "PROVIDER_SESSION_WORK_NODE_MISSING"
+    },
+    {
+      "id": "wrong-provider-session",
+      "mutation": "wrong_session",
+      "expected_error": "PROVIDER_CLAIM_OWNER_MISMATCH"
+    },
+    {
+      "id": "changed-target-binding",
+      "mutation": "wrong_target",
+      "expected_error": "PROVIDER_CLAIM_BINDING_MISMATCH"
+    },
+    {
+      "id": "stale-contribution-store-root",
+      "mutation": "stale_store_root",
+      "expected_error": "PROVIDER_CONTRIBUTION_PRESTATE_STALE"
+    }
+  ],
+  "persisted_tamper": [
+    {
+      "id": "artifact-content-tamper",
+      "mutation": "artifact_text",
+      "expected_error": "PROVIDER_CONTRIBUTION_ARTIFACT_DIGEST_MISMATCH"
+    },
+    {
+      "id": "artifact-authority-promotion",
+      "mutation": "artifact_authority",
+      "expected_error": "PROVIDER_CONTRIBUTION_ARTIFACT_AUTHORITY_INVALID"
+    },
+    {
+      "id": "record-authority-promotion",
+      "mutation": "record_authority",
+      "expected_error": "PROVIDER_CONTRIBUTION_RECORD_AUTHORITY_INVALID"
+    },
+    {
+      "id": "record-effect-receipt-injection",
+      "mutation": "record_effect_receipt",
+      "expected_error": "PROVIDER_CONTRIBUTION_RECORD_UNKNOWN_FIELD"
+    },
+    {
+      "id": "record-policy-tamper",
+      "mutation": "record_policy",
+      "expected_error": "PROVIDER_CONTRIBUTION_RECORD_HASH_MISMATCH"
+    }
+  ]
+}

@@ -1,0 +1,49 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://aegis-omega.local/schemas/reflexive-self-model/reflexive-cycle-receipt-v1.schema.json",
+  "title": "ReflexiveCycleReceiptV1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "record_kind",
+    "schema_version",
+    "cycle_id",
+    "snapshot_digest",
+    "prediction_digest",
+    "observation_digest",
+    "prediction_error_receipt_digest",
+    "update_proposal_digest",
+    "replayable",
+    "scorable",
+    "contradiction_free",
+    "cycle_status",
+    "cycle_digest",
+    "authority"
+  ],
+  "properties": {
+    "record_kind": { "const": "REFLEXIVE_CYCLE_RECEIPT_V1" },
+    "schema_version": { "const": "1.0.0" },
+    "cycle_id": { "type": "string", "minLength": 1 },
+    "snapshot_digest": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "prediction_digest": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "observation_digest": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "prediction_error_receipt_digest": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "update_proposal_digest": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "replayable": { "type": "boolean" },
+    "scorable": { "type": "boolean" },
+    "contradiction_free": { "type": "boolean" },
+    "cycle_status": {
+      "enum": [
+        "CYCLE_CLOSED",
+        "UNSCORABLE_POSTDICTION",
+        "UNSCORABLE_STALE_BINDING",
+        "UNSCORABLE_UNVERIFIED_OUTCOME",
+        "CONTRADICTION_DETECTED",
+        "TAMPER_DETECTED",
+        "VERIFIER_UNAVAILABLE"
+      ]
+    },
+    "cycle_digest": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "authority": { "const": "REFLEXIVE_EVIDENCE_ONLY" }
+  }
+}

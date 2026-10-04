@@ -1,0 +1,209 @@
+name: RH Zero Nonpositive Trivial Composition
+
+on:
+  pull_request:
+    paths:
+      - 'sovereign-omega-v2/formal/bridges/lean/ZeroNonpositiveTrivialV1.lean'
+      - 'sovereign-omega-v2/formal/bridges/zero_nonpositive_trivial_v1.json'
+      - 'sovereign-omega-v2/formal/tests/test_zero_nonpositive_trivial_v1.py'
+      - '.github/workflows/rh-zero-nonpositive-trivial.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  SOURCE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+  PARENT_REDUCTION_SHA: 0f7aaa340df3fa086ae1ef32cd960f5083c25fc4
+  PARENT_REDUCTION_RECEIPT: bb9159054d57c600812a3402eaa73e6038ea9b2f5e0ca0d1d8ccea48b28ef96e
+  PARENT_REDUCTION_ARTIFACT: f68353a3b2e5cede60b00d77ec7dac493116549b0f97de2bafe3184dd0ae566e
+  PARENT_CLASSIFICATION_SHA: 701649c136849114153a4797986a4efee05cea1c
+  PARENT_CLASSIFICATION_RECEIPT: 96bbc0a9aae626182d139dd099fc0fab001c7b2ead311f5e28d26d5ac3d0308e
+  PARENT_CLASSIFICATION_ARTIFACT: 586a9a6db03e5395ebc903cfa4491eb475f974dfa8b6599ae2d62eb254a4a73b
+  FORMAL_CONJECTURES_SHA: 74b736b53ce688f57bad186b5dd862daaeeb708e
+  MATHLIB_SHA: 0df444a360eaa60ab8c11dca51a86af692955474
+  LEAN_TOOLCHAIN: leanprover/lean4:v4.33.1
+  HURWITZ_VALUES_BLOB_SHA: 4bdfedf2cf474a721e0687852a5782f304781eb7
+  NONVANISHING_BLOB_SHA: 610bd56365d49c5ffa9ebeb29e0a383c768248e2
+  RIEMANN_ZETA_BLOB_SHA: 3c92195fce20df7fda41cfd823b3266f83cf3070
+  SOURCE_SHA256: 356bfe70ec0918f38d50e8e5327a8b5f40c7df1d783459b0a6f12f7ce91d4bb3
+
+jobs:
+  composition:
+    name: pinned nonpositive-to-trivial composition
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - name: Checkout exact AEGIS candidate
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ env.SOURCE_SHA }}
+          fetch-depth: 1
+
+      - name: Bind exact candidate and source digest
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$SOURCE_SHA"
+          printf '%s  %s\n' "$SOURCE_SHA256" \
+            'sovereign-omega-v2/formal/bridges/lean/ZeroNonpositiveTrivialV1.lean' \
+            | sha256sum -c -
+          python3 -m unittest \
+            sovereign-omega-v2/formal/tests/test_zero_nonpositive_trivial_v1.py -v
+
+      - name: Verify parent evidence and fail-closed manifest
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json, os
+          from pathlib import Path
+          m = json.loads(Path('sovereign-omega-v2/formal/bridges/zero_nonpositive_trivial_v1.json').read_text())
+          assert m['schema_version'] == 'AEGIS_ZERO_NONPOSITIVE_TRIVIAL_V1'
+          assert m['namespace'] == 'mathematics.rh.zero_localization.nonpositive_trivial_composition'
+          p = m['verified_parent_evidence']
+          r = p['nonpositive_integer_reduction']
+          c = p['trivial_zero_classification']
+          assert r['aegis_revision'] == os.environ['PARENT_REDUCTION_SHA']
+          assert r['receipt_sha256'] == os.environ['PARENT_REDUCTION_RECEIPT']
+          assert r['artifact_sha256'] == os.environ['PARENT_REDUCTION_ARTIFACT']
+          assert c['aegis_revision'] == os.environ['PARENT_CLASSIFICATION_SHA']
+          assert c['receipt_sha256'] == os.environ['PARENT_CLASSIFICATION_RECEIPT']
+          assert c['artifact_sha256'] == os.environ['PARENT_CLASSIFICATION_ARTIFACT']
+          e = m['external_environment']
+          assert e['formal_conjectures_revision'] == os.environ['FORMAL_CONJECTURES_SHA']
+          assert e['mathlib_revision'] == os.environ['MATHLIB_SHA']
+          assert e['lean_toolchain'] == os.environ['LEAN_TOOLCHAIN']
+          blobs = {x['path']: x['git_blob_sha'] for x in m['upstream_mathlib']}
+          assert blobs['Mathlib/NumberTheory/LSeries/HurwitzZetaValues.lean'] == os.environ['HURWITZ_VALUES_BLOB_SHA']
+          assert blobs['Mathlib/NumberTheory/LSeries/Nonvanishing.lean'] == os.environ['NONVANISHING_BLOB_SHA']
+          assert blobs['Mathlib/NumberTheory/LSeries/RiemannZeta.lean'] == os.environ['RIEMANN_ZETA_BLOB_SHA']
+          assert m['formal_source']['sha256'] == os.environ['SOURCE_SHA256']
+          s = m['scope']
+          assert s['nonpositive_zero_is_trivial'] == 'CANDIDATE'
+          for key in ('lower_zero_localization','full_critical_strip_localization','height_truncation_equivalence','radial_limit_existence','explicit_formula_theorem','rh_equivalence'):
+              assert s[key] == 'OPEN'
+          assert m['promotion_requested'] is False
+          assert m['declared_disposition']['authority_effect'] == 'NONE'
+          assert m['declared_disposition']['merge'] == 'NOT_PERFORMED'
+          assert m['declared_disposition']['claim_promotion'] == 'BLOCKED'
+          PY
+
+      - name: Checkout pinned Formal Conjectures project
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          repository: google-deepmind/formal-conjectures
+          ref: ${{ env.FORMAL_CONJECTURES_SHA }}
+          path: .external/formal-conjectures
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Verify external pins
+        working-directory: .external/formal-conjectures
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$FORMAL_CONJECTURES_SHA"
+          test "$(tr -d '\r\n' < lean-toolchain)" = "$LEAN_TOOLCHAIN"
+          python3 - <<'PY'
+          import json, os
+          from pathlib import Path
+          m = json.loads(Path('lake-manifest.json').read_text())
+          p = next(x for x in m['packages'] if x['name'] == 'mathlib')
+          assert (p.get('rev') or p.get('inputRev')) == os.environ['MATHLIB_SHA']
+          PY
+
+      - name: Install pinned elan
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl -sSfL https://github.com/leanprover/elan/releases/download/v1.4.2/elan-x86_64-unknown-linux-gnu.tar.gz | tar xz
+          ./elan-init -y --default-toolchain none
+          echo "$HOME/.elan/bin" >> "$GITHUB_PATH"
+
+      - name: Get pinned Mathlib cache
+        working-directory: .external/formal-conjectures
+        shell: bash
+        run: |
+          set -euo pipefail
+          lake exe cache get
+
+      - name: Bind pinned Mathlib sources
+        working-directory: .external/formal-conjectures
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git -C .lake/packages/mathlib rev-parse HEAD)" = "$MATHLIB_SHA"
+          test "$(git -C .lake/packages/mathlib hash-object Mathlib/NumberTheory/LSeries/HurwitzZetaValues.lean)" = "$HURWITZ_VALUES_BLOB_SHA"
+          test "$(git -C .lake/packages/mathlib hash-object Mathlib/NumberTheory/LSeries/Nonvanishing.lean)" = "$NONVANISHING_BLOB_SHA"
+          test "$(git -C .lake/packages/mathlib hash-object Mathlib/NumberTheory/LSeries/RiemannZeta.lean)" = "$RIEMANN_ZETA_BLOB_SHA"
+          grep -F 'theorem riemannZeta_one_sub' .lake/packages/mathlib/Mathlib/NumberTheory/LSeries/RiemannZeta.lean
+          grep -F 'theorem riemannZeta_neg_two_mul_nat_add_one' .lake/packages/mathlib/Mathlib/NumberTheory/LSeries/RiemannZeta.lean
+          grep -F 'theorem riemannZeta_neg_nat_eq_bernoulli' .lake/packages/mathlib/Mathlib/NumberTheory/LSeries/HurwitzZetaValues.lean
+          grep -F 'lemma _root_.riemannZeta_ne_zero_of_one_le_re' .lake/packages/mathlib/Mathlib/NumberTheory/LSeries/Nonvanishing.lean
+
+      - name: Compile nonpositive-to-trivial composition
+        working-directory: .external/formal-conjectures
+        shell: bash
+        run: |
+          set -euo pipefail
+          lean --version | tee "$GITHUB_WORKSPACE/zero-nonpositive-trivial-lean-version.txt"
+          lake env lean "$GITHUB_WORKSPACE/sovereign-omega-v2/formal/bridges/lean/ZeroNonpositiveTrivialV1.lean" \
+            2>&1 | tee "$GITHUB_WORKSPACE/zero-nonpositive-trivial-lean.log"
+          ! grep -F 'sorryAx' "$GITHUB_WORKSPACE/zero-nonpositive-trivial-lean.log"
+
+      - name: Emit fail-closed composition receipt
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import hashlib, json, os
+          from pathlib import Path
+          source = Path('sovereign-omega-v2/formal/bridges/lean/ZeroNonpositiveTrivialV1.lean')
+          manifest = Path('sovereign-omega-v2/formal/bridges/zero_nonpositive_trivial_v1.json')
+          log = Path('zero-nonpositive-trivial-lean.log').read_text()
+          digest = hashlib.sha256(source.read_bytes()).hexdigest()
+          assert digest == os.environ['SOURCE_SHA256']
+          assert 'sorryAx' not in log
+          receipt = {
+            'schema_version':'AEGIS_ZERO_NONPOSITIVE_TRIVIAL_RECEIPT_V1',
+            'source_commit':os.environ['SOURCE_SHA'],
+            'formal_source_sha256':digest,
+            'manifest_sha256':hashlib.sha256(manifest.read_bytes()).hexdigest(),
+            'parent_reduction_revision':os.environ['PARENT_REDUCTION_SHA'],
+            'parent_reduction_receipt_sha256':os.environ['PARENT_REDUCTION_RECEIPT'],
+            'parent_classification_revision':os.environ['PARENT_CLASSIFICATION_SHA'],
+            'parent_classification_receipt_sha256':os.environ['PARENT_CLASSIFICATION_RECEIPT'],
+            'formal_conjectures_revision':os.environ['FORMAL_CONJECTURES_SHA'],
+            'mathlib_revision':os.environ['MATHLIB_SHA'],
+            'lean_toolchain':os.environ['LEAN_TOOLCHAIN'],
+            'nonpositive_zero_is_trivial':'VERIFIED_WITHIN_DECLARED_SCOPE',
+            'lower_zero_localization':'OPEN',
+            'full_critical_strip_localization':'OPEN',
+            'height_truncation_equivalence':'OPEN',
+            'radial_limit_existence':'OPEN',
+            'explicit_formula_theorem':'OPEN',
+            'rh_equivalence':'OPEN',
+            'rh_proved':False,
+            'rh_disproved':False,
+            'claim_promotion':'BLOCKED',
+            'decision':'HOLD_RESEARCH_ONLY',
+            'merge':'NOT_PERFORMED',
+            'authority_effect':'NONE'
+          }
+          canonical = json.dumps(receipt, sort_keys=True, separators=(',', ':'))
+          receipt['receipt_sha256'] = hashlib.sha256(canonical.encode()).hexdigest()
+          Path('zero-nonpositive-trivial-receipt.json').write_text(json.dumps(receipt, sort_keys=True, indent=2)+'\n')
+          print(Path('zero-nonpositive-trivial-receipt.json').read_text())
+          PY
+
+      - name: Upload composition evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: rh-zero-nonpositive-trivial-${{ env.SOURCE_SHA }}
+          path: |
+            zero-nonpositive-trivial-lean-version.txt
+            zero-nonpositive-trivial-lean.log
+            zero-nonpositive-trivial-receipt.json
+          if-no-files-found: error
+          retention-days: 30

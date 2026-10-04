@@ -1,0 +1,57 @@
+{
+  "schema_version": "AEGIS_ZERO_SHELL_QUADRATIC_BOUND_V1",
+  "candidate": {
+    "formal_source": "sovereign-omega-v2/formal/bridges/lean/ZeroShellQuadraticBoundV1.lean",
+    "formal_source_git_blob_sha": "45e7f91166b32832c54e6538041d1a5d12171b12"
+  },
+  "verified_parent_evidence": {
+    "height_shell_mass_reduction": {
+      "aegis_revision": "d21e4e816138dd5a667c54efead726563769c271",
+      "receipt_sha256": "332f26c655506f9b0d9faa8a58654b5538303971d1b3cb7e1af87ec01ddf3968",
+      "artifact_sha256": "1fe6855c31119367801c9521e76a01e4171006de43ea80bf705eb042e1851cef",
+      "formal_source_git_blob_sha": "e7af2be4e5f0b1bbb1f605bbee19e919b92e5bd0"
+    }
+  },
+  "external_environment": {
+    "formal_conjectures_revision": "74b736b53ce688f57bad186b5dd862daaeeb708e",
+    "formal_conjectures_rh_blob_sha": "c8d38bef385eb15661c3daf7449625b66b019b2a",
+    "mathlib_revision": "0df444a360eaa60ab8c11dca51a86af692955474",
+    "lean_toolchain": "leanprover/lean4:v4.33.1"
+  },
+  "upstream_mathlib": [
+    {
+      "path": "Mathlib/Analysis/PSeries.lean",
+      "git_blob_sha": "6499506f39f848904fbf7c0aca08bc303c19dca4",
+      "required_declaration": "Real.summable_one_div_nat_pow"
+    },
+    {
+      "path": "Mathlib/Topology/Algebra/InfiniteSum/Real.lean",
+      "git_blob_sha": "32b87fa4ac3121786c310fa7b31ef263de567d13",
+      "required_declaration": "Summable.of_nonneg_of_le"
+    }
+  ],
+  "scope": {
+    "quadratic_shell_certificate_definition": "CANDIDATE",
+    "quadratic_reference_summability": "CANDIDATE",
+    "quadratic_bound_implies_shell_summability": "CANDIDATE",
+    "quadratic_bound_implies_zero_summability": "CANDIDATE",
+    "quadratic_bound_implies_height_limit": "CANDIDATE",
+    "actual_quadratic_shell_bound": "OPEN",
+    "mellin_decay_estimate": "OPEN",
+    "zero_counting_bound": "OPEN",
+    "weil_class_shell_mass_summability": "OPEN",
+    "conditional_symmetric_convergence": "OPEN",
+    "height_radial_equivalence": "OPEN",
+    "explicit_formula_theorem": "OPEN",
+    "critical_line_re_half": "OPEN",
+    "weil_criterion_bridge": "OPEN",
+    "rh_equivalence": "OPEN"
+  },
+  "promotion_requested": false,
+  "declared_disposition": {
+    "claim_promotion": "BLOCKED",
+    "decision": "HOLD_RESEARCH_ONLY",
+    "merge": "NOT_PERFORMED",
+    "authority_effect": "NONE"
+  }
+}

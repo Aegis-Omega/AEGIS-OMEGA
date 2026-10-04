@@ -1,0 +1,59 @@
+{
+  "schema_version": "AEGIS_ZERO_MULTIPLICITY_V1",
+  "namespace": "mathematics.rh.zero_multiplicity",
+  "evidence_class": "FORMAL_THEOREM_CANDIDATE",
+  "parent_bounded_zero": {
+    "aegis_revision": "3864bb8379fdfb79a9963dc802ee1d26ef9bad69",
+    "bounded_zero_receipt_sha256": "871c3392db9aadce93dc59a1f6c91264d9724d322860fbb742ee6faf6fba2788",
+    "bounded_zero_artifact_sha256": "7fab6caa17b59b63e60f05b255f20ce6ef46e48293bbea8136de2c5158fbaa19",
+    "formal_conjectures_revision": "74b736b53ce688f57bad186b5dd862daaeeb708e",
+    "mathlib_revision": "0df444a360eaa60ab8c11dca51a86af692955474",
+    "lean_toolchain": "leanprover/lean4:v4.33.1"
+  },
+  "upstream_mathlib": [
+    {
+      "path": "Mathlib/NumberTheory/LSeries/ZetaZeros.lean",
+      "git_blob_sha": "0b8046e67ae5d1e613366e86fdf6b205eea3a6b1",
+      "objects": [
+        "riemannZetaZeros",
+        "mem_riemannZetaZeros",
+        "isDiscrete_riemannZetaZeros"
+      ]
+    },
+    {
+      "path": "Mathlib/Analysis/Analytic/Order.lean",
+      "git_blob_sha": "43cc6d88cb0ecba9560d4c29a410b271d9432628",
+      "objects": [
+        "analyticOrderAt",
+        "analyticOrderNatAt",
+        "analyticOrderAt_eq_top",
+        "Nat.cast_analyticOrderNatAt",
+        "AnalyticAt.analyticOrderAt_ne_zero"
+      ]
+    }
+  ],
+  "formal_source": {
+    "path": "sovereign-omega-v2/formal/bridges/lean/ZeroMultiplicityV1.lean",
+    "sha256": "c4f8aa0e3b691abb99969b853cba94d6ef47a0794338418eb7bb7f8b7a99973f"
+  },
+  "scope": {
+    "nontrivial_zero_index": "ENCODED",
+    "analytic_order_finite_at_nontrivial_zero": "CANDIDATE",
+    "natural_multiplicity_positive": "CANDIDATE",
+    "multiplicity_cast_recovers_analytic_order": "CANDIDATE",
+    "pointwise_multiplicity_weighted_mellin_summand": "ENCODED",
+    "global_zero_sum": "OPEN",
+    "global_zero_sum_convergence": "OPEN",
+    "explicit_formula_theorem": "OPEN",
+    "rh_equivalence": "OPEN"
+  },
+  "promotion_requested": false,
+  "declared_disposition": {
+    "decision": "HOLD_RESEARCH_ONLY",
+    "rh_proved": false,
+    "rh_disproved": false,
+    "claim_promotion": "BLOCKED",
+    "merge": "NOT_PERFORMED",
+    "authority_effect": "NONE"
+  }
+}

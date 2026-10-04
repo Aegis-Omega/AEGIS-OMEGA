@@ -1,0 +1,25 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://aegis-omega.local/schemas/collective/provider-contribution-artifact-v1.schema.json",
+  "title": "AEGIS UCI Provider Contribution Artifact V1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "artifact_kind",
+    "sha256",
+    "media_type",
+    "byte_length",
+    "text",
+    "authority"
+  ],
+  "properties": {
+    "schema_version": { "const": "1.0.0" },
+    "artifact_kind": { "const": "PROVIDER_CONTRIBUTION_ARTIFACT_V1" },
+    "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "media_type": { "enum": ["text/plain", "text/markdown", "application/json"] },
+    "byte_length": { "type": "integer", "minimum": 1, "maximum": 262144 },
+    "text": { "type": "string", "minLength": 1 },
+    "authority": { "const": "NON_AUTHORITATIVE_EVIDENCE" }
+  }
+}

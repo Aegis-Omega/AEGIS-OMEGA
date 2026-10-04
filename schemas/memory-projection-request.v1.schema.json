@@ -1,0 +1,46 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://aegisomega.com/schemas/memory-projection-request.v1.schema.json",
+  "title": "AEGIS MemoryProjectionRequest V1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "request_kind",
+    "quarantine_root",
+    "content_digest",
+    "memory_class",
+    "epistemic_tier",
+    "memory_policy_commitment",
+    "expected_memory_sequence",
+    "expected_memory_event_root",
+    "nonce"
+  ],
+  "properties": {
+    "request_kind": {"const": "MEMORY_PROJECTION_REQUEST_V1"},
+    "quarantine_root": {"$ref": "#/$defs/hash"},
+    "content_digest": {"$ref": "#/$defs/hash"},
+    "memory_class": {"enum": ["EVIDENCE", "WORK_RESULT", "CALIBRATION", "CAPABILITY"]},
+    "epistemic_tier": {"const": "T2"},
+    "memory_policy_commitment": {"$ref": "#/$defs/hash"},
+    "expected_memory_sequence": {"type": "integer", "minimum": 0},
+    "expected_memory_event_root": {"$ref": "#/$defs/hash"},
+    "nonce": {"type": "string", "minLength": 1, "maxLength": 128}
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {"expected_memory_sequence": {"const": 0}},
+        "required": ["expected_memory_sequence"]
+      },
+      "then": {
+        "properties": {"expected_memory_event_root": {"const": "0000000000000000000000000000000000000000000000000000000000000000"}}
+      },
+      "else": {
+        "properties": {"expected_memory_event_root": {"not": {"const": "0000000000000000000000000000000000000000000000000000000000000000"}}}
+      }
+    }
+  ],
+  "$defs": {
+    "hash": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+  }
+}

@@ -1,0 +1,37 @@
+{
+  "schema_version": "1.0.0",
+  "corpus_kind": "MATH_DISPROVAL_GATE_V1_VECTORS",
+  "cases": [
+    {"id":"a01-coq-prove","class":"AGGREGATE","scenario":"COQ_PROVE","expected_verdict":"PROVED","expected_level":"SINGLE_KERNEL","expected_rejected":0},
+    {"id":"a02-lean-prove","class":"AGGREGATE","scenario":"LEAN_PROVE","expected_verdict":"PROVED","expected_level":"SINGLE_KERNEL","expected_rejected":0},
+    {"id":"a03-coq-negation","class":"AGGREGATE","scenario":"COQ_NEGATION","expected_verdict":"DISPROVED","expected_level":"SINGLE_KERNEL","expected_rejected":0},
+    {"id":"a04-coq-counterexample","class":"AGGREGATE","scenario":"COQ_COUNTEREXAMPLE","expected_verdict":"DISPROVED","expected_level":"SINGLE_KERNEL","expected_rejected":0},
+    {"id":"a05-cross-prove","class":"AGGREGATE","scenario":"CROSS_PROVE","expected_verdict":"PROVED","expected_level":"CROSS_KERNEL","expected_rejected":0},
+    {"id":"a06-cross-disprove","class":"AGGREGATE","scenario":"CROSS_DISPROVE","expected_verdict":"DISPROVED","expected_level":"CROSS_KERNEL","expected_rejected":0},
+    {"id":"a07-timeout-not-disproof","class":"AGGREGATE","scenario":"TIMEOUT","expected_verdict":"UNRESOLVED","expected_level":"SINGLE_KERNEL","expected_rejected":0},
+    {"id":"a08-error-not-disproof","class":"AGGREGATE","scenario":"ERROR","expected_verdict":"UNRESOLVED","expected_level":"SINGLE_KERNEL","expected_rejected":0},
+    {"id":"a09-rejected-not-disproof","class":"AGGREGATE","scenario":"REJECTED","expected_verdict":"UNRESOLVED","expected_level":"SINGLE_KERNEL","expected_rejected":0},
+    {"id":"a10-heuristic-only","class":"AGGREGATE","scenario":"HEURISTIC_ONLY","expected_verdict":"UNRESOLVED","expected_level":"SINGLE_KERNEL","expected_rejected":0},
+    {"id":"a11-wrong-claim","class":"AGGREGATE","scenario":"WRONG_CLAIM","expected_verdict":"UNRESOLVED","expected_level":"SINGLE_KERNEL","expected_rejected":1},
+    {"id":"a12-wrong-assumptions","class":"AGGREGATE","scenario":"WRONG_ASSUMPTIONS","expected_verdict":"UNRESOLVED","expected_level":"SINGLE_KERNEL","expected_rejected":1},
+    {"id":"a13-wrong-binding","class":"AGGREGATE","scenario":"WRONG_BINDING","expected_verdict":"UNRESOLVED","expected_level":"SINGLE_KERNEL","expected_rejected":1},
+    {"id":"a14-stale-policy","class":"AGGREGATE","scenario":"STALE_POLICY","expected_verdict":"UNRESOLVED","expected_level":"SINGLE_KERNEL","expected_rejected":1,"expected_diagnostic":"FORMALIZATION_BINDING_CLAIM_MISMATCH"},
+    {"id":"a15-unknown-field","class":"AGGREGATE","scenario":"UNKNOWN_FIELD","expected_verdict":"UNRESOLVED","expected_level":"SINGLE_KERNEL","expected_rejected":1},
+    {"id":"a16-proof-disproof-contradiction","class":"AGGREGATE","scenario":"CONTRADICTION","expected_verdict":"UNRESOLVED","expected_level":"SINGLE_KERNEL","expected_rejected":0,"expected_diagnostic":"KERNEL_INCONSISTENCY_DETECTED"},
+    {"id":"a17-formalization-digest-tamper","class":"AGGREGATE","scenario":"FORMALIZATION_DIGEST_TAMPER","expected_verdict":"UNRESOLVED","expected_level":"SINGLE_KERNEL","expected_rejected":1},
+    {"id":"a18-cross-different-binding","class":"AGGREGATE","scenario":"CROSS_DIFFERENT_BINDING","expected_verdict":"PROVED","expected_level":"SINGLE_KERNEL","expected_rejected":1},
+    {"id":"a19-attempt-artifact-launder","class":"AGGREGATE","scenario":"ATTEMPT_ARTIFACT_LAUNDER","expected_verdict":"UNRESOLVED","expected_level":"SINGLE_KERNEL","expected_rejected":1},
+    {"id":"a20-receipt-injection","class":"AGGREGATE","scenario":"RECEIPT_INJECTION","expected_verdict":"UNRESOLVED","expected_level":"SINGLE_KERNEL","expected_rejected":1},
+
+    {"id":"s01-coq-strict","class":"SOURCE_AUDIT","source_kind":"COQ","source":"Theorem t : True. Proof. exact I. Qed.","expected_strict":true,"expected_forbidden":[]},
+    {"id":"s02-coq-axiom","class":"SOURCE_AUDIT","source_kind":"COQ","source":"Axiom hidden_truth : True.","expected_strict":false,"expected_forbidden":["Axiom"]},
+    {"id":"s03-coq-parameter","class":"SOURCE_AUDIT","source_kind":"COQ","source":"Parameter sha256 : nat -> nat.","expected_strict":false,"expected_forbidden":["Parameter"]},
+    {"id":"s04-coq-admitted","class":"SOURCE_AUDIT","source_kind":"COQ","source":"Theorem t : True. Admitted.","expected_strict":false,"expected_forbidden":["Admitted"]},
+    {"id":"s05-coq-admit","class":"SOURCE_AUDIT","source_kind":"COQ","source":"Theorem t : True. Proof. admit. Qed.","expected_strict":false,"expected_forbidden":["admit"]},
+    {"id":"s06-coq-comment-does-not-launder","class":"SOURCE_AUDIT","source_kind":"COQ","source":"(* Axiom fake : False. Admitted. *) Theorem t : True. Proof. exact I. Qed.","expected_strict":true,"expected_forbidden":[]},
+    {"id":"s07-lean-strict","class":"SOURCE_AUDIT","source_kind":"LEAN","source":"theorem t : True := by trivial","expected_strict":true,"expected_forbidden":[]},
+    {"id":"s08-lean-sorry","class":"SOURCE_AUDIT","source_kind":"LEAN","source":"theorem t : True := by sorry","expected_strict":false,"expected_forbidden":["sorry"]},
+    {"id":"s09-lean-admit","class":"SOURCE_AUDIT","source_kind":"LEAN","source":"theorem t : True := by admit","expected_strict":false,"expected_forbidden":["admit"]},
+    {"id":"s10-lean-comment-does-not-launder","class":"SOURCE_AUDIT","source_kind":"LEAN","source":"-- sorry\ntheorem t : True := by trivial","expected_strict":true,"expected_forbidden":[]}
+  ]
+}

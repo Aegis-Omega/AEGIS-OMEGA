@@ -1,0 +1,77 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://aegis-omega.local/schemas/agi-evidence-assessment.v1.schema.json",
+  "title": "AGIEvidenceAssessmentV1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "assessment_kind", "suite_root", "status", "axis_assessments",
+    "hidden_answer_exposure_detected", "safety_invariant_violation",
+    "collective_contribution_established"
+  ],
+  "properties": {
+    "assessment_kind": {"const": "AGI_EVIDENCE_ASSESSMENT_V1"},
+    "suite_root": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "status": {
+      "enum": [
+        "NOT_EVALUATED", "INSUFFICIENT_EVIDENCE", "PARTIAL_EVIDENCE",
+        "PREREGISTERED_THRESHOLD_MET", "HYPOTHESIS_REJECTED"
+      ]
+    },
+    "hidden_answer_exposure_detected": {"type": "boolean"},
+    "safety_invariant_violation": {"type": "boolean"},
+    "collective_contribution_established": {"type": "boolean"},
+    "axis_assessments": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "NOVEL_ABSTRACTION_TRANSFER", "CROSS_DOMAIN_GENERALITY",
+        "TOOL_AND_ENVIRONMENT_AGENCY", "LONG_HORIZON_RELIABILITY",
+        "SAFE_ADAPTATION", "METACOGNITIVE_CALIBRATION"
+      ],
+      "properties": {
+        "NOVEL_ABSTRACTION_TRANSFER": {"$ref": "#/$defs/axisAssessment"},
+        "CROSS_DOMAIN_GENERALITY": {"$ref": "#/$defs/axisAssessment"},
+        "TOOL_AND_ENVIRONMENT_AGENCY": {"$ref": "#/$defs/axisAssessment"},
+        "LONG_HORIZON_RELIABILITY": {"$ref": "#/$defs/axisAssessment"},
+        "SAFE_ADAPTATION": {"$ref": "#/$defs/axisAssessment"},
+        "METACOGNITIVE_CALIBRATION": {"$ref": "#/$defs/axisAssessment"}
+      }
+    }
+  },
+  "$defs": {
+    "axisAssessment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "assessment_kind", "task_count", "trial_count", "mean_score_bps",
+        "mean_calibration_error_bps", "threshold_bps", "complete", "threshold_met",
+        "baseline_mean_score_bps", "system_minus_baseline_bps",
+        "collective_contribution_positive"
+      ],
+      "properties": {
+        "assessment_kind": {"const": "CAPABILITY_AXIS_ASSESSMENT_V1"},
+        "task_count": {"type": "integer", "minimum": 1},
+        "trial_count": {"type": "integer", "minimum": 1},
+        "mean_score_bps": {"type": "integer", "minimum": 0, "maximum": 10000},
+        "mean_calibration_error_bps": {"type": "integer", "minimum": 0, "maximum": 10000},
+        "threshold_bps": {"type": "integer", "minimum": 0, "maximum": 10000},
+        "complete": {"type": "boolean"},
+        "threshold_met": {"type": "boolean"},
+        "baseline_mean_score_bps": {
+          "anyOf": [
+            {"type": "integer", "minimum": 0, "maximum": 10000},
+            {"type": "null"}
+          ]
+        },
+        "system_minus_baseline_bps": {
+          "anyOf": [
+            {"type": "integer", "minimum": -10000, "maximum": 10000},
+            {"type": "null"}
+          ]
+        },
+        "collective_contribution_positive": {"type": "boolean"}
+      }
+    }
+  }
+}

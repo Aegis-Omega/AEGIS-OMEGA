@@ -1,0 +1,54 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://aegisomega.com/schemas/canonical-memory-record.v1.schema.json",
+  "title": "AEGIS CanonicalMemoryRecord V1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "record_kind",
+    "projection_request_root",
+    "source_quarantine_root",
+    "content_digest",
+    "memory_class",
+    "epistemic_tier",
+    "authority",
+    "authority_weight_bps",
+    "source_transition_id",
+    "source_admission_root",
+    "memory_policy_commitment",
+    "sequence",
+    "prior_memory_event_root"
+  ],
+  "properties": {
+    "record_kind": {"const": "CANONICAL_MEMORY_RECORD_V1"},
+    "projection_request_root": {"$ref": "#/$defs/hash"},
+    "source_quarantine_root": {"$ref": "#/$defs/hash"},
+    "content_digest": {"$ref": "#/$defs/hash"},
+    "memory_class": {"enum": ["EVIDENCE", "WORK_RESULT", "CALIBRATION", "CAPABILITY"]},
+    "epistemic_tier": {"const": "T2"},
+    "authority": {"const": "EVIDENCE_ONLY"},
+    "authority_weight_bps": {"const": 0},
+    "source_transition_id": {"$ref": "#/$defs/hash"},
+    "source_admission_root": {"$ref": "#/$defs/hash"},
+    "memory_policy_commitment": {"$ref": "#/$defs/hash"},
+    "sequence": {"type": "integer", "minimum": 1},
+    "prior_memory_event_root": {"$ref": "#/$defs/hash"}
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {"sequence": {"const": 1}},
+        "required": ["sequence"]
+      },
+      "then": {
+        "properties": {"prior_memory_event_root": {"const": "0000000000000000000000000000000000000000000000000000000000000000"}}
+      },
+      "else": {
+        "properties": {"prior_memory_event_root": {"not": {"const": "0000000000000000000000000000000000000000000000000000000000000000"}}}
+      }
+    }
+  ],
+  "$defs": {
+    "hash": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+  }
+}

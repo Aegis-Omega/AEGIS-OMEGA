@@ -1,0 +1,68 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://aegis-omega.local/schemas/reflexive-self-model/prediction-error-receipt-v1.schema.json",
+  "title": "PredictionErrorReceiptV1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "record_kind",
+    "schema_version",
+    "cycle_id",
+    "prediction_digest",
+    "observation_digest",
+    "target_kind",
+    "target_id",
+    "policy_digest",
+    "epoch_id",
+    "prestate_root",
+    "per_clause",
+    "weighted_error_bps",
+    "confidence_residual_bps",
+    "scoring_status",
+    "diagnostics",
+    "receipt_digest",
+    "authority"
+  ],
+  "properties": {
+    "record_kind": { "const": "PREDICTION_ERROR_RECEIPT_V1" },
+    "schema_version": { "const": "1.0.0" },
+    "cycle_id": { "type": "string", "minLength": 1 },
+    "prediction_digest": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "observation_digest": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "target_kind": { "enum": ["TRANSITION", "WORK_NODE"] },
+    "target_id": { "type": "string", "minLength": 1 },
+    "policy_digest": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "epoch_id": { "type": "string", "minLength": 1 },
+    "prestate_root": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "per_clause": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["clause_id", "correct", "error_bps", "confidence_residual_bps"],
+        "properties": {
+          "clause_id": { "type": "string", "minLength": 1 },
+          "correct": { "type": "boolean" },
+          "error_bps": { "type": "integer", "minimum": 0, "maximum": 10000 },
+          "confidence_residual_bps": { "type": "integer", "minimum": 0, "maximum": 10000 }
+        }
+      }
+    },
+    "weighted_error_bps": {
+      "anyOf": [
+        { "type": "integer", "minimum": 0, "maximum": 10000 },
+        { "type": "null" }
+      ]
+    },
+    "confidence_residual_bps": {
+      "anyOf": [
+        { "type": "integer", "minimum": 0, "maximum": 10000 },
+        { "type": "null" }
+      ]
+    },
+    "scoring_status": { "enum": ["SCORED", "UNSCORABLE"] },
+    "diagnostics": { "type": "array", "items": { "type": "string" } },
+    "receipt_digest": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "authority": { "const": "CALIBRATION_EVIDENCE_ONLY" }
+  }
+}

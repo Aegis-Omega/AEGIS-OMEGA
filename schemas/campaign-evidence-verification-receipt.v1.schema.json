@@ -1,0 +1,38 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://aegis-omega.local/schemas/campaign-evidence-verification-receipt.v1.schema.json",
+  "title": "CampaignEvidenceVerificationReceiptV1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "receipt_kind",
+    "verification_id",
+    "bundle_root",
+    "campaign_root",
+    "pair_verification_roots",
+    "benchmark_adapter_executable_commitment",
+    "runner_environment_commitment",
+    "execution_receipt_bundle_commitment",
+    "verification_status",
+    "key_id",
+    "mac_hex"
+  ],
+  "properties": {
+    "receipt_kind": {"const": "CAMPAIGN_EVIDENCE_VERIFICATION_RECEIPT_V1"},
+    "verification_id": {"type": "string", "minLength": 1, "pattern": "^[A-Za-z0-9._:/@+#=-]+$"},
+    "bundle_root": {"type": "string", "pattern": "^(?!0{64}$)[0-9a-f]{64}$"},
+    "campaign_root": {"type": "string", "pattern": "^(?!0{64}$)[0-9a-f]{64}$"},
+    "pair_verification_roots": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {"type": "string", "pattern": "^(?!0{64}$)[0-9a-f]{64}$"}
+    },
+    "benchmark_adapter_executable_commitment": {"type": "string", "pattern": "^(?!0{64}$)[0-9a-f]{64}$"},
+    "runner_environment_commitment": {"type": "string", "pattern": "^(?!0{64}$)[0-9a-f]{64}$"},
+    "execution_receipt_bundle_commitment": {"type": "string", "pattern": "^(?!0{64}$)[0-9a-f]{64}$"},
+    "verification_status": {"const": "COLLECTIVE_CONTRIBUTION_EVALUABLE"},
+    "key_id": {"type": "string", "minLength": 1, "pattern": "^[A-Za-z0-9._:/@+#=-]+$"},
+    "mac_hex": {"type": "string", "pattern": "^(?!0{64}$)[0-9a-f]{64}$"}
+  }
+}
