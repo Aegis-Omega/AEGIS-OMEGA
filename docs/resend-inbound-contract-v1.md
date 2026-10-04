@@ -26,6 +26,8 @@ For `email.received`, the signed object must contain only the reviewed fields. R
 
 The trusted route is selected by the configured receiving-address allowlist. Every normalized address in `data.to` must belong to that allowlist. `from`, `cc`, `bcc`, subject text, Message-ID, `received_for`, and attachment metadata never select authority.
 
+The emitted payload is bound to `schemas/resend-inbound-metadata.v1.schema.json`; the EventEnvelope declares `payload_schema=resend-inbound-metadata.v1`, and regression tests require the schema's required/property set to match the emitted data exactly.
+
 The webhook payload is treated as metadata only. This adapter does not call Resend APIs to fetch message text, HTML, MIME parts, headers, attachment bytes, or download URLs. It does not render HTML or resolve remote URLs. Every admitted observation records `content_state: NOT_FETCHED`, `attachment_content_state: NOT_FETCHED`, `execution_state: NOT_EXECUTED`, and an empty `granted_capabilities` list.
 
 Unexpected provider fields fail closed with schema drift rather than being silently accepted.
