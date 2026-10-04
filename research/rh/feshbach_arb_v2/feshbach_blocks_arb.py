@@ -67,11 +67,27 @@ K2 = pi / 4 + 1 / (2 * ymin) + KS + sum(W, arb(0))   # |S[n]| <= pi/4 + 1/(2y) +
 alpha = [-(sS(m, Sb[m][0]) + sum((w * (2 * pi * m * y / L).sin() for w, y in zip(W, Y)), arb(0))) for m in band]
 avec = [1 / (m * m + beta * beta) for m in band]; bvec = [m / (m * m + beta * beta) for m in band]
 def outer(v): return acb_mat([[acb(v[i]) * acb(v[j]) for j in range(len(v))] for i in range(len(v))])
-c1 = 10 / (pi * pi * NP)
-Tail = outer(alpha) * c1 + outer([arb(1)] * len(band)) * (c1 * K2 * K2) + outer(bvec) * (c1 * pi * pi * Cc * Cc) \
-     + outer(avec) * (c1 * pi * pi * Cc * Cc * beta ** 4 / (NP * NP))
+import os
+TAIL_ORDER = int(os.environ.get('TAIL_ORDER', '1'))
 Amax = max(abs(a_) for a_ in alpha).upper()
-Eco = 10 * (Amax + K2) ** 2 * N * N * (2 * N + 1) / (3 * pi * pi * arb(NP - N) ** 3)
+ONES = [arb(1)] * len(band)
+if TAIL_ORDER == 1:
+    c1 = 10 / (pi * pi * NP)
+    Tail = outer(alpha) * c1 + outer(ONES) * (c1 * K2 * K2) + outer(bvec) * (c1 * pi * pi * Cc * Cc) \
+         + outer(avec) * (c1 * pi * pi * Cc * Cc * beta ** 4 / (NP * NP))
+    Eco = 10 * (Amax + K2) ** 2 * N * N * (2 * N + 1) / (3 * pi * pi * arb(NP - N) ** 3)
+else:
+    # Second order: 1/(n-m) = 1/n + m/n^2 + m^2/(n^2 (n-m)).
+    #   (Qv)_n = [l1 + b_n l0]/(pi n) + [l1' + b_n l0']/(pi n^2) + pole_n + rho_n,
+    #   l1' = sum alpha_m m v_m, l0' = sum m v_m, |b_n| <= K2,
+    #   |pole_n| <= Cc |lb|/|n| + Cc beta^2 |la|/n^2,
+    #   |rho_n| <= (Amax + K2) N^2 ||v||_1 / (pi n^2 (|n| - N)).
+    # Cauchy-Schwarz over 7 terms; sum_{|n|>NP} n^-2 <= 2/NP, n^-4 <= 2/(3 NP^3), n^-4 (n-N)^-2 <= 2/(5 (NP-N)^5).
+    c1 = 14 / (pi * pi * NP); c2 = 14 / (3 * pi * pi * arb(NP) ** 3)
+    alpha_m = [a_ * m for a_, m in zip(alpha, band)]; mvec = [arb(m) for m in band]
+    Tail = outer(alpha) * c1 + outer(ONES) * (c1 * K2 * K2) + outer(bvec) * (c1 * pi * pi * Cc * Cc) \
+         + outer(alpha_m) * c2 + outer(mvec) * (c2 * K2 * K2) + outer(avec) * (c2 * pi * pi * Cc * Cc * beta ** 4)
+    Eco = 14 * (Amax + K2) ** 2 * arb(N) ** 4 * (2 * N + 1) / (5 * pi * pi * arb(NP - N) ** 5)
 print('K2', K2, 'Amax', Amax, 'Eco', Eco)
 Ib = acb_mat(2 * N + 1, 2 * N + 1)
 for i in range(2 * N + 1): Ib[i, i] = Eco
