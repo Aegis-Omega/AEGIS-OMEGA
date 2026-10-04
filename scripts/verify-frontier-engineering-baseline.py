@@ -1,15 +1,15 @@
 #!/usr/bin/env python3
 """Fail-closed source verifier for the AEGIS frontier engineering baseline.
 
-V2 security changes:
-- parses both `uses:` and canonical YAML list form `- uses:`;
-- treats mutable third-party action/workflow refs as a hard failure;
-- separates source/provenance/action-pin verdicts;
+V3 security changes:
+- preserves V2 exact-candidate and immutable-action enforcement;
+- requires a continuous OpenSSF Scorecard workflow;
+- verifies Scorecard SARIF publication, OIDC publication permission, and pinned action refs;
 - binds candidate SHA, verifier SHA-256, and policy version into the receipt;
 - writes a receipt even when the verifier fails (when --json-output is supplied).
 
 This verifier is source-only. It does not claim live GitHub settings, hosted
-execution, secret-scanning, or production admission.
+execution, secret-scanning, Scorecard execution, or production admission.
 """
 from __future__ import annotations
 
@@ -22,8 +22,8 @@ import subprocess
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-SCHEMA = "aegis.frontier-engineering-baseline.v2"
-POLICY_VERSION = "FRONTIER_ENGINEERING_BASELINE_POLICY_V2"
+SCHEMA = "aegis.frontier-engineering-baseline.v3"
+POLICY_VERSION = "FRONTIER_ENGINEERING_BASELINE_POLICY_V3"
 FULL_SHA = re.compile(r"^[0-9a-f]{40}$")
 USE_LINE = re.compile(
     r"""^\s*(?:-\s*)?uses:\s*["']?(?P<value>[^"'\s#]+)["']?\s*(?:#.*)?$"""
@@ -34,6 +34,7 @@ REQUIRED = (
     ".github/CODEOWNERS",
     ".github/dependabot.yml",
     ".github/workflows/osv-scanner.yml",
+    ".github/workflows/scorecard.yml",
     ".github/workflows/automaton-2.yml",
     "scripts/check_repository_enforcement.py",
     "docs/rfcs/0001-operator-sovereign-control-plane.md",
@@ -44,6 +45,7 @@ CRITICAL_WORKFLOWS = (
     ".github/workflows/automaton-3.yml",
     ".github/workflows/ci.yml",
     ".github/workflows/osv-scanner.yml",
+    ".github/workflows/scorecard.yml",
 )
 
 
@@ -68,7 +70,7 @@ def _candidate_sha(root: Path, explicit: str | None) -> str:
 
 
 def action_refs(path: Path) -> list[dict[str, str | bool]]:
-    """Return every `uses:` ref, including YAML list form `- uses:`."""
+    """Return every uses ref, including canonical YAML list form."""
     rows: list[dict[str, str | bool]] = []
     if not path.exists():
         return rows
@@ -80,7 +82,6 @@ def action_refs(path: Path) -> list[dict[str, str | bool]]:
             continue
         value = match.group("value")
 
-        # Repository-local actions are content-bound by the candidate checkout.
         if value.startswith("./"):
             rows.append(
                 {
@@ -92,8 +93,6 @@ def action_refs(path: Path) -> list[dict[str, str | bool]]:
             )
             continue
 
-        # Docker references are a distinct supply-chain surface and must use a
-        # digest if they appear in a critical workflow.
         if value.startswith("docker://"):
             pinned = "@sha256:" in value
             rows.append(
@@ -122,6 +121,13 @@ def action_refs(path: Path) -> list[dict[str, str | bool]]:
     return rows
 
 
+def _pinned_action_present(path: Path, prefix: str) -> bool:
+    return any(
+        str(row["ref"]).startswith(prefix + "@") and bool(row["pinned_full_sha"])
+        for row in action_refs(path)
+    )
+
+
 def evaluate(root: Path, *, candidate_sha: str, verifier_sha256: str) -> dict[str, object]:
     missing = [p for p in REQUIRED if not (root / p).exists()]
 
@@ -141,6 +147,28 @@ def evaluate(root: Path, *, candidate_sha: str, verifier_sha256: str) -> dict[st
         "exact_candidate_binding": "CANDIDATE_SHA" in automaton,
     }
 
+    scorecard_path = root / ".github/workflows/scorecard.yml"
+    scorecard = (
+        scorecard_path.read_text(encoding="utf-8")
+        if scorecard_path.exists()
+        else ""
+    )
+    scorecard_controls = {
+        "workflow_present": scorecard_path.is_file(),
+        "default_branch_push": "push:" in scorecard and "branches: [main]" in scorecard,
+        "scheduled": "schedule:" in scorecard and "cron:" in scorecard,
+        "sarif_results": "results_format: sarif" in scorecard,
+        "security_events_write": "security-events: write" in scorecard,
+        "oidc_publish_permission": "id-token: write" in scorecard,
+        "authenticated_publish": "publish_results: true" in scorecard,
+        "scorecard_action_pinned": _pinned_action_present(
+            scorecard_path, "ossf/scorecard-action"
+        ),
+        "sarif_uploader_pinned": _pinned_action_present(
+            scorecard_path, "github/codeql-action/upload-sarif"
+        ),
+    }
+
     mutable_refs: list[dict[str, str]] = []
     all_refs: list[dict[str, str | bool]] = []
     for rel in CRITICAL_WORKFLOWS:
@@ -158,11 +186,13 @@ def evaluate(root: Path, *, candidate_sha: str, verifier_sha256: str) -> dict[st
 
     source_controls_complete = not missing
     provenance_controls_complete = all(provenance_controls.values())
+    scorecard_controls_complete = all(scorecard_controls.values())
     immutable_action_refs_complete = not mutable_refs
     overall_ok = all(
         (
             source_controls_complete,
             provenance_controls_complete,
+            scorecard_controls_complete,
             immutable_action_refs_complete,
         )
     )
@@ -175,10 +205,12 @@ def evaluate(root: Path, *, candidate_sha: str, verifier_sha256: str) -> dict[st
         "verifier_sha256": verifier_sha256,
         "source_controls_complete": source_controls_complete,
         "provenance_controls_complete": provenance_controls_complete,
+        "scorecard_controls_complete": scorecard_controls_complete,
         "immutable_action_refs_complete": immutable_action_refs_complete,
         "required_source_controls_present": source_controls_complete,
         "missing_source_controls": missing,
         "provenance_controls": provenance_controls,
+        "scorecard_controls": scorecard_controls,
         "critical_workflow_action_refs": all_refs,
         "critical_workflow_mutable_action_refs": mutable_refs,
         "workflow_pin_status": "PASS" if immutable_action_refs_complete else "FAIL",
@@ -186,6 +218,7 @@ def evaluate(root: Path, *, candidate_sha: str, verifier_sha256: str) -> dict[st
         "limitations": [
             "Source inspection cannot prove live GitHub ruleset state.",
             "Source inspection cannot prove secret-scanning or push-protection settings.",
+            "Scorecard source configuration cannot prove that a hosted Scorecard run completed.",
             "Source PASS is not hosted execution, release, merge, deploy, or authority promotion.",
         ],
     }

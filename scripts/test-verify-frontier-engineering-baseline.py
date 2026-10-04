@@ -20,7 +20,7 @@ CANDIDATE = "b" * 40
 VERIFIER = "c" * 64
 
 
-def populate_required(root: Path, *, mutable: bool) -> None:
+def populate_required(root: Path, *, mutable: bool, scorecard_complete: bool = True) -> None:
     for rel in baseline.REQUIRED:
         path = root / rel
         path.parent.mkdir(parents=True, exist_ok=True)
@@ -49,6 +49,30 @@ steps:
         p = root / rel
         p.parent.mkdir(parents=True, exist_ok=True)
         p.write_text(f"steps:\n  - uses: actions/checkout@{FULL}\n", encoding="utf-8")
+
+    scorecard = root / ".github/workflows/scorecard.yml"
+    publish = "true" if scorecard_complete else "false"
+    scorecard.write_text(
+        f"""on:
+  push:
+    branches: [main]
+  schedule:
+    - cron: '17 5 * * 1'
+jobs:
+  analysis:
+    permissions:
+      security-events: write
+      id-token: write
+    steps:
+      - uses: actions/checkout@{FULL}
+      - uses: ossf/scorecard-action@{FULL}
+        with:
+          results_format: sarif
+          publish_results: {publish}
+      - uses: github/codeql-action/upload-sarif@{FULL}
+""",
+        encoding="utf-8",
+    )
 
 
 class FrontierEngineeringBaselineTests(unittest.TestCase):
@@ -81,7 +105,37 @@ class FrontierEngineeringBaselineTests(unittest.TestCase):
             self.assertFalse(report["immutable_action_refs_complete"])
             self.assertGreater(len(report["critical_workflow_mutable_action_refs"]), 0)
 
-    def test_all_full_shas_can_pass_source_baseline(self) -> None:
+    def test_incomplete_scorecard_is_hard_failure(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            populate_required(root, mutable=False, scorecard_complete=False)
+            report = baseline.evaluate(
+                root,
+                candidate_sha=CANDIDATE,
+                verifier_sha256=VERIFIER,
+            )
+            self.assertEqual(report["overall"], "FAIL")
+            self.assertFalse(report["scorecard_controls_complete"])
+            self.assertFalse(report["scorecard_controls"]["authenticated_publish"])
+
+    def test_scorecard_actions_must_be_pinned(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            populate_required(root, mutable=False)
+            scorecard = root / ".github/workflows/scorecard.yml"
+            text = scorecard.read_text(encoding="utf-8").replace(
+                f"ossf/scorecard-action@{FULL}", "ossf/scorecard-action@v2.4.4"
+            )
+            scorecard.write_text(text, encoding="utf-8")
+            report = baseline.evaluate(
+                root,
+                candidate_sha=CANDIDATE,
+                verifier_sha256=VERIFIER,
+            )
+            self.assertEqual(report["overall"], "FAIL")
+            self.assertFalse(report["scorecard_controls"]["scorecard_action_pinned"])
+
+    def test_all_full_shas_and_scorecard_can_pass_source_baseline(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             populate_required(root, mutable=False)
@@ -92,6 +146,7 @@ class FrontierEngineeringBaselineTests(unittest.TestCase):
             )
             self.assertEqual(report["overall"], "PASS")
             self.assertTrue(report["immutable_action_refs_complete"])
+            self.assertTrue(report["scorecard_controls_complete"])
             self.assertEqual(report["critical_workflow_mutable_action_refs"], [])
 
 
