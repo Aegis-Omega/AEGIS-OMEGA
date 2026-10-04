@@ -183,6 +183,77 @@ describe('ConstitutionalClaudeClient.send', () => {
 
 // ── ConstitutionalClaudeClient.quickAsk ───────────────────
 
+
+describe('ConstitutionalClaudeClient Claude 5.5 compatibility', () => {
+  beforeEach(() => {
+    mocks.messagesCreate.mockResolvedValue(makeApiResponse('5.5 answer'))
+  })
+
+  it('rejects temperature for Claude 5.5 before the network call', async () => {
+    const client = new ConstitutionalClaudeClient('test-key')
+    await expect(client.send({
+      messages: [{ role: 'user', content: 'q' }],
+      model: 'claude-opus-5-5',
+      max_tokens: 100,
+      temperature: 0.5,
+    })).rejects.toThrow(/CLAUDE_5_5_UNSUPPORTED_PARAMETER:temperature/)
+    expect(mocks.messagesCreate).not.toHaveBeenCalled()
+  })
+
+  it('passes explicit effort through output_config for Claude 5.5', async () => {
+    const client = new ConstitutionalClaudeClient('test-key')
+    await client.send({
+      messages: [{ role: 'user', content: 'q' }],
+      model: 'claude-opus-5-5',
+      max_tokens: 100,
+      effort: 'low',
+    } as any)
+    const args = mocks.messagesCreate.mock.calls[0]![0] as {
+      output_config?: { effort?: string }
+    }
+    expect(args.output_config?.effort).toBe('low')
+  })
+
+  it('uses Sonnet 5.5 adaptive thinking with explicit high effort by default', async () => {
+    const client = new ConstitutionalClaudeClient('test-key')
+    await client.think([{ role: 'user', content: 'q' }])
+    const args = mocks.messagesCreate.mock.calls[0]![0] as {
+      model?: string
+      thinking?: { type?: string; budget_tokens?: number }
+      output_config?: { effort?: string }
+    }
+    expect(args.model).toBe('claude-sonnet-5-5')
+    expect(args.thinking).toEqual({ type: 'adaptive' })
+    expect(args.thinking).not.toHaveProperty('budget_tokens')
+    expect(args.output_config?.effort).toBe('high')
+  })
+
+  it('rejects a numeric thinking budget for Claude 5.5 before the network call', async () => {
+    const client = new ConstitutionalClaudeClient('test-key')
+    await expect(client.think(
+      [{ role: 'user', content: 'q' }],
+      'claude-opus-5-5',
+      5000 as any,
+      10000,
+    )).rejects.toThrow(/CLAUDE_5_5_MANUAL_THINKING_BUDGET_UNSUPPORTED/)
+    expect(mocks.messagesCreate).not.toHaveBeenCalled()
+  })
+
+  it('preserves legacy numeric thinking budgets for older Claude models', async () => {
+    const client = new ConstitutionalClaudeClient('test-key')
+    await client.think(
+      [{ role: 'user', content: 'q' }],
+      'claude-sonnet-4-6',
+      5000 as any,
+      10000,
+    )
+    const args = mocks.messagesCreate.mock.calls[0]![0] as {
+      thinking?: { type?: string; budget_tokens?: number }
+    }
+    expect(args.thinking).toEqual({ type: 'enabled', budget_tokens: 5000 })
+  })
+})
+
 describe('ConstitutionalClaudeClient.quickAsk', () => {
   beforeEach(() => {
     mocks.messagesCreate.mockResolvedValue(makeApiResponse('Quick answer'))
