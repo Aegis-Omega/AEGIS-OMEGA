@@ -100,14 +100,25 @@ drop trigger if exists scale_os_event_envelopes_v1_append_only
   on public.scale_os_event_envelopes_v1;
 
 create trigger scale_os_event_envelopes_v1_append_only
-before update or delete on public.scale_os_event_envelopes_v1
-for each row execute function aegis_private.reject_scale_os_event_mutation_v1();
+before update or delete or truncate on public.scale_os_event_envelopes_v1
+for each statement execute function aegis_private.reject_scale_os_event_mutation_v1();
 
 alter table public.scale_os_event_envelopes_v1 enable row level security;
 alter table public.scale_os_approval_projection_v1 enable row level security;
 
 revoke all on table public.scale_os_event_envelopes_v1 from anon, authenticated;
 revoke all on table public.scale_os_approval_projection_v1 from anon, authenticated;
+
+grant select, insert on table public.scale_os_event_envelopes_v1 to service_role;
+revoke update, delete, truncate, references, trigger
+  on table public.scale_os_event_envelopes_v1
+  from service_role;
+
+grant select on table public.scale_os_approval_projection_v1 to service_role;
+revoke insert, update, delete, truncate, references, trigger
+  on table public.scale_os_approval_projection_v1
+  from service_role;
+
 revoke all on function aegis_private.reject_scale_os_event_mutation_v1() from public;
 
 comment on table public.scale_os_event_envelopes_v1 is
