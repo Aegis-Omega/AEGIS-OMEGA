@@ -165,6 +165,8 @@ def main() -> int:
         sys.stdout.write(rendered)
     else:
         Path(args.output).write_text(rendered, encoding="utf-8")
+    if args.command == "finalize":
+        return 0 if result.get("mutation_receipt_root") else 3
     return 0 if result.get("outcome") == ADMITTED else 3
 
 
