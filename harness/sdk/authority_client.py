@@ -86,6 +86,8 @@ def authorize_from_environment(*, action_class: str, authority_domain: str, requ
         "authority_score": decision.authority_score,
         "denial_codes": list(decision.denial_codes),
         "decision_root": decision.decision_root,
+        "policy_decision": asdict(decision),
+        "requested_action_digest": action_digest,
         "execution_identity_root": identity_root,
         "workspace_binding": identity.workspace_binding,
         "observation": asdict(workspace.observation),
