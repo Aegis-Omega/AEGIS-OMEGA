@@ -32,7 +32,7 @@ cd "$REPO_ROOT"
 
 export PROXY_URL="${PROXY_URL:-http://localhost:8080}"
 export REDIS_URL="${REDIS_URL:-redis://localhost:6379}"
-export AEGIS_DEFAULT_MODEL="${AEGIS_DEFAULT_MODEL:-claude-opus-4-8}"
+export AEGIS_DEFAULT_MODEL="${AEGIS_DEFAULT_MODEL:-claude-opus-5-5}"
 
 COORD="$PYTHON -m agents.coordinator"
 
