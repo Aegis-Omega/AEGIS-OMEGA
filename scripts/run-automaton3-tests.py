@@ -12,7 +12,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 EXPECTED_TEST_COUNT = 52
-TEST_RESULT_RE = re.compile(r"Ran (\\d+) tests? in ")
+TEST_RESULT_RE = re.compile(r"Ran (\d+) tests? in ")
 
 TEST_FILES = (
     ROOT / "sovereign-omega-v2/python/tests/test_automaton3.py",
