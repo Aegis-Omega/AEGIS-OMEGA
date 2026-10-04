@@ -37,6 +37,13 @@ class Anthropic55DeploymentContractTests(TestCase):
             2,
         )
 
+    def test_opus_55_gateway_rejects_legacy_sampling_parameters(self) -> None:
+        source = read("vertex/serve.py")
+        self.assertIn("CLAUDE_5_5_UNSUPPORTED_PARAMETER", source)
+        self.assertIn('"temperature"', source)
+        self.assertIn('"top_p"', source)
+        self.assertIn('"top_k"', source)
+
     def test_current_managed_agent_and_coordinator_ids_use_sonnet_55(self) -> None:
         self.assertIn(
             "model: 'claude-sonnet-5-5'",
