@@ -1,0 +1,53 @@
+name: Repository Enforcement
+
+on:
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, reopened, ready_for_review]
+  push:
+    branches: [main]
+  workflow_dispatch:
+  schedule:
+    - cron: '17 4 * * *'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: repository-enforcement-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  enforcement:
+    name: Main branch enforcement
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Checkout exact candidate
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Run enforcement verifier regressions
+        working-directory: scripts
+        run: python3 -m unittest test_check_repository_enforcement.py -v
+
+      - name: Verify GitHub enforcement boundary
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/repository-enforcement"
+          python3 scripts/check_repository_enforcement.py \
+            --repo "$GITHUB_REPOSITORY" \
+            --branch main \
+            --json-output "$RUNNER_TEMP/repository-enforcement/result.json"
+
+      - name: Upload enforcement evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: repository-enforcement-${{ github.sha }}
+          path: ${{ runner.temp }}/repository-enforcement
+          if-no-files-found: error
+          retention-days: 30

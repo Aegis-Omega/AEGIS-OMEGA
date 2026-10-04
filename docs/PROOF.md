@@ -85,6 +85,18 @@ cd ../aegis-cl-psi   && cargo test                        # Rust gate suite
 cd ../aegis-runtime  && cargo test                        # Seven-Pillar runtime
 ```
 
+### Cognitive-anchor authority boundary
+
+The two committed cognitive anchors, `.claude.json` and `skill-hashes.sha256`, are
+mutated by exactly one workflow: `cognitive-manifest-refresh.yml`. Automaton-2 has
+`contents: read`; it may regenerate, compare, upload, validate, receipt, and attest,
+but it cannot commit or push anchor changes. The executable regression fails if a
+second workflow acquires the same write path or if Automaton-2 regains write access:
+
+```bash
+python scripts/test-cognitive-anchor-writer-boundary.py
+```
+
 ---
 
 ## Root law

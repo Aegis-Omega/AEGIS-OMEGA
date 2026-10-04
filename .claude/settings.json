@@ -12,6 +12,17 @@
             "statusMessage": "AEGIS: membrane (frozen-file guard)"
           }
         ]
+      },
+      {
+        "matcher": "Bash|mcp__github__push_files|mcp__github__create_or_update_file|mcp__github__delete_file",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"${CLAUDE_PROJECT_DIR:-$PWD}/scripts/claude-authority-guard.py\"",
+            "timeout": 10,
+            "statusMessage": "AEGIS: checking repository mutation authority"
+          }
+        ]
       }
     ],
     "SessionStart": [
@@ -310,7 +321,11 @@
       "Write(sovereign-omega-v2/python/dna.py)",
       "Edit(sovereign-omega-v2/python/dna.py)",
       "Write(sovereign-omega-v2/python/router.py)",
-      "Edit(sovereign-omega-v2/python/router.py)"
+      "Edit(sovereign-omega-v2/python/router.py)",
+      "Write(.claude.json)",
+      "Edit(.claude.json)",
+      "Write(skill-hashes.sha256)",
+      "Edit(skill-hashes.sha256)"
     ]
   }
 }
