@@ -551,3 +551,14 @@ iterate 2 (float fine-grid minimum 3.33e-4). With `certificate_zero_quadratic_no
 step (not in Lean), Re Σ_ρ Z_ρ(A_g) ≥ 0 for every moment-zero packet of log-support width < 1.05. The primal
 upper bound at this width is m*(1.05) ≈ 3.3e-3, and m*(L) keeps decaying roughly like e^{−30(L−1)} on [1, 1.38],
 so this method still cannot reach all widths. Not RH.
+
+**Full-space Feshbach feasibility at L = 1.05 (T1, floating point; `research/rh/krein_feshbach_feasibility_v1.py`).**
+The Ritz values above are upper bounds. A full-space lower bound follows from the Schur rule
+`A11 − μ − C_B/(c_∞ − μ) ≻ 0 ⇒ A ≥ μ` on the moment-zero subspace, with P1 the 24 lowest Ritz vectors of a 54-dim
+moment-zero spline basis. `C_B = ⟨P_L M_S φ_i, P_L M_S φ_j⟩ − A11²` bounds `BB*` from above. The complement floor uses a
+genuine Krein certificate (hats plus order-19 edge splines, as in `RHKreinGenuineCertificateV1`) with slack allowed on
+`|ξ| ≤ 40`: `A − c ≥ −P_L M_s P_L`, hence `c_∞ ≥ c − ‖P2 T_s P2‖`. Without the Krein columns this bound gives
+`c_∞ ≈ −2.1`; with them, `c_∞ ≥ 0.729` (HS bound; the Ritz complement floor is 2.48). Schur margins: `+8.7e-4` at
+μ = 0.0015, `+3.7e-4` at μ = 0.002, negative at 0.0025. Payload: `KREIN_FESHBACH_FEASIBILITY_L1.05_V1.json`.
+Promotion to a certificate needs Arb enclosures of `A11`, `C_B` (including the ξ > 3000 tail), the slack
+inequality on all ξ, and the HS norm of `T_s`. If they hold, m ≥ 0.0015 at L = 1.05, 6× the certified 0.00025. Not RH.
