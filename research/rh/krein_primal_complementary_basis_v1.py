@@ -299,7 +299,7 @@ def main() -> None:
     text = json.dumps(result, indent=2, sort_keys=True)
     print(text)
     if args.out:
-        args.out.write_text(text + "\\n", encoding="utf-8")
+        args.out.write_text(text + "\n", encoding="utf-8")
 
 
 if __name__ == "__main__":
