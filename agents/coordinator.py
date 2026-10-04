@@ -178,10 +178,11 @@ def _finalize_coordinator_execution(
 
     pre_root = pre_state.get("state_root")
     post_root = post_state.get("state_root")
-    if pre_root == post_root:
+    if pre_state.get("skill_registry_root") == post_state.get("skill_registry_root"):
+        reason = "NO_EVIDENCE_STATE_CHANGE" if pre_root == post_root else "NO_SKILL_REGISTRY_MUTATION"
         return {
             "status": "UNATTESTED",
-            "reason": "NO_EVIDENCE_STATE_CHANGE",
+            "reason": reason,
             "pre_state": pre_state,
             "post_state": post_state,
         }
