@@ -15,6 +15,7 @@ SHA_RE = re.compile(r"^[0-9a-f]{40,64}$")
 
 KEY_FILES = (
     "harness/sdk/sovereign_execution.py",
+    "harness/sdk/external_ingress.py",
     "harness/sdk/authority_client.py",
     "harness/sdk/operator_visibility.py",
     "harness/policies/consequence-policy.v1.json",
@@ -27,12 +28,15 @@ KEY_FILES = (
     "sovereign-omega-v2/mcp-server/test/automaton3-authority.mjs",
     "sovereign-omega-v2/python/tests/test_automaton3.py",
     "sovereign-omega-v2/python/tests/test_operator_visibility.py",
+    "sovereign-omega-v2/python/tests/test_external_ingress.py",
     "schemas/execution-identity-envelope.v1.schema.json",
+    "schemas/external-verification-receipt.v1.schema.json",
     "schemas/mutation-receipt.v1.schema.json",
     "schemas/event-envelope.v1.schema.json",
     "schemas/writer-lease.v1.schema.json",
     "docs/adr/ADR-0021-automaton-3-sovereign-execution.md",
     "docs/security/AUTOMATON3_THREAT_MODEL.md",
+    "docs/security/GOVERNED_EXTERNAL_INGRESS_V1.md",
     "docs/operations/LAW_OF_SILENCE_V2.md",
     "docs/operations/BRANCH_RULESET_AUTOMATON3.md",
     ".github/workflows/automaton-3.yml",
@@ -124,8 +128,12 @@ def evaluate(
             violations.append("authority bypass detected")
         if summary.get("adaptive_attempts") != [1, 10, 100]:
             violations.append("adaptive attempt matrix incomplete")
-        if summary.get("expected_test_count") != 41:
-            violations.append("Automaton-3 test count incomplete")
+        if summary.get("expected_test_count") != 52:
+            violations.append("Automaton-3 expected test count incomplete")
+        if summary.get("observed_test_count") != 52:
+            violations.append("Automaton-3 observed test count incomplete")
+        if summary.get("test_count_complete") is not True:
+            violations.append("Automaton-3 test count was not fully observed")
         if summary.get("operator_visibility_asserted") is not True:
             violations.append("operator visibility invariant not asserted")
         if summary.get("state_preservation_asserted") is not True:
@@ -150,6 +158,7 @@ def evaluate(
         "agents/coordinator.py": "authorize_from_environment",
         "sovereign-omega-v2/mcp-server/src/index.ts": "automaton3-authority.py",
         "harness/sdk/operator_visibility.py": "OPERATOR_VISIBILITY_CANNOT_BE_SUPPRESSED",
+        "harness/sdk/external_ingress.py": "EXTERNAL_IDENTITY_NONZERO_AUTHORITY",
         ".github/workflows/automaton-3.yml": "aegis / automaton-3",
     }
     for rel, needle in integration_expectations.items():
@@ -162,6 +171,7 @@ def evaluate(
     )
     for rel in (
         "harness/sdk/sovereign_execution.py",
+        "harness/sdk/external_ingress.py",
         "harness/sdk/authority_client.py",
         "harness/sdk/operator_visibility.py",
         "agents/coordinator.py",

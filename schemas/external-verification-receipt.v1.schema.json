@@ -1,0 +1,50 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://aegisomega.com/schemas/external-verification-receipt.v1.schema.json",
+  "title": "AEGIS External Verification Receipt V1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "provider",
+    "verification_method",
+    "subject",
+    "observed_input_digest",
+    "verifier_identity",
+    "evidence_reference",
+    "outcome"
+  ],
+  "properties": {
+    "schema_version": {"const": "1.0.0"},
+    "provider": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9._:/@+#=-]+$",
+      "minLength": 1
+    },
+    "verification_method": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9._:/@+#=-]+$",
+      "minLength": 1
+    },
+    "subject": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9._:/@+#=-]+$",
+      "minLength": 1
+    },
+    "observed_input_digest": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "verifier_identity": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9._:/@+#=-]+$",
+      "minLength": 1
+    },
+    "evidence_reference": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9._:/@+#=-]+$",
+      "minLength": 1
+    },
+    "outcome": {"const": "VERIFIED"}
+  }
+}
