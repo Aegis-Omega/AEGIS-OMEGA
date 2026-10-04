@@ -27,6 +27,6 @@ The operator, requesting actor, configured model, reviewing model, physical exec
 
 ## Residual risks
 
-The local lease and durable registry are reference implementations. Multi-host persistence requires a transactional backend that enforces the same compare-and-swap, generation, parent-hash, idempotency, and cancellation contracts. No distributed exact-once claim is made.
+The in-memory lease and durable registry remain the admitted reference implementation. `harness/sdk/sql/automaton3_postgres_durability_v1.sql` plus `harness/sdk/postgres_durable_execution.py` define a transactional PostgreSQL source implementation for the same generation, fencing, parent-hash, idempotency, monotone-transition, cancellation, and orphan-revocation contracts. Multi-host production admission still requires an exact-source PostgreSQL replay under contention and a deployment-specific least-privilege role grant. No distributed exactly-once external-side-effect claim is made.
 
 GitHub branch-ruleset administration depends on repository administration API access. A tracking issue and exact configuration artifact are required when that interface is unavailable.

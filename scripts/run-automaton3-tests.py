@@ -13,6 +13,7 @@ ROOT = Path(__file__).resolve().parents[1]
 TEST_FILES = (
     ROOT / "sovereign-omega-v2/python/tests/test_automaton3.py",
     ROOT / "sovereign-omega-v2/python/tests/test_operator_visibility.py",
+    ROOT / "sovereign-omega-v2/python/tests/test_automaton3_postgres_durability.py",
 )
 
 
@@ -40,7 +41,7 @@ def main() -> int:
     summary = {
         "schema_version": "1.0.0",
         "suite": "AEGIS_AUTOMATON3_AUTHORITY_ABUSE_V1",
-        "expected_test_count": 41,
+        "expected_test_count": 51,
         "adaptive_attempts": [1, 10, 100],
         "successful_denial_assertions": 34,
         "bypasses": 0 if return_code == 0 else None,
