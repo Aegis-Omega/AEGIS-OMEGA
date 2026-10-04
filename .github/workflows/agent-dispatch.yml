@@ -2,7 +2,7 @@ name: AEGIS Agent Dispatch
 
 on:
   workflow_run:
-    workflows: ["CI"]
+    workflows: ["⊕ AEGIS-Ω Constitutional Automaton"]
     types: [completed]
   pull_request:
     types: [opened, synchronize, review_requested]
@@ -19,15 +19,20 @@ jobs:
       contents: read
       pull-requests: read
       issues: read
-    # Only run if PROXY_URL is configured (won't block other CI)
+      id-token: write
+    # Fail-closed: only dispatch if PROXY_URL is explicitly configured
     if: vars.PROXY_URL != ''
 
     steps:
-      - name: Determine event type and payload
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Determine event type and validate actor
         id: classify
         # All untrusted external inputs bound to env vars — never interpolated inline.
         env:
           EVENT_NAME: ${{ github.event_name }}
+          WF_EVENT: ${{ github.event.workflow_run.conclusion }}
           WF_CONCLUSION: ${{ github.event.workflow_run.conclusion }}
           WF_BRANCH: ${{ github.event.workflow_run.head_branch }}
           WF_RUN_ID: ${{ github.event.workflow_run.id }}
@@ -39,7 +44,25 @@ jobs:
           ISSUE_BODY: ${{ github.event.issue.body }}
           COMMENT_BODY: ${{ github.event.comment.body }}
           COMMENT_ISSUE_NUMBER: ${{ github.event.issue.number }}
+          ACTOR: ${{ github.actor }}
+          ACTOR_TYPE: ${{ github.actor_association }}
         run: |
+          set -euo pipefail
+
+          # Fail-closed: require trusted actor for external events
+          validate_actor() {
+            local association="$1"
+            case "$association" in
+              OWNER|MEMBER|COLLABORATOR) return 0 ;;
+              *) echo "DENIED: untrusted actor association: $association" >&2; return 1 ;;
+            esac
+          }
+
+          # External events require trusted actor
+          if [[ "$EVENT_NAME" != "workflow_run" ]]; then
+            validate_actor "$ACTOR_TYPE" || exit 1
+          fi
+
           EVENT_TYPE=""
           PAYLOAD="{}"
 
@@ -88,17 +111,47 @@ jobs:
           echo "event_type=$EVENT_TYPE" >> $GITHUB_OUTPUT
           echo "payload=$PAYLOAD" >> $GITHUB_OUTPUT
 
-      - name: Dispatch to AEGIS constitutional proxy
+      - name: Authenticate to Google Cloud (Keyless WIF)
+        if: steps.classify.outputs.event_type != ''
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.GCP_WIF_PROVIDER }}
+          service_account: ${{ secrets.GCP_SERVICE_ACCOUNT }}
+
+      - name: Broker platform key at execution time
+        if: steps.classify.outputs.event_type != ''
+        id: platform_key
+        run: |
+          # Platform key is brokered at execution time, not stored
+          PLATFORM_KEY=$(gcloud secrets versions access latest --secret="platform-dispatch-key")
+          echo "::add-mask::$PLATFORM_KEY"
+          echo "key=$PLATFORM_KEY" >> $GITHUB_OUTPUT
+
+      - name: Dispatch to AEGIS constitutional proxy (fail-closed)
         if: steps.classify.outputs.event_type != ''
         env:
           PROXY_URL: ${{ vars.PROXY_URL }}
           DISPATCH_EVENT_TYPE: ${{ steps.classify.outputs.event_type }}
           DISPATCH_PAYLOAD: ${{ steps.classify.outputs.payload }}
+          PLATFORM_KEY: ${{ steps.platform_key.outputs.key }}
         run: |
-          curl -s -X POST "$PROXY_URL/agents/dispatch" \
+          # Fail-closed: validate response and error on any unexpected status
+          response=$(curl -s -w "\n%{http_code}" -X POST "$PROXY_URL/agents/dispatch" \
             -H "Content-Type: application/json" \
+            -H "Authorization: Bearer $PLATFORM_KEY" \
+            --fail-with-body \
             -d "$(jq -n \
               --arg event_type "$DISPATCH_EVENT_TYPE" \
               --argjson payload "$DISPATCH_PAYLOAD" \
-              '{"event_type": $event_type, "payload": $payload}')" \
-            | jq '.results[] | {role, ralph_cycles, is_valid, output: (.output | .[0:500])}'
+              '{"event_type": $event_type, "payload": $payload}')")
+          
+          http_code=$(echo "$response" | tail -n1)
+          body=$(echo "$response" | head -n-1)
+          
+          if [ "$http_code" != "200" ]; then
+            echo "Dispatch failed with HTTP $http_code" >&2
+            echo "$body" >&2
+            exit 1
+          fi
+          
+          echo "$body" | jq '.results[] | {role, ralph_cycles, is_valid, output: (.output | .[0:500])}'
