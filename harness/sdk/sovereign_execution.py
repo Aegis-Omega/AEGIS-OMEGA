@@ -749,6 +749,162 @@ class EventEnvelope:
 
 
 @dataclass(frozen=True)
+class AgentTrajectoryRecord:
+    """Deterministic audit record for one governed agent/tool observation.
+
+    The record is evidence-only: it binds observed execution facts but grants no
+    authority. Raw tool inputs, results, credentials, prompts, and destinations
+    are never retained; only deterministic digests enter the record.
+    """
+
+    schema_version: str
+    sequence: int
+    execution_identity_root: str
+    policy_decision_root: str
+    approval_reference: str
+    tool: str
+    requested_action_digest: str
+    network_capable: bool
+    network_policy_outcome: str
+    network_destination_digest: str
+    tool_input_digest: str
+    result_digest: str
+    outcome: str
+    parent_trajectory: str
+
+    @classmethod
+    def from_observation(
+        cls,
+        *,
+        schema_version: str,
+        sequence: int,
+        execution_identity_root: str,
+        policy_decision_root: str,
+        approval_reference: str,
+        tool: str,
+        requested_action_digest: str,
+        network_capable: bool,
+        network_policy_outcome: str,
+        network_destination: str | None,
+        tool_input: Any,
+        result: Any,
+        outcome: str,
+        parent_trajectory: str,
+    ) -> "AgentTrajectoryRecord":
+        sensitive_keys = (
+            "secret", "token", "password", "key",
+            "authorization", "cookie", "credential",
+        )
+        redacted_input = deterministic_redaction(tool_input, sensitive_keys)
+        redacted_result = deterministic_redaction(result, sensitive_keys)
+
+        if network_destination is None:
+            destination_digest = ZERO_HASH
+        else:
+            if not isinstance(network_destination, str) or not network_destination.strip():
+                raise SovereignExecutionError("NETWORK_DESTINATION_INVALID")
+            if _unsafe_unicode(network_destination):
+                raise SovereignExecutionError("NETWORK_DESTINATION_UNICODE_OR_CONTROL_AMBIGUITY")
+            destination_digest = canonical_hash(
+                "AEGIS_AGENT_TRAJECTORY_NETWORK_DESTINATION_V1",
+                network_destination.strip(),
+            )
+
+        record = cls(
+            schema_version=schema_version,
+            sequence=sequence,
+            execution_identity_root=execution_identity_root,
+            policy_decision_root=policy_decision_root,
+            approval_reference=approval_reference,
+            tool=tool,
+            requested_action_digest=requested_action_digest,
+            network_capable=network_capable,
+            network_policy_outcome=network_policy_outcome,
+            network_destination_digest=destination_digest,
+            tool_input_digest=canonical_hash(
+                "AEGIS_AGENT_TRAJECTORY_TOOL_INPUT_V1",
+                redacted_input,
+            ),
+            result_digest=canonical_hash(
+                "AEGIS_AGENT_TRAJECTORY_RESULT_V1",
+                redacted_result,
+            ),
+            outcome=outcome,
+            parent_trajectory=parent_trajectory,
+        )
+        record.validate()
+        return record
+
+    def validate(self) -> None:
+        if self.schema_version != SCHEMA_VERSION:
+            raise SovereignExecutionError("TRAJECTORY_SCHEMA_UNSUPPORTED")
+        if self.sequence < 0:
+            raise SovereignExecutionError("TRAJECTORY_SEQUENCE_INVALID")
+
+        for name in (
+            "execution_identity_root",
+            "policy_decision_root",
+            "requested_action_digest",
+            "network_destination_digest",
+            "tool_input_digest",
+            "result_digest",
+            "parent_trajectory",
+        ):
+            _assert_hash(name, getattr(self, name))
+
+        _assert_authority_string("approval_reference", self.approval_reference)
+        _assert_authority_string("tool", self.tool)
+
+        if self.outcome not in ("SUCCEEDED", "DENIED", "FAILED", "ROLLED_BACK", "CANCELLED"):
+            raise SovereignExecutionError("TRAJECTORY_OUTCOME_INVALID")
+
+        if self.network_capable:
+            if self.network_policy_outcome not in ("ALLOW", "DENY"):
+                raise SovereignExecutionError("NETWORK_POLICY_REQUIRED")
+            if self.network_destination_digest == ZERO_HASH:
+                raise SovereignExecutionError("NETWORK_DESTINATION_REQUIRED")
+            if self.network_policy_outcome == "DENY" and self.outcome == "SUCCEEDED":
+                raise SovereignExecutionError("NETWORK_DENY_CANNOT_SUCCEED")
+        else:
+            if self.network_policy_outcome != "NOT_APPLICABLE":
+                raise SovereignExecutionError("NON_NETWORK_POLICY_MUST_BE_NOT_APPLICABLE")
+            if self.network_destination_digest != ZERO_HASH:
+                raise SovereignExecutionError("NON_NETWORK_DESTINATION_FORBIDDEN")
+
+    @property
+    def root(self) -> str:
+        self.validate()
+        return canonical_hash("AEGIS_AGENT_TRAJECTORY_RECORD_V1", asdict(self))
+
+
+class TrajectoryChain:
+    """Hash-linked sequence of evidence-only agent trajectory records."""
+
+    def __init__(self) -> None:
+        self._records: list[AgentTrajectoryRecord] = []
+
+    def append(self, record: AgentTrajectoryRecord) -> str:
+        record.validate()
+        expected_sequence = len(self._records)
+        expected_parent = self._records[-1].root if self._records else ZERO_HASH
+        if record.sequence != expected_sequence:
+            raise SovereignExecutionError("TRAJECTORY_CHAIN_SEQUENCE_BREAK")
+        if record.parent_trajectory != expected_parent:
+            raise SovereignExecutionError("TRAJECTORY_CHAIN_PARENT_BREAK")
+        self._records.append(record)
+        return record.root
+
+    def verify(self) -> str:
+        previous = ZERO_HASH
+        for index, record in enumerate(self._records):
+            record.validate()
+            if record.sequence != index or record.parent_trajectory != previous:
+                raise SovereignExecutionError("TRAJECTORY_CHAIN_BROKEN")
+            previous = record.root
+        return previous
+
+
+@dataclass(frozen=True)
 class MutationReceipt:
     receipt_version: str
     execution_identity_root: str
