@@ -42,13 +42,13 @@ GIT_PUSH_RE = re.compile(
     re.IGNORECASE,
 )
 GIT_NETWORK_RE = re.compile(
-    r"(?<![A-Za-z0-9_.-])git(?:\\s+(?:-C|--git-dir|--work-tree|--namespace)\\s+\\S+|\\s+-c\\s+\\S+|\\s+--?[^\\s]+)*\\s+(?:clone|fetch|pull|ls-remote)(?:\\s|$)",
+    r"(?<![A-Za-z0-9_.-])git(?:\s+(?:-C|--git-dir|--work-tree|--namespace)\s+\S+|\s+-c\s+\S+|\s+--?[^\s]+)*\s+(?:clone|fetch|pull|ls-remote)(?:\s|$)",
     re.IGNORECASE,
 )
 DNS_MUTATION_RE = re.compile(
     r"(?:"
-    r"(?:^|[;&|]\\s*)(?:sudo\\s+)?(?:tee|sed\\s+-i|cp|mv|rm|truncate|printf|echo)\\b[^\\n]*(?:/etc/resolv\\.conf|/etc/hosts)"
-    r"|(?:^|[;&|]\\s*)(?:sudo\\s+)?(?:resolvectl|systemd-resolve)\\s+(?:dns|domain|revert)\\b"
+    r"(?:^|[;&|]\s*)(?:sudo\s+)?(?:tee|sed\s+-i|cp|mv|rm|truncate|printf|echo)\b[^\n]*(?:/etc/resolv\.conf|/etc/hosts)"
+    r"|(?:^|[;&|]\s*)(?:sudo\s+)?(?:resolvectl|systemd-resolve)\s+(?:dns|domain|revert)\b"
     r")",
     re.IGNORECASE,
 )
