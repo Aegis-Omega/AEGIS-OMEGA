@@ -4,6 +4,9 @@ import base64
 import hashlib
 import hmac
 import json
+import os
+import subprocess
+import sys
 import tempfile
 import time
 import unittest
@@ -124,6 +127,33 @@ class ResendInboundIngestTests(unittest.TestCase):
             self.assertEqual(first["status"], "VERIFIED_NOT_ADMITTED")
             self.assertEqual(second["status"], "DUPLICATE")
             self.assertEqual(second["external_effect"], "NOT_EXECUTED")
+
+
+    def test_cli_main_missing_config_is_structured_fail_closed(self):
+        env = {k: v for k, v in os.environ.items() if not k.startswith("AEGIS_RESEND_")}
+        proc = subprocess.run(
+            [sys.executable, str(ROOT / "scripts/resend_inbound_ingest.py")],
+            input=json.dumps(signed_request()).encode(),
+            stdout=subprocess.PIPE, stderr=subprocess.PIPE, env=env, cwd=ROOT, check=True, timeout=5,
+        )
+        self.assertEqual(proc.stderr, b"")
+        parsed = json.loads(proc.stdout)
+        self.assertEqual(parsed["status"], "REJECTED")
+        self.assertEqual(parsed["codes"], ["CONFIGURATION_UNAVAILABLE"])
+        self.assertEqual(parsed["external_effect"], "NOT_EXECUTED")
+
+    def test_contract_matches_current_cli_and_provider_surface(self):
+        contract = (ROOT / "docs/resend-inbound-contract-v1.md").read_text(encoding="utf-8")
+        self.assertIn("accepts exactly one webhook event type", contract)
+        self.assertIn("`email.received`", contract)
+        self.assertIn("**rejects** `inbox.email.received`", contract)
+        self.assertIn("AEGIS_RESEND_EXECUTION_IDENTITY_JSON", contract)
+        self.assertNotIn("AEGIS_EXECUTION_IDENTITY_JSON` — pre-bound", contract)
+        self.assertIn("At most **8 metadata records**", contract)
+
+    def test_cli_uses_dedicated_resend_identity_binding(self):
+        self.assertEqual(ingest.ENV_IDENTITY, "AEGIS_RESEND_EXECUTION_IDENTITY_JSON")
+        self.assertNotEqual(ingest.ENV_IDENTITY, "AEGIS_EXECUTION_IDENTITY_JSON")
 
     def test_non_post_is_rejected_without_external_effect(self):
         policy_root = canonical_hash("AEGIS_CONSEQUENCE_POLICY_V1", DEFAULT_POLICY)
