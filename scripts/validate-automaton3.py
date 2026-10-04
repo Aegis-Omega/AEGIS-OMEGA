@@ -36,6 +36,7 @@ KEY_FILES = (
     "schemas/writer-lease.v1.schema.json",
     "docs/adr/ADR-0021-automaton-3-sovereign-execution.md",
     "docs/security/AUTOMATON3_THREAT_MODEL.md",
+    "docs/security/GOVERNED_EXTERNAL_INGRESS_V1.md",
     "docs/operations/LAW_OF_SILENCE_V2.md",
     "docs/operations/BRANCH_RULESET_AUTOMATON3.md",
     ".github/workflows/automaton-3.yml",
@@ -128,7 +129,11 @@ def evaluate(
         if summary.get("adaptive_attempts") != [1, 10, 100]:
             violations.append("adaptive attempt matrix incomplete")
         if summary.get("expected_test_count") != 52:
-            violations.append("Automaton-3 test count incomplete")
+            violations.append("Automaton-3 expected test count incomplete")
+        if summary.get("observed_test_count") != 52:
+            violations.append("Automaton-3 observed test count incomplete")
+        if summary.get("test_count_complete") is not True:
+            violations.append("Automaton-3 test count was not fully observed")
         if summary.get("operator_visibility_asserted") is not True:
             violations.append("operator visibility invariant not asserted")
         if summary.get("state_preservation_asserted") is not True:
