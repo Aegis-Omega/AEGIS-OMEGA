@@ -64,7 +64,7 @@ function localDenial(code: string): AuthorityDecision {
   return { outcome: 'DENIED', denial_codes: [code] }
 }
 
-function authorizeAction(input: {
+type AuthorityInput = {
   actionClass: 'D0' | 'D1' | 'D2' | 'D3' | 'D4'
   authorityDomain: string
   requestedCapability: string
@@ -73,9 +73,13 @@ function authorizeAction(input: {
   action: Record<string, unknown>
   idempotencyKey?: string
   compensationReference?: string
-}): AuthorityDecision {
+}
+
+type AutomatonResult = Record<string, unknown>
+
+function buildAuthorityPayload(input: AuthorityInput): { payload?: Record<string, unknown>; denial?: AuthorityDecision } {
   const identityRaw = process.env['AEGIS_EXECUTION_IDENTITY_JSON']
-  if (!identityRaw) return localDenial('IDENTITY_UNAVAILABLE')
+  if (!identityRaw) return { denial: localDenial('IDENTITY_UNAVAILABLE') }
   let identity: unknown
   let workspace: unknown = {}
   let approval: unknown
@@ -85,36 +89,95 @@ function authorizeAction(input: {
     const approvalRaw = process.env['AEGIS_APPROVAL_GRANT_JSON']
     approval = approvalRaw ? JSON.parse(approvalRaw) : undefined
   } catch {
-    return localDenial('AUTHORITY_ENVIRONMENT_MALFORMED')
+    return { denial: localDenial('AUTHORITY_ENVIRONMENT_MALFORMED') }
   }
-  const payload = {
-    identity,
-    workspace,
-    approval,
-    action: input.action,
-    request: {
-      action_class: input.actionClass,
-      authority_domain: input.authorityDomain,
-      requested_capability: input.requestedCapability,
-      tool: input.tool,
-      target: input.target,
-      current_generation: Number(process.env['AEGIS_LEASE_GENERATION'] ?? '0'),
-      idempotency_key: input.idempotencyKey ?? 'NONE',
-      compensation_reference: input.compensationReference ?? 'NONE',
+  return {
+    payload: {
+      identity,
+      workspace,
+      approval,
+      action: input.action,
+      request: {
+        action_class: input.actionClass,
+        authority_domain: input.authorityDomain,
+        requested_capability: input.requestedCapability,
+        tool: input.tool,
+        target: input.target,
+        current_generation: Number(process.env['AEGIS_LEASE_GENERATION'] ?? '0'),
+        idempotency_key: input.idempotencyKey ?? 'NONE',
+        compensation_reference: input.compensationReference ?? 'NONE',
+      },
     },
   }
+}
+
+function runAutomaton(command: 'evaluate' | 'finalize', payload: Record<string, unknown>): AutomatonResult {
   const python = process.env['AEGIS_PYTHON'] ?? 'python3'
   const script = join(repoRoot(), 'scripts', 'automaton3-authority.py')
-  const result = spawnSync(python, [script, 'evaluate'], {
+  const result = spawnSync(python, [script, command], {
     cwd: repoRoot(), input: JSON.stringify(payload), encoding: 'utf8',
     env: process.env, timeout: 15_000, maxBuffer: 1_048_576,
   })
   if (!result.stdout) return localDenial('AUTHORITY_SERVICE_UNAVAILABLE')
   try {
-    return JSON.parse(result.stdout) as AuthorityDecision
+    return JSON.parse(result.stdout) as AutomatonResult
   } catch {
     return localDenial('AUTHORITY_RESPONSE_MALFORMED')
   }
+}
+
+function authorizeAction(input: AuthorityInput): AuthorityDecision {
+  const built = buildAuthorityPayload(input)
+  if (built.denial) return built.denial
+  return runAutomaton('evaluate', built.payload!) as AuthorityDecision
+}
+
+function isSha256Hex(value: unknown): value is string {
+  return typeof value === 'string' && /^[0-9a-f]{64}$/.test(value)
+}
+
+function extractPostStateDigest(result: unknown, kind: 'collaboration' | 'claude'): string | null {
+  if (!result || typeof result !== 'object') return null
+  const outer = result as Record<string, unknown>
+  const inner = outer['data'] && typeof outer['data'] === 'object'
+    ? outer['data'] as Record<string, unknown>
+    : undefined
+  const records = inner ? [outer, inner] : [outer]
+  const keys = kind === 'claude'
+    ? ['chain_hash']
+    : ['audit_chain_hash', 'lineage_terminal_hash', 'kan_terminal_hash']
+  for (const record of records) {
+    for (const key of keys) {
+      const value = record[key]
+      if (isSha256Hex(value)) return value
+    }
+  }
+  return null
+}
+
+function finalizeExecution(input: AuthorityInput, result: unknown, postStateDigest: string | null): AutomatonResult {
+  if (!postStateDigest) {
+    return { status: 'UNATTESTED', reason: 'POST_STATE_UNAVAILABLE' }
+  }
+  const built = buildAuthorityPayload(input)
+  if (built.denial) {
+    return { status: 'UNATTESTED', reason: 'AUTHORITY_CONTEXT_UNAVAILABLE', authority: built.denial }
+  }
+  const finalized = runAutomaton('finalize', {
+    ...built.payload!,
+    execution: {
+      outcome: 'SUCCEEDED',
+      result,
+      post_state_digest: postStateDigest,
+      parent_receipt: '0'.repeat(64),
+      sequence: 0,
+    },
+  })
+  const root = finalized['mutation_receipt_root']
+  if (!isSha256Hex(root)) {
+    return { status: 'UNATTESTED', reason: 'FINALIZER_REJECTED', finalizer: finalized }
+  }
+  return { status: 'ATTESTED', ...finalized }
 }
 
 function denied(decision: AuthorityDecision): { content: Array<{ type: 'text'; text: string }> } | null {
@@ -141,9 +204,12 @@ server.tool(
   { objective: z.string().min(10), mode: z.enum(['revenue', 'gtm', 'analysis', 'risk', 'compliance']).default('analysis') },
   async ({ objective, mode }) => {
     if (!API_KEY) return text({ error: 'AEGIS_API_KEY not set', external_effect: 'NOT_EXECUTED' })
-    const authority = authorizeAction({ actionClass: 'D2', authorityDomain: 'agent:shared-state', requestedCapability: 'mcp.collaborate', tool: 'aegis_collaborate', target: '/platform/collaborate', action: { operation: 'collaborate', objective, mode, live: false } })
+    const authorityInput: AuthorityInput = { actionClass: 'D2', authorityDomain: 'agent:shared-state', requestedCapability: 'mcp.collaborate', tool: 'aegis_collaborate', target: '/platform/collaborate', action: { operation: 'collaborate', objective, mode, live: false } }
+    const authority = authorizeAction(authorityInput)
     const denial = denied(authority); if (denial) return denial
-    return text({ authority, result: await bridgePost('/platform/collaborate', { objective, mode, live: false }, true) })
+    const result = await bridgePost('/platform/collaborate', { objective, mode, live: false }, true)
+    const executionAttestation = finalizeExecution(authorityInput, result, extractPostStateDigest(result, 'collaboration'))
+    return text({ authority, result, execution_attestation: executionAttestation })
   },
 )
 
@@ -155,7 +221,8 @@ server.tool(
     if (!API_KEY) return text({ error: 'AEGIS_API_KEY not set', external_effect: 'NOT_EXECUTED' })
     const authority = authorizeAction({ actionClass: 'D2', authorityDomain: 'workflow:durable', requestedCapability: 'mcp.execution.start', tool: 'aegis_start_execution', target: '/platform/executions', action: { operation: 'start-execution', objective, mode, live: false } })
     const denial = denied(authority); if (denial) return denial
-    return text({ authority, result: await bridgePost('/platform/executions', { objective, mode, live: false }, true) })
+    const result = await bridgePost('/platform/executions', { objective, mode, live: false }, true)
+    return text({ authority, result, execution_attestation: { status: 'DEFERRED', reason: 'ASYNC_EXECUTION_NOT_TERMINAL' } })
   },
 )
 
@@ -171,9 +238,12 @@ server.tool(
   { prompt: z.string().min(1), system: z.string().optional(), idempotency_key: z.string().min(1).optional(), compensation_reference: z.string().min(1).optional() },
   async ({ prompt, system, idempotency_key, compensation_reference }) => {
     const body: Record<string, unknown> = { prompt }; if (system) body['system'] = system
-    const authority = authorizeAction({ actionClass: 'D3', authorityDomain: 'external:model-call', requestedCapability: 'mcp.claude.call', tool: 'aegis_governed_claude_call', target: '/claude', action: { operation: 'governed-model-call', prompt_digest: createHash('sha256').update(prompt, 'utf8').digest('hex'), has_system: Boolean(system) }, idempotencyKey: idempotency_key, compensationReference: compensation_reference })
+    const authorityInput: AuthorityInput = { actionClass: 'D3', authorityDomain: 'external:model-call', requestedCapability: 'mcp.claude.call', tool: 'aegis_governed_claude_call', target: '/claude', action: { operation: 'governed-model-call', prompt_digest: createHash('sha256').update(prompt, 'utf8').digest('hex'), has_system: Boolean(system) }, idempotencyKey: idempotency_key, compensationReference: compensation_reference }
+    const authority = authorizeAction(authorityInput)
     const denial = denied(authority); if (denial) return denial
-    return text({ authority, result: await bridgePost('/claude', body) })
+    const result = await bridgePost('/claude', body)
+    const executionAttestation = finalizeExecution(authorityInput, result, extractPostStateDigest(result, 'claude'))
+    return text({ authority, result, execution_attestation: executionAttestation })
   },
 )
 
