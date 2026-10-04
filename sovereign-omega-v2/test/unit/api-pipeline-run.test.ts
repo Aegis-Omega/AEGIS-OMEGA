@@ -93,6 +93,25 @@ describe('ConstitutionalPipeline.run — Latin text (no Arabic)', () => {
     expect(result.analysis.abjad).toBeNull()
   })
 
+  it('defaults to Sonnet 5.5 for the constitutional pipeline', async () => {
+    const pipeline = new ConstitutionalPipeline('test-key')
+    await pipeline.run('hello world')
+    const sendArgs = mocks.send.mock.calls[0]![0] as { model?: string }
+    expect(sendArgs.model).toBe('claude-sonnet-5-5')
+  })
+
+  it('uses high effort instead of a numeric thinking budget on Sonnet 5.5', async () => {
+    mocks.think.mockResolvedValue(makeFakeResponse('Thinking answer'))
+    const pipeline = new ConstitutionalPipeline('test-key')
+    await pipeline.run('deep question', { useThinking: true })
+    expect(mocks.think).toHaveBeenCalledWith(
+      [{ role: 'user', content: 'deep question' }],
+      'claude-sonnet-5-5',
+      'high',
+      2048,
+    )
+  })
+
   it('calls send() (not think()) for default non-thinking run', async () => {
     const pipeline = new ConstitutionalPipeline('test-key')
     await pipeline.run('hello world')
