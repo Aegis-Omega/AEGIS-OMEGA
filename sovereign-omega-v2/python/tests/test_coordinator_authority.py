@@ -537,3 +537,43 @@ def test_dispatch_reauthorizes_each_role_after_prior_state_mutation(tmp_path: Pa
     assert observed_authority_roots[0] == observed_authority_roots[1]
     assert observed_authority_roots[2] == observed_authority_roots[0]
     assert observed_authority_roots[3] != observed_authority_roots[2]
+
+
+def test_lineage_only_change_does_not_create_coordinator_mutation_receipt(tmp_path: Path) -> None:
+    registry_path = write_valid_registry(tmp_path)
+    lineage_path = write_empty_lineage(tmp_path)
+    pre = coordinator._coordinator_evidence_state(
+        skill_tree_path=registry_path,
+        lineage_path=lineage_path,
+        repo_root=tmp_path,
+    )
+    raw = json.loads(lineage_path.read_text(encoding="utf-8"))
+    from agents.evolution import AdaptiveLineage
+    lineage = AdaptiveLineage.load(path=lineage_path)
+    lineage.append(
+        "CAPABILITY_EVOLUTION",
+        skill_id="other-agent",
+        from_tier="T2",
+        to_tier="T2",
+        evidence="unrelated concurrent lineage change",
+        timestamp_ms=1,
+    )
+    lineage.save(path=lineage_path)
+    post = coordinator._coordinator_evidence_state(
+        skill_tree_path=registry_path,
+        lineage_path=lineage_path,
+        repo_root=tmp_path,
+    )
+    authority = full_admitted_decision(pre["skill_registry_root"])
+    attestation = coordinator._finalize_coordinator_execution(
+        authority=authority,
+        result={"status": "executed", "is_valid": True},
+        pre_state=pre,
+        post_state=post,
+    )
+    assert raw["terminal_hash"] == "0" * 64
+    assert pre["adaptive_lineage_root"] != post["adaptive_lineage_root"]
+    assert pre["skill_registry_root"] == post["skill_registry_root"]
+    assert attestation["status"] == "UNATTESTED"
+    assert attestation["reason"] == "NO_SKILL_REGISTRY_MUTATION"
+    assert "mutation_receipt" not in attestation
