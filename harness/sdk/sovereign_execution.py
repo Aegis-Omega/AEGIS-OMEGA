@@ -879,10 +879,12 @@ def load_capability_registry(*, repository_root: str | Path, skill_tree_path: st
     return registry, expected
 
 
-def make_mutation_receipt(*, identity_root: str, workspace_binding: str, decision: PolicyDecision, pre_state_digest: str, action_digest: str, result: Any, post_state_digest: str, parent_receipt: str, sequence: int) -> MutationReceipt:
-    outcome = "SUCCEEDED" if decision.outcome == ADMITTED else "DENIED"
-    denial = "NONE" if decision.outcome == ADMITTED else (decision.denial_codes[0] if decision.denial_codes else "UNSPECIFIED_DENIAL")
-    return MutationReceipt(
+def make_execution_receipt(*, identity_root: str, workspace_binding: str, decision: PolicyDecision, pre_state_digest: str, action_digest: str, result: Any, post_state_digest: str, parent_receipt: str, sequence: int, execution_outcome: str) -> MutationReceipt:
+    if decision.outcome != ADMITTED:
+        raise SovereignExecutionError("EXECUTION_RECEIPT_REQUIRES_ADMITTED_AUTHORITY")
+    if execution_outcome not in ("SUCCEEDED", "FAILED", "ROLLED_BACK"):
+        raise SovereignExecutionError("EXECUTION_OUTCOME_INVALID")
+    receipt = MutationReceipt(
         receipt_version=SCHEMA_VERSION,
         execution_identity_root=identity_root,
         workspace_binding=workspace_binding,
@@ -898,6 +900,8 @@ def make_mutation_receipt(*, identity_root: str, workspace_binding: str, decisio
         post_state_digest=post_state_digest,
         parent_receipt=parent_receipt,
         sequence=sequence,
-        outcome=outcome,
-        denial_code=denial,
+        outcome=execution_outcome,
+        denial_code="NONE",
     )
+    receipt.validate()
+    return receipt

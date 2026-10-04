@@ -198,7 +198,7 @@ class SkillRouter(_legacy.SkillRouter):
         outcome = decision.get("outcome", DENIED)
         score = float(decision.get("authority_score", "0")) if outcome == ADMITTED else 0.0
         reasons = tuple(sorted(set(decision.get("denial_codes", []))))
-        root = str(decision.get("decision_root"))
+        root = str(decision.get("decision_root") or "")
         evidence_hashes: tuple[str, ...]
         if repository_knowledge is None:
             evidence_hashes = (root,)
