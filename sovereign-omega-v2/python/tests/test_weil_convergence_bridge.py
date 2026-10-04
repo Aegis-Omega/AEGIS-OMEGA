@@ -6,7 +6,7 @@ import sys
 
 import pytest
 
-from harness.sdk.proof_trace import NO_AUTHORITY, T2, VERIFIER, TraceSDK
+from harness.sdk.proof_trace_sdk import NO_AUTHORITY, T2, VERIFIER, TraceSDK
 from harness.sdk.sovereign_execution import canonical_hash
 from harness.sdk.weil_convergence_bridge import (
     ASSUME_GLOBAL_WEIL_POSITIVITY,

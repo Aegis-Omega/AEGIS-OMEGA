@@ -3,7 +3,7 @@ name: Proof Trace SDK
 on:
   pull_request:
     paths:
-      - "harness/sdk/proof_trace.py"
+      - "harness/sdk/proof_trace_sdk.py"
       - "docs/TRACE_SDK_CONTRACT.md"
       - "sovereign-omega-v2/python/tests/test_proof_trace_sdk.py"
       - ".github/workflows/proof-trace-sdk.yml"
@@ -42,7 +42,7 @@ jobs:
         run: python -m pip install --disable-pip-version-check pytest==8.4.1
 
       - name: Compile proof trace contract
-        run: python -m py_compile harness/sdk/proof_trace.py sovereign-omega-v2/python/tests/test_proof_trace_sdk.py
+        run: python -m py_compile harness/sdk/proof_trace_sdk.py sovereign-omega-v2/python/tests/test_proof_trace_sdk.py
 
       - name: Run proof trace falsifiers
         run: pytest -q sovereign-omega-v2/python/tests/test_proof_trace_sdk.py

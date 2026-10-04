@@ -5,7 +5,7 @@ from dataclasses import replace
 
 import pytest
 
-from harness.sdk.proof_trace import (
+from harness.sdk.proof_trace_sdk import (
     ADMISSION,
     ADMISSION_AUTHORITY,
     CUSTOM,

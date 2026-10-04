@@ -12,7 +12,7 @@ from harness.sdk.guinand_weil_arb import (
     prime_powers_up_to,
     verify_cutoff_free_galerkin,
 )
-from harness.sdk.proof_trace import NO_AUTHORITY, T2, VERIFIER, TraceSDK
+from harness.sdk.proof_trace_sdk import NO_AUTHORITY, T2, VERIFIER, TraceSDK
 
 
 COMMIT = "a" * 40
