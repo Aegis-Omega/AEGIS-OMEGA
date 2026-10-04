@@ -12,6 +12,7 @@ import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { spawnSync } from 'node:child_process'
 import { createHash } from 'node:crypto'
+import { runResendInbound } from './resend-inbound.js'
 
 const BRIDGE = (process.env['AEGIS_BRIDGE_URL'] ?? 'http://localhost:7890').replace(/\/$/, '')
 const API_KEY = process.env['AEGIS_API_KEY'] ?? ''
@@ -128,6 +129,17 @@ server.tool('aegis_health', 'Check AEGIS constitutional health: t0_verdict, corr
 })
 
 server.tool('aegis_telemetry', 'Get live AEGIS telemetry: PGCS passes, epoch count, VCG metrics, martingale state.', {}, async () => text(await bridgeGet('/telemetry')))
+
+server.tool(
+  'aegis_resend_inbound_observe',
+  'Verify one Resend email.received webhook and record governed metadata evidence. No body fetch, send, reply, agent dispatch, or authority grant.',
+  {
+    raw_body_base64: z.string().min(1).max(90_000),
+    headers: z.array(z.tuple([z.string().min(1).max(128), z.string().max(8192)])).max(32),
+    method: z.literal('POST').default('POST'),
+  },
+  async ({ raw_body_base64, headers, method }) => text(runResendInbound(repoRoot(), { raw_body_base64, headers, method })),
+)
 
 server.tool('aegis_platform_status', 'Get AEGIS platform status through a D0 authority decision.', {}, async () => {
   const authority = authorizeAction({ actionClass: 'D0', authorityDomain: 'mcp:read', requestedCapability: 'mcp.platform.status', tool: 'aegis_platform_status', target: '/platform/status', action: { operation: 'read', endpoint: '/platform/status' } })
