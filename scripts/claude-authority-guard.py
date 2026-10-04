@@ -9,9 +9,16 @@ Write/Edit denies; this guard covers shell pushes and GitHub content-write MCPs.
 from __future__ import annotations
 
 import json
+import os
 import re
 import sys
 from typing import Any
+
+from repo_network_preflight import (
+    RESTRICTED_NETWORK_POLICIES,
+    classify_access,
+    redacted_network_environment,
+)
 
 TARGET_REPOSITORY = "Aegis-Omega/AEGIS-OMEGA"
 GITHUB_CONTENT_WRITERS = {
@@ -32,6 +39,17 @@ MAIN_REFS = {
 # privileged and requires the MCP branch-bound path instead.
 GIT_PUSH_RE = re.compile(
     r"(?<![A-Za-z0-9_.-])git(?:\s+(?:-C|--git-dir|--work-tree|--namespace)\s+\S+|\s+-c\s+\S+|\s+--?[^\s]+)*\s+push(?:\s|$)",
+    re.IGNORECASE,
+)
+GIT_NETWORK_RE = re.compile(
+    r"(?<![A-Za-z0-9_.-])git(?:\\s+(?:-C|--git-dir|--work-tree|--namespace)\\s+\\S+|\\s+-c\\s+\\S+|\\s+--?[^\\s]+)*\\s+(?:clone|fetch|pull|ls-remote)(?:\\s|$)",
+    re.IGNORECASE,
+)
+DNS_MUTATION_RE = re.compile(
+    r"(?:"
+    r"(?:^|[;&|]\\s*)(?:sudo\\s+)?(?:tee|sed\\s+-i|cp|mv|rm|truncate|printf|echo)\\b[^\\n]*(?:/etc/resolv\\.conf|/etc/hosts)"
+    r"|(?:^|[;&|]\\s*)(?:sudo\\s+)?(?:resolvectl|systemd-resolve)\\s+(?:dns|domain|revert)\\b"
+    r")",
     re.IGNORECASE,
 )
 
@@ -75,6 +93,29 @@ def _branch_name(tool_input: dict[str, Any]) -> str:
     return _first_string(tool_input, "branch", "branch_name", "ref")
 
 
+def _restricted_repo_access_handoff() -> dict[str, object] | None:
+    network = redacted_network_environment(os.environ)
+    policy = network["network_policy"]
+    policy_text = str(policy).strip().casefold() if policy else ""
+    if policy_text not in RESTRICTED_NETWORK_POLICIES:
+        return None
+
+    classification = classify_access(
+        network_policy=str(policy),
+        dns_ok=False,
+        tcp_ok=False,
+        git_remote_ok=False,
+    )
+    return {
+        "schema_version": "1.0.0",
+        "event": "AEGIS_REPO_ACCESS_HANDOFF",
+        **classification,
+        "action": "STOP_DIRECT_GIT",
+        "transport_api_boundary": "PLATFORM_OWNED_NOT_REPO_CALLABLE",
+        "network_environment": network,
+    }
+
+
 def evaluate(payload: dict[str, Any]) -> dict[str, Any]:
     tool_name = payload.get("tool_name") or payload.get("toolName") or ""
     tool_input = payload.get("tool_input") or payload.get("toolInput") or {}
@@ -89,6 +130,13 @@ def evaluate(payload: dict[str, Any]) -> dict[str, Any]:
             return _decision(
                 "deny",
                 "AEGIS authority guard: shell git push is forbidden; use a GitHub content writer with an explicit non-main branch",
+            )
+
+        handoff = _restricted_repo_access_handoff()
+        if handoff is not None and (GIT_NETWORK_RE.search(command) or DNS_MUTATION_RE.search(command)):
+            return _decision(
+                "deny",
+                json.dumps(handoff, sort_keys=True, separators=(",", ":")),
             )
         return _decision("allow", "AEGIS authority guard: non-push Bash command")
 
