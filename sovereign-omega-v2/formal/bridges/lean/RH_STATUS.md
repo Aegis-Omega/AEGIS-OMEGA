@@ -588,3 +588,10 @@ at N = 400 is ≤ 0.0701, so c_∞ ≥ 0.9799. An order-8 row tail with weighted
 bottom Ritz vector (λ₁ = 4.534e-17, Arb inverse iteration), and the 799-dimensional interval Cholesky certifies
 Q(G) ≥ 4e-17‖G‖² for every moment-zero G in L²[0, 1.8] (fails at 4.2e-17). At N = 300 the complement trace was 0.44
 and the Schur step failed. Fixed width, not RH.
+
+**L = 1.05 Krein step on the Lean digamma minorant (T1).** The fork's `RHKreinDigammaLowerBoundV1` /
+`RHKreinDigammaMonotonicityV1` give a kernel-checked lower bound for Re ψ(1/4 + it/2) that is valid on a whole cell
+from its left endpoint. Replacing Arb's digamma by that bound (`verify_krein_slack_lemma.py`, 1024 series terms),
+the L = 1.05 Krein + slack certificate still holds at m = 0.99 on 12523 exact-rational cells
+(`research/rh/feshbach_arb_v1/lean_digamma/`), so the μ = 0.0025 certificate no longer depends on Arb for the
+archimedean weight. The prime/hat cosines per cell, the CvS identification and the Feshbach step remain unformalized.

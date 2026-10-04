@@ -32,3 +32,15 @@ span{e^{2πimx/L}, |m| ≤ 16} (dimension 31). Write H = V ⊕ (H ⊖ V). Then A
   numerically the compressed spectrum agrees with an independent Fourier quadrature (0.1137, 0.7502, 0.8578).
 - The Krein pairing ∫ |Ĝ₁|² Ĥ = 0 for hats supported in |u| ≥ L (Lean: `RHKreinGenuineCertificateV1`, not linked here).
 - The Feshbach inequality and the tail bound for rows |n| > 10000 (derivation in `feshbach_blocks_arb.py` comments).
+
+## Krein step with the Lean digamma minorant (`lean_digamma/`)
+
+`../feshbach_arb_v2/verify_krein_slack_lemma.py` re-verifies the Krein + slack inequality without evaluating
+Re ψ: on each cell [a, b] it uses the constant
+LB(a) = −5792/10000 + Σ_{n<1024} quarterTerm(a, n) − (3/4)(1/(1024+1/4) + 1/(1024+1/4)²),
+which is ≤ Re ψ(1/4 + it/2) for all t² ≥ a² by `AEGISOverlay/RHKreinDigammaMonotonicityV1.digamma_quarter_certificate_lower_of_sq_le`
+(fork `tarikskalic33/formal-conjectures`; standard axioms). With the same LP, slack and m = 0.99 it certifies
+F ≥ 0 on 12523 cells (exact rational endpoints, `lean_digamma/krein_cells.json`), zero cell [0, 1/20], and the tail
+t ≥ 3000 (F/W ≥ 3.62, via LB(3000)). c_∞, C_B and the Schur step are unchanged, so μ = 0.0025 stands with the
+archimedean weight now taken from a kernel-checked bound. Still not machine-checked: the per-cell Taylor models
+(cosines of the prime and hat frequencies, Arb), the hat pairing, the CvS identification and the Feshbach step.
