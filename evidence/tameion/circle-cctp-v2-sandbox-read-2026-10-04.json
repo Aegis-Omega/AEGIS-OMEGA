@@ -1,0 +1,57 @@
+{
+  "schema_version": "1.0",
+  "kind": "AEGIS_CIRCLE_CCTP_V2_SANDBOX_READ_EVIDENCE",
+  "observed_at": "2026-10-04T07:42:49.174Z",
+  "source": {
+    "chain": "Ethereum Sepolia",
+    "chain_id": 11155111,
+    "cctp_domain": 0,
+    "transaction_hash": "0xbd6060960c569687a10b0658e08a484fb0663b83d8ae86f17f2290eb89b85e20",
+    "block_number": 10979008,
+    "block_timestamp": "2026-06-03T04:05:36Z",
+    "transaction_result": "success",
+    "method": "depositForBurn",
+    "token": "USDC",
+    "token_address": "0x1c7D4B196Cb0C7B01d743Fbc6116a902379C7238",
+    "amount_atomic": "1000000",
+    "token_decimals": 6,
+    "destination_domain": 26,
+    "min_finality_threshold": 1000,
+    "provenance_provider": "Blockscout",
+    "provenance_chain_id": "11155111"
+  },
+  "circle_read": {
+    "endpoint": "https://iris-api-sandbox.circle.com/v2/messages/0?transactionHash=0xbd6060960c569687a10b0658e08a484fb0663b83d8ae86f17f2290eb89b85e20",
+    "method": "GET",
+    "authorization_header_sent": false,
+    "retry_count": 0,
+    "poll_count": 0,
+    "http_status": 200,
+    "message_count": 1,
+    "statuses": [
+      "complete"
+    ],
+    "response_sha256": "3aeb380ed68e23bb50a2569864569714a78ab0545ec17a1653ebf5c17d276a82",
+    "raw_response_persisted": false
+  },
+  "hosted_execution": {
+    "provider": "GitLab",
+    "project_id": 84781556,
+    "pipeline_id": 2910491491,
+    "job_id": 16919628402,
+    "launcher_commit": "d594d1fb34b41689ade8ad738ea23e4104f75c3b",
+    "runner_id": 54907241,
+    "marker": "CIRCLE_V2_SINGLE_GET=PASS"
+  },
+  "trust_boundary": {
+    "evidence_type": "read_only_observation",
+    "signer_attached": false,
+    "wallet_attached": false,
+    "broadcast_allowed": false,
+    "custody_effect": "NONE",
+    "settlement_effect": "NONE",
+    "submission_effect": "NONE",
+    "authority_effect": "NONE",
+    "note": "A complete Circle sandbox response is evidence that Circle returned an attested message for the referenced public testnet burn. It does not authorize or execute a transfer."
+  }
+}
