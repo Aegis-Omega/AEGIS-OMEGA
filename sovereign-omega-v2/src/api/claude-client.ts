@@ -83,6 +83,10 @@ export class ClaudeClientError extends Error {
   constructor(message: string) { super(message) }
 }
 
+function isClaude55Model(model: string): boolean {
+  return model === 'claude-opus-5-5' || model === 'claude-sonnet-5-5'
+}
+
 // ─── Client ───────────────────────────────────────────────
 
 export class ConstitutionalClaudeClient {
