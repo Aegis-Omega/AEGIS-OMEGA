@@ -17,6 +17,8 @@ KEY_FILES = (
     "harness/sdk/sovereign_execution.py",
     "harness/sdk/authority_client.py",
     "harness/sdk/operator_visibility.py",
+    "harness/sdk/postgres_durable_execution.py",
+    "harness/sdk/sql/automaton3_postgres_durability_v1.sql",
     "harness/policies/consequence-policy.v1.json",
     "harness/policies/capability-map.v1.json",
     "scripts/automaton3-authority.py",
@@ -27,12 +29,14 @@ KEY_FILES = (
     "sovereign-omega-v2/mcp-server/test/automaton3-authority.mjs",
     "sovereign-omega-v2/python/tests/test_automaton3.py",
     "sovereign-omega-v2/python/tests/test_operator_visibility.py",
+    "sovereign-omega-v2/python/tests/test_automaton3_postgres_durability.py",
     "schemas/execution-identity-envelope.v1.schema.json",
     "schemas/mutation-receipt.v1.schema.json",
     "schemas/event-envelope.v1.schema.json",
     "schemas/writer-lease.v1.schema.json",
     "docs/adr/ADR-0021-automaton-3-sovereign-execution.md",
     "docs/security/AUTOMATON3_THREAT_MODEL.md",
+    "docs/security/AUTOMATON3_POSTGRES_DURABILITY_V1.md",
     "docs/operations/LAW_OF_SILENCE_V2.md",
     "docs/operations/BRANCH_RULESET_AUTOMATON3.md",
     ".github/workflows/automaton-3.yml",
@@ -124,10 +128,14 @@ def evaluate(
             violations.append("authority bypass detected")
         if summary.get("adaptive_attempts") != [1, 10, 100]:
             violations.append("adaptive attempt matrix incomplete")
-        if summary.get("expected_test_count") != 41:
+        if summary.get("expected_test_count") != 53:
             violations.append("Automaton-3 test count incomplete")
         if summary.get("operator_visibility_asserted") is not True:
             violations.append("operator visibility invariant not asserted")
+        if summary.get("postgres_durability_contract_asserted") is not True:
+            violations.append("PostgreSQL durability contract not asserted")
+        if summary.get("distributed_exact_once_claimed") is not False:
+            violations.append("distributed exactly-once overclaim detected")
         if summary.get("state_preservation_asserted") is not True:
             violations.append("state preservation not asserted")
         if summary.get("external_side_effect_absence_asserted") is not True:
@@ -150,6 +158,8 @@ def evaluate(
         "agents/coordinator.py": "authorize_from_environment",
         "sovereign-omega-v2/mcp-server/src/index.ts": "automaton3-authority.py",
         "harness/sdk/operator_visibility.py": "OPERATOR_VISIBILITY_CANNOT_BE_SUPPRESSED",
+        "harness/sdk/postgres_durable_execution.py": "PostgresDurableExecutionRegistry",
+        "harness/sdk/sql/automaton3_postgres_durability_v1.sql": "a3_try_acquire_writer_v1",
         ".github/workflows/automaton-3.yml": "aegis / automaton-3",
     }
     for rel, needle in integration_expectations.items():
@@ -164,6 +174,7 @@ def evaluate(
         "harness/sdk/sovereign_execution.py",
         "harness/sdk/authority_client.py",
         "harness/sdk/operator_visibility.py",
+        "harness/sdk/postgres_durable_execution.py",
         "agents/coordinator.py",
         "sovereign-omega-v2/mcp-server/src/index.ts",
     ):
