@@ -475,3 +475,65 @@ def test_dispatch_dry_run_without_evidence_mutation_is_unattested(tmp_path: Path
     assert attestations[0]["status"] == "UNATTESTED"
     assert attestations[0]["reason"] == "NO_EVIDENCE_STATE_CHANGE"
     assert "mutation_receipt" not in attestations[0]
+
+
+def test_dispatch_reauthorizes_each_role_after_prior_state_mutation(tmp_path: Path, monkeypatch: Any) -> None:
+    registry_path = write_valid_registry(tmp_path)
+    write_empty_lineage(tmp_path)
+    instance = coordinator.SkillRouter(
+        skill_tree_path=registry_path,
+        repo_root=tmp_path,
+        capability_map={"observed_cap": "observed"},
+    )
+    roles = [coordinator.AgentRole.ENGINEERING, coordinator.AgentRole.AI_RESEARCH]
+    knowledge = {
+        "status": "ESTABLISHED",
+        "reason_codes": [],
+        "snapshot_digest": "9" * 64,
+        "source_head_sha": "a" * 40,
+        "source_tree_sha": "b" * 40,
+        "receipt_hash": "c" * 64,
+    }
+    observed_authority_roots: list[str] = []
+
+    def central(**_kwargs: Any) -> dict[str, Any]:
+        current_root = json.loads(registry_path.read_text(encoding="utf-8"))["registry_root"]
+        observed_authority_roots.append(current_root)
+        return full_admitted_decision(current_root)
+
+    run_count = 0
+
+    async def mutating_run_agent(_task: Any) -> Any:
+        nonlocal run_count
+        run_count += 1
+        tree = json.loads(registry_path.read_text(encoding="utf-8"))
+        updated = coordinator.record_skill_observation(
+            tree,
+            skill_id="observed",
+            success=True,
+            observed_at=f"2026-10-04T0{run_count}:00:00+00:00",
+            repo_root=tmp_path,
+        )
+        registry_path.write_text(json.dumps(updated, sort_keys=True), encoding="utf-8")
+        return {"status": "executed", "is_valid": True}
+
+    monkeypatch.setattr(coordinator, "_skill_router", instance)
+    monkeypatch.setattr(coordinator._legacy, "_skill_router", instance)
+    monkeypatch.setattr(coordinator._legacy, "EVENT_ROUTING", {"test": roles})
+    monkeypatch.setattr(coordinator._legacy, "_load_agent_defs", lambda: {"agents": {
+        role.value: {"capabilities": ["observed_cap"]} for role in roles
+    }})
+    monkeypatch.setattr(coordinator._legacy, "_event_to_instruction", lambda *_args: "same task")
+    monkeypatch.setattr(coordinator, "establish_repository_knowledge", lambda **_kwargs: knowledge)
+    monkeypatch.setattr(coordinator, "authorize_from_environment", central)
+    monkeypatch.setattr(coordinator._legacy, "run_agent", mutating_run_agent)
+
+    results = asyncio.run(coordinator.dispatch_event("test", {}))
+    assert len(results) == 2
+    assert run_count == 2
+    # Two routing decisions happen first. Each execution must then be re-authorized
+    # against the registry state that exists immediately before that role runs.
+    assert len(observed_authority_roots) == 4
+    assert observed_authority_roots[0] == observed_authority_roots[1]
+    assert observed_authority_roots[2] == observed_authority_roots[0]
+    assert observed_authority_roots[3] != observed_authority_roots[2]
