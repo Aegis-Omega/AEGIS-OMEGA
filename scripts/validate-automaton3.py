@@ -124,8 +124,12 @@ def evaluate(
             violations.append("authority bypass detected")
         if summary.get("adaptive_attempts") != [1, 10, 100]:
             violations.append("adaptive attempt matrix incomplete")
-        if summary.get("expected_test_count") != 41:
-            violations.append("Automaton-3 test count incomplete")
+        if summary.get("expected_test_count") != 46:
+            violations.append("Automaton-3 expected test count incomplete")
+        if summary.get("actual_test_count") != 46:
+            violations.append("Automaton-3 executed test count incomplete")
+        if summary.get("successful_denial_assertions") != 37:
+            violations.append("Automaton-3 denial assertion count incomplete")
         if summary.get("operator_visibility_asserted") is not True:
             violations.append("operator visibility invariant not asserted")
         if summary.get("state_preservation_asserted") is not True:
