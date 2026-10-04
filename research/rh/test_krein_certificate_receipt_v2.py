@@ -140,7 +140,10 @@ class GitMembershipTests(unittest.TestCase):
         for section, path_key, blob_key in refs:
             path = self.root / section[path_key]
             path.parent.mkdir(parents=True, exist_ok=True)
-            path.write_text("synthetic receipt test fixture: " + path.name + "\n")
+            if section is self.data["lp_candidate"] and path_key == "path":
+                path.write_text(json.dumps(self.lp_payload()))
+            else:
+                path.write_text("synthetic receipt test fixture: " + path.name + "\n")
             section[blob_key] = self.git("hash-object", "-w", str(path))
         self.git("add", ".")
         self.git("-c", "commit.gpgsign=false", "commit", "-qm", "synthetic fixture")
@@ -148,6 +151,42 @@ class GitMembershipTests(unittest.TestCase):
 
     def git(self, *args):
         return subprocess.check_output(["git", "-C", str(self.root), *args], text=True).strip()
+
+    @staticmethod
+    def lp_payload(**override):
+        lp = {"L": 1.0, "w": 0.02, "uk": [1.02, 1.04], "coef": [0.0] * 7}
+        lp.update(override)
+        return lp
+
+    def anchor_lp(self, **override):
+        path = self.root / "lp_variant.json"
+        path.write_text(json.dumps(self.lp_payload(**override)))
+        self.data["lp_candidate"]["git_blob_sha"] = self.git("hash-object", "-w", str(path))
+
+    def test_hat_support_outside_minus_L_L_passes(self):
+        receipt.verify_hat_support(self.data, self.root)
+
+    def test_hat_reaching_inside_minus_L_L_is_rejected(self):
+        self.anchor_lp(uk=[1.019, 1.04])
+        with self.assertRaisesRegex(receipt.ReceiptError, "hat support"):
+            receipt.verify_hat_support(self.data, self.root)
+
+    def test_coefficient_count_mismatch_is_rejected(self):
+        self.anchor_lp(coef=[0.0] * 6)
+        with self.assertRaisesRegex(receipt.ReceiptError, "coefficient"):
+            receipt.verify_hat_support(self.data, self.root)
+
+    def test_lp_L_must_equal_L_exact(self):
+        self.anchor_lp(L=0.99, uk=[1.01, 1.03])
+        with self.assertRaisesRegex(receipt.ReceiptError, "L_exact"):
+            receipt.verify_hat_support(self.data, self.root)
+
+    def test_non_json_lp_payload_is_rejected(self):
+        path = self.root / "garbage.txt"
+        path.write_text("not json")
+        self.data["lp_candidate"]["git_blob_sha"] = self.git("hash-object", "-w", str(path))
+        with self.assertRaises(receipt.ReceiptError):
+            receipt.verify_hat_support(self.data, self.root)
 
     def verify(self, data=None):
         self.assertTrue(callable(getattr(receipt, "verify_git_bindings", None)),

@@ -15,6 +15,7 @@ import hashlib
 import json
 import math
 import subprocess
+from fractions import Fraction
 from pathlib import Path
 
 SCHEMA = "aegis.rh.krein-certificate-receipt.v2"
@@ -147,6 +148,29 @@ def verify_git_bindings(receipt: dict, repo_root: Path) -> None:
             raise ReceiptError(f"path/blob is not in exact_head: {path}")
         if git("cat-file", "-t", blob).strip() != "blob":
             raise ReceiptError(f"referenced blob is unavailable: {path}")
+
+
+def verify_hat_support(receipt: dict, repo_root: Path) -> None:
+    """The frozen verifier trusts the LP's `uk`; the Lean consumer needs every hat
+    support [u-w, u+w] outside (-L, L). Check it exactly on the anchored LP blob."""
+    try:
+        text = subprocess.run(
+            ["git", "--no-replace-objects", "-C", str(repo_root), "cat-file", "blob",
+             receipt["lp_candidate"]["git_blob_sha"]],
+            check=True, capture_output=True, text=True, timeout=10,
+        ).stdout
+        lp = json.loads(text)
+        L, w = Fraction(lp["L"]), Fraction(lp["w"])
+        uk = [Fraction(u) for u in lp["uk"]]
+        n_coef = len(lp["coef"])
+    except (OSError, subprocess.SubprocessError, ValueError, TypeError, KeyError) as exc:
+        raise ReceiptError(f"cannot read anchored LP payload: {exc}") from exc
+    if L != Fraction(receipt["parameters"]["L_exact"]):
+        raise ReceiptError("LP payload L differs from L_exact")
+    if n_coef != len(uk) + 5:
+        raise ReceiptError("LP payload must carry one coefficient per hat plus 5 delta columns")
+    if w <= 0 or not uk or min(uk) - w < L:
+        raise ReceiptError("hat support intersects (-L, L)")
 
 
 def make_receipt(name: str) -> dict:
@@ -282,6 +306,7 @@ def main() -> None:
         receipt = make_receipt(args.anchor) if args.generate else load_receipt(source)
         validate_receipt(receipt, args.anchor)
         verify_git_bindings(receipt, args.repo_root)
+        verify_hat_support(receipt, args.repo_root)
         payload = run_falsifiers(args.anchor, receipt) if args.falsify else receipt
         text = json.dumps(payload, indent=2, sort_keys=True, allow_nan=False)
         if args.out:
