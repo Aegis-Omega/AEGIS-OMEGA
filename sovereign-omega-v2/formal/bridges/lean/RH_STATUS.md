@@ -540,3 +540,14 @@ numerically integrates the outer frequency variable. At `T=3000`, `dt=0.02`, the
 from `0.0035075542` at dimension 32 to `0.0033284004` at dimension 256. This is only an upper bound on the
 unrestricted infimum: it does not prove positivity, but it also does not furnish a negative obstruction at `L=1.05`.
 Exact diagnostic payload: `research/rh/KREIN_PRIMAL_CONVERGENCE_L1.05_V2.json`. Not RH.
+
+**Krein certificate at L = 1.05 (`research/rh/KREIN_ARB_CERTIFICATE_L1.05.json`).**
+Same frozen verifier (`verify_krein_arb_v1.py`, blob 84453dbc, Arb 256-bit), 399 hats to L+8, δ^{(j)} j ≤ 4,
+exact hat support `min(uk) − w − L = 5/2^58 ≥ 0`: m = 0.00025, 13116 cells, zero-cell bound 7.07e-3,
+tail F/W ≥ 2.45. The raw LP is numerically singular at L ≥ 1 (HiGHS status 4: neighbouring hat columns are
+nearly collinear on small ξ). `research/rh/krein_lp_svd_cp_v1.py` solves the row-scaled LP over the 252 leading
+left singular vectors with |d4| ≤ 3 and a 0.0005-grid cutting plane; the payload `krein_lp_L1.05.json` is its
+iterate 2 (float fine-grid minimum 3.33e-4). With `certificate_zero_quadratic_nonneg` (PR #693): modulo the Arb
+step (not in Lean), Re Σ_ρ Z_ρ(A_g) ≥ 0 for every moment-zero packet of log-support width < 1.05. The primal
+upper bound at this width is m*(1.05) ≈ 3.3e-3, and m*(L) keeps decaying roughly like e^{−30(L−1)} on [1, 1.38],
+so this method still cannot reach all widths. Not RH.
