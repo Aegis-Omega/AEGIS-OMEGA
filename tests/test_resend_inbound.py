@@ -11,6 +11,7 @@ import sqlite3
 import tempfile
 import unittest
 from concurrent.futures import ThreadPoolExecutor
+from contextlib import closing
 from dataclasses import asdict, replace
 from pathlib import Path
 from unittest.mock import patch
@@ -318,7 +319,7 @@ class InboundTests(unittest.TestCase):
         self.denied(result,'JOURNAL_UNAVAILABLE'); self.assertNotIn('private path',str(result))
 
     def test_journal_atomic_rollback(self):
-        with sqlite3.connect(self.path) as db:
+        with closing(sqlite3.connect(self.path)) as db, db:
             db.execute("CREATE TRIGGER fail_delivery BEFORE INSERT ON deliveries BEGIN SELECT RAISE(ABORT, 'fixture disk failure'); END")
         self.denied(self.call(),'JOURNAL_UNAVAILABLE')
 
@@ -365,7 +366,7 @@ class InboundTests(unittest.TestCase):
 
     def test_journal_has_no_secret_or_raw_body(self):
         self.call()
-        with sqlite3.connect(self.path) as db:
+        with closing(sqlite3.connect(self.path)) as db:
             rows=list(db.iterdump())
         dump='\n'.join(rows)
         self.assertNotIn(SECRET,dump); self.assertNotIn('svix-signature',dump)
@@ -402,7 +403,7 @@ class InboundTests(unittest.TestCase):
 
     def test_delivery_record_without_observation_is_not_acknowledged(self):
         self.call()
-        with sqlite3.connect(self.path) as db: db.execute('DELETE FROM observations')
+        with closing(sqlite3.connect(self.path)) as db, db: db.execute('DELETE FROM observations')
         self.denied(self.call(),'JOURNAL_INCONSISTENT')
 
     def test_journal_capacity_fails_closed_and_does_not_evict_dedup(self):

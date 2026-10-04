@@ -5,6 +5,8 @@ on:
     paths:
       - 'harness/sdk/resend_inbound.py'
       - 'tests/test_resend_inbound.py'
+      - 'tests/test_resend_inbound_ingest.py'
+      - 'scripts/resend_inbound_ingest.py'
       - 'tests/fixtures/resend_inbound/**'
       - 'docs/resend-inbound-contract-v1.md'
       - '.github/workflows/resend-inbound-adapter-v1.yml'
@@ -27,6 +29,6 @@ jobs:
           echo "candidate_sha=${GITHUB_SHA}"
           test -n "${GITHUB_SHA}"
       - name: Compile adapter and regression
-        run: python -m compileall -q harness/sdk/resend_inbound.py tests/test_resend_inbound.py
+        run: python -m compileall -q harness/sdk/resend_inbound.py scripts/resend_inbound_ingest.py tests/test_resend_inbound.py tests/test_resend_inbound_ingest.py
       - name: Run bounded inbound regression
-        run: python -m unittest discover -s tests -p 'test_resend_inbound.py' -v
+        run: python -W error::ResourceWarning -m unittest discover -s tests -p 'test_resend_inbound*.py' -v
