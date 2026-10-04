@@ -1,6 +1,6 @@
 # AEGIS Ω Offline ExecutionEnvelope Verifier v1
 
-**Status:** SOURCE_IMPLEMENTED / HOSTED_REPLAY_PENDING  
+**Status:** EXTERNAL_HOSTED_REPLAY_VERIFIED  
 **Authority effect:** NONE  
 **Dependencies:** Python standard library only.
 
@@ -88,6 +88,12 @@ The verifier is invalid if any of these can occur without a non-zero exit:
 
 ## Promotion boundary
 
-Source implementation is not enough to promote the claims ledger. Promotion
-requires an exact-head hosted replay of the CLI/tests. KMS signing and public
-transparency remain independently open.
+Exact-source hosted replay completed on GitLab SaaS shared runner 54907241:
+pipeline 2910487369, job 16919605169, Python 3.12.15. The replay verified the
+three-file exact scope, 12/12 offline-verifier tests, 45/45 canonical-envelope
+checks, and machine-readable CLI output. Evidence receipt SHA-256:
+`202ab871ffb6d75956ff698d4e63938fcf1dd73256642864280a8d7d3840c1fd`.
+
+This evidence supports the bounded CLM-205 integrity/linkage claim. KMS signing
+(CLM-203) and public transparency (CLM-204) remain independently open and are
+not promoted by this verifier.
