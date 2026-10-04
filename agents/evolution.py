@@ -42,6 +42,8 @@ from dataclasses import dataclass, field, asdict
 from pathlib import Path
 from typing import Any
 
+from harness.sdk.skill_authority import compute_registry_root
+
 _ROOT = os.path.dirname(os.path.abspath(__file__))
 _REPO_ROOT = os.path.dirname(_ROOT)
 SKILL_TREE_PATH = os.path.join(_REPO_ROOT, "harness", "skill_tree.json")
@@ -197,8 +199,13 @@ class EvolutionEngine:
 
     def _save_tree(self) -> None:
         if self._tree is not None:
-            with open(self.tree_path, "w") as f:
-                json.dump(self._tree, f, indent=2)
+            root = compute_registry_root(self._tree)
+            self._tree["registry_root"] = root
+            self._tree["genesis_seal"] = root
+            tree_path = Path(self.tree_path)
+            temporary = tree_path.with_suffix(tree_path.suffix + ".tmp")
+            temporary.write_text(json.dumps(self._tree, indent=2) + "\n", encoding="utf-8")
+            os.replace(temporary, tree_path)
 
     @staticmethod
     def _lower_tier(tier: str) -> str:
