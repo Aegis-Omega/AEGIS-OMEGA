@@ -55,7 +55,6 @@ function repoRoot(): string {
 type AuthorityDecision = {
   outcome: 'ADMITTED' | 'DENIED'
   denial_codes?: string[]
-  mutation_receipt_root?: string
   policy_decision?: { decision_root?: string }
   [key: string]: unknown
 }
