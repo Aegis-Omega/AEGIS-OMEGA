@@ -9,13 +9,13 @@ const PORT = parseInt(process.env.PORT ?? '8080')
 
 // Vertex AI when GCP project is configured; Anthropic direct otherwise
 const GCP_PROJECT = process.env.GOOGLE_CLOUD_PROJECT ?? ''
-const GCP_REGION  = process.env.GOOGLE_CLOUD_REGION ?? 'us-east5'
+const GCP_REGION  = process.env.GOOGLE_CLOUD_REGION ?? 'eu'
 
 const client = GCP_PROJECT
   ? new AnthropicVertex({ projectId: GCP_PROJECT, region: GCP_REGION })
   : new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY ?? '' })
 
-const MODEL      = process.env.CLAUDE_MODEL      ?? 'claude-sonnet-4-6'
+const MODEL      = process.env.CLAUDE_MODEL      ?? 'claude-sonnet-5-5'
 const MAX_TOKENS = parseInt(process.env.CLAUDE_MAX_TOKENS ?? '2048')
 
 // Optional per-IP rate limiting (requests per minute, 0 = off)
