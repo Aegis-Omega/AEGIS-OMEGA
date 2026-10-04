@@ -2,7 +2,7 @@
 Rows of the cutoff-free CvS matrix for |n| <= NP are evaluated in Arb; |n| > NP by an explicit 1/n tail bound."""
 import sys, math, json
 sys.path.insert(0, __import__('os').path.dirname(__file__))
-from flint import arb, acb, arb_mat, acb_mat, ctx
+from flint import arb, acb, arb_mat, acb_mat, ctx, fmpq
 import cvs_entries as gw
 ctx.prec = 192
 L = arb(sys.argv[1]); N = int(sys.argv[2]); NP = int(sys.argv[3])
@@ -75,23 +75,41 @@ ONES = [arb(1)] * len(band)
 #   (Qv)_n = sum_{j<K} [l_alpha^(j) + b_n l_1^(j)]/(pi n^(j+1)) + pole_n + rho_n,
 #   l_alpha^(j) = sum alpha_m m^j v_m,  l_1^(j) = sum m^j v_m,  |b_n| <= K2,
 #   |pole_n| <= Cc |lb|/|n| + Cc beta^2 |la|/n^2,  |rho_n| <= (Amax + K2) N^K ||v||_1 / (pi |n|^K (|n| - N)).
-# Cauchy-Schwarz over 2K+3 terms; sum_{|n|>NP} n^-(2j+2) <= 2/((2j+1) NP^(2j+1)),
-# sum n^-2K (n-N)^-2 <= 2/((2K+1)(NP-N)^(2K+1)).  K = 1, 2 reproduce the v2 constants exactly.
+# Weighted Cauchy-Schwarz over the 2K+3 terms, |sum a_i|^2 <= sum |a_i|^2 / p_i (p_i > 0, sum p_i = 1);
+# sum_{|n|>NP} n^-(2j+2) <= 2/((2j+1) NP^(2j+1)),  sum n^-2K (n-N)^-2 <= 2/((2K+1)(NP-N)^(2K+1)).
+# TAIL_WEIGHTS=uniform (p_i = 1/(2K+3); K = 1, 2 reproduce the v2 constants exactly) or
+# mixed (p = average of uniform and the sqrt-optimal weights for the bottom Ritz vector of A11; any fixed p is valid).
 K = TAIL_ORDER; f = 2 * K + 3
-Tail = acb_mat(2 * N + 1, 2 * N + 1)
+terms = []
 for j in range(K):
-    cj = f * 2 / ((2 * j + 1) * pi * pi * arb(NP) ** (2 * j + 1))
-    Tail += outer([a_ * arb(m) ** j for a_, m in zip(alpha, band)]) * cj + outer([arb(m) ** j for m in band]) * (cj * K2 * K2)
-Tail += outer(bvec) * (f * 2 / (pi * pi * NP) * pi * pi * Cc * Cc) + outer(avec) * (f * 2 / (3 * pi * pi * arb(NP) ** 3) * pi * pi * Cc * Cc * beta ** 4)
-Eco = f * 2 * (Amax + K2) ** 2 * arb(N) ** (2 * K) * (2 * N + 1) / ((2 * K + 1) * pi * pi * arb(NP - N) ** (2 * K + 1))
-print('K2', K2, 'Amax', Amax, 'Eco', Eco)
-Ib = acb_mat(2 * N + 1, 2 * N + 1)
-for i in range(2 * N + 1): Ib[i, i] = Eco
+    cj = 2 / ((2 * j + 1) * pi * pi * arb(NP) ** (2 * j + 1))
+    terms.append(outer([a_ * arb(m) ** j for a_, m in zip(alpha, band)]) * cj)
+    terms.append(outer([arb(m) ** j for m in band]) * (cj * K2 * K2))
+terms.append(outer(bvec) * (2 * Cc * Cc / NP))
+terms.append(outer(avec) * (2 * Cc * Cc * beta ** 4 / (3 * arb(NP) ** 3)))
+Eco1 = 2 * (Amax + K2) ** 2 * arb(N) ** (2 * K) * (2 * N + 1) / ((2 * K + 1) * pi * pi * arb(NP - N) ** (2 * K + 1))
 Zh = Z.conjugate().transpose()
 A11 = Zh * Qb * Z; G11 = Zh * Z
-CB = Zh * (RR + Tail + Ib) * Z - A11 * G11.inv() * A11
 def mid(M): return [[complex(float(M[i, j].real.mid()), float(M[i, j].imag.mid())) for j in range(M.ncols())] for i in range(M.nrows())]
-blocks = {"L": str(L), "N": N, "NP": NP, "K2": K2.str(30), "Amax": Amax.str(30), "tail_order": K, "Eco": Eco.str(30),
+import numpy as np
+from scipy.linalg import eigh
+WEIGHTS = os.environ.get('TAIL_WEIGHTS', 'uniform')
+if WEIGHTS == 'uniform':
+    pw = [fmpq(1, f)] * f
+else:
+    _, U0 = eigh(np.array(mid(A11)), np.array(mid(G11))); v0 = np.array(mid(Z)) @ U0[:, 0]
+    t = [abs(v0.conj() @ np.array(mid(T)) @ v0) for T in terms] + [float(Eco1.mid()) * float(np.vdot(v0, v0).real)]
+    r = [math.sqrt(x) + 1e-300 for x in t]
+    pw = [fmpq(int(1e9 * (0.5 / f + 0.5 * x / sum(r))), 10 ** 9) for x in r]   # rational, sum <= 1
+assert sum(pw) <= 1 and all(x > 0 for x in pw)
+Tail = acb_mat(2 * N + 1, 2 * N + 1)
+for T, p_ in zip(terms, pw[:-1]): Tail += T * arb(1 / p_)
+Eco = Eco1 / arb(pw[-1])
+print('K2', K2, 'Amax', Amax, 'Eco', Eco, 'weights', WEIGHTS, [str(x) for x in pw])
+Ib = acb_mat(2 * N + 1, 2 * N + 1)
+for i in range(2 * N + 1): Ib[i, i] = Eco
+CB = Zh * (RR + Tail + Ib) * Z - A11 * G11.inv() * A11
+blocks = {"L": str(L), "N": N, "NP": NP, "K2": K2.str(30), "Amax": Amax.str(30), "tail_order": K, "tail_weights": [str(x) for x in pw], "Eco": Eco.str(30),
           "A11": [[(A11[i, j].real.str(70), A11[i, j].imag.str(70)) for j in range(k)] for i in range(k)],
           "G11": [[(G11[i, j].real.str(70), G11[i, j].imag.str(70)) for j in range(k)] for i in range(k)],
           "CB": [[(CB[i, j].real.str(70), CB[i, j].imag.str(70)) for j in range(k)] for i in range(k)]}

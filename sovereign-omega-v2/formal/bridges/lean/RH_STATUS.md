@@ -581,3 +581,10 @@ remainder to ∝ N⁴/NP⁵ and certifies Q(G) ≥ 5e-8‖G‖² at L = 1.4 (pri
 Ritz λ₁ = 5.53e-8). An order-4 tail expansion (remainder ∝ N⁸/NP⁹) certifies Q(G) ≥ 4.5e-12‖G‖² at L = 1.6
 (N = 200, c_∞ ≥ 1.323, Ritz λ₁ = 5.35e-12): Zhu's window, but for the moment-zero restriction rather than his full form
 (8.9e-18 there), so the two numbers measure different things. Fixed widths, not RH.
+
+**Feshbach certificate at L = 1.8 (T1, Arb; `research/rh/feshbach_arb_v2/L1.8/`).** With the prime 5 in the window
+(prime powers 2, 3, 4, 5) the Krein LP certifies m = 1.05 (zero cell narrowed to [0, 0.01]); the complement trace
+at N = 400 is ≤ 0.0701, so c_∞ ≥ 0.9799. An order-8 row tail with weighted Cauchy–Schwarz gives C_B = 3.2e-18 on the
+bottom Ritz vector (λ₁ = 4.534e-17, Arb inverse iteration), and the 799-dimensional interval Cholesky certifies
+Q(G) ≥ 4e-17‖G‖² for every moment-zero G in L²[0, 1.8] (fails at 4.2e-17). At N = 300 the complement trace was 0.44
+and the Schur step failed. Fixed width, not RH.
