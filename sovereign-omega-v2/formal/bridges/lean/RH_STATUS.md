@@ -562,3 +562,12 @@ genuine Krein certificate (hats plus order-19 edge splines, as in `RHKreinGenuin
 μ = 0.0015, `+3.7e-4` at μ = 0.002, negative at 0.0025. Payload: `KREIN_FESHBACH_FEASIBILITY_L1.05_V1.json`.
 Promotion to a certificate needs Arb enclosures of `A11`, `C_B` (including the ξ > 3000 tail), the slack
 inequality on all ξ, and the HS norm of `T_s`. If they hold, m ≥ 0.0015 at L = 1.05, 6× the certified 0.00025. Not RH.
+
+**Full-space Feshbach certificate at L = 1.05 (T1, Arb; `research/rh/feshbach_arb_v1/`).** With V the moment-zero
+part of the 33 Fourier modes |m| ≤ 16 and the complement taken inside H (not L²[0, L]), every ingredient is enclosed:
+A11, G11 and C_B from the cutoff-free CvS/CCM entries (rows |n| ≤ 10000 plus an explicit 1/n tail); the complement
+Krein inequality W(S − 0.99) + Ĥ + W s̄ ≥ 0 with hats only and a step slack on [0.05, 40] (12040 Taylor cells);
+tr(P T P) ≤ 0.03249 by Gauss–Legendre with Bernstein-ellipse error balls, so c_∞ ≥ 0.9575; interval Cholesky of the
+31×31 Schur matrix at μ = 0.0025 (fails at 0.0026). Hence Q(G) ≥ 0.0025‖G‖² for every moment-zero G of log-support
+width 1.05, ten times the previous 0.00025. `run_all.sh` reproduces it end to end; `RECEIPT.json` lists the unformalized
+identifications. Fixed width, not RH.
