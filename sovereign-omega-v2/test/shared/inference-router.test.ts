@@ -76,6 +76,84 @@ describe('opt-in OpenAI backend gating', () => {
   })
 })
 
+
+describe('opt-in Nebius Token Factory backend gating', () => {
+  it('never calls the chat edge function when VITE_ENABLE_NEBIUS is unset', async () => {
+    fetchMock.mockRejectedValue(new Error('network down'))
+
+    await expect(routeInference({ systemPrompt: 'S', userMessage: 'U' }))
+      .rejects.toThrow(/All inference backends failed/)
+
+    const urls = fetchMock.mock.calls.map(c => String(c[0]))
+    expect(urls.some(u => u.includes('/functions/v1/chat'))).toBe(false)
+  })
+
+  it('routes through the chat edge function with provider "nebius" when enabled', async () => {
+    vi.stubEnv('VITE_ENABLE_NEBIUS', 'true')
+    fetchMock.mockImplementation((url: unknown, init?: RequestInit) => {
+      if (String(url).includes('/functions/v1/chat')) {
+        const body = JSON.parse(String(init?.body ?? '{}')) as { provider?: string }
+        if (body.provider === 'nebius') {
+          return Promise.resolve({
+            ok: true,
+            json: () => Promise.resolve({
+              reply: '{"ok":true}',
+              model: 'deepseek-ai/DeepSeek-R1-0528',
+            }),
+          })
+        }
+      }
+      return Promise.reject(new Error('network down'))
+    })
+
+    const r = await routeInference({ systemPrompt: 'S', userMessage: 'U' })
+    expect(r.backend).toBe('nebius-token-factory')
+    expect(r.content).toBe('{"ok":true}')
+    expect(r.model).toBe('deepseek-ai/DeepSeek-R1-0528')
+
+    const call = fetchMock.mock.calls.find(c => {
+      if (!String(c[0]).includes('/functions/v1/chat')) return false
+      const body = JSON.parse(String((c[1] as RequestInit | undefined)?.body ?? '{}')) as { provider?: string }
+      return body.provider === 'nebius'
+    })
+    expect(call).toBeDefined()
+  })
+
+  it('configuredBackends lists nebius-token-factory only when the flag is exactly "true"', () => {
+    expect(configuredBackends()).not.toContain('nebius-token-factory')
+    vi.stubEnv('VITE_ENABLE_NEBIUS', 'true')
+    expect(configuredBackends()).toContain('nebius-token-factory')
+  })
+
+  it('records the server-reported Nebius model, not the caller req.model', async () => {
+    vi.stubEnv('VITE_ENABLE_NEBIUS', 'true')
+    fetchMock.mockImplementation((url: unknown, init?: RequestInit) => {
+      if (String(url).includes('/functions/v1/chat')) {
+        const body = JSON.parse(String(init?.body ?? '{}')) as { provider?: string }
+        if (body.provider === 'nebius') {
+          return Promise.resolve({
+            ok: true,
+            json: () => Promise.resolve({
+              reply: '{"ok":true}',
+              model: 'server-nebius-model',
+            }),
+          })
+        }
+      }
+      return Promise.reject(new Error('network down'))
+    })
+
+    const r = await routeInference({
+      systemPrompt: 'S',
+      userMessage: 'U',
+      model: 'client-requested-model',
+    })
+    expect(r.backend).toBe('nebius-token-factory')
+    expect(r.model).toBe('server-nebius-model')
+    expect(r.model).not.toBe('client-requested-model')
+  })
+})
+
 describe('opt-in Azure OpenAI backend gating', () => {
   it('never calls the chat edge function when VITE_ENABLE_AZURE is unset', async () => {
     fetchMock.mockRejectedValue(new Error('network down'))

@@ -10,7 +10,7 @@
  * Every call — regardless of backend — produces the same ConstitutionalAuditRecord.
  */
 
-export type BackendType = 'dashscope' | 'ollama' | 'claude' | 'cl-psi' | 'openai-compat' | 'azure-openai'
+export type BackendType = 'dashscope' | 'ollama' | 'claude' | 'cl-psi' | 'openai-compat' | 'nebius-token-factory' | 'azure-openai'
 
 export interface InferenceRequest {
   systemPrompt: string
@@ -180,6 +180,42 @@ async function callOpenAIBackend(req: InferenceRequest): Promise<InferenceRespon
   }
 }
 
+async function callNebiusBackend(req: InferenceRequest): Promise<InferenceResponse> {
+  // Opt-in flag only. The Nebius API key never reaches the browser; it remains
+  // server-side in the Supabase Edge Function as NEBIUS_API_KEY.
+  if ((import.meta.env.VITE_ENABLE_NEBIUS as string | undefined) !== 'true') {
+    throw new Error('VITE_ENABLE_NEBIUS not enabled')
+  }
+
+  const supabaseUrl = (import.meta.env.VITE_SUPABASE_URL as string | undefined)
+    ?? 'https://rwehltdwpsncnwxzkwik.supabase.co'
+  const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined
+
+  const t0 = Date.now()
+  const res = await fetch(`${supabaseUrl}/functions/v1/chat`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      ...(anonKey ? { Authorization: `Bearer ${anonKey}` } : {}),
+    },
+    body: JSON.stringify({
+      provider: 'nebius',
+      message: req.userMessage,
+      system: req.systemPrompt + '\n\nRespond with valid JSON only.',
+    }),
+    signal: AbortSignal.timeout(60_000),
+  })
+  if (!res.ok) throw new Error(`Nebius proxy ${res.status}: ${await res.text()}`)
+  const data = (await res.json()) as { reply?: string; error?: string; model?: string }
+  if (data.error || !data.reply) throw new Error(`Nebius proxy: ${data.error ?? 'empty reply'}`)
+  return {
+    content: data.reply,
+    backend: 'nebius-token-factory',
+    model: data.model ?? req.model ?? 'nebius',
+    latency_ms: Date.now() - t0,
+  }
+}
+
 async function callAzureBackend(req: InferenceRequest): Promise<InferenceResponse> {
   // Opt-in flag — NOT a secret. The Azure OpenAI key itself never reaches the
   // browser: it lives server-side as the Supabase function secret
@@ -223,12 +259,13 @@ async function callAzureBackend(req: InferenceRequest): Promise<InferenceRespons
 
 type BackendFn = (req: InferenceRequest) => Promise<InferenceResponse>
 
-// Order: CL-Ψ (local, private) → OpenAI (opt-in, key server-side) → Azure OpenAI (opt-in, key server-side) → Ollama (local) → Claude → DashScope
+// Order: CL-Ψ (local, private) → OpenAI → Nebius Token Factory → Azure OpenAI → Ollama → Claude → DashScope
 // Each backend is tried in sequence; first success wins.
 const BACKEND_CHAIN: Array<[BackendType, BackendFn]> = [
   ['cl-psi',        callCLPsiBackend],
-  ['openai-compat', callOpenAIBackend],
-  ['azure-openai',  callAzureBackend],
+  ['openai-compat',         callOpenAIBackend],
+  ['nebius-token-factory',  callNebiusBackend],
+  ['azure-openai',           callAzureBackend],
   ['ollama',        callOllamaBackend],
   ['claude',        callClaudeBackend],
   ['dashscope',     callDashScopeBackend],
@@ -268,6 +305,7 @@ export function configuredBackends(): BackendType[] {
   const active: BackendType[] = []
   if (import.meta.env.VITE_BRIDGE_URL || true) active.push('cl-psi')       // always try bridge
   if (import.meta.env.VITE_ENABLE_OPENAI === 'true') active.push('openai-compat')
+  if (import.meta.env.VITE_ENABLE_NEBIUS === 'true') active.push('nebius-token-factory')
   if (import.meta.env.VITE_ENABLE_AZURE === 'true') active.push('azure-openai')
   if (import.meta.env.VITE_OLLAMA_BASE_URL) active.push('ollama')
   if (import.meta.env.VITE_CLAUDE_API_KEY) active.push('claude')
