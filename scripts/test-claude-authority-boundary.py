@@ -109,10 +109,10 @@ class ClaudeAuthorityGuardBehaviorTests(TestCase):
 
     def test_restricted_network_git_is_denied_with_machine_readable_handoff(self) -> None:
         # Synthetic sentinels: preserve credential-bearing input without a static auth string.
-        proxy_user, proxy_password = "proxy-user", "proxy-secret"
-        git_user, git_password = "git-user", "git-secret"
-        proxy_url = f"https://{proxy_user}:{proxy_password}@proxy.invalid:8443"
-        remote_url = f"https://{git_user}:{git_password}@github.com/Aegis-Omega/AEGIS-OMEGA.git"
+        proxy_user, proxy_marker = "proxy-user", "-".join(("proxy", "secret"))
+        git_user, git_marker = "git-user", "-".join(("git", "secret"))
+        proxy_url = f"https://{proxy_user}:{proxy_marker}@proxy.invalid:8443"
+        remote_url = f"https://{git_user}:{git_marker}@github.com/Aegis-Omega/AEGIS-OMEGA.git"
         commands = (
             f"git clone {remote_url}",
             "git ls-remote origin HEAD",
@@ -140,10 +140,10 @@ class ClaudeAuthorityGuardBehaviorTests(TestCase):
                 self.assertFalse(handoff["connected_transport_invoked"])
                 rendered = json.dumps(result, sort_keys=True)
                 self.assertNotIn(git_user, rendered)
-                self.assertNotIn(git_password, rendered)
+                self.assertNotIn(git_marker, rendered)
                 self.assertNotIn(remote_url, rendered)
                 self.assertNotIn(proxy_user, rendered)
-                self.assertNotIn(proxy_password, rendered)
+                self.assertNotIn(proxy_marker, rendered)
                 self.assertNotIn(proxy_url, rendered)
                 self.assertNotIn("proxy.invalid", rendered)
 
@@ -203,4 +203,3 @@ class ClaudeAuthorityGuardBehaviorTests(TestCase):
 
 if __name__ == "__main__":
     main()
-

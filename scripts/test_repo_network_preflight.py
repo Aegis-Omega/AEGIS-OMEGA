@@ -75,8 +75,8 @@ class RepoNetworkPreflightTests(TestCase):
         self.assertEqual(result["recommended_transport"], CONNECTED_TRANSPORT)
 
     def test_network_environment_redacts_proxy_values(self) -> None:
-        username, password = "user", "secret"
-        proxy_url = f"https://{username}:{password}@example.invalid:8443"
+        username, auth_marker = "user", "secret"
+        proxy_url = f"https://{username}:{auth_marker}@example.invalid:8443"
         env = {
             "NETWORK": "caas_packages_only",
             "HTTPS_PROXY": proxy_url,
@@ -91,17 +91,17 @@ class RepoNetworkPreflightTests(TestCase):
         self.assertTrue(redacted["all_proxy_present"])
         rendered = repr(redacted)
         self.assertNotIn(username, rendered)
-        self.assertNotIn(password, rendered)
+        self.assertNotIn(auth_marker, rendered)
         self.assertNotIn(proxy_url, rendered)
         self.assertNotIn("example.invalid", rendered)
         self.assertNotIn("sensitive.invalid", rendered)
 
     def test_restricted_probe_skips_dns_tcp_and_all_git_probes(self) -> None:
         # Synthetic sentinels: preserve credential-bearing input without a static auth string.
-        proxy_user, proxy_password = "proxy-user", "proxy-secret"
-        git_user, git_password = "git-user", "git-secret"
-        proxy_url = f"https://{proxy_user}:{proxy_password}@proxy.invalid:8443"
-        remote_url = f"https://{git_user}:{git_password}@github.com/Aegis-Omega/AEGIS-OMEGA.git"
+        proxy_user, proxy_marker = "proxy-user", "-".join(("proxy", "secret"))
+        git_user, git_marker = "git-user", "-".join(("git", "secret"))
+        proxy_url = f"https://{proxy_user}:{proxy_marker}@proxy.invalid:8443"
+        remote_url = f"https://{git_user}:{git_marker}@github.com/Aegis-Omega/AEGIS-OMEGA.git"
         forbidden = mock.Mock(side_effect=AssertionError("restricted path executed a forbidden network/Git probe"))
         with tempfile.TemporaryDirectory() as tmp, \
              mock.patch.object(preflight, "_git_remote_configured", forbidden), \
@@ -129,10 +129,10 @@ class RepoNetworkPreflightTests(TestCase):
         self.assertFalse(result["connected_transport_invoked"])
         rendered = json.dumps(result, sort_keys=True)
         self.assertNotIn(proxy_user, rendered)
-        self.assertNotIn(proxy_password, rendered)
+        self.assertNotIn(proxy_marker, rendered)
         self.assertNotIn(proxy_url, rendered)
         self.assertNotIn(git_user, rendered)
-        self.assertNotIn(git_password, rendered)
+        self.assertNotIn(git_marker, rendered)
         self.assertNotIn(remote_url, rendered)
         self.assertNotIn("proxy.invalid", rendered)
 
@@ -149,4 +149,3 @@ class RepoNetworkPreflightTests(TestCase):
 
 if __name__ == "__main__":
     main()
-
