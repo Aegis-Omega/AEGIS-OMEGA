@@ -1,0 +1,30 @@
+{
+  "schema": "aegis.m2.sequence-domain-contract.v1",
+  "issue": 531,
+  "authority_effect": "NONE",
+  "runtime_semantics": "FROZEN_PENDING_SEQUENCE_DOMAIN_POLICY",
+  "current_offset_formula": "(sequence * 8 + len(verifier_result)) % (len(state) // 8)",
+  "writers": [
+    {
+      "writer": "CoreMatrix.process_event",
+      "sequence_argument": "self._sequence",
+      "sequence_source": "CoreMatrix internal sequence after M1 increments it"
+    },
+    {
+      "writer": "CoreMatrix.receive_gate_signal",
+      "sequence_argument": "sequence",
+      "sequence_source": "TypeScript-supplied /gate_signal sequence"
+    }
+  ],
+  "event_router_sequence_forwarding": "DISCARDED",
+  "policy": {
+    "status": "DEFERRED",
+    "selected": null,
+    "allowed": [
+      "shared_key",
+      "overwrite_update",
+      "disjoint_source_namespaces"
+    ]
+  },
+  "runtime_semantics_change_allowed": false
+}
