@@ -6,12 +6,27 @@
 # Read-only. Safe to run anytime, in a loop, at session start.
 set -uo pipefail
 cd "$(git rev-parse --show-toplevel 2>/dev/null || echo .)" || exit 0
+REPO_ROOT="$(pwd)"
 
 echo "── AEGIS GROUND TRUTH ──────────────────────────────"
 BR=$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo '?')
 echo "branch:       $BR"
 
-git fetch -q origin main 2>/dev/null || true
+PREFLIGHT_JSON=$(
+  python3 "$REPO_ROOT/scripts/repo_network_preflight.py" \
+    --repo-root "$REPO_ROOT" \
+    --json \
+    --require-direct 2>/dev/null
+)
+PREFLIGHT_RC=$?
+
+if [ "$PREFLIGHT_RC" -eq 0 ]; then
+  git fetch -q origin main 2>/dev/null || true
+elif [ -n "$PREFLIGHT_JSON" ]; then
+  echo "repo-access:   $PREFLIGHT_JSON"
+else
+  echo 'repo-access:   {"classification":"PREFLIGHT_FAILED","direct_git_available":false,"handoff_required":true}'
+fi
 AHEAD=$(git rev-list --count origin/main..HEAD 2>/dev/null || echo '?')
 BEHIND=$(git rev-list --count HEAD..origin/main 2>/dev/null || echo '?')
 echo "vs main:      ${AHEAD} ahead · ${BEHIND} behind"
