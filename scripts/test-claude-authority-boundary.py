@@ -108,8 +108,13 @@ class ClaudeAuthorityGuardBehaviorTests(TestCase):
         self.assertEqual(self.decision("Bash", {"command": "git status --short"}), "allow")
 
     def test_restricted_network_git_is_denied_with_machine_readable_handoff(self) -> None:
+        # Synthetic sentinels: preserve credential-bearing input without a static auth string.
+        proxy_user, proxy_password = "proxy-user", "proxy-secret"
+        git_user, git_password = "git-user", "git-secret"
+        proxy_url = f"https://{proxy_user}:{proxy_password}@proxy.invalid:8443"
+        remote_url = f"https://{git_user}:{git_password}@github.com/Aegis-Omega/AEGIS-OMEGA.git"
         commands = (
-            "git clone https://git-user:git-secret@github.com/Aegis-Omega/AEGIS-OMEGA.git",
+            f"git clone {remote_url}",
             "git ls-remote origin HEAD",
             "git fetch origin main",
             "git pull --ff-only",
@@ -121,7 +126,7 @@ class ClaudeAuthorityGuardBehaviorTests(TestCase):
                     {"command": command},
                     env_overrides={
                         "NETWORK": "caas_packages_only",
-                        "HTTPS_PROXY": "https://proxy-user:proxy-secret@proxy.invalid:8443",
+                        "HTTPS_PROXY": proxy_url,
                     },
                 )
                 output = result["hookSpecificOutput"]
@@ -134,8 +139,12 @@ class ClaudeAuthorityGuardBehaviorTests(TestCase):
                 self.assertEqual(handoff["transport_api_boundary"], "PLATFORM_OWNED_NOT_REPO_CALLABLE")
                 self.assertFalse(handoff["connected_transport_invoked"])
                 rendered = json.dumps(result, sort_keys=True)
-                self.assertNotIn("git-secret", rendered)
-                self.assertNotIn("proxy-secret", rendered)
+                self.assertNotIn(git_user, rendered)
+                self.assertNotIn(git_password, rendered)
+                self.assertNotIn(remote_url, rendered)
+                self.assertNotIn(proxy_user, rendered)
+                self.assertNotIn(proxy_password, rendered)
+                self.assertNotIn(proxy_url, rendered)
                 self.assertNotIn("proxy.invalid", rendered)
 
     def test_restricted_dns_mutation_is_denied_without_blocking_dns_reads(self) -> None:
@@ -194,3 +203,4 @@ class ClaudeAuthorityGuardBehaviorTests(TestCase):
 
 if __name__ == "__main__":
     main()
+

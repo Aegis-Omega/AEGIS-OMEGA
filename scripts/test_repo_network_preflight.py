@@ -75,9 +75,11 @@ class RepoNetworkPreflightTests(TestCase):
         self.assertEqual(result["recommended_transport"], CONNECTED_TRANSPORT)
 
     def test_network_environment_redacts_proxy_values(self) -> None:
+        username, password = "user", "secret"
+        proxy_url = f"https://{username}:{password}@example.invalid:8443"
         env = {
             "NETWORK": "caas_packages_only",
-            "HTTPS_PROXY": "https://user:secret@example.invalid:8443",
+            "HTTPS_PROXY": proxy_url,
             "HTTP_PROXY": "http://another-secret.invalid:8080",
             "ALL_PROXY": "socks5://sensitive.invalid:1080",
         }
@@ -88,11 +90,18 @@ class RepoNetworkPreflightTests(TestCase):
         self.assertTrue(redacted["http_proxy_present"])
         self.assertTrue(redacted["all_proxy_present"])
         rendered = repr(redacted)
-        self.assertNotIn("secret", rendered)
+        self.assertNotIn(username, rendered)
+        self.assertNotIn(password, rendered)
+        self.assertNotIn(proxy_url, rendered)
         self.assertNotIn("example.invalid", rendered)
         self.assertNotIn("sensitive.invalid", rendered)
 
     def test_restricted_probe_skips_dns_tcp_and_all_git_probes(self) -> None:
+        # Synthetic sentinels: preserve credential-bearing input without a static auth string.
+        proxy_user, proxy_password = "proxy-user", "proxy-secret"
+        git_user, git_password = "git-user", "git-secret"
+        proxy_url = f"https://{proxy_user}:{proxy_password}@proxy.invalid:8443"
+        remote_url = f"https://{git_user}:{git_password}@github.com/Aegis-Omega/AEGIS-OMEGA.git"
         forbidden = mock.Mock(side_effect=AssertionError("restricted path executed a forbidden network/Git probe"))
         with tempfile.TemporaryDirectory() as tmp, \
              mock.patch.object(preflight, "_git_remote_configured", forbidden), \
@@ -106,8 +115,8 @@ class RepoNetworkPreflightTests(TestCase):
                 timeout=0.1,
                 env={
                     "NETWORK": "caas_packages_only",
-                    "HTTPS_PROXY": "https://proxy-user:proxy-secret@proxy.invalid:8443",
-                    "AEGIS_TEST_REMOTE": "https://git-user:git-secret@github.com/Aegis-Omega/AEGIS-OMEGA.git",
+                    "HTTPS_PROXY": proxy_url,
+                    "AEGIS_TEST_REMOTE": remote_url,
                 },
             )
 
@@ -119,8 +128,12 @@ class RepoNetworkPreflightTests(TestCase):
         self.assertEqual(result["git_remote_configured"], "SKIPPED_BY_POLICY")
         self.assertFalse(result["connected_transport_invoked"])
         rendered = json.dumps(result, sort_keys=True)
-        self.assertNotIn("proxy-secret", rendered)
-        self.assertNotIn("git-secret", rendered)
+        self.assertNotIn(proxy_user, rendered)
+        self.assertNotIn(proxy_password, rendered)
+        self.assertNotIn(proxy_url, rendered)
+        self.assertNotIn(git_user, rendered)
+        self.assertNotIn(git_password, rendered)
+        self.assertNotIn(remote_url, rendered)
         self.assertNotIn("proxy.invalid", rendered)
 
     def test_ground_truth_gates_network_fetch_through_preflight(self) -> None:
@@ -136,3 +149,4 @@ class RepoNetworkPreflightTests(TestCase):
 
 if __name__ == "__main__":
     main()
+
