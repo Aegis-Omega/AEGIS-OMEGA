@@ -1,0 +1,311 @@
+{
+  "schema_version": "1.0.0",
+  "observation": "EXECUTED_REPLAY_NOT_SIGNED_ATTESTATION",
+  "observed_at": "2026-10-07T01:26:40.082Z",
+  "source_commit": "897fa55556a639a04a67d25481b7a432af007d04",
+  "base_commit": "495bfd85d79abcb2b4f6898fe9c156488492426a",
+  "sdk_version": "1.29.0",
+  "runtime": {
+    "node": "v22.23.3",
+    "platform": "linux",
+    "architecture": "x64"
+  },
+  "verdict": "PASS",
+  "verification_error": null,
+  "stages": [
+    {
+      "name": "build",
+      "command": [
+        "npm",
+        "run",
+        "build"
+      ],
+      "exit_code": 0,
+      "signal": null,
+      "elapsed_ms": 1960,
+      "status": "PASS",
+      "log": "build.log",
+      "log_sha256": "b7bbf8ca8f7ae4399c2bb59f9d053a0713b1d82510616170cc7e1e589035cb66"
+    },
+    {
+      "name": "browser-client",
+      "command": [
+        "/opt/hostedtoolcache/node/22.23.3/x64/bin/node",
+        "--test",
+        "test/browser-client.mjs"
+      ],
+      "exit_code": 0,
+      "signal": null,
+      "elapsed_ms": 158,
+      "status": "PASS",
+      "log": "browser-client.log",
+      "log_sha256": "4b4050eaa5646737e328e0579c3ae10cfc77cc90a68473282a2ff428b6dd1e84"
+    },
+    {
+      "name": "streamable-http",
+      "command": [
+        "/opt/hostedtoolcache/node/22.23.3/x64/bin/node",
+        "--test",
+        "test/streamable-http.mjs"
+      ],
+      "exit_code": 0,
+      "signal": null,
+      "elapsed_ms": 764,
+      "status": "PASS",
+      "log": "streamable-http.log",
+      "log_sha256": "750432b762b0a0b7b0621738336b86dd38a69363cb178fa6cbace855677552fd"
+    },
+    {
+      "name": "legacy-resources",
+      "command": [
+        "/opt/hostedtoolcache/node/22.23.3/x64/bin/node",
+        "test/resources.mjs"
+      ],
+      "exit_code": 0,
+      "signal": null,
+      "elapsed_ms": 593,
+      "status": "PASS",
+      "log": "legacy-resources.log",
+      "log_sha256": "f0b60a83c8a86affda13e88379c58a9bcef006204ba250e15354e8f08432975b"
+    },
+    {
+      "name": "legacy-automaton3",
+      "command": [
+        "/opt/hostedtoolcache/node/22.23.3/x64/bin/node",
+        "test/automaton3-authority.mjs"
+      ],
+      "exit_code": 0,
+      "signal": null,
+      "elapsed_ms": 470,
+      "status": "PASS",
+      "log": "legacy-automaton3.log",
+      "log_sha256": "39473479918484e980d19cdb4ab8e49125639c322f187c36f243be69290f6223"
+    },
+    {
+      "name": "browser-e2e",
+      "command": [
+        "/opt/hostedtoolcache/node/22.23.3/x64/bin/node",
+        "test/browser-e2e.mjs"
+      ],
+      "exit_code": 0,
+      "signal": null,
+      "elapsed_ms": 14558,
+      "status": "PASS",
+      "log": "browser-e2e.log",
+      "log_sha256": "51ba6280e2a90bc8742fe6c61faafaad61d9bf59ccebd0971105cfbb87c9310d"
+    }
+  ],
+  "secret_scan": {
+    "scope": "Lane source and generated text evidence; pattern-based, not exhaustive",
+    "findings": []
+  },
+  "source_manifest": [
+    {
+      "path": ".github/workflows/alexa-mcp-lane.yml",
+      "bytes": 1335,
+      "sha256": "d96181e9440a61af3fe07eac21afcfa984b9451280776e70ceeca63a4941a86d",
+      "git_blob_sha1": "12a9853ba492a1900e1417d16c533b490a7e7b9c"
+    },
+    {
+      "path": "harness/policies/consequence-policy.v1.json",
+      "bytes": 890,
+      "sha256": "705591e5f8874db09b5d666363b92ff638e2d65ff12bc8494a4c9a294675e3a3",
+      "git_blob_sha1": "51e556adbf0b05cafb7375ca5064338e540d24eb"
+    },
+    {
+      "path": "harness/sdk/sovereign_execution.py",
+      "bytes": 41851,
+      "sha256": "8ce5ae92846f63d73f8506d0986658a050b75c59c16a72fd7e37bc1bccbb47e1",
+      "git_blob_sha1": "d0fb7848dc0296b2c95f92dd11265cd7efbb7e88"
+    },
+    {
+      "path": "scripts/automaton3-authority.py",
+      "bytes": 6291,
+      "sha256": "d8b61c7553829abf5925c1073e85d365991e755629485619b155933438f334a7",
+      "git_blob_sha1": "b30f3ea4bd6e7fb22be43c1d32dac154bafc620d"
+    },
+    {
+      "path": "sovereign-omega-v2/mcp-server/docs/ALEXA_LANE.md",
+      "bytes": 7990,
+      "sha256": "d3330c666d7f19da6baaedf1ec3f20d7ca9a4549ada49f512851bf80d53fdca2",
+      "git_blob_sha1": "aca7ffb937ceff57839060f1fbdf9b63cd3ac4a0"
+    },
+    {
+      "path": "sovereign-omega-v2/mcp-server/docs/feedback-contract.json",
+      "bytes": 1477,
+      "sha256": "a533a84ab31d25c370282603977d28dc3ce5ae5726d4014c5b8d83aa176dcc67",
+      "git_blob_sha1": "6b03ca09b1e50b321df5ac824e380bafde43a2a5"
+    },
+    {
+      "path": "sovereign-omega-v2/mcp-server/package-lock.json",
+      "bytes": 57330,
+      "sha256": "f582d9aa45a7900165d53771760fb0a5d33855915e6d02225511ed19b70d39f3",
+      "git_blob_sha1": "202cf830d24b71c1d2378ec23b73a22510b04584"
+    },
+    {
+      "path": "sovereign-omega-v2/mcp-server/package.json",
+      "bytes": 899,
+      "sha256": "64a0836087123d9b432b3db433f38d2b4e8752b3d76672feb30eca599823e783",
+      "git_blob_sha1": "0b737f02b412ffb52100a7ca90669f9507d66276"
+    },
+    {
+      "path": "sovereign-omega-v2/mcp-server/src/http.ts",
+      "bytes": 9082,
+      "sha256": "111f2e358e5999fe6396dbb23d23cf77b313021c6ea7767e33541a0af5ebd878",
+      "git_blob_sha1": "7d18614f6a51a81d7d0bcfd3c28d283bd0f47588"
+    },
+    {
+      "path": "sovereign-omega-v2/mcp-server/src/index.ts",
+      "bytes": 12896,
+      "sha256": "f8461d8f416b67c426a2268c9cc5511eef70fd444f29b31a9f911dd1466deeff",
+      "git_blob_sha1": "44c086ca3945d928f447a9acc8955b296efb1f43"
+    },
+    {
+      "path": "sovereign-omega-v2/mcp-server/test/automaton3-authority.mjs",
+      "bytes": 1907,
+      "sha256": "e755d7579fd8fbf255bbf608d38d102d2551a57c8efd3761f39223c42d59e8b3",
+      "git_blob_sha1": "9256e6f9fffcdc53c84b0b9562fba2c36f16b075"
+    },
+    {
+      "path": "sovereign-omega-v2/mcp-server/test/browser-client.mjs",
+      "bytes": 6198,
+      "sha256": "769360d503253c74e9ad68fef1d4400c01c69a522fa6902636829493d46106ac",
+      "git_blob_sha1": "91fb7919fd1093982395baa70205a426eab13fcf"
+    },
+    {
+      "path": "sovereign-omega-v2/mcp-server/test/browser-e2e.mjs",
+      "bytes": 6865,
+      "sha256": "02981dbd9f78ff812a7e760f0dc3fc58c0c7bab8f2454e83810c38e602200514",
+      "git_blob_sha1": "b6d4bed3b8892a1d64462959426d83f1db07a2df"
+    },
+    {
+      "path": "sovereign-omega-v2/mcp-server/test/resources.mjs",
+      "bytes": 2974,
+      "sha256": "c2be24bb4acaf293f45d229d984c27c5a0340fc1b0b1a0e81f6c99e5b94eea67",
+      "git_blob_sha1": "d5e44c335c7bc7ca11362369cff98e80c61193f7"
+    },
+    {
+      "path": "sovereign-omega-v2/mcp-server/test/streamable-http.mjs",
+      "bytes": 11063,
+      "sha256": "906649c5da6c53dece53a357d90037c292dd4e8e016f9093561b0a89b52e03ad",
+      "git_blob_sha1": "5979104a67640a7c4fd7a6e5ce872d0b36f92e50"
+    },
+    {
+      "path": "sovereign-omega-v2/mcp-server/test/verify-alexa.mjs",
+      "bytes": 11375,
+      "sha256": "583814a3d85dbf7a7f229a50b8a6d89440e48f0da2bfad8ecdce2ca3a420f31b",
+      "git_blob_sha1": "21110d7329c894c90bc42aef23bdf48bd1352e15"
+    },
+    {
+      "path": "sovereign-omega-v2/mcp-server/tsconfig.json",
+      "bytes": 297,
+      "sha256": "ae0754d4b348bd6522f5c9f01be7c192d8e913fb8176b1899c55b0031d006e76",
+      "git_blob_sha1": "f98c190e5512d0d8cbead463f3b6e3f6f623defa"
+    },
+    {
+      "path": "sovereign-omega-v2/mcp-server/web/app.mjs",
+      "bytes": 4970,
+      "sha256": "c8d55ce930eece71fc7a2e329ce5888207ad8e474d5bc44233ec08629eecf13f",
+      "git_blob_sha1": "602d473e5aeffff4995cae8110a5b854adf47e8b"
+    },
+    {
+      "path": "sovereign-omega-v2/mcp-server/web/client.mjs",
+      "bytes": 9509,
+      "sha256": "731298c59ddb70444ae97be8d6ee9b4010d569d07f56e2fd96b031a12fe65e1c",
+      "git_blob_sha1": "4d89bd095ec769f07e7dfb1bc4b992a3df90db09"
+    },
+    {
+      "path": "sovereign-omega-v2/mcp-server/web/index.html",
+      "bytes": 3831,
+      "sha256": "824a5b001925861c3138aced1bc0d33c241d5c29e5571ead0eea23315f6f749e",
+      "git_blob_sha1": "645e7db02bc28e37a9365e4be5458760ac7d9923"
+    },
+    {
+      "path": "sovereign-omega-v2/mcp-server/web/style.css",
+      "bytes": 5038,
+      "sha256": "58d77e626b3dc7f7ef0b4bad37e10eae98f166b53bbc838e534ce64c5aa1d78a",
+      "git_blob_sha1": "f578c10d733c58716c9d78ecac80811b9d2d502e"
+    }
+  ],
+  "artifacts": [
+    {
+      "path": "browser-client.log",
+      "bytes": 2155,
+      "sha256": "4b4050eaa5646737e328e0579c3ae10cfc77cc90a68473282a2ff428b6dd1e84"
+    },
+    {
+      "path": "browser-desktop-trace.json",
+      "bytes": 13673,
+      "sha256": "11426c19a437a78d2c7afed6f7b799fb30a640bc8f5c30320c8e6cadbcd8489b"
+    },
+    {
+      "path": "browser-desktop.png",
+      "bytes": 186489,
+      "sha256": "6e81cf6cf05f5acf701d602ff4380e25acdca9fe806a7163f0dbfc92d291e20f"
+    },
+    {
+      "path": "browser-e2e.log",
+      "bytes": 99,
+      "sha256": "51ba6280e2a90bc8742fe6c61faafaad61d9bf59ccebd0971105cfbb87c9310d"
+    },
+    {
+      "path": "browser-mobile-trace.json",
+      "bytes": 13670,
+      "sha256": "0eedab7724599294c5dce130b77c4267a1bfca89f04c8a85c97c3798bd48300a"
+    },
+    {
+      "path": "browser-mobile.png",
+      "bytes": 166859,
+      "sha256": "feb081bb118b0ec792bf061eed5b2d456c00aa1c97152ab52db2189803d59413"
+    },
+    {
+      "path": "browser-results.json",
+      "bytes": 440,
+      "sha256": "06d37d2e7e89c5c30280c62ed06e7074e911eea524f03ba83860d826a9ce6f14"
+    },
+    {
+      "path": "build.log",
+      "bytes": 40,
+      "sha256": "b7bbf8ca8f7ae4399c2bb59f9d053a0713b1d82510616170cc7e1e589035cb66"
+    },
+    {
+      "path": "friction-log.json",
+      "bytes": 4050,
+      "sha256": "20bbf6d07ca7b91970458fe126d5a6f9f2ed7da5dffabae8ad855f67dae7e854"
+    },
+    {
+      "path": "friction-log.md",
+      "bytes": 2842,
+      "sha256": "f54398b961862ac4553abd37e80c8af770370cbdf99b01cee27bfe1c59ee834c"
+    },
+    {
+      "path": "http-trace.json",
+      "bytes": 13022,
+      "sha256": "3059670cb6f8194b644d5a259673d35524e34c130a632f1de13906dce3eaa7df"
+    },
+    {
+      "path": "legacy-automaton3.log",
+      "bytes": 59,
+      "sha256": "39473479918484e980d19cdb4ab8e49125639c322f187c36f243be69290f6223"
+    },
+    {
+      "path": "legacy-resources.log",
+      "bytes": 50,
+      "sha256": "f0b60a83c8a86affda13e88379c58a9bcef006204ba250e15354e8f08432975b"
+    },
+    {
+      "path": "streamable-http.log",
+      "bytes": 3962,
+      "sha256": "750432b762b0a0b7b0621738336b86dd38a69363cb178fa6cbace855677552fd"
+    }
+  ],
+  "admission": "NOT_ADMITTED",
+  "submission": "NOT_SUBMITTED",
+  "limits": [
+    "No Alexa runtime or gated tool access.",
+    "HTTP caller identity deliberately unbound.",
+    "Missing-identity gate exercised; approved consequential execution is not exercised.",
+    "No external model call or AWS service is used by the tested sequence.",
+    "No whole-monorepo test or complete security audit is claimed."
+  ]
+}

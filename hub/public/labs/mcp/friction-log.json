@@ -1,0 +1,89 @@
+{
+  "schema_version": "1.0.0",
+  "contract": "AEGIS_AMAZON_SUBMISSION_FEEDBACK_V1",
+  "prior_artifact_binding": "NOT_LOCATED",
+  "records": [
+    {
+      "tool": "Alexa+ track self-hosted MCP / own web simulator route",
+      "provider": "Amazon",
+      "usage_status": "DOCUMENTATION_ONLY",
+      "version_or_endpoint": "https://amazonappdev2026.devpost.com/details/faqs (reviewed October 7, 2026)",
+      "purpose": "Select the permitted self-hosted MCP submission path without gated Alexa+ tools.",
+      "worked_well": "The FAQ explicitly describes a web page that sends MCP initialize, tools/list and tools/call over Streamable HTTP.",
+      "improvements": "Repeat the same ungated path and tooling-availability notice in each linked setup guide; the FAQ itself acknowledges inconsistent setup-page messaging.",
+      "onboarding": "Documentation was sufficient to choose the local route. No Alexa developer-console onboarding or Amazon runtime execution was attempted.",
+      "use_again": {
+        "decision": "YES_FOR_THIS_DOCUMENTED_ROUTE",
+        "reason": "A locally runnable simulator can demonstrate the protocol without cloud spend or additional identity authority."
+      },
+      "observation": {
+        "kind": "OFFICIAL_DOCUMENTATION_REVIEW",
+        "observed_at": "2026-10-07",
+        "source_commit": "897fa55556a639a04a67d25481b7a432af007d04"
+      },
+      "evidence": [
+        {
+          "official_url": "https://amazonappdev2026.devpost.com/details/faqs",
+          "sections": [
+            "gated Alexa+ tooling",
+            "real MCP client web page",
+            "local public repository"
+          ]
+        }
+      ]
+    },
+    {
+      "tool": "@modelcontextprotocol/sdk",
+      "provider": "Model Context Protocol project (not Amazon)",
+      "usage_status": "ACTUALLY_EXECUTED",
+      "version_or_endpoint": "1.29.0; local POST /mcp",
+      "purpose": "Expose the existing AEGIS tool registry using both stdio and Streamable HTTP.",
+      "worked_well": "Actual SDK lifecycle, policy read, consequential denial, preserved stdio resources and desktop/mobile Chromium replay all passed.",
+      "improvements": "This integration requires explicit Host/Origin validation, session quotas, caller-to-authority separation and evidence redaction outside the tool registry.",
+      "onboarding": "build: PASS, 1960 ms, build.log; browser-client: PASS, 158 ms, browser-client.log; streamable-http: PASS, 764 ms, streamable-http.log; legacy-resources: PASS, 593 ms, legacy-resources.log; legacy-automaton3: PASS, 470 ms, legacy-automaton3.log; browser-e2e: PASS, 14558 ms, browser-e2e.log",
+      "use_again": {
+        "decision": "YES",
+        "reason": "The same registry serves both transports without duplicating authority decisions."
+      },
+      "observation": {
+        "kind": "ACTUAL_LOCAL_SDK_REPLAY",
+        "observed_at": "2026-10-07T01:26:40.082Z",
+        "source_commit": "897fa55556a639a04a67d25481b7a432af007d04"
+      },
+      "evidence": [
+        {
+          "path": "build.log",
+          "sha256": "b7bbf8ca8f7ae4399c2bb59f9d053a0713b1d82510616170cc7e1e589035cb66"
+        },
+        {
+          "path": "browser-client.log",
+          "sha256": "4b4050eaa5646737e328e0579c3ae10cfc77cc90a68473282a2ff428b6dd1e84"
+        },
+        {
+          "path": "streamable-http.log",
+          "sha256": "750432b762b0a0b7b0621738336b86dd38a69363cb178fa6cbace855677552fd"
+        },
+        {
+          "path": "legacy-resources.log",
+          "sha256": "f0b60a83c8a86affda13e88379c58a9bcef006204ba250e15354e8f08432975b"
+        },
+        {
+          "path": "legacy-automaton3.log",
+          "sha256": "39473479918484e980d19cdb4ab8e49125639c322f187c36f243be69290f6223"
+        },
+        {
+          "path": "browser-e2e.log",
+          "sha256": "51ba6280e2a90bc8742fe6c61faafaad61d9bf59ccebd0971105cfbb87c9310d"
+        }
+      ]
+    }
+  ],
+  "not_used": [
+    "Alexa+ Category SDK",
+    "Alexa+ MCP Toolkit",
+    "Alexa+ CLI",
+    "Amazon Web Simulator",
+    "AWS services",
+    "Bedrock"
+  ]
+}
