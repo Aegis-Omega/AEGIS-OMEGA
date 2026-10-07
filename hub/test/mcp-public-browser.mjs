@@ -11,7 +11,7 @@ const output = fileURLToPath(new URL('../evidence/mcp-public/', import.meta.url)
 const assets = { 'index.html': 'text/html; charset=utf-8', 'style.css': 'text/css', 'app.mjs': 'text/javascript',
   'verify.mjs': 'text/javascript', 'receipt.json': 'application/json', 'trace.json': 'application/json', 'friction-log.json': 'application/json' }
 const observed = [], exceptions = [], tests = []
-let broken = false
+let broken = false, omitCookie = false
 const server = createServer((req, res) => {
   const url = new URL(req.url, 'http://localhost')
   observed.push({ method: req.method, path: url.pathname })
@@ -20,7 +20,11 @@ const server = createServer((req, res) => {
   if (!url.pathname.startsWith('/labs/mcp') || !assets[name]) { res.writeHead(404).end(); return }
   res.setHeader('Cache-Control', 'no-store'); res.setHeader('Content-Type', assets[name])
   res.setHeader('Content-Security-Policy', "default-src 'none'; script-src 'self'; style-src 'self'; connect-src 'self'; img-src 'self'; base-uri 'none'; frame-ancestors 'none'; form-action 'none'")
-  res.end(broken && name === 'trace.json' ? '{"forged":"PASS"}' : readFileSync(join(root, name)))
+  if (name === 'index.html') res.setHeader('Set-Cookie', 'mcp_preview_access=local-test-only; Path=/; SameSite=Strict; HttpOnly')
+  if (['receipt.json','trace.json'].includes(name) && !req.headers.cookie?.includes('mcp_preview_access=local-test-only')) { res.writeHead(401).end('{}'); return }
+  const bytes = readFileSync(join(root, name))
+  res.end(broken && name === 'trace.json' ? '{"forged":"PASS"}' : omitCookie && name === 'app.mjs'
+    ? bytes.toString('utf8').replace("credentials: 'same-origin'", "credentials: 'omit'") : bytes)
 })
 await new Promise(resolve => server.listen(0, '127.0.0.1', resolve))
 const origin = `http://127.0.0.1:${server.address().port}`
@@ -98,6 +102,15 @@ try {
     assert.equal(await evaluate("document.getElementById('tamper').disabled"), true)
     assert.equal(await evaluate("[...document.querySelectorAll('[data-step]')].every(e=>e.disabled)"), true)
     tests.at(-1).corrupt_download_clears_previous_success = true
+    broken = false; omitCookie = true
+    const negativeUrl = `${url}&cookie-negative=1`
+    await command('Page.navigate', {url:negativeUrl})
+    await until(() => evaluate(`location.href === ${JSON.stringify(negativeUrl)} && document.readyState==='complete'`), 'cookie negative-control load')
+    await click('#verify')
+    await until(() => evaluate("document.getElementById('result').dataset.verdict==='FAILED'"), 'omitted hosting cookie denial')
+    tests.at(-1).hosting_cookie_guard_passed = true
+    tests.at(-1).omitted_hosting_cookie_rejected = true
+    omitCookie = false
   }
   assert.deepEqual(exceptions, [])
   assert.ok(network.every(r => r.method === 'GET' && r.url.startsWith(origin + '/')), 'Only same-origin static GETs are allowed')
@@ -106,7 +119,7 @@ try {
     browser: chrome, tests, exceptions, requests: observed, browser_network: network,
     mcp_calls: 0, external_page_requests: 0, model_calls: 0 }
   writeFileSync(join(output, 'browser-report.json'), JSON.stringify(result, null, 2) + '\n')
-  console.log('PASS desktop/mobile: recorded verification, selectable exchanges, tamper rejection, corrupt replay fail-closed; static GETs only')
+  console.log('PASS desktop/mobile: recorded verification, selectable exchanges, tamper rejection, corrupt replay fail-closed; hosting cookie guard and omission negative control; static GETs only')
 } catch (err) {
   console.error('PAGE', await evaluate('({url:location.href,state:document.readyState,body:document.body?.innerText})').catch(()=>null), 'REQUESTS', observed, 'NETWORK', network.map(r=>({...r,url:r.url.slice(0,180)})), 'EXCEPTIONS', exceptions); throw err
 } finally {

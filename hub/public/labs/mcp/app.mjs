@@ -15,8 +15,8 @@ function reset() {
   rows.forEach(row => { row.disabled = true; row.removeAttribute('aria-pressed'); row.querySelector('.state').textContent = 'Not verified' })
 }
 async function readArtifact(name) {
-  // Fixed same-origin paths only. No cookies, redirects, RPC requests or localhost probes.
-  const response = await fetch(new URL(name, import.meta.url), { method: 'GET', credentials: 'omit', redirect: 'error',
+  // Fixed same-origin paths only. Hosting cookies stay on this origin; no redirects, RPC requests or localhost probes.
+  const response = await fetch(new URL(name, import.meta.url), { method: 'GET', credentials: 'same-origin', redirect: 'error',
     cache: 'no-store', headers: { Accept: 'application/json' }, signal: AbortSignal.timeout(10000) })
   if (!response.ok || !response.headers.get('content-type')?.startsWith('application/json')) throw new Error('Evidence download failed or returned non-JSON content')
   const reader = response.body?.getReader(); if (!reader) throw new Error('Evidence response body missing')
