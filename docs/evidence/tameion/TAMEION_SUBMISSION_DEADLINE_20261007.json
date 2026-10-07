@@ -1,0 +1,67 @@
+{
+  "schema_version": "1.0",
+  "kind": "TAMEION_SUBMISSION_DEADLINE_VERIFICATION",
+  "verified_on": "2026-10-07",
+  "source_head": "a812d3abdbb273254d7492723820852d6126f4cc",
+  "submission": {
+    "deadline": "2026-10-17T23:59:00-04:00",
+    "timezone": "America/New_York",
+    "deadline_utc": "2026-10-18T03:59:00Z",
+    "deadline_sarajevo": "2026-10-18T05:59:00+02:00",
+    "authority": "Canteen organizer submission instructions",
+    "source_url": "https://tameion.thecanteenapp.com/",
+    "source_text": "Deadline: October 17, 11:59 PM ET.",
+    "year_basis": "2026 event context",
+    "status": "NOT_SUBMITTED"
+  },
+  "event_dates": {
+    "organizer_start": "2026-09-27",
+    "organizer_end": "2026-10-17",
+    "arc_house_start": "2026-09-27",
+    "arc_house_end": "2026-10-10",
+    "arc_house_url": "https://community.arc.io/en",
+    "disposition": "SOURCE_DISCREPANCY; Arc House event-end is not the submission cutoff"
+  },
+  "form": {
+    "url": "https://docs.google.com/forms/d/e/1FAIpQLSfa2hSdVQUqsBY_ntiXNLfxUQTW1v0BR0blv17aeQ2KjYxLfw/viewform",
+    "observed": "OPEN_WITH_SUBMIT_BUTTON",
+    "deadline_displayed": false,
+    "submitted": false,
+    "public_repo_required": true,
+    "video_link_required": true,
+    "form_video_max_minutes": 3,
+    "organizer_video_requirement": "under 3 minutes",
+    "continued_project_comparison_required": true
+  },
+  "email_search": {
+    "query": "(Tameion OR \"Canteen\") after:2026/09/23",
+    "newer_organizer_message_found": false,
+    "latest_returned_message_date": "2026-09-23"
+  },
+  "demo": {
+    "filename": "AEGIS_Tameion_Demo_a812d3a_2m45s.mp4",
+    "duration_seconds": 165,
+    "sha256": "8800c14f9d1d842b593e6b8a14c775951bcc0d5ee623d6ef3a60b84de053401f",
+    "provenance": "existing PR body; not re-rendered or downloaded in this verification",
+    "public_hosting": "UNCONFIRMED"
+  },
+  "replay": {
+    "source_head": "a812d3abdbb273254d7492723820852d6126f4cc",
+    "tests_passed": 150,
+    "provenance": "existing PR evidence; not rerun for documentation change",
+    "new_documentation_head_replay": "NOT_ESTABLISHED"
+  },
+  "reference_scan": {
+    "scope": "all 12 Tameion-named Markdown/JSON/YAML files in complete recursive tree at source_head; current PR body",
+    "stale_october_10_submission_references_found": 0,
+    "default_branch_search": "Tameion search returned no matches; not proof of whole-repository absence"
+  },
+  "boundary": {
+    "authority_effect": "NONE",
+    "wallet_authority": "NOT_EXPANDED",
+    "signer_authority": "NOT_EXPANDED",
+    "broadcast_authority": "NOT_EXPANDED",
+    "settlement_authority": "NOT_EXPANDED",
+    "traction": "No customer adoption, revenue or AEGIS-executed payments inferred from tests; Circle CCTP evidence remains a read-only third-party burn observation"
+  }
+}
