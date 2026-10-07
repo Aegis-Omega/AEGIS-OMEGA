@@ -7,7 +7,9 @@ for (const name of ['hub/vercel.json', 'vercel.json']) test(`${name}: exact evid
   const c = read(name)
   assert.deepEqual(c.rewrites, [{source:'/labs/mcp', destination:'/labs/mcp/index.html'},
     {source:'/labs/mcp/', destination:'/labs/mcp/index.html'}, {source:'/(.*)', destination:'/index.html'}])
-  assert.equal(c.headers.length, 1)
+  assert.equal(c.headers.length, 2)
+  assert.equal(c.headers[1].source, "/labs/mcp/")
+  assert.deepEqual(c.headers[1].headers, c.headers[0].headers)
   assert.equal(c.headers[0].source, '/labs/mcp/:path*')
   const h = Object.fromEntries(c.headers[0].headers.map(h=>[h.key,h.value]))
   assert.match(h['Content-Security-Policy'], /frame-ancestors 'none'/)
