@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="referrer" content="no-referrer">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; connect-src 'self'; img-src 'self'; base-uri 'none'; form-action 'none'">
+  <meta name="description" content="Inspect and verify a recorded AEGIS MCP run: a real policy read, an unapproved action denied, and an exact source commit.">
+  <title>Governed MCP · Evidence Lab · Aegis Omega Labs</title>
+  <link rel="stylesheet" href="/labs/mcp/style.css"><script type="module" src="/labs/mcp/app.mjs"></script>
+</head>
+<body>
+<header><a class="brand" href="/" aria-label="AEGIS home">AEGIS <span>Ω</span></a><span class="company">Aegis Omega Labs</span><span class="mode">Recorded evidence · not live execution</span></header>
+<main>
+<section class="intro" aria-labelledby="title">
+  <div><h1 id="title">A tool call is not<br>permission to act.</h1><p class="lede">Inspect a real MCP run, bound to its source. Verify the bytes. Read the policy. See why an unapproved action stopped.</p></div>
+  <aside><span class="label">THIS PAGE</span><strong>Evidence only.</strong><p>No MCP endpoint, model call or execution grant. Hosting access is separate from execution authority.</p></aside>
+</section>
+<div class="command"><button id="verify" type="button">Verify recorded evidence <span aria-hidden="true">→</span></button><p id="status" role="status" aria-live="polite">Not verified in this browser. No success has been asserted.</p></div>
+<section class="workspace" aria-label="Recorded protocol and verification">
+  <div class="protocol"><h2>Five recorded exchanges</h2><ol id="steps">
+    <li><button type="button" data-step="0" disabled><span class="number">01</span><span><strong>Initialize</strong><code>initialize</code></span><span class="state">Not verified</span></button></li>
+    <li><button type="button" data-step="1" disabled><span class="number">02</span><span><strong>Acknowledge session</strong><code>notifications/initialized</code></span><span class="state">Not verified</span></button></li>
+    <li><button type="button" data-step="2" disabled><span class="number">03</span><span><strong>Discover actual tools</strong><code>tools/list</code></span><span class="state">Not verified</span></button></li>
+    <li><button type="button" data-step="3" disabled><span class="number">04</span><span><strong>Read repository policy</strong><code>tools/call · read-only</code></span><span class="state">Not verified</span></button></li>
+    <li><button type="button" data-step="4" disabled><span class="number">05</span><span><strong>Request governed action</strong><code>tools/call · consequential</code></span><span class="state">Not verified</span></button></li>
+  </ol><p class="caption">Select an exchange after verification to inspect its original JSON. No protocol requests are sent by this page.</p></div>
+  <div class="results"><h2>Evidence verification</h2><div id="result" data-verdict="NOT_VERIFIED"><strong>Verify before trusting.</strong><p>The stored PASS label is not enough. This browser checks pinned artifact hashes, source bindings and the recorded response semantics.</p></div><dl>
+    <div><dt>Observed run · UTC</dt><dd id="observed">Not verified</dd></div>
+    <div><dt>Source commit · original MCP lane</dt><dd id="source">Not verified</dd></div>
+    <div><dt>Policy SHA-256</dt><dd id="policy">Not verified</dd></div>
+  </dl></div>
+</section>
+<section class="inspector" aria-labelledby="exchange-title"><div class="inspect-head"><h2 id="exchange-title">Original exchange</h2><span id="exchange-note">Verification required</span></div><pre id="exchange" tabindex="0">No recorded response has been selected.</pre></section>
+<section class="control" aria-labelledby="tamper-title"><div><h2 id="tamper-title">Evidence should fail when it changes.</h2><p>Alter a copy of the recorded denial, then run the verifier again. The original archive stays untouched.</p></div><button id="tamper" type="button" class="secondary" disabled>Test tamper rejection</button><p id="tamper-status" role="status" aria-live="polite">Negative control not run.</p></section>
+<section class="reproduce" aria-labelledby="reproduce-title"><div><h2 id="reproduce-title">Inspect here. Reproduce locally.</h2><p>This page verifies a stored run from 7 October 2026. The linked source contains the real Streamable HTTP server and browser MCP client. Run that simulator locally for new protocol observations.</p><div class="links"><a href="https://github.com/Aegis-Omega/AEGIS-OMEGA/tree/897fa55556a639a04a67d25481b7a432af007d04/sovereign-omega-v2/mcp-server">Exact source ↗</a><a href="https://github.com/tarikskalic33/formal-conjectures/actions/runs/37557084479">Hosted witness ↗</a><a href="https://github.com/Aegis-Omega/AEGIS-OMEGA/pull/716">Original PR #716 ↗</a></div></div>
+<details><summary>Local run commands</summary><pre>git clone --depth 1 --branch product/alexa-mcp-lane-v1 \
+  https://github.com/Aegis-Omega/AEGIS-OMEGA.git
+cd AEGIS-OMEGA
+test "$(git rev-parse HEAD)" = \
+  "897fa55556a639a04a67d25481b7a432af007d04" || exit 1
+cd sovereign-omega-v2/mcp-server
+npm ci --ignore-scripts --no-audit --no-fund
+npm run build
+npm run start:http
+# Open http://127.0.0.1:7891 in your browser.</pre></details>
+</section>
+<section class="disclosure"><h2>What the evidence establishes</h2><p>A policy read succeeded; the consequential request was denied at the missing-identity prerequisite. The recorded bridge canary saw zero requests. This does not demonstrate a valid-identity approval path, an Alexa+ runtime, or a model invocation.</p><p>Hashes detect changes against this page’s pinned snapshot. They are not a signature or a trust anchor independent of this site. The hosted witness is execution evidence, not protected-branch admission. The archive records <code>NOT_ADMITTED</code> and <code>NOT_SUBMITTED</code>; this page does not claim a current submission status.</p><div class="links"><a href="/labs/mcp/receipt.json" download>Original receipt JSON</a><a href="/labs/mcp/trace.json" download>Original browser trace</a><a href="/labs/mcp/friction-log.json" download>Tool feedback JSON</a></div></section>
+<noscript><p>JavaScript is required for in-browser verification. The original JSON downloads and exact source remain available. No verification has been performed.</p></noscript>
+</main><footer><span>AEGIS Ω · Evidence Lab</span><span>Observe first. Execute only with authority.</span></footer>
+</body></html>
