@@ -1,0 +1,37 @@
+name: Alexa MCP exact-head replay
+on:
+  push:
+    branches: ['product/alexa-mcp-lane-v1']
+    paths: ['sovereign-omega-v2/mcp-server/**', '.github/workflows/alexa-mcp-lane.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: alexa-mcp-${{ github.sha }}
+  cancel-in-progress: false
+jobs:
+  replay:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: '22'
+      - name: Install the existing locked MCP dependencies
+        working-directory: sovereign-omega-v2/mcp-server
+        run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Replay both transports and actual desktop/mobile browser
+        working-directory: sovereign-omega-v2/mcp-server
+        run: npm run verify:alexa
+      - name: Preserve exact-head evidence, including failures
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: alexa-mcp-${{ github.sha }}
+          path: sovereign-omega-v2/mcp-server/evidence/
+          if-no-files-found: error
+          retention-days: 30

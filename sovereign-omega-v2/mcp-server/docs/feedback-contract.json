@@ -1,0 +1,16 @@
+{
+  "schema_version": "1.0.0",
+  "name": "AEGIS_AMAZON_SUBMISSION_FEEDBACK_V1",
+  "provenance": {
+    "source": "Operator's existing Build, Ship, Shape feedback requirements, October 6-7, 2026",
+    "prior_artifact_binding": "NOT_LOCATED",
+    "note": "The required dimensions are preserved. No byte-identical prior contract file, schema identifier or commit is asserted."
+  },
+  "required_per_tool": ["tool", "provider", "usage_status", "version_or_endpoint", "purpose", "worked_well", "improvements", "onboarding", "use_again", "observation", "evidence"],
+  "usage_status_enum": ["DOCUMENTATION_ONLY", "ACTUALLY_EXECUTED", "NOT_USED", "BLOCKED"],
+  "use_again_required": ["decision", "reason"],
+  "observation_required": ["kind", "observed_at", "source_commit"],
+  "evidence_rule": "Every executed-use claim must bind at least one existing evidence artifact with a SHA-256. Documentation-only observations must cite an official URL and must not imply runtime use.",
+  "submission_gates": ["public_github_source_and_license_review", "locally_reproducible_build", "actual_mcp_browser_sequence", "fail_closed_consequential_call", "feedback_for_each_tool_actually_used", "secret_scan", "demo_video_under_three_minutes", "explicit_track_tool_attribution"],
+  "forbidden_inferences": ["MCP SDK execution is not Alexa runtime access", "transport credential is not execution approval", "a local test is not a GitHub admission decision", "a prepared lane is not a submitted entry"]
+}

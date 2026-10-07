@@ -4,13 +4,19 @@
   "description": "AEGIS constitutional agent swarm — MCP server",
   "type": "module",
   "main": "dist/index.js",
-  "bin": { "aegis-mcp": "dist/index.js" },
+  "bin": {
+    "aegis-mcp": "dist/index.js"
+  },
   "scripts": {
     "build": "tsc",
     "start": "node dist/index.js",
     "dev": "tsx src/index.ts",
     "test:resources": "npm run build && node test/resources.mjs",
-    "test:automaton3": "npm run build && node test/automaton3-authority.mjs"
+    "test:automaton3": "npm run build && node test/automaton3-authority.mjs",
+    "start:http": "node dist/http.js",
+    "test:alexa": "npm run build && node --test test/browser-client.mjs test/streamable-http.mjs",
+    "test:browser-client": "node --test test/browser-client.mjs",
+    "verify:alexa": "node test/verify-alexa.mjs"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.12.1"
