@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="description" content="An inspectable, local MCP protocol demonstration with the existing AEGIS authority boundary.">
+  <title>AEGIS · Governed MCP</title><link rel="stylesheet" href="/style.css">
+  <script type="module" src="/app.mjs"></script>
+</head>
+<body>
+<header><a href="/" aria-label="AEGIS home" class="brand">AEGIS <span>Ω</span></a><p>Aegis Omega Labs</p><span class="local">Local MCP simulator</span></header>
+<main>
+  <section class="intro" aria-labelledby="title">
+    <div><h1 id="title">A tool call is not<br>permission to act.</h1><p class="lede">Read the policy. Inspect the protocol. See the same authority boundary refuse an unapproved action.</p></div>
+    <aside class="boundary"><span>EXECUTION AUTHORITY</span><strong>Unbound</strong><p>No browser identity or operator approval is inherited. The local connection credential is not an execution grant.</p></aside>
+  </section>
+  <div class="command"><button id="run" type="button" data-testid="run">Run verified sequence <span aria-hidden="true">→</span></button><p id="status" role="status" aria-live="polite">Not run. No result has been asserted.</p><button id="download" class="secondary" type="button" disabled>Export evidence JSON</button></div>
+  <section class="workspace" aria-label="Protocol and observed results">
+    <div class="protocol"><h2>Five inspectable exchanges</h2><ol id="steps">
+      <li><span class="number">01</span><div><strong>Initialize</strong><code>initialize</code></div><span class="step-state">Pending</span></li>
+      <li><span class="number">02</span><div><strong>Acknowledge session</strong><code>notifications/initialized</code></div><span class="step-state">Pending</span></li>
+      <li><span class="number">03</span><div><strong>Discover actual tools</strong><code>tools/list</code></div><span class="step-state">Pending</span></li>
+      <li><span class="number">04</span><div><strong>Read repository policy</strong><code>tools/call · read-only</code></div><span class="step-state">Pending</span></li>
+      <li><span class="number">05</span><div><strong>Request governed action</strong><code>tools/call · consequential</code></div><span class="step-state">Pending</span></li>
+    </ol><p class="caption">Real JSON-RPC over Streamable HTTP, served by the existing MCP SDK. No canned protocol replies.</p></div>
+    <div class="results"><h2>Observed evidence</h2><div id="result" data-verdict="NOT_RUN"><p class="empty">The result appears only after all five exchanges and content checks pass.</p></div><dl><div><dt>Protocol</dt><dd id="protocol-version">Not negotiated</dd></div><div><dt>Policy SHA-256</dt><dd id="policy-hash">Not read</dd></div><div><dt>External effect</dt><dd id="effect">Not observed</dd></div></dl></div>
+  </section>
+  <details id="trace-panel"><summary>Inspect the complete, credential-redacted protocol trace</summary><pre id="trace">No exchanges yet.</pre></details>
+  <section class="disclosure"><h2>What this proves — and what it does not</h2><p>This is the self-hosted MCP + web-simulator route for the Alexa+ hackathon track. It is not an Alexa+ runtime, voice integration, or Amazon-hosted service. The demo reads a local policy file, then observes a denied model-call request. It does not call a model, spend AWS credits, or admit a repository change.</p><p>The displayed result is a local observation, not a signed third-party attestation. The exported trace includes its SHA-256; the reproducible test suite independently checks the same boundary with a zero-request bridge canary.</p></section>
+</main><footer><span>AEGIS Ω · Governed MCP</span><span>Observe first. Execute only with authority.</span></footer>
+</body></html>
