@@ -1,0 +1,46 @@
+name: M2 Layout Diagnostic
+
+on:
+  pull_request:
+    paths:
+      - "sovereign-omega-v2/python/core_matrix.py"
+      - "sovereign-omega-v2/python/bridge.py"
+      - "sovereign-omega-v2/python/tests/test_m2_layout_diagnostic.py"
+      - "sovereign-omega-v2/python/tests/fixtures/m2_sequence_domain_contract.json"
+      - ".github/workflows/m2-layout-diagnostic.yml"
+  push:
+    paths:
+      - "sovereign-omega-v2/python/core_matrix.py"
+      - "sovereign-omega-v2/python/bridge.py"
+      - "sovereign-omega-v2/python/tests/test_m2_layout_diagnostic.py"
+      - "sovereign-omega-v2/python/tests/fixtures/m2_sequence_domain_contract.json"
+      - ".github/workflows/m2-layout-diagnostic.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  diagnostic:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      EXPECTED_HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+
+    steps:
+      - name: Checkout exact head
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.EXPECTED_HEAD_SHA }}
+          persist-credentials: false
+
+      - name: Bind checkout to exact head
+        shell: bash
+        run: |
+          set -euo pipefail
+          actual="$(git rev-parse HEAD)"
+          test "$actual" = "$EXPECTED_HEAD_SHA"
+          printf 'EXACT_HEAD=%s\n' "$actual"
+
+      - name: Run M2 layout diagnostic gate
+        working-directory: sovereign-omega-v2/python
+        run: python -m unittest tests.test_m2_layout_diagnostic -v
