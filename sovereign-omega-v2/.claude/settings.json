@@ -85,7 +85,11 @@
       "Write(dna.py)",
       "Write(router.py)",
       "Write(docs/SOVEREIGN_OMEGA_INTEGRATED_SPEC_v2.md)",
-      "Write(ARTIFACT_REGISTRY.md)"
+      "Write(ARTIFACT_REGISTRY.md)",
+      "Write(../.claude.json)",
+      "Edit(../.claude.json)",
+      "Write(../skill-hashes.sha256)",
+      "Edit(../skill-hashes.sha256)"
     ]
   },
   "hooks": {
@@ -117,6 +121,16 @@
           {
             "type": "command",
             "command": "bash .claude/hooks/block-frozen-writes.sh \"$CLAUDE_TOOL_INPUT_PATH\""
+          }
+        ]
+      },
+      {
+        "matcher": "Bash|mcp__github__push_files|mcp__github__create_or_update_file|mcp__github__delete_file",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"${CLAUDE_PROJECT_DIR:-$PWD}/../scripts/claude-authority-guard.py\"",
+            "statusMessage": "Checking repository mutation authority..."
           }
         ]
       }
