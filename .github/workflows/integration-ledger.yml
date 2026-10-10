@@ -36,8 +36,12 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          python3 -m py_compile harness/sdk/generator/__init__.py harness/sdk/evaluator/__init__.py
-          python3 -m unittest discover -s harness/tests -p test_system_foundry_evidence.py -v
+          python3 -m py_compile \
+            harness/sdk/generator/__init__.py \
+            harness/sdk/generator/system_foundry.py \
+            harness/sdk/generator/foundry_runner.py \
+            harness/sdk/evaluator/__init__.py
+          python3 -m unittest discover -s harness/tests -p 'test_*foundry*.py' -v
 
       - name: Generate commit-bound Markdown and JSON
         shell: bash
