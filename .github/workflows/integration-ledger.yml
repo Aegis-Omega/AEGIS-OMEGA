@@ -42,6 +42,7 @@ jobs:
             harness/sdk/generator/foundry_runner.py \
             harness/sdk/generator/independent_oracle.py \
             harness/sdk/generator/oracle_mutation.py \
+            harness/sdk/generator/counterexample_memory.py \
             harness/sdk/evaluator/__init__.py
           python3 -m py_compile harness/sdk/planner/__init__.py harness/sdk/skill_routing.py agents/coordinator.py agents/evolution.py
           python3 -m unittest discover -s harness/tests -p 'test_*foundry*.py' -v
@@ -49,6 +50,7 @@ jobs:
           python3 -m unittest discover -s harness/tests -p 'test_autonomous_capability_growth.py' -v
           python3 -m agents.evolution selftest
           python3 -m unittest discover -s harness/tests -p 'test_oracle_mutation.py' -v
+          python3 -m unittest discover -s harness/tests -p 'test_counterexample_memory.py' -v
 
       - name: Generate commit-bound Markdown and JSON
         shell: bash
