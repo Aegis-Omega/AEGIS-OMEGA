@@ -265,9 +265,9 @@ def test_boolean_only_skill_event_is_not_validated_evidence(tmp_path: Path) -> N
     assert instance._last_mutation_error == "INDEPENDENT_VERIFICATION_REQUIRED"
 
 
-@pytest.mark.parametrize("valid", [True, False])
+@pytest.mark.parametrize("valid", [True, False, None])
 def test_self_reported_harmonize_never_mints_skill_or_evolution(
-    tmp_path: Path, monkeypatch: Any, valid: bool,
+    tmp_path: Path, monkeypatch: Any, valid: bool | None,
 ) -> None:
     """Even a live model response must not become proof of ALL agent skills."""
     monkeypatch.setenv("AEGIS_SWARM_LIVE", "1")
@@ -296,7 +296,9 @@ def test_self_reported_harmonize_never_mints_skill_or_evolution(
         return FakeRedis()
 
     async def ralph_cycle(*_args: Any, **_kwargs: Any) -> tuple[str, dict[str, bool]]:
-        return "HARMONIZE_COMPLETE all skills verified", {"is_valid": valid}
+        return "HARMONIZE_COMPLETE all skills verified", (
+            {} if valid is None else {"is_valid": valid}
+        )
 
     class ForbiddenSkillRouter:
         def emit_skill_event(self, *_args: Any, **_kwargs: Any) -> None:
@@ -328,7 +330,7 @@ def test_self_reported_harmonize_never_mints_skill_or_evolution(
         max_ralph_cycles=1,
     )
     result = asyncio.run(coordinator._legacy.run_agent(task))
-    assert result.governance["is_valid"] is valid
+    assert result.is_valid is (valid is True)
     assert result.ralph_cycles == 1
     assert "HARMONIZE_COMPLETE" in result.output
 
@@ -353,3 +355,51 @@ def test_async_redis_client_construction_is_not_awaited_in_runtime() -> None:
             if isinstance(attr.value, ast.Name) and attr.value.id == "aioredis":
                 offenders.append(parent.lineno)
         assert not offenders, f"{relative}: awaited synchronous from_url on {offenders}"
+
+
+def test_dry_run_reports_not_executed(tmp_path: Path, monkeypatch: Any) -> None:
+    """Dry-run policy validity must not be confused with completed work."""
+    monkeypatch.delenv("AEGIS_SWARM_LIVE", raising=False)
+    role = coordinator.AgentRole.ENGINEERING
+    monkeypatch.setattr(coordinator._legacy, "_load_agent_defs", lambda: {
+        "agents": {role.value: {"capabilities": ["code_review"]}},
+    })
+    result = asyncio.run(coordinator._legacy.run_agent(coordinator._legacy.AgentTask(
+        task_id="no-execution", role=role, instruction="task", max_ralph_cycles=1,
+    )))
+    assert result.is_valid is False
+    assert result.governance["dry_run"] is True
+    assert result.governance["execution_status"] == "NOT_EXECUTED"
+    assert result.ralph_cycles == 0
+
+
+def test_memory_tools_use_synchronous_redis_client_constructor(monkeypatch: Any) -> None:
+    """A redis.asyncio.from_url client is not awaitable; only commands are."""
+    from agents import tools as agent_tools
+
+    class FakeRedis:
+        def __init__(self) -> None:
+            self.closed = False
+            self.stored = None
+
+        async def get(self, _key: str) -> str:
+            return "memory-value"
+
+        async def set(self, key: str, value: str, **kwargs: Any) -> None:
+            self.stored = (key, value, kwargs)
+
+        async def aclose(self) -> None:
+            self.closed = True
+
+    instances = []
+
+    def sync_constructor(*_args: Any, **_kwargs: Any) -> FakeRedis:
+        client = FakeRedis()
+        instances.append(client)
+        return client
+
+    monkeypatch.setattr(agent_tools.aioredis, "from_url", sync_constructor)
+    assert asyncio.run(agent_tools.read_memory("test", "key")) == "memory-value"
+    assert asyncio.run(agent_tools.write_memory("test", "key", "abc")).startswith("stored")
+    assert len(instances) == 2
+    assert all(client.closed for client in instances)
