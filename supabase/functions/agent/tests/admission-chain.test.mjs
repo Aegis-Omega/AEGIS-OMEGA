@@ -7,7 +7,7 @@ import { webcrypto } from 'node:crypto'
 import { fileURLToPath } from 'node:url'
 // Node >=22.16 provides built-in TypeScript syntax stripping. No npm install needed.
 const root = fileURLToPath(new URL('../../../../', import.meta.url))
-function edge(path,env={},transport=()=>{throw Error('UNEXPECTED_NETWORK')},backgroundAvailable=true) {
+function edge(path,env={},transport=()=>{throw Error('UNEXPECTED_NETWORK')},backgroundAvailable=true,db=()=>{throw Error('UNEXPECTED_DB')}) {
   const src=readFileSync(root+path,'utf8').replace(/^import .*$/gm,'')
   const js=stripTypeScriptTypes(src, { mode: 'strip' })
   let handler
@@ -15,13 +15,13 @@ function edge(path,env={},transport=()=>{throw Error('UNEXPECTED_NETWORK')},back
   const EdgeRuntime=backgroundAvailable ? {waitUntil:p=>pending.push(p)} : undefined
   const Deno={env:{get:n=>env[n]??''},serve:f=>{handler=f}}
   const body = path === 'supabase/functions/agent/index.ts' ? 'const CORS = {};\n' + js : js
-  new Function('Deno','fetch','createClient','crypto','EdgeRuntime',body)(Deno,transport,()=>{throw Error('UNEXPECTED_DB')},webcrypto,EdgeRuntime)
+  new Function('Deno','fetch','createClient','crypto','EdgeRuntime',body)(Deno,transport,db,webcrypto,EdgeRuntime)
   assert.equal(typeof handler,'function')
   handler.pending=pending
   return handler
 }
 async function signed(text,secret,time=String(Math.floor(Date.now()/1000)),channel='C123'){
-  const body=new URLSearchParams({text,channel_id:channel,user_id:'U_OPERATOR'}).toString()
+  const body=new URLSearchParams({text,channel_id:channel,user_id:'U_OPERATOR',trigger_id:'13345224609.738474920.8088930838d88f008e0'}).toString()
   const key=await webcrypto.subtle.importKey('raw',new TextEncoder().encode(secret),{name:'HMAC',hash:'SHA-256'},false,['sign'])
   const mac=await webcrypto.subtle.sign('HMAC',key,new TextEncoder().encode('v0:'+time+':'+body))
   return new Request('https://host/functions/v1/slack-events',{method:'POST',headers:{'content-type':'application/x-www-form-urlencoded','x-slack-request-timestamp':time,'x-slack-signature':'v0='+Buffer.from(mac).toString('hex')},body})
@@ -66,6 +66,7 @@ test('signed allowlisted Slack event passes dedicated capability, not NOTIFY_SEC
   assert.equal(requests.length,1)
   assert.equal(requests[0].options.headers['x-aegis-agent-secret'],capability)
   assert.equal(requests[0].options.headers['x-notify-secret'],undefined)
+  assert.equal(JSON.parse(requests[0].options.body).dispatch_id,'slack:slash:13345224609.738474920.8088930838d88f008e0')
 })
 test('allowed Slack user cannot dispatch to an unapproved channel',async()=>{
   let calls=0
@@ -103,7 +104,7 @@ test('Slack refuses to acknowledge execution without background lifetime support
 })
 test('authorized app mention registers background work',async()=>{
   const secret='S',requests=[]
-  const body=JSON.stringify({type:'event_callback',event:{
+  const body=JSON.stringify({type:'event_callback',event_id:'Ev0123456789',event:{
     type:'app_mention',user:'U_OPERATOR',channel:'C123',text:'<@U_BOT> inspect evidence',ts:'1.0'
   }})
   const timestamp=String(Math.floor(Date.now()/1000))
@@ -122,6 +123,77 @@ test('authorized app mention registers background work',async()=>{
   await Promise.all(h.pending)
   assert.equal(requests.length,1)
   assert.equal(requests[0].options.headers['x-aegis-agent-secret'],'A'.repeat(48))
+  assert.equal(JSON.parse(requests[0].options.body).dispatch_id,'slack:event:Ev0123456789')
+})
+test('agent cannot reserve without database configuration',async()=>{
+  let calls=0
+  const h=edge('supabase/functions/agent/index.ts',{
+    AEGIS_AGENT_INVOKE_SECRET:'A'.repeat(48),ANTHROPIC_API_KEY:'dummy',
+  },()=>{calls++;throw Error('PAID_NETWORK')})
+  const r=await h(new Request('https://host/agent',{method:'POST',
+    headers:{'x-aegis-agent-secret':'A'.repeat(48)},
+    body:JSON.stringify({task:'inspect',dispatch_id:'slack:event:Ev0123456789'})}))
+  assert.equal(r.status,503)
+  assert.equal((await r.json()).error,'DISPATCH_STORE_NOT_CONFIGURED')
+  assert.equal(calls,0)
+})
+test('invalid or absent dispatch IDs never reach the reservation store or model',async()=>{
+  let dbCalls=0, paid=0
+  const env={AEGIS_AGENT_INVOKE_SECRET:'A'.repeat(48),ANTHROPIC_API_KEY:'dummy',
+    SUPABASE_URL:'https://mock.invalid',SUPABASE_SERVICE_ROLE_KEY:'mock-service-key'}
+  const h=edge('supabase/functions/agent/index.ts',env,()=>{paid++;throw Error('PAID_NETWORK')},true,
+    ()=>{dbCalls++;throw Error('DB_CALLED')})
+  for(const dispatch_id of [undefined,'user-supplied','slack:event:','slack:slash:?', 42]){
+    const r=await h(new Request('https://host/agent',{method:'POST',
+      headers:{'x-aegis-agent-secret':'A'.repeat(48)},
+      body:JSON.stringify({task:'inspect',dispatch_id})}))
+    assert.equal(r.status,400)
+  }
+  assert.equal(dbCalls,0)
+  assert.equal(paid,0)
+})
+test('same signed event dispatch gets one and only one paid inference',async()=>{
+  const seen=new Set(),tableNames=[],digests=[]
+  let paid=0
+  const env={AEGIS_AGENT_INVOKE_SECRET:'A'.repeat(48),ANTHROPIC_API_KEY:'dummy',
+    SUPABASE_URL:'https://mock.invalid',SUPABASE_SERVICE_ROLE_KEY:'mock-service-key'}
+  const db=()=>({from:table=>{
+    tableNames.push(table)
+    return {insert:async({event_digest})=>{
+      assert.match(event_digest,/^[0-9a-f]{64}$/)
+      digests.push(event_digest)
+      if(seen.has(event_digest))return {error:{code:'23505'}}
+      seen.add(event_digest)
+      return {error:null}
+    }}
+  }})
+  const h=edge('supabase/functions/agent/index.ts',env,async()=>{
+    paid++
+    return Response.json({stop_reason:'end_turn',content:[{type:'text',text:'ONE'}]})
+  },true,db)
+  const req=()=>new Request('https://host/agent',{method:'POST',
+    headers:{'x-aegis-agent-secret':'A'.repeat(48)},
+    body:JSON.stringify({task:'inspect',dispatch_id:'slack:event:Ev0123456789'})})
+  assert.equal((await h(req())).status,200)
+  const second=await h(req())
+  assert.equal(second.status,409)
+  assert.equal((await second.json()).error,'DUPLICATE_DISPATCH')
+  assert.equal(paid,1)
+  assert.deepEqual(tableNames,['aegis_agent_dispatch_claims_v1','aegis_agent_dispatch_claims_v1'])
+  assert.equal(digests[0],digests[1])
+})
+test('failed atomic dispatch reservation denies paid inference',async()=>{
+  let paid=0
+  const env={AEGIS_AGENT_INVOKE_SECRET:'A'.repeat(48),ANTHROPIC_API_KEY:'dummy',
+    SUPABASE_URL:'https://mock.invalid',SUPABASE_SERVICE_ROLE_KEY:'mock-service-key'}
+  const h=edge('supabase/functions/agent/index.ts',env,()=>{paid++;throw Error('PAID_NETWORK')},true,
+    ()=>({from:()=>({insert:async()=>({error:{code:'42P01',message:'table not deployed'}})})}))
+  const res=await h(new Request('https://host/agent',{method:'POST',
+    headers:{'x-aegis-agent-secret':'A'.repeat(48)},
+    body:JSON.stringify({task:'inspect',dispatch_id:'slack:slash:12345.67890'})}))
+  assert.equal(res.status,503)
+  assert.equal((await res.json()).error,'DISPATCH_CLAIM_UNAVAILABLE')
+  assert.equal(paid,0)
 })
 test('bridge refuses synthetic attestation',async()=>{
   const h=edge('supabase/functions/bridge/index.ts')
