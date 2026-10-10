@@ -1,0 +1,43 @@
+# Narrow, dependency-free Edge admission regression. Separate from BFT ceremony.
+# No provider credentials, Supabase tokens or paid inference are used.
+name: AEGIS Edge Agent Contract
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'supabase/functions/agent/**'
+      - 'supabase/functions/slack-events/**'
+      - 'supabase/functions/bridge/**'
+      - 'hub/src/lib/telemetry.ts'
+      - 'supabase/migrations/*agent_dispatch_claims_v1.sql'
+      - '.github/workflows/aegis-edge-agent-contract.yml'
+  merge_group:
+    branches: [main]
+  push:
+    branches: [main]
+    paths:
+      - 'supabase/functions/agent/**'
+      - 'supabase/functions/slack-events/**'
+      - 'supabase/functions/bridge/**'
+      - 'hub/src/lib/telemetry.ts'
+      - 'supabase/migrations/*agent_dispatch_claims_v1.sql'
+      - '.github/workflows/aegis-edge-agent-contract.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  edge-agent-contract:
+    name: aegis / edge-agent-contract
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout candidate source
+        uses: actions/checkout@v4
+      - name: Use exact tested Node runtime
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22.16.0'
+      - name: Run fail-closed Edge admission tests
+        run: node --test supabase/functions/agent/tests/admission-chain.test.mjs
