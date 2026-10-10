@@ -4,6 +4,7 @@
 import { EventStore } from '../../event/store.js'
 import { EventType, RetentionClass } from '../../core/types.js'
 import type { EventEnvelope, SHA256Hex } from '../../core/types.js'
+import type { AgentMemoryEntry } from '../../agents/types.js'
 import {
   WorkspaceMemoryGraph,
 } from './WorkspaceMemoryGraph.js'
@@ -181,6 +182,21 @@ export class WorkspaceMemorySpine {
       timestamp_ms,
     )
     return { ...clean, sequence: sequenceOf(event) }
+  }
+
+  // Bridge an existing per-agent memory record into the shared evidence stream.
+  // Store only the content hash and agent identity, not the raw private memory.
+  // The record must already be replay-reconstructable; no truth promotion.
+  async recordAgentMemory(entry: AgentMemoryEntry, timestamp_ms: number): Promise<GraphNode> {
+    if (entry.is_replay_reconstructable !== true) {
+      throw new WorkspaceMemoryError('Agent memory is not replay-reconstructable')
+    }
+    return this.recordNode({
+      node_id: 'agent-memory:' + identifier(entry.entry_id, 'entry_id'),
+      node_type: 'agent_interaction',
+      agent_id: entry.agent_id,
+      payload_hash: entry.content_hash,
+    }, timestamp_ms)
   }
 
   async recordEdge(edge: MemoryEdgeInput, timestamp_ms: number): Promise<GraphEdge> {
