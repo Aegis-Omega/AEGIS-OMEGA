@@ -601,9 +601,33 @@ PLATFORM_TIERS = {
 }
 
 
+def _read_platform_capability_truth() -> dict:
+    """Read-only evidence. This never makes an Automaton-3 dispatch decision."""
+    from pathlib import Path
+    from harness.sdk.capability_truth import CapabilityTruthError, read_capability_truth
+
+    registry_path = Path(__file__).resolve().parent / "harness" / "skill_tree.json"
+    try:
+        return read_capability_truth(
+            registry_path, runtime_commit=os.environ.get("AEGIS_SOURCE_SHA") or None
+        )
+    except (CapabilityTruthError, OSError, TypeError) as exc:
+        # No optimistic catalog when the local evidence is missing or malformed.
+        raise HTTPException(
+            status_code=503, detail="Capability evidence unavailable or invalid"
+        ) from exc
+
+
+@app.get("/platform/capability-truth")
+async def platform_capability_truth():
+    """Explain recorded skills and their evidence without granting execution."""
+    return _read_platform_capability_truth()
+
+
 @app.get("/platform/catalog")
 async def platform_catalog():
-    """The premium agent catalog: every Mythos department, its capabilities, tiers."""
+    """Declared agent catalog with explicit, non-authorizing capability assurance."""
+    assurance = _read_platform_capability_truth()
     try:
         import sys, os
         sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
@@ -621,13 +645,25 @@ async def platform_catalog():
             "evolving": bool(ag.get("evolving", False)),
             "capabilities": ag.get("capabilities", []),
             "max_tokens": ag.get("max_tokens", 4096),
+            "availability_assurance": "NOT_VERIFIED_BY_CATALOG",
         }
         for name, ag in defs["agents"].items()
     }
     mythos_count = sum(1 for a in agents.values() if a["mythos"])
     return {
         "platform": "AEGIS-Ω Agent Platform",
-        "tagline": "39 Mythos-level autonomous agents. Governed. Replay-certifiable.",
+        "tagline": "Declared agent departments; execution requires separate authorization.",
+        "agent_records_are": "DECLARED_METADATA",
+        "capability_assurance": {
+            "registry_integrity": assurance["registry_integrity"],
+            "registry_root": assurance["registry_root"],
+            "snapshot_sha256": assurance["snapshot_sha256"],
+            "registry_source_commit": assurance["registry_source_commit"],
+            "source_alignment": assurance["source_alignment"],
+            "operational_admission": assurance["operational_admission"],
+            "skill_count": assurance["skill_count"],
+            "observed_skill_count": assurance["observed_skill_count"],
+        },
         "agent_count": len(agents),
         "mythos_count": mythos_count,
         "pricing_tiers": PLATFORM_TIERS,
