@@ -102,8 +102,10 @@ export function deriveChecks(
       reason: source === 'live' ? 'connected' : 'unreachable — demo fallback engaged' },
     { label: 'Contract version', ok: status.contract_version === '1.0.0',
       reason: status.contract_version === '1.0.0' ? 'v1.0.0 matched' : `mismatch: ${status.contract_version}` },
-    { label: 'Hash chain valid', ok: status.chain_valid,
-      reason: status.chain_valid ? 'corruption_count=0 · drift<1/φ' : 'corruption detected — T0_ABORT' },
+    { label: 'Hash chain valid', ok: source === 'live' && status.chain_valid,
+      reason: source !== 'live' ? 'no live chain evidence — demo cannot pass verification'
+        : status.chain_valid ? 'backend reports a valid chain; independently verify receipts'
+        : 'backend reports invalid chain — T0_ABORT' },
     { label: 'Homeostasis', ok: cal.homeostasis_zone === 'optimal' || cal.homeostasis_zone === 'slack',
       reason: `${cal.homeostasis_zone} · ${cal.recommendation}` },
     { label: 'Stagnation guard', ok: cal.stagnation_rate < 0.5,
