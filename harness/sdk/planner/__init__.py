@@ -12,7 +12,9 @@ from dataclasses import dataclass, field
 from typing import List, Dict, Optional, Any
 from enum import Enum
 import hashlib
+import hmac
 import json
+import re
 
 
 class KhattPhase(Enum):
@@ -42,9 +44,20 @@ class Nuqta:
     sequence: int
     parent_hash: Optional[str] = None
     
-    def verify(self, genesis_seal: str) -> bool:
-        """Verify against genesis seal"""
-        return self.hash == genesis_seal
+    def verify(self, original_directive: str) -> bool:
+        """Check an actual content digest, not equality to an unrelated seal.
+
+        This establishes input integrity only. The genesis seal is a separate
+        authority concept and this hash alone confers no authority.
+        """
+        return (
+            isinstance(original_directive, str)
+            and isinstance(self.hash, str)
+            and hmac.compare_digest(
+                self.hash,
+                hashlib.sha256(original_directive.encode("utf-8")).hexdigest(),
+            )
+        )
 
 
 @dataclass
@@ -64,7 +77,7 @@ class CausalChain:
     directive: str
     nuqta: Nuqta
     tasks: List[Task]
-    confidence: float = 1.0
+    confidence: float = 0.0  # No observed outcome evidence at planning time
 
 
 class Planner:
@@ -95,28 +108,28 @@ class Planner:
         return nuqta
     
     def raise_alif(self, constraints: List[ConstraintType]) -> Dict[str, bool]:
-        """Phase 2: Raise the Alif - establish hard constraints"""
-        # Default sovereign constraints
-        sovereign_constraints = {
-            ConstraintType.AGPL3_COMPLIANCE: True,
-            ConstraintType.BTREEMAP_DETERMINISTIC: True,
-            ConstraintType.NO_TOKIO_CRITICAL: True,
-            ConstraintType.T0_GENESIS_SEAL: True,
-            ConstraintType.DOMAIN_ISOLATION: True,
-        }
-        
-        results = {}
-        for constraint in constraints:
-            results[constraint.value] = sovereign_constraints.get(constraint, True)
-        
-        return results
-    
+        """Describe unverified obligations; never self-certify compliance.
+
+        Constraint verification must be supplied by an independent external
+        verifier at execution/admission time; this planner cannot grant it.
+        """
+        if not isinstance(constraints, list) or not all(
+            isinstance(c, ConstraintType) for c in constraints
+        ):
+            raise ValueError("CONSTRAINT_TYPE_INVALID")
+        return {c.value: False for c in sorted(set(constraints), key=lambda c: c.value)}
+
     def decompose_directive(self, directive: str, constraints: List[ConstraintType]) -> CausalChain:
         """
         Decompose high-level directive into causal chain.
         Implements the full Khatt Loop protocol.
         """
-        # Phase 1: Inscribe Nuqta
+        if not isinstance(directive, str) or not directive.strip() or len(directive) > 10000:
+            raise ValueError("DIRECTIVE_INVALID")
+        if not isinstance(constraints, list) or not all(isinstance(c, ConstraintType) for c in constraints):
+            raise ValueError("CONSTRAINT_TYPE_INVALID")
+
+        # Phase 1: bind the directive to its content digest (not a seal grant).
         nuqta = self.inscribe_nuqta("directive", directive)
         
         # Phase 2: Raise Alif
@@ -165,56 +178,118 @@ class Planner:
             directive=directive,
             nuqta=nuqta,
             tasks=tasks,
-            confidence=0.95  # Initial confidence
+            confidence=0.0  # No runtime/evaluator observation exists
         )
         
         self.chains.append(chain)
         return chain
     
     def validate_chain(self, chain: CausalChain) -> bool:
-        """Validate causal chain integrity"""
-        # Check Nuqta verification
-        if not chain.nuqta.verify(self.genesis_seal):
+        """Validate *structure* only: integrity, DAG, constraints, phase order.
+
+        True is NOT an execution, constitutional or deployment admission.
+        """
+        if not isinstance(chain, CausalChain):
             return False
-        
-        # Check task ordering (dependencies)
-        task_ids = {t.id for t in chain.tasks}
+        if not chain.nuqta.verify(chain.directive):
+            return False
+        if chain.confidence != 0.0:
+            return False
+        if not isinstance(chain.tasks, list) or not chain.tasks:
+            return False
+        if not isinstance(self.genesis_seal, str) or re.fullmatch(r"[0-9a-f]{64}", self.genesis_seal) is None:
+            return False
+        ids = [task.id for task in chain.tasks if isinstance(task, Task)]
+        if len(ids) != len(chain.tasks) or len(ids) != len(set(ids)):
+            return False
+        by_id = {task.id: task for task in chain.tasks}
         for task in chain.tasks:
+            if not isinstance(task.id, str) or not task.id:
+                return False
+            if not isinstance(task.khatt_phase, KhattPhase):
+                return False
+            if not isinstance(task.constraints, list) or not all(
+                isinstance(c, ConstraintType) for c in task.constraints
+            ):
+                return False
+            if not isinstance(task.dependencies, list) or len(task.dependencies) != len(set(task.dependencies)):
+                return False
             for dep in task.dependencies:
-                if dep not in task_ids:
+                if not isinstance(dep, str) or dep == task.id or dep not in by_id:
                     return False
-        
-        # Check Khatt phase progression
-        phases = [t.khatt_phase for t in chain.tasks]
-        for i in range(len(phases) - 1):
-            if phases[i].value >= phases[i+1].value:
-                continue  # Valid progression
-        
+                if by_id[dep].khatt_phase.value >= task.khatt_phase.value:
+                    return False
+
+        # Refuse every unresolved dependency (including cycles). No implicit
+        # fallback to a generated "success" task.
+        pending = set(by_id)
+        executed: set[str] = set()
+        while pending:
+            ready = sorted(
+                (sid for sid in pending if all(dep in executed for dep in by_id[sid].dependencies)),
+                key=lambda sid: (by_id[sid].khatt_phase.value, sid),
+            )
+            if not ready:
+                return False
+            for sid in ready:
+                pending.remove(sid)
+                executed.add(sid)
         return True
-    
+
     def get_execution_plan(self, chain: CausalChain) -> List[Dict]:
-        """Get ordered execution plan from causal chain"""
-        # Topological sort based on dependencies
-        plan = []
-        executed = set()
-        
-        while len(executed) < len(chain.tasks):
-            for task in chain.tasks:
-                if task.id in executed:
-                    continue
-                if all(dep in executed for dep in task.dependencies):
-                    plan.append({
-                        "id": task.id,
-                        "phase": task.khatt_phase.name,
-                        "description": task.description,
-                        "constraints": [c.value for c in task.constraints],
-                        "metadata": task.metadata
-                    })
-                    executed.add(task.id)
-                    break
-        
+        """Deterministic causal plan, with mandatory independent evidence gates.
+
+        A plan is not proof that any obligation was discharged.
+        """
+        if not self.validate_chain(chain):
+            raise ValueError("CAUSAL_CHAIN_INVALID")
+        plan: List[Dict] = []
+        executed: set[str] = set()
+        pending = {task.id: task for task in chain.tasks}
+        while pending:
+            ready = sorted(
+                (task for task in pending.values()
+                 if all(dep in executed for dep in task.dependencies)),
+                key=lambda task: (task.khatt_phase.value, task.id),
+            )
+            if not ready:
+                raise ValueError("CAUSAL_CYCLE_OR_BLOCKED")
+            task = ready[0]
+            plan.append({
+                "id": task.id,
+                "phase": task.khatt_phase.name,
+                "description": task.description,
+                "constraints": [c.value for c in sorted(set(task.constraints), key=lambda c: c.value)],
+                "dependencies": sorted(task.dependencies),
+                "metadata": task.metadata,
+                "execution_state": "PENDING_INDEPENDENT_EVIDENCE",
+                "admission": "NOT_ADMITTED",
+            })
+            executed.add(task.id)
+            del pending[task.id]
         return plan
-    
+
+    def compile_plan_contract(self, chain: CausalChain) -> Dict[str, Any]:
+        """Proof-obligation contract with domain-separated deterministic digest.
+
+        The digest authenticates *neither* the author nor the executor.
+        External provenance and authority still must be independently verified.
+        """
+        plan = self.get_execution_plan(chain)
+        body: Dict[str, Any] = {
+            "schema_version": "1.0.0",
+            "kind": "AEGIS_CAUSAL_BUILD_CONTRACT_V1",
+            "directive_sha256": chain.nuqta.hash,
+            "planner_genesis_reference": self.genesis_seal,
+            "tasks": plan,
+            "verified_constraints": [],
+            "operational_admission": "NOT_ADMITTED",
+            "authority_granted": False,
+        }
+        canonical = json.dumps({"domain": body["kind"], "body": body},
+                               sort_keys=True, separators=(",", ":"), allow_nan=False)
+        return {**body, "contract_sha256": hashlib.sha256(canonical.encode()).hexdigest()}
+
     def export_chain(self, chain: CausalChain) -> str:
         """Export chain as JSON for downstream nodes"""
         return json.dumps({
