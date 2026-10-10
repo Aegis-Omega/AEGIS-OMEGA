@@ -76,6 +76,30 @@ class CounterexampleLearningTests(unittest.TestCase):
         self.assertEqual(clean["memory_sha256"], old["memory_sha256"])
         self.assertFalse(clean["authority_granted"])
 
+    def test_previous_ci_discovery_persists_as_regression_memory(self):
+        import hashlib
+        import json
+        from pathlib import Path
+        fixture = (
+            Path(__file__).resolve().parents[1]
+            / "knowledge/counterexamples/foundry_unknown_path_20261010.json"
+        )
+        memory = json.loads(fixture.read_text(encoding="utf-8"))
+        self.assertEqual(
+            memory["memory_sha256"],
+            "bb248fe0ec644102948288611988d67a6790ed3a718c4d9bd852196e082b7025",
+        )
+        self.assertEqual(
+            memory["candidate_source_sha256"],
+            hashlib.sha256(hidden_fault().encode("utf-8")).hexdigest(),
+        )
+        self.assertEqual(memory["witness"]["path"], "/fuzz/zz")
+        original = replay(blueprint(), hidden_fault(), memory)
+        repaired = replay(blueprint(), service(), memory)
+        self.assertEqual(original["outcome"], "REGRESSION_PRESENT")
+        self.assertEqual(repaired["outcome"], "WITNESS_NOW_PASSES")
+        self.assertFalse(repaired["authority_granted"])
+
     def test_witness_tampering_and_spec_swap_denied(self):
         bp = blueprint()
         witness = discover(bp, hidden_fault(), seed=12345, budget=120)
