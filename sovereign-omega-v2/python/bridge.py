@@ -23,6 +23,7 @@ from tgcs_afse import TGCSController, AFSEController
 from ledger_persist import save_checkpoint, load_checkpoint, checkpoint_exists, CheckpointError
 from source_attribution import SourceAttributor, TelemetrySample
 import canonical_envelope as _canon_env  # Provenance Phase 1 — float-free hash-chained envelope (ADR 0001)
+from chain_verifier import MAX_VERIFY_ENTRIES as _MC_VERIFY_LIMIT, verify_metacognitive_chain as _verify_mc_chain
 
 matrix = CoreMatrix()
 _hw = detect_hardware()
@@ -128,6 +129,24 @@ def _mc_observe(layer: str, signal: str, tier: str) -> str:
         return entry_hash
 
 
+def _mc_chain_integrity_snapshot() -> dict[str, object]:
+    """Recompute only this process's SHA-256 links from an atomic snapshot.
+
+    This is NOT an external witness, production-wide proof or signed replay.
+    An empty or over-budget chain remains UNKNOWN; tampering fails closed.
+    """
+    with _mc_lock:
+        if len(_metacognitive_chain) > _MC_VERIFY_LIMIT:
+            return {
+                'valid': None, 'terminal_hash': None,
+                'entry_count': len(_metacognitive_chain),
+                'reason': 'CHAIN_EXCEEDS_VERIFICATION_BUDGET',
+                'scope': 'in_process_sha256_linkage_only',
+            }
+        entries = [dict(item) for item in _metacognitive_chain]
+    return _verify_mc_chain(entries)
+
+
 def _mc_recent_context(n: int = 3) -> str:
     """Format the last N metacognitive observations as context for the model."""
     with _mc_lock:
@@ -183,6 +202,10 @@ def _platform_run_collaboration(
         q.put(event)
 
     try:
+        # Refuse any live/paid inference if the local chain cannot be verified.
+        preflight = _mc_chain_integrity_snapshot()
+        if preflight['valid'] is not True:
+            raise RuntimeError('METACOGNITIVE_CHAIN_PREFLIGHT_DENIED:' + str(preflight['reason']))
         cycle_id = str(_uuid_col.uuid4())
 
         # ── CONSCIOUSNESS PULSE ───────────────────────────────────────────────
@@ -336,6 +359,9 @@ def _platform_run_collaboration(
             ),
             'T1',
         )
+        chain_state = _mc_chain_integrity_snapshot()
+        if chain_state['valid'] is not True:
+            raise RuntimeError('METACOGNITIVE_CHAIN_VALIDATION_FAILED:' + str(chain_state['reason']))
         _platform_record_cycle(
             cycle_id, objective, mode,
             projection['first_year_arr_usd'], verdict,
@@ -352,8 +378,13 @@ def _platform_run_collaboration(
             'artifacts': artifacts,
             'projection': projection,
             'constitutional_audit': constitutional_audit,
-            'chain_valid': True,
-            'audit_chain_hash': audit_hash,
+            # Local cryptographic linkage has been recomputed, not asserted.
+            'chain_valid': chain_state['valid'],
+            'audit_chain_hash': chain_state['terminal_hash'],
+            'cycle_digest': audit_hash,  # historical cycle/objective SHA-256, NOT a chain root
+            'chain_verification_scope': chain_state['scope'],
+            'chain_verification_reason': chain_state['reason'],
+            'chain_entry_count': chain_state['entry_count'],
             'execution_id': execution_id,
         }
         # Provenance Phase 1 — dual-emit: audit_chain_hash above stays
@@ -1523,12 +1554,9 @@ class BridgeHandler(BaseHTTPRequestHandler):
         elif self.path == '/platform/status':
             # GET /platform/status — public health check.
             # When x-api-key is present, also returns usage info for that customer.
-            vcg = matrix.emit_vcg_telemetry()
-            corruption = int(vcg.get('corruption_count', 0))
-            drift = round(min(float(vcg.get('drift_index', 0.0)) * 0.1, 0.99), 6)
-            chain_valid = (corruption == 0) and (drift < 0.6180339887498948)
-            with _mc_lock:
-                terminal = _metacognitive_chain[-1]['entry_hash'] if _metacognitive_chain else _MC_GENESIS
+            chain_state = _mc_chain_integrity_snapshot()
+            chain_valid = chain_state['valid']
+            terminal = chain_state['terminal_hash']
             import uuid as _uuid_st
             eid = str(_uuid_st.uuid4())
             status_data: dict = {
@@ -1537,6 +1565,9 @@ class BridgeHandler(BaseHTTPRequestHandler):
                 'total_agents': len(_PLATFORM_DEPARTMENTS),
                 'chain_valid': chain_valid,
                 'audit_chain_hash': terminal,
+                'chain_verification_scope': chain_state['scope'],
+                'chain_verification_reason': chain_state['reason'],
+                'chain_entry_count': chain_state['entry_count'],
                 'available': True,
             }
             api_key = self.headers.get('x-api-key', '')
