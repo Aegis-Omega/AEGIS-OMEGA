@@ -21,8 +21,6 @@ import sys
 import tempfile
 from typing import Any, Mapping
 
-from harness.sdk.generator.system_foundry import build_readonly_json_api
-
 KIND = "AEGIS_REPLAYABLE_COUNTEREXAMPLE_V1"
 ALPHABET = "abcdefghjkmnpqrstuvwxyz"
 MAX_CASES = 512
@@ -39,6 +37,7 @@ def digest(obj: Any) -> str:
 
 
 def _validate_blueprint(blueprint: Mapping[str, Any]) -> None:
+    from harness.sdk.generator.system_foundry import build_readonly_json_api
     build_readonly_json_api(blueprint)
 
 
@@ -163,6 +162,7 @@ def _probe_mode(blueprint: dict, source: Path, cases: list[dict[str, str]]) -> d
 
 
 def _source_for_blueprint(blueprint: Mapping[str, Any]) -> str:
+    from harness.sdk.generator.system_foundry import build_readonly_json_api
     return next(a.content for a in build_readonly_json_api(blueprint)
                 if a.path == "service.py")
 
