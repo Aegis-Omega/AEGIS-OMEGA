@@ -107,7 +107,7 @@ def open_issue_board(timeout=15):
 
     query = quote(f"repo:{REPO} is:issue is:open", safe="")
     endpoint = f"search/issues?q={query}&per_page=100"
-    jq = "{total: .total_count, items: [.items[] | {n: .number, t: .title, labels: [.labels[].name]}]}"
+    jq = "{total: .total_count, incomplete: .incomplete_results, items: [.items[] | {n: .number, t: .title, labels: [.labels[].name]}]}"
     raw = sh("gh", "api", endpoint, "--jq", jq, timeout=timeout)
     if not raw.strip():
         return [], "unavailable"
@@ -115,6 +115,7 @@ def open_issue_board(timeout=15):
         payload = json.loads(raw)
         total = payload["total"]
         issues = payload["items"]
+        incomplete = payload.get("incomplete")
         if type(total) is not int or total < 0 or not isinstance(issues, list):
             raise ValueError("Invalid issue search result")
         for issue in issues:
@@ -123,7 +124,7 @@ def open_issue_board(timeout=15):
                     or not isinstance(issue.get("labels"), list)
                     or any(not isinstance(x, str) for x in issue["labels"])):
                 raise ValueError("Malformed issue record")
-        return issues, "github" if len(issues) == total else "partial"
+        return issues, "github" if incomplete is False and len(issues) == total else "partial"
     except (KeyError, TypeError, ValueError, json.JSONDecodeError):
         return [], "unavailable"
 
@@ -201,7 +202,7 @@ def billing_locked(prs):
             return None
         if "locked due to a billing issue" in annotation.lower():
             return True
-    return False
+    return False if len(run_ids) <= 3 else None
 
 
 def words(s):
