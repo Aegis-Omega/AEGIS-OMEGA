@@ -56,6 +56,12 @@ async function verifySlackSignature(body: string, timestamp: string, sig: string
 // Register all expensive agent work so a quick Slack ACK cannot discard it.
 // If the host lacks this execution guarantee, reject rather than acknowledge work.
 function dispatchBackground(work: () => Promise<void>): boolean {
+  // Never spend on a task if the approved result-delivery channel is unavailable.
+  // This only proves local configuration, NOT Slack token validity or delivery.
+  if (!SLACK_BOT_TOKEN || !SUPABASE_URL ||
+      AGENT_INVOKE_SECRET.length < 32 || AGENT_INVOKE_SECRET.length > 256) {
+    return false
+  }
   if (typeof EdgeRuntime === 'undefined' || typeof EdgeRuntime.waitUntil !== 'function') {
     return false
   }
@@ -145,7 +151,7 @@ Deno.serve(async (req) => {
         await slackReply(channel, `Agent error: ${(e as Error).message}`, ts)
       }
     })
-    if (!registered) return new Response('Background worker unavailable', { status: 503 })
+    if (!registered) return new Response('Agent dispatch unavailable', { status: 503 })
     return ackResponse
   }
 
@@ -186,7 +192,7 @@ Deno.serve(async (req) => {
             await slackReply(channel, `Error: ${(e as Error).message}`, ts)
           }
         })
-        if (!registered) return new Response('Background worker unavailable', { status: 503 })
+        if (!registered) return new Response('Agent dispatch unavailable', { status: 503 })
       }
 
       return new Response('ok', { status: 200 })
