@@ -105,7 +105,7 @@ def open_issue_board():
 def relevant_issues(issues, query, limit=8):
     """Prefer explicit #issue IDs; other matches are advisory title keywords."""
     keys = words(query)
-    explicit = {int(n) for n in re.findall(r"(?<!\\w)#(\\d+)", query)}
+    explicit = {int(n) for n in re.findall(r"(?<!\w)#(\d+)", query)}
     found = []
     for issue in issues:
         matched = sorted(keys & words(issue["t"]))
