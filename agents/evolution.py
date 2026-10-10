@@ -217,11 +217,12 @@ class EvolutionEngine:
         fail = skill.get("failure_rate", 0.0)
         conf = skill.get("confidence", 0.5)
 
-        # Demotion check first — new failing evidence invalidates the prior basis.
+        # Untrusted failure counters may trigger review, never auto-demote.
         if runs >= PROMOTION_MIN_RUNS and fail >= 0.5:
             return PromotionVerdict(
                 sid, tier, self._lower_tier(tier), False,
-                f"failure_rate={fail:.2f} ≥ 0.5 over {runs} runs — prior tier basis invalidated",
+                f"reported failure_rate={fail:.2f} over {runs} runs — INDEPENDENT REVIEW REQUIRED",
+                requires_guardian=True,
             )
 
         # T1 → T0 is never automatic (no autonomous mutation authority).
@@ -254,34 +255,17 @@ class EvolutionEngine:
         return PromotionVerdict(sid, tier, None, False, f"{tier} evolves via corpus re-arbitration, not run count")
 
     def tick(self, apply_changes: bool = True) -> list[PromotionVerdict]:
-        """Run one evolution tick across all skills. Records lineage events."""
+        """Compute eligibility WITHOUT writing tier state from mutable counters.
+
+        Both positive promotion and negative demotion require independent
+        evidence verified outside the agent-controlled lineage and registry.
+        A content hash or actor-authored success/failure boolean is not a
+        signature from an independent runner. Until that verifier exists,
+        this method is deliberately read-only, even when apply_changes=True.
+        """
         tree = self._load_tree()
-        verdicts: list[PromotionVerdict] = []
+        return [self.evaluate_skill(skill) for skill in tree.get("skills", [])]
 
-        for skill in tree.get("skills", []):
-            v = self.evaluate_skill(skill)
-            verdicts.append(v)
-
-            if v.promoted and apply_changes:
-                # Earned T2→T1 promotion — record and apply.
-                self.lineage.append(
-                    "TIER_PROMOTION", v.skill_id, v.current_tier, v.eligible_tier or v.current_tier, v.reason,
-                )
-                skill["tier"] = v.eligible_tier
-            elif v.eligible_tier and self._is_demotion(v) and apply_changes:
-                self.lineage.append(
-                    "TIER_DEMOTION", v.skill_id, v.current_tier, v.eligible_tier, v.reason,
-                )
-                skill["tier"] = v.eligible_tier
-            elif v.requires_guardian and apply_changes:
-                # Eligibility is not evidence. No lineage entries or registry
-                # mutations without an independently established receipt.
-                pass
-
-        if apply_changes:
-            self.lineage.save()
-            self._save_tree()
-        return verdicts
 
     @staticmethod
     def _is_demotion(v: PromotionVerdict) -> bool:
