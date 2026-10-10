@@ -48,10 +48,10 @@ def _valid_pr_record(p):
 
 
 def open_prs(quick=False):
-    """Never certify a partially fetched PR list as the whole board."""
+    """Fresh GitHub snapshot for writes; versioned cache for advisory quick views."""
     cache = os.path.join(git_dir(), "aegis-open-prs.json")
     try:
-        if time.time() - os.path.getmtime(cache) < CACHE_TTL:
+        if quick and time.time() - os.path.getmtime(cache) < CACHE_TTL:
             with open(cache) as f:
                 saved = json.load(f)
             # Legacy plain-list caches may have been truncated by failed paging.
@@ -152,7 +152,7 @@ def relevant_issues(issues, query, limit=8):
 
 def holon_disposition(pr_source, issue_source, pr_hits, issue_hits):
     """Informational work allocation ONLY; never an execution authorization."""
-    if pr_source not in ("github", "cache") or issue_source != "github":
+    if pr_source != "github" or issue_source != "github":
         return "HOLD_INCOMPLETE_SHARED_STATE"
     if any("needs-operator" in issue["labels"] for issue, _ in issue_hits):
         return "OPERATOR_ACTION_REQUIRED"
