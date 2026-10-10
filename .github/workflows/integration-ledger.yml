@@ -32,6 +32,13 @@ jobs:
       - name: Run generator regression tests
         run: python3 scripts/test_integration_ledger.py
 
+      - name: Verify non-authorizing capability truth contract
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m py_compile harness/sdk/capability_truth.py vertex/serve.py
+          python3 -m unittest discover -s harness/tests -p test_capability_truth.py -v
+
       - name: Generate commit-bound Markdown and JSON
         shell: bash
         run: |
