@@ -1,128 +1,234 @@
-// AEGIS-Ω Console — swarm runner.
-// Streams the 39-department collaboration sequence: dag_step → agent_event →
-// tool_call → completion. In the public console this is a guided simulation
-// over the real department roster (running live requires an API key — labeled
-// honestly, never faked). Surfaces the cross-session memory layer that feeds
-// every live run via memory_context.
+// AEGIS-Ω Console — authenticated execution client.
+// This UI does not synthesize agent events or verification results.
+// One live backend inference generates department artifacts; it is NOT
+// evidence of 39 independent model invocations or independent chain verification.
 
 import { useRef, useState } from 'react'
+import { PlatformClient } from '@shared/lib/platform-client.js'
 import { T, MONO, glass } from './consoleTokens.js'
 import { Heading } from './SystemStatusBar.js'
 
 type Mode = 'revenue' | 'analysis' | 'gtm' | 'retention'
-type EvType = 'dag_step' | 'agent_event' | 'tool_call' | 'completion'
+type EvType = 'dag_step' | 'agent_event' | 'tool_call' | 'completion' | 'error'
+type RunState = 'idle' | 'running' | 'received' | 'unverified'
 interface StreamLine { id: number; type: EvType; text: string; color: string }
 
-const DEPTS = [
-  ['REV-01 Strategy', 'revenue'], ['REV-02 Finance', 'revenue'], ['MKT-02 Content', 'marketing'],
-  ['SLS-04 Enterprise', 'sales'], ['PRD-04 API', 'product'], ['ENG-04 Security', 'engineering'],
-  ['RES-02 Competitive', 'research'], ['FIN-02 Treasury', 'finance'], ['EXE-03 CTO', 'executive'],
-  ['GOV-01 Ethics', 'governance'], ['CON-09 Guardian', 'constitutional'],
-] as const
+const PLATFORM_URL = ((import.meta.env.VITE_PLATFORM_URL as string | undefined)
+  ?? 'https://aegis-vertex.aegisomega.com').replace(/\/$/, '')
+const MODE_COLOR: Record<Mode, string> = {
+  revenue: T.green, analysis: T.indigo, gtm: T.phi, retention: T.blue,
+}
 
-const TOOLS_FIRED = ['Supabase.memory', 'Anthropic.govern', 'Supabase.ledger']
-const MODE_COLOR: Record<Mode, string> = { revenue: T.green, analysis: T.indigo, gtm: T.phi, retention: T.blue }
+function publicError(e: unknown): string {
+  return e instanceof Error ? e.message.slice(0, 200) : 'Unknown backend error'
+}
 
 export function LiveSwarmRunner({ memoryActive }: { memoryActive: boolean }) {
   const [mode, setMode] = useState<Mode>('gtm')
-  const [obj, setObj] = useState('Enter EU AI-governance market Q4 2026')
+  const [objective, setObjective] = useState('Enter EU AI-governance market Q4 2026')
+  const [apiKey, setApiKey] = useState('')
   const [lines, setLines] = useState<StreamLine[]>([])
-  const [running, setRunning] = useState(false)
+  const [state, setState] = useState<RunState>('idle')
+  const [executionId, setExecutionId] = useState('')
   const idRef = useRef(0)
   const accent = MODE_COLOR[mode]
+  const running = state === 'running'
 
-  function push(type: EvType, text: string, color: string) {
-    setLines(prev => [...prev.slice(-40), { id: idRef.current++, type, text, color }])
+  function push(type: EvType, message: string, color: string) {
+    setLines(prev => [...prev.slice(-79), {
+      id: idRef.current++, type, text: message, color,
+    }])
+  }
+
+  async function verifyResult(client: PlatformClient, id: string) {
+    // Do not promote a transport-level SSE completion to success. Re-read the
+    // authenticated result and ensure it has substantive backend artifacts.
+    const receipt = await client.getExecution(id)
+    if (receipt.status === 'error') {
+      throw new Error(receipt.error || 'Backend execution failed')
+    }
+    if (receipt.status !== 'complete' || !receipt.result) {
+      throw new Error('Execution is not complete; result unverified. Recheck by ID.')
+    }
+    const result = receipt.result
+    if (result.execution_id !== id || !Array.isArray(result.artifacts)
+        || result.artifacts.length === 0
+        || result.artifacts.length !== result.departments_collaborated
+        || result.artifacts.some(a => !a.role || !a.output?.trim())) {
+      throw new Error('Backend result failed artifact and execution-ID checks')
+    }
+    push('completion', 'Backend returned ' + result.artifacts.length
+      + ' department artifacts · execution=' + id, T.green)
+    push('agent_event', 'Backend-reported audit: '
+      + String(result.constitutional_audit?.verdict ?? 'UNKNOWN')
+      + '. No independent cryptographic verification performed by this UI.', T.sub)
+    setState('received')
   }
 
   async function run() {
-    if (running) return
-    setRunning(true); setLines([]); idRef.current = 0
-    const wait = (ms: number) => new Promise(r => setTimeout(r, ms))
+    if (running || executionId || !apiKey.trim() || objective.trim().length < 10) return
+    const client = new PlatformClient({ apiKey: apiKey.trim(), endpoint: PLATFORM_URL })
+    setApiKey('') // Do not retain credentials in the form or persistent storage.
+    setLines([])
+    idRef.current = 0
+    setState('running')
 
-    if (memoryActive) {
-      push('agent_event', `memory: retrieved 3 prior artifacts for this objective hash`, T.phi)
-      await wait(280)
+    try {
+      // Explicit user action; live mode can consume the operator's API quota.
+      // autonomous:false = one model call, not 39 independent agent calls.
+      const init = await client.startExecution({
+        objective: objective.trim(), mode, live: true, autonomous: false,
+      })
+      if (init.status !== 'pending' || !init.execution_id) {
+        throw new Error('Backend did not return a valid execution receipt')
+      }
+      setExecutionId(init.execution_id)
+      push('dag_step', 'Backend accepted live execution ' + init.execution_id, T.text)
+
+      let terminal = false
+      for await (const event of client.streamExecution(init.execution_id)) {
+        if (event.execution_id !== init.execution_id) {
+          throw new Error('Execution-ID mismatch in event stream')
+        }
+        const payload = event.payload as unknown as Record<string, unknown>
+        if ((event.type === 'dag_step' || event.type === 'agent_event')
+            && payload.source !== 'live') {
+          throw new Error('Backend emitted non-live department events')
+        }
+        if (event.type === 'dag_step') {
+          push('dag_step', String(payload.dept_id ?? '?') + ' · '
+            + String(payload.dept_name ?? '?'), accent)
+        } else if (event.type === 'agent_event') {
+          push('agent_event', String(payload.role ?? '?') + ' → '
+            + String(payload.output_preview ?? '').slice(0, 120), T.sub)
+        } else if (event.type === 'tool_call') {
+          push('tool_call', String(payload.tool_name ?? 'tool'), T.indigo)
+        } else if (event.type === 'error') {
+          throw new Error(String(payload.message ?? 'Backend execution error'))
+        } else if (event.type === 'completion') {
+          terminal = true
+        }
+      }
+      if (!terminal) {
+        throw new Error('Stream ended without a completion event; recheck by ID')
+      }
+      await verifyResult(client, init.execution_id)
+    } catch (e) {
+      push('error', publicError(e), T.red)
+      setState('unverified')
     }
-    push('dag_step', `objective received · mode="${mode}" · 39 departments activating`, T.text)
-    await wait(300)
-    for (const [dept, cat] of DEPTS) {
-      push('dag_step', `${dept} · ${cat}`, accent)
-      await wait(120)
-      push('agent_event', `${dept.split(' ')[1]} → output committed · T2`, T.sub)
-      await wait(90)
+  }
+
+  async function recheck() {
+    if (running || !executionId || !apiKey.trim()) return
+    const client = new PlatformClient({ apiKey: apiKey.trim(), endpoint: PLATFORM_URL })
+    setApiKey('')
+    setState('running')
+    try {
+      await verifyResult(client, executionId)
+    } catch (e) {
+      push('error', publicError(e), T.red)
+      setState('unverified')
     }
-    for (const tool of TOOLS_FIRED) {
-      push('tool_call', `tool_call · ${tool} · args_hash=${randHash()}`, T.indigo)
-      await wait(160)
-    }
-    push('agent_event', `CON-09 Guardian · constitutional audit → APPROVED · concerns:[]`, T.green)
-    await wait(260)
-    push('completion', `39 artifacts · chain_valid=true · is_replay_reconstructable=true · ${randHash()}`, T.green)
-    setRunning(false)
+  }
+
+  function reset() {
+    if (running) return
+    setExecutionId('')
+    setLines([])
+    setState('idle')
+    idRef.current = 0
   }
 
   return (
     <div style={{ ...glass(accent), padding: 20 }}>
       <div className="flex items-center justify-between mb-1">
-        <Heading>SWARM RUNNER · live stream</Heading>
-        <span style={{ fontSize: 10, fontFamily: MONO, color: T.muted }}>simulated · key to run live</span>
+        <Heading>SWARM RUNNER · authenticated execution</Heading>
+        <span style={{ fontSize: 10, fontFamily: MONO, color: T.muted }}>
+          {state === 'received' ? 'BACKEND RESULT RECEIVED'
+            : state === 'unverified' ? 'NOT VERIFIED'
+            : running ? 'BACKEND REQUEST IN PROGRESS' : 'NOT STARTED'}
+        </span>
       </div>
+
+      <p style={{ fontSize: 12, color: T.sub, lineHeight: 1.6 }}>
+        Runs the existing backend with one live model call and department-specific
+        outputs. An API key and a reachable runtime are required. Live calls may
+        consume paid usage. This screen does not independently certify the audit chain.
+      </p>
 
       <div className="flex flex-wrap gap-2 mt-3 mb-3">
         {(['gtm', 'revenue', 'analysis', 'retention'] as Mode[]).map(m => (
-          <button key={m} onClick={() => setMode(m)} disabled={running} style={{
-            padding: '5px 13px', borderRadius: 16, fontSize: 12, fontFamily: MONO,
-            cursor: running ? 'default' : 'pointer',
-            background: m === mode ? `${MODE_COLOR[m]}18` : 'transparent',
-            border: `1px solid ${m === mode ? MODE_COLOR[m] + '55' : T.border}`,
-            color: m === mode ? MODE_COLOR[m] : T.muted,
-          }}>{m}</button>
+          <button key={m} onClick={() => setMode(m)} disabled={running || !!executionId}
+            style={{
+              padding: '5px 13px', borderRadius: 16, fontSize: 12,
+              fontFamily: MONO, background: m === mode ? MODE_COLOR[m] + '18' : 'transparent',
+              border: '1px solid ' + (m === mode ? MODE_COLOR[m] + '55' : T.border),
+              color: m === mode ? MODE_COLOR[m] : T.muted,
+            }}>{m}</button>
         ))}
       </div>
 
-      <div className="flex gap-2 mb-3">
-        <input value={obj} onChange={e => setObj(e.target.value)} disabled={running}
+      <div className="flex flex-wrap gap-2 mb-3">
+        <input aria-label="Collaboration objective" value={objective}
+          onChange={e => setObjective(e.target.value)} disabled={running || !!executionId}
           style={{
-            flex: 1, background: T.inset, border: `1px solid ${T.border}`, borderRadius: 8,
-            padding: '9px 12px', fontSize: 13, color: T.text, fontFamily: 'inherit', outline: 'none',
-          }} />
-        <button onClick={() => void run()} disabled={running} style={{
-          padding: '9px 20px', borderRadius: 8, fontSize: 13, fontWeight: 600,
-          background: running ? T.border : accent, color: running ? T.muted : '#0A0A0C',
-          border: 'none', cursor: running ? 'default' : 'pointer', flexShrink: 0,
-        }}>{running ? 'streaming…' : 'Run ▸'}</button>
+            flex: '2 1 260px', background: T.inset,
+            border: '1px solid ' + T.border, borderRadius: 8,
+            padding: '9px 12px', color: T.text,
+          }}/>
+        <input aria-label="AEGIS API key" type="password" autoComplete="off"
+          placeholder="AEGIS API key · not stored" value={apiKey}
+          onChange={e => setApiKey(e.target.value)} disabled={running}
+          style={{
+            flex: '1 1 180px', background: T.inset,
+            border: '1px solid ' + T.border, borderRadius: 8,
+            padding: '9px 12px', color: T.text,
+          }}/>
+        {!executionId ? (
+          <button onClick={() => void run()}
+            disabled={running || !apiKey.trim() || objective.trim().length < 10}
+            style={{ padding: '9px 18px', borderRadius: 8, border: 'none',
+              background: accent, color: T.void }}>
+            {running ? 'Running…' : 'Start live execution'}
+          </button>
+        ) : (
+          <>
+            <button onClick={() => void recheck()} disabled={running || !apiKey.trim()}
+              style={{ padding: '9px 18px', borderRadius: 8,
+                background: accent, color: T.void, border: 'none' }}>
+              Check existing result (no new run)
+            </button>
+            <button onClick={reset} disabled={running}
+              style={{ padding: '9px 12px', borderRadius: 8,
+                background: 'transparent', color: T.sub,
+                border: '1px solid ' + T.border }}>New run</button>
+          </>
+        )}
       </div>
 
-      <div style={{
-        background: T.inset, borderRadius: 10, border: `1px solid ${T.border}`,
-        padding: 14, height: 240, overflowY: 'auto', fontFamily: MONO, fontSize: 12,
-      }}>
+      {executionId && (
+        <div style={{ color: T.sub, fontFamily: MONO, fontSize: 11, marginBottom: 10,
+          overflowWrap: 'anywhere' }}>Execution receipt: {executionId}</div>
+      )}
+
+      <div aria-live="polite" style={{ background: T.inset, borderRadius: 10,
+        border: '1px solid ' + T.border, padding: 14, height: 250,
+        overflowY: 'auto', fontFamily: MONO, fontSize: 12 }}>
         {lines.length === 0 && (
-          <span style={{ color: T.muted }}>▸ press Run to stream a 39-department collaboration</span>
+          <span style={{ color: T.muted }}>No backend events. No work is claimed.</span>
         )}
-        {lines.map(l => (
-          <div key={l.id} style={{ marginBottom: 4, lineHeight: 1.5, display: 'flex', gap: 8 }}>
-            <span style={{ color: l.color, opacity: 0.7, flexShrink: 0, minWidth: 92 }}>{l.type}</span>
-            <span style={{ color: l.color }}>{l.text}</span>
+        {lines.map(line => (
+          <div key={line.id} style={{ display: 'flex', gap: 12, marginBottom: 5 }}>
+            <span style={{ color: line.color, minWidth: 85 }}>{line.type}</span>
+            <span style={{ color: line.color, overflowWrap: 'anywhere' }}>{line.text}</span>
           </div>
         ))}
       </div>
-
-      <div className="flex items-center gap-2 mt-3">
-        <span style={{ width: 7, height: 7, borderRadius: '50%', display: 'inline-block',
-          background: memoryActive ? T.phi : T.muted }} />
-        <span style={{ fontSize: 11, color: T.muted, fontFamily: MONO }}>
-          memory layer {memoryActive ? 'active · prior runs feed context' : 'cold · no prior runs for this objective'}
-        </span>
-      </div>
+      <p style={{ fontSize: 11, fontFamily: MONO, color: T.muted, marginTop: 12 }}>
+        {memoryActive ? 'Live telemetry reports a nonzero fitness window; this is not proof of memory recall.'
+          : 'No verified live memory state in this console snapshot.'}
+      </p>
     </div>
   )
-}
-
-function randHash(): string {
-  const c = '0123456789abcdef'
-  let s = ''
-  for (let i = 0; i < 12; i += 1) s += c[Math.floor(Math.random() * 16)]
-  return s
 }
