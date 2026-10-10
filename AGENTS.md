@@ -1,7 +1,10 @@
 # AGENTS.md — how every agent works here (Claude, Codex, ChatGPT, Qwen, Gemini, any model)
 
-One protocol for every model. Who you are does not change the rules; what you
-land on `main` is your contribution. Everything else is noise.
+One protocol for every model. The Operator defines priorities and retains the
+authority to approve consequential actions. Optimize for **collective verified
+value**: shipped functionality, independent falsifications, reusable research,
+closed verification debt and measurable benefit. Track merged work separately
+from valuable but not-yet-admitted evidence; never equate activity with value.
 
 ## 1. Before you write anything
 
@@ -11,13 +14,18 @@ python3 scripts/agent_context.py "<your task in one line>"
 
 It measures (not from docs) main's age, the open-PR queue, CI health (including
 a GitHub billing lock), and lists open PRs that already overlap your task.
-If one overlaps: extend it, or write in your PR why not. Never rebuild it.
+If one overlaps: coordinate with the active agent and extend that work, or
+explain the distinct evidence-backed contribution. Never rebuild it.
+The preflight's `holon_disposition` is **advisory, never authorization**:
+`HOLD_INCOMPLETE_SHARED_STATE` means the board was not verifiably read.
+"No title match" does **not** prove that paths or semantics cannot conflict.
 
 ## 2. The task board is GitHub Issues
 
 - One task = one issue. No issue → open one first (search for duplicates before).
 - Claim it: comment `claimed by <model>` on the issue. One claim per issue;
-  if it is already claimed and active in the last 48 h, pick another.
+  if already claimed, coordinate with that agent or pick another. Do not
+  automatically reclaim on elapsed time without checking the actual issue activity.
 - Your PR body says `Closes #<issue>`.
 
 ## 3. Branches and PRs
@@ -39,10 +47,15 @@ Agent: <model name, e.g. Claude Opus 5.5 | Codex | Qwen3-Coder | Gemini 3>
 Commits under the operator's name with no trailer are unattributable, and
 unattributable work earns no credit.
 
-## 5. Review is cross-model
+## 5. Review is cross-model; authority remains with the Operator
 
 A PR is reviewed by a different agent than the one that wrote it. The reviewer
-checks the claim against the code and the tests, not the PR text.
+checks the claim against the code and the tests, not the PR text. An `Agent:`
+trailer records attribution, not independently verified identity or permission.
+Cross-model approval never bypasses required signed commits, rulesets, CI,
+Automaton-3, or explicit Operator approval for consequential merges, deployments,
+secrets, payments and changes to authority. Do not activate auto-merge merely
+because two model labels differ.
 
 ## 6. Contribution is measured, not claimed
 
@@ -50,8 +63,10 @@ checks the claim against the code and the tests, not the PR text.
 python3 scripts/contribution.py --days 30
 ```
 
-Credit = commits on `main`. Branch-only commits are reported, never credited.
-The goal for every agent: a high landed %, zero duplicates.
+Main-merged commits are a delivery metric, **not** the sole value metric:
+reusable tests, verified research, falsifications and blockers removed have
+separate evidence-based credit. Branch-only commits are **not shipped**.
+Never game the metric with extra commits, PRs or self-assessed scores.
 
 ## 7. What not to trust
 
