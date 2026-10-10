@@ -15,7 +15,7 @@ This module checks that second part mechanically, with no model as judge:
                    "read_support": 2, "classification": "uncertain_significance"}],
         key="position",
     )
-    result["verdict"]["status"]   # "consistent" | "contradicted" | "unverified_no_claims"
+    result["verdict"]["status"]   # see check_claims for the status values
 
 The model must return its prose answer plus one structured claim per record it
 relies on (enforced by a JSON schema). Each claim is compared field by field
@@ -43,7 +43,11 @@ _JSON_TYPES = {bool: "boolean", int: "integer", str: "string"}
 def check_claims(evidence: list[dict], claims: list[dict], key: str,
                  fields: list[str] | None = None) -> dict:
     """Compare claims with evidence records matched on `key`."""
-    by_key = {rec[key]: rec for rec in evidence}
+    by_key = {}
+    for rec in evidence:
+        if rec[key] in by_key:
+            raise ValueError(f"duplicate evidence key {key}={rec[key]!r}")
+        by_key[rec[key]] = rec
     fields = fields or ([f for f in evidence[0] if f != key] if evidence else [])
     findings = []
     for i, claim in enumerate(claims):
@@ -52,12 +56,21 @@ def check_claims(evidence: list[dict], claims: list[dict], key: str,
             findings.append({"claim": i, "kind": "fabricated", key: claim.get(key)})
             continue
         for f in fields:
-            if f in claim and claim[f] != rec[f]:
+            if f not in claim:
+                findings.append({"claim": i, "kind": "missing", key: rec[key], "field": f})
+            elif claim[f] != rec[f]:
                 findings.append({"claim": i, "kind": "mismatch", key: rec[key], "field": f,
                                  "evidence": rec[f], "claimed": claim[f]})
-    # No claims means nothing was checked: never report that as "consistent".
-    status = ("contradicted" if findings else
-              "unverified_no_claims" if not claims else "consistent")
+    # Only the structured claims are checked, never the prose; nothing checked is
+    # never reported as a pass.
+    if any(x["kind"] != "missing" for x in findings):
+        status = "contradicted"
+    elif findings:
+        status = "unverified_incomplete_claims"
+    elif not claims:
+        status = "unverified_no_claims"
+    else:
+        status = "claims_consistent_prose_unchecked"
     return {"status": status,
             "claims_checked": len(claims), "findings": findings}
 

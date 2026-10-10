@@ -22,13 +22,25 @@ def fake_client(output, stop_reason="end_turn"):
 
 
 def test_faithful_claims_are_consistent():
-    assert check_claims(EVIDENCE, [dict(EVIDENCE[0])], "position")["status"] == "consistent"
+    assert check_claims(EVIDENCE, [dict(EVIDENCE[0])], "position")["status"] == "claims_consistent_prose_unchecked"
 
 
 def test_zero_claims_are_unverified_not_consistent():
     v = check_claims(EVIDENCE, [], "position")
     assert v["status"] == "unverified_no_claims"
     assert v["claims_checked"] == 0
+
+
+def test_missing_field_is_incomplete_not_consistent():
+    v = check_claims(EVIDENCE, [{"position": 5}], "position")
+    assert v["status"] == "unverified_incomplete_claims"
+    assert {f["field"] for f in v["findings"]} == {k for k in EVIDENCE[0] if k != "position"}
+
+
+def test_duplicate_evidence_keys_are_rejected():
+    import pytest
+    with pytest.raises(ValueError, match="duplicate evidence key"):
+        check_claims([EVIDENCE[0], dict(EVIDENCE[0])], [dict(EVIDENCE[0])], "position")
 
 
 def test_verified_answer_with_no_claims_is_not_consistent(tmp_path):
@@ -77,7 +89,7 @@ def test_verified_answer_binds_the_verdict_into_the_receipt(tmp_path):
     good = {"answer": "C>T of uncertain significance.", "claims": [dict(EVIDENCE[0])]}
     client, _ = fake_client(good)
     out2 = verified_answer(client, rec, question="Summarise.", evidence=EVIDENCE, key="position")
-    assert out2["verdict"]["status"] == "consistent"
+    assert out2["verdict"]["status"] == "claims_consistent_prose_unchecked"
     # Different verdicts give different response digests in the chain.
     assert out["receipt"]["response_digest"] != out2["receipt"]["response_digest"]
 

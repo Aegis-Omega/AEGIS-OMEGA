@@ -126,7 +126,7 @@ result = verified_answer(Anthropic(), Recorder("receipts.json"),
                          evidence=[{"position": 5, "reference": "C", "alternate": "T",
                                     "read_support": 2, "classification": "uncertain_significance"}],
                          key="position")
-result["verdict"]   # {"status": "consistent" | "contradicted" | "unverified_no_claims" | "refused", "findings": [...]}
+result["verdict"]   # {"status": "claims_consistent_prose_unchecked" | "contradicted" | "unverified_no_claims" | "unverified_incomplete_claims" | "refused", "findings": [...]}
 ```
 
 A claim about a record that does not exist is `fabricated`; a differing field is a
