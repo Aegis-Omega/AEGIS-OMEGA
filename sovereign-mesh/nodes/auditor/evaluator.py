@@ -222,33 +222,22 @@ class PlaywrightMCP:
         }
     
     def run_tests(self, artifacts: List[Dict]) -> Dict:
+        """Never manufacture success when no actual browser runner is wired.
+
+        Matches the independent fail-closed repair discovered on AEGIS PR #727.
+        A configured, independently attested Playwright result is a separate
+        integration task. This stub has no authority to attest execution.
         """
-        Run Playwright integration tests
-        
-        In production, this would:
-        1. Spin up test environment
-        2. Deploy generated code
-        3. Execute browser-based tests
-        4. Measure code coverage
-        5. Capture screenshots/videos
-        """
-        # Simulated test results for now
-        # In production: actual Playwright execution
-        
-        test_count = len(artifacts) * 3  # 3 tests per artifact
-        passed = test_count  # Assume all pass for simulation
-        
         self.results = {
-            "tests_run": test_count,
-            "tests_passed": passed,
+            "tests_run": 0,
+            "tests_passed": 0,
             "tests_failed": 0,
-            "coverage": 0.85 + (0.15 * (len(artifacts) / 10)),  # Scale with artifacts
-            "errors": [],
-            "timestamp": datetime.now(timezone.utc).isoformat()
+            "coverage": 0.0,
+            "errors": ["PLAYWRIGHT_MCP_NOT_CONFIGURED"],
+            "execution_verified": False,
         }
-        
         return self.results
-    
+
     def generate_test_report(self) -> str:
         """Generate human-readable test report"""
         r = self.results
@@ -319,6 +308,14 @@ class VerdictEmitter:
                 "Fix failing tests before resubmission"
             ]
         
+        # Never promote simulated or self-reported test coverage into PASS.
+        # The current PlaywrightMCP stub has no externally verified execution.
+        if (playwright_results.get("execution_verified") is not True
+                or type(playwright_results.get("tests_run")) is not int
+                or playwright_results["tests_run"] < 1
+                or playwright_results.get("tests_passed") != playwright_results["tests_run"]):
+            return Verdict.REJECT_REROLL, ["NO_INDEPENDENT_BROWSER_EXECUTION_EVIDENCE"]
+
         # Coverage threshold
         coverage = playwright_results.get("coverage", 0)
         if coverage < 0.70:
