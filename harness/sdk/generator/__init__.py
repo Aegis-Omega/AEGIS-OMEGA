@@ -136,17 +136,13 @@ class Generator:
         # Run tests
         test_results = self.executor.run_tests(artifacts)
         
-        # A caller-authored boolean is not independent test evidence.
-        verified = bool(artifacts) and bool(test_results) and all(
-            isinstance(t, dict)
-            and t.get("passed") is True
-            and type(t.get("tests_run")) is int and t["tests_run"] > 0
-            and type(t.get("tests_passed")) is int and t["tests_passed"] == t["tests_run"]
-            and t.get("independent_receipt_verified") is True
-            for t in test_results
-        )
-        confidence = 1.0 if verified else 0.0
-        
+        # A test adapter can forge `passed`, `tests_run`, and even
+        # `independent_receipt_verified=True`. No positive admission exists
+        # until a separate verifier checks a trusted, source-bound receipt.
+        # The original sprint loop must remain candidate-only.
+        verified = False
+        confidence = 0.0
+
         execution_time = (time.time() - start_time) * 1000
         
         result = SprintResult(
