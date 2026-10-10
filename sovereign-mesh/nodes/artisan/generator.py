@@ -239,9 +239,9 @@ class SprintExecutor:
         end_time = datetime.now(timezone.utc)
         execution_time_ms = int((end_time - start_time).total_seconds() * 1000)
         
-        # Determine success
-        critical_findings = [f for f in all_findings if f.get("severity") == "CRITICAL"]
-        success = len(critical_findings) == 0 and len(artifacts) > 0
+        # A heuristic source scan and a generated test-suite description do not
+        # establish that the system compiles or runs. Keep candidate unadmitted.
+        success = False  # Independent executed tests + authority admission missing
         
         return SprintResult(
             sprint_id=sprint_id,
