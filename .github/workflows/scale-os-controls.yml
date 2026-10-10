@@ -33,6 +33,7 @@ jobs:
           python3 -m py_compile sovereign-omega-v2/python/bridge.py sovereign-omega-v2/python/chain_verifier.py
           python3 sovereign-omega-v2/python/tests/test_chain_verifier.py
           python3 sovereign-omega-v2/python/tests/test_collaboration_chain_side_effects.py
+          python3 sovereign-omega-v2/python/tests/test_swarm_live_provenance.py
 
       - name: Prove grace-cycle control flow
         run: python sovereign-omega-v2/python/tests/test_grace_chain_repair.py
