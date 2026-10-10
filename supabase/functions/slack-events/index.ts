@@ -1,6 +1,6 @@
 // AEGIS-Ω Slack event handler — slash commands + app mentions → autonomous agent
 // Deploy: supabase functions deploy slack-events --no-verify-jwt
-// Env vars: SLACK_SIGNING_SECRET, SLACK_BOT_TOKEN, SUPABASE_URL, NOTIFY_SECRET
+// Env vars: SLACK_SIGNING_SECRET, SLACK_BOT_TOKEN, SUPABASE_URL, NOTIFY_SECRET, AEGIS_AGENT_INVOKE_SECRET
 //
 // Slack app setup (api.slack.com/apps):
 //   1. Incoming Webhooks → ON → install to #aegis-alerts → copy URL → SLACK_WEBHOOK_URL secret
@@ -14,6 +14,7 @@ const SLACK_SIGNING_SECRET = Deno.env.get('SLACK_SIGNING_SECRET') ?? ''
 const SLACK_BOT_TOKEN      = Deno.env.get('SLACK_BOT_TOKEN') ?? ''
 const SUPABASE_URL         = Deno.env.get('SUPABASE_URL') ?? ''
 const NOTIFY_SECRET        = Deno.env.get('NOTIFY_SECRET') ?? ''
+const AGENT_INVOKE_SECRET  = Deno.env.get('AEGIS_AGENT_INVOKE_SECRET') ?? ''
 
 const CORS = {
   'Access-Control-Allow-Origin': '*',
@@ -23,9 +24,11 @@ const CORS = {
 
 // Verify Slack request signature (HMAC-SHA256)
 async function verifySlackSignature(body: string, timestamp: string, sig: string): Promise<boolean> {
-  if (!SLACK_SIGNING_SECRET) return true // skip in dev
-  const age = Math.abs(Date.now() / 1000 - Number(timestamp))
-  if (age > 300) return false // replay attack
+  // Public webhook: missing signature configuration MUST never turn auth off.
+  if (!SLACK_SIGNING_SECRET || !timestamp || !/^v0=[0-9a-f]{64}$/.test(sig)) return false
+  const sentAt = Number(timestamp)
+  if (!Number.isSafeInteger(sentAt) || sentAt <= 0 ||
+      Math.abs(Date.now() / 1000 - sentAt) > 300) return false
 
   const baseString = `v0:${timestamp}:${body}`
   const key = await crypto.subtle.importKey(
@@ -49,10 +52,14 @@ async function slackReply(channel: string, text: string, thread_ts?: string): Pr
 
 // Call the agent function with a task
 async function runAgent(task: string, context?: string): Promise<string> {
+  // Do not dispatch (or spend) if the internal admission capability is absent.
+  if (AGENT_INVOKE_SECRET.length < 32 || AGENT_INVOKE_SECRET.length > 256) {
+    throw new Error('AGENT_AUTH_NOT_CONFIGURED')
+  }
   const agentUrl = `${SUPABASE_URL}/functions/v1/agent`
   const res = await fetch(agentUrl, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'x-notify-secret': NOTIFY_SECRET },
+    headers: { 'Content-Type': 'application/json', 'x-aegis-agent-secret': AGENT_INVOKE_SECRET },
     body: JSON.stringify({ task, context }),
   })
   if (!res.ok) return `Agent error: ${res.status}`
