@@ -1,20 +1,47 @@
 name: Constitutional Integrity
 on:
   push:
+    branches: [main]
     paths:
       - 'sovereign-omega-v2/python/gate.py'
       - 'sovereign-omega-v2/python/dna.py'
       - 'sovereign-omega-v2/python/router.py'
+      - 'sovereign-omega-v2/scripts/verify-hashes.mjs'
+      - '.github/workflows/frozen-files.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'sovereign-omega-v2/python/gate.py'
+      - 'sovereign-omega-v2/python/dna.py'
+      - 'sovereign-omega-v2/python/router.py'
+      - 'sovereign-omega-v2/scripts/verify-hashes.mjs'
+      - '.github/workflows/frozen-files.yml'
+
+permissions:
+  contents: read
 
 jobs:
   verify-hashes:
     name: Frozen File Verification
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      # Candidate source is data; the hash policy must come from the reviewed base.
+      - name: Checkout exact candidate source
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          path: candidate
+          persist-credentials: false
+      - name: Checkout trusted base verifier
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.base.sha || github.sha }}
+          path: trusted
+          persist-credentials: false
       - uses: actions/setup-node@v4
         with:
-          node-version: '20'
-      - run: cd sovereign-omega-v2 && npm ci --ignore-scripts
-      - name: Verify constitutional file hashes
-        run: cd sovereign-omega-v2 && node scripts/verify-hashes.mjs
+          node-version: '22'
+      # verify-hashes.mjs imports only Node built-ins; dependency install is unnecessary.
+      - name: Verify constitutional file hashes with trusted base code
+        working-directory: candidate/sovereign-omega-v2
+        run: node "$GITHUB_WORKSPACE/trusted/sovereign-omega-v2/scripts/verify-hashes.mjs"
