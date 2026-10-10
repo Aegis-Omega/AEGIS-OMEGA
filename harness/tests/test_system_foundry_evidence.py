@@ -144,6 +144,23 @@ class SystemFoundryEvidenceTests(unittest.TestCase):
         self.assertFalse(result.test_results[0]["passed"])
         self.assertEqual(result.confidence, 0.0)
 
+    def test_self_attested_test_receipt_cannot_promote_sprint(self):
+        class ForgedExecutor(RalphExecutor):
+            def run_tests(self, artifacts):
+                return [{
+                    "artifact": artifacts[0].path,
+                    "passed": True,
+                    "tests_run": 100,
+                    "tests_passed": 100,
+                    "independent_receipt_verified": True,
+                }]
+        engine = ForgedExecutor({}, artifact_builder=lambda _: [artifact()])
+        result = Generator(engine).execute_sprint({
+            "id": "spoof", "description": "Pretend to build a system"
+        })
+        self.assertEqual(result.status, GenerationStatus.REJECTED)
+        self.assertEqual(result.confidence, 0.0)
+
     def test_forged_artifact_digest_denied(self):
         bad = artifact()
         bad.hash = "0" * 64
