@@ -135,6 +135,12 @@ def decide_skill_routing(
             reasons.append("INSUFFICIENT_VALIDATED_RUNS")
 
     score = safe_competency_score(skill, minimum_runs=minimum_runs)
+    # `safe_competency_score` is a metric over mutable registry fields,
+    # NOT proof that an independent run actually happened. Until an external
+    # attestation verifier is implemented, no positive routing may arise
+    # from mutable JSON counters, even if a caller re-hashes the registry.
+    if score > 0.0:
+        reasons.append("INDEPENDENT_RUN_ATTESTATION_NOT_VERIFIED")
     if score <= 0.0:
         reasons.append("ZERO_AUTHORITY")
 
