@@ -197,7 +197,7 @@ Deno.serve(async (req) => {
   // Reserve BEFORE any model/API call; failures are denied (not assumed safe).
   const encoder = new TextEncoder()
   const bytes = await crypto.subtle.digest(
-    'SHA-256', encoder.encode('AEGIS_AGENT_DISPATCH_V1\\0' + invokeSecret + '\\0' + dispatch_id),
+    'SHA-256', encoder.encode('AEGIS_AGENT_DISPATCH_V1\0' + invokeSecret + '\0' + dispatch_id),
   )
   const event_digest = Array.from(new Uint8Array(bytes))
     .map(b => b.toString(16).padStart(2, '0')).join('')
