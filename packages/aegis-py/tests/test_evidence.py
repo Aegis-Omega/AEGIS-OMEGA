@@ -25,6 +25,20 @@ def test_faithful_claims_are_consistent():
     assert check_claims(EVIDENCE, [dict(EVIDENCE[0])], "position")["status"] == "consistent"
 
 
+def test_zero_claims_are_unverified_not_consistent():
+    v = check_claims(EVIDENCE, [], "position")
+    assert v["status"] == "unverified_no_claims"
+    assert v["claims_checked"] == 0
+
+
+def test_verified_answer_with_no_claims_is_not_consistent(tmp_path):
+    client, _ = fake_client({"answer": "Pathogenic A>T at position 5.", "claims": []})
+    rec = Recorder(tmp_path / "r.json")
+    out = verified_answer(client, rec, question="Summarise.", evidence=EVIDENCE, key="position")
+    assert out["verdict"]["status"] == "unverified_no_claims"
+    assert verify(tmp_path / "r.json")["valid"]
+
+
 def test_legacy_contradiction_is_caught_field_by_field():
     claim = dict(EVIDENCE[0], reference="A", classification="pathogenic")
     v = check_claims(EVIDENCE, [claim], "position")

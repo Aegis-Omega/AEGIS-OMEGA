@@ -15,7 +15,7 @@ This module checks that second part mechanically, with no model as judge:
                    "read_support": 2, "classification": "uncertain_significance"}],
         key="position",
     )
-    result["verdict"]["status"]   # "consistent" | "contradicted"
+    result["verdict"]["status"]   # "consistent" | "contradicted" | "unverified_no_claims"
 
 The model must return its prose answer plus one structured claim per record it
 relies on (enforced by a JSON schema). Each claim is compared field by field
@@ -55,7 +55,10 @@ def check_claims(evidence: list[dict], claims: list[dict], key: str,
             if f in claim and claim[f] != rec[f]:
                 findings.append({"claim": i, "kind": "mismatch", key: rec[key], "field": f,
                                  "evidence": rec[f], "claimed": claim[f]})
-    return {"status": "contradicted" if findings else "consistent",
+    # No claims means nothing was checked: never report that as "consistent".
+    status = ("contradicted" if findings else
+              "unverified_no_claims" if not claims else "consistent")
+    return {"status": status,
             "claims_checked": len(claims), "findings": findings}
 
 
