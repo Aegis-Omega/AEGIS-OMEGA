@@ -53,6 +53,9 @@ jobs:
       - name: Install (scripts only — no build)
         run: cd sovereign-omega-v2 && npm ci --ignore-scripts
 
+      - name: Cognitive arbitration negative controls
+        run: python3 -m unittest -v agents.tests.test_cognitive_arbitration_guard
+
       - name: Verify frozen file hashes
         id: verify
         run: |
