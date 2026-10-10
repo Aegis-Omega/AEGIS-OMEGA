@@ -1,0 +1,22 @@
+{
+  "schema_version": "1.0.0",
+  "repository": "tarikskalic33/formal-conjectures",
+  "head_sha": "92b7943aea75236ebb25fc24106081153d765257",
+  "upstream_pr": 63,
+  "upstream_pr_state": "CLOSED_UNMERGED",
+  "exact_head_kernel_status": "UNVERIFIED",
+  "files": {
+    "official": {
+      "upstream_path": "FormalConjectures/Millennium/RiemannHypothesis.lean",
+      "git_blob": "547abe4133077b36387bfe631d24485b5bfa55f9"
+    },
+    "small_window": {
+      "upstream_path": "AegisRH/SmallWindow/RHSmallWindowCanonicalJoinV1.lean",
+      "git_blob": "e4904cdb0ddc1b7001f587331b3cac4f36bf2a37"
+    },
+    "krein_l105": {
+      "upstream_path": "research/rh/krein_L105_v1/RHWindowL105FinalV1.lean",
+      "git_blob": "71ec4bfe3e581235bc08025ce744f299469af361"
+    }
+  }
+}
