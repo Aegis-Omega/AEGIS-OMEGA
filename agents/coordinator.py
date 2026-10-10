@@ -212,20 +212,15 @@ class SkillRouter(_legacy.SkillRouter):
         return self.role_routing_receipt(role, task_instruction, agent_defs).authority_score
 
     def emit_skill_event(self, capability: str, success: bool) -> None:
-        """Record telemetry only; an observation never grants authority by itself."""
-        skill_id = self._capability_map.get(capability)
-        try:
-            tree = json.loads(self._skill_tree_path.read_text(encoding="utf-8"))
-            if skill_id is None:
-                raise ValueError("unmapped capability")
-            observed_at = time.strftime("%Y-%m-%dT%H:%M:%S+00:00", time.gmtime())
-            updated = record_skill_observation(tree, skill_id=skill_id, success=success, observed_at=observed_at, repo_root=self._repo_root)
-            temporary = self._skill_tree_path.with_suffix(".json.tmp")
-            temporary.write_text(json.dumps(updated, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
-            os.replace(temporary, self._skill_tree_path)
-            self._last_mutation_error = None
-        except (OSError, TypeError, ValueError) as exc:
-            self._last_mutation_error = type(exc).__name__
+        """Deny claims of validated skill from unverified completion signals.
+
+        This legacy public method accepts only a caller-supplied boolean. No
+        verifier identity, tool-output commitment or task-bound proof is present.
+        It MUST NOT write to the sealed skill registry. A separately authenticated
+        tool-result ingestion path is required before observed competence can be
+        raised; successful model output is not such a result.
+        """
+        self._last_mutation_error = "INDEPENDENT_VERIFICATION_REQUIRED"
 
 
 _legacy.SkillRouter = SkillRouter
