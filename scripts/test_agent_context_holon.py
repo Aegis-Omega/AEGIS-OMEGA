@@ -139,6 +139,29 @@ class HolonContextTests(unittest.TestCase):
         self.assertFalse(any(args.args[:3] == ("git", "fetch", "-q")
                              for args in sh.call_args_list))
 
+    def test_legacy_plain_list_cache_is_not_complete_evidence(self):
+        import tempfile
+        valid = {"n": 734, "t": "existing", "h": "head", "b": "main",
+                 "s": "a" * 40}
+        with tempfile.TemporaryDirectory() as directory:
+            pathlib.Path(directory, "aegis-open-prs.json").write_text(
+                json.dumps([valid]), encoding="utf-8")
+            with patch.object(ctx, "git_dir", return_value=directory), \
+                 patch.object(ctx, "sh", return_value=""):
+                self.assertEqual(ctx.open_prs(quick=True), ([], "unavailable"))
+
+    def test_v2_complete_snapshot_can_support_bounded_hook(self):
+        import tempfile
+        valid = {"n": 734, "t": "existing", "h": "head", "b": "main",
+                 "s": "a" * 40}
+        with tempfile.TemporaryDirectory() as directory:
+            pathlib.Path(directory, "aegis-open-prs.json").write_text(
+                json.dumps({"format": "AEGIS_PR_SNAPSHOT_V2",
+                            "complete": True, "prs": [valid]}), encoding="utf-8")
+            with patch.object(ctx, "git_dir", return_value=directory), \
+                 patch.object(ctx, "sh", side_effect=AssertionError("network called")):
+                self.assertEqual(ctx.open_prs(quick=True), ([valid], "cache"))
+
     def test_unavailable_billing_annotations_are_unknown(self):
         pr = [{"n": 735, "t": "task", "h": "head", "b": "main",
                "s": "a" * 40}]
