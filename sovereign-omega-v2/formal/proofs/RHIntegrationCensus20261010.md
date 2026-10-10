@@ -102,3 +102,17 @@ This section extends the earlier inventory: a finite-window producer, a conditio
 5. **The next mathematical work item is the universal-sign/globalization theorem**, not another import-only change or an eleventh finite family. In parallel, the analytic route must close the actual shell multiplicity bound and connect the actual autocorrelation to the Mellin-decay estimates; the Li route must produce all Li–Keiper coefficient signs. These are alternative proof terminals, not premises that may be assumed.
 
 **Updated disposition:** no repository evidence inspected here supplies a closed, unconditional term for `UniversalZeroQuadraticNonnegativeV10` or the Li coefficient family. The inventory is now broader, but the mathematical conclusion remains `RH_PROVEN = FALSE` until one of those genuine terminal producers is kernel-checked.
+
+## 9. Packet-lane merge receipt and exact-head replay disposition (2026-10-10)
+
+The nine-/ten-/eleven-packet sources have now been integrated into this candidate branch through [PR #722](https://github.com/Aegis-Omega/AEGIS-OMEGA/pull/722), merge commit `9a217ac51f5a6044a2e77bbe06ce4b006542e792`. PR #722 is closed as merged. The merge brings 41 files (7,215 additions / 5 deletions) from the existing stacked packet branch into the shared candidate. It does **not** promote any conditional or source-candidate lemma to a proven global theorem.
+
+Before merging, the exact path overlap was audited against the integration branch. Five of seven overlapping files were already byte-identical; the two differing source files were resolved in favor of the packet-line candidates:
+- `RHFineMomentPacketV3.lean` blob `709bd274400ec98c85756c33d002ae88bf0323f7`, using explicit integral/cast `change` steps in the moment-normalization proof.
+- `RHFourBlockPrimeEightV3.lean` blob `5a2394056d7505774f207ed8e3bbafb0e593ed99`, simplifying the gap-eight theorem instantiation and rewrite.
+
+The consolidated candidate is now the head of [PR #721](https://github.com/Aegis-Omega/AEGIS-OMEGA/pull/721), commit `9a217ac51f5a6044a2e77bbe06ce4b006542e792`, against `proof/rh-window-nine-over-64-globalization-v14` (`f8313af917e41a5a56f441447a46cf8ffe97d247`). GitHub reports the PR as open and mergeable, but it remains a draft candidate and has **not** been merged into `main`.
+
+Exact-head CI on `9a217ac...` scheduled the restricted-Weil, kernel, cumulative-Mellin, nine-packet and ten-block preflight workflows, but the recorded runs ended as failures before the connector returned any job steps (`steps=[]`). These are runner/workflow failures with no retrievable source log, **not a Lean diagnosis**; equally, they do not count as a successful replay. As of this receipt, the integrated 9–11 packet lane still requires a usable exact-head Lean run plus `#print axioms` audit.
+
+The next gate is therefore: obtain a runner execution that reaches the actual compile commands; then fix genuine compiler failures in topological dependency order. Keep the final universal sign/globalization proposition separate from the finite packet comparison results. `RH_PROVEN` remains `FALSE`.
