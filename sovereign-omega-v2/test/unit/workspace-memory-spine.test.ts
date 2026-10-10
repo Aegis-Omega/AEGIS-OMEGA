@@ -2,6 +2,7 @@
 import 'fake-indexeddb/auto'
 import { describe, expect, it, vi, afterEach } from 'vitest'
 import { EventStore } from '../../src/event/store.js'
+import { AgentMemory } from '../../src/agents/memory/agent-memory.js'
 import { EventType, RetentionClass } from '../../src/core/types.js'
 import type { SHA256Hex, UUIDv7 } from '../../src/core/types.js'
 import {
@@ -105,6 +106,42 @@ describe('WorkspaceMemorySpine', () => {
       'agent', '1', '2.0.0', RetentionClass.STANDARD, TS,
     )
     await expect(memory.restore()).rejects.toThrow('Unsupported workspace memory schema')
+  })
+
+
+  it('promotes replayable per-agent memory references into shared durable evidence', async () => {
+    const id = streamId()
+    const a = await newMemory(id)
+    const privateMemory = AgentMemory.empty().store({
+      entry_id: 'lesson-001',
+      agent_id: 'research',
+      sequence: 1,
+      content_hash: H,
+      memory_type: 'lesson',
+      is_replay_reconstructable: true,
+    })
+    for (const entry of privateMemory.entries) {
+      await a.memory.recordAgentMemory(entry, TS)
+    }
+    const b = await newMemory(id)
+    const revived = await b.memory.restore()
+    expect(revived.nodes).toHaveLength(1)
+    expect(revived.nodes[0]?.node_id).toBe('agent-memory:lesson-001')
+    expect(revived.nodes[0]?.agent_id).toBe('research')
+    expect(revived.nodes[0]?.payload_hash).toBe(H)
+  })
+
+  it('refuses to consolidate un-replayable agent recollections', async () => {
+    const { memory, store } = await newMemory()
+    await expect(memory.recordAgentMemory({
+      entry_id: 'unverifiable',
+      agent_id: 'research',
+      sequence: 1,
+      content_hash: H,
+      memory_type: 'opinion',
+      is_replay_reconstructable: false,
+    }, TS)).rejects.toThrow('not replay-reconstructable')
+    expect(await store.getAll()).toHaveLength(0)
   })
 
   it('rejects missing recall target and preserves an empty memory', async () => {
