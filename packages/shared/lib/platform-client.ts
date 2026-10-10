@@ -51,14 +51,21 @@ const SHA256_HEX_PATTERN = /^[a-f0-9]{64}$/i
 // ── Error class ───────────────────────────────────────────────────────────────
 
 export class PlatformApiError extends Error {
+  readonly code: PlatformErrorCode
+  readonly status: number
+  readonly execution_id?: string
+
   constructor(
     message: string,
-    public readonly code: PlatformErrorCode,
-    public readonly status: number,
-    public readonly execution_id?: string,
+    code: PlatformErrorCode,
+    status: number,
+    execution_id?: string,
   ) {
     super(message)
     this.name = 'PlatformApiError'
+    this.code = code
+    this.status = status
+    this.execution_id = execution_id
   }
 }
 
