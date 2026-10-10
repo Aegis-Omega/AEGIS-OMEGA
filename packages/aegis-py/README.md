@@ -111,6 +111,27 @@ provider, sequence, previous hash). Editing, reordering or dropping any receipt
 makes verification fail. A VALID chain proves integrity and order only: it does
 not yet prove who recorded it (signing is Phase 2).
 
+## Evidence-checked answers — integrity is not truth
+
+A valid receipt chain proves what the model said, not that it was right.
+`verified_answer` makes the model return its answer **plus one structured claim per
+evidence record it relies on** (JSON-schema enforced), compares every claim with
+the evidence field by field (no model as judge), and writes the verdict into the
+receipt:
+
+```python
+from aegis.evidence import verified_answer
+result = verified_answer(Anthropic(), Recorder("receipts.json"),
+                         question="Summarise these variants.",
+                         evidence=[{"position": 5, "reference": "C", "alternate": "T",
+                                    "read_support": 2, "classification": "uncertain_significance"}],
+                         key="position")
+result["verdict"]   # {"status": "consistent" | "contradicted" | "refused", "findings": [...]}
+```
+
+A claim about a record that does not exist is `fabricated`; a differing field is a
+`mismatch`. Scope: structured claims against structured evidence only.
+
 ## License
 
 MIT
