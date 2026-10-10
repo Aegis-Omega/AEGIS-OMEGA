@@ -48,7 +48,7 @@ class PlannerProofContractTests(unittest.TestCase):
         alif = chain.tasks[1].metadata["alif_results"]
         self.assertEqual(alif["t0_genesis_seal"], False)
         self.assertEqual(alif["domain_isolation"], False)
-        self.assertTrue(all(v is False for v in p.raise_alif(list(ConstraintType))))
+        self.assertTrue(all(v is False for v in p.raise_alif(list(ConstraintType)).values()))
 
     def test_invalid_constraints_rejected(self):
         p = Planner(SEAL)
