@@ -151,3 +151,63 @@ def test_explicit_required_capability(case):
     order, receipt = run_case(case, task="resolve failed build", required=("formal_verification",))
     assert order == [1, 0]
     assert receipt["authority_effect"] == "NONE_ORDER_ONLY"
+
+@pytest.mark.parametrize("deny_research", [False, True])
+def test_coordinator_orders_only_centrally_admitted_roles(case, monkeypatch, deny_research):
+    """Live dispatch seam: ranking must never convert a denial into a run."""
+    import asyncio
+    from agents import coordinator
+
+    write_registry(case[4], [skill("formal_skill", 5, 0.9)])
+    engineering = coordinator.AgentRole.ENGINEERING
+    research = coordinator.AgentRole.AI_RESEARCH
+    definitions = {
+        "agents": {
+            engineering.value: case[1]["engineering"],
+            research.value: case[1]["research"],
+        },
+        "capability_skill_map": case[2],
+    }
+    knowledge = {
+        "status": "ESTABLISHED", "reason_codes": [],
+        "snapshot_digest": "6" * 64,
+        "source_head_sha": "7" * 40, "source_tree_sha": "8" * 40,
+        "receipt_hash": "9" * 64,
+    }
+    monkeypatch.setattr(coordinator, "establish_repository_knowledge", lambda **_: knowledge)
+    monkeypatch.setattr(coordinator._legacy, "EVENT_ROUTING", {"advisory-test": [engineering, research]})
+    monkeypatch.setattr(coordinator._legacy, "_load_agent_defs", lambda: definitions)
+    monkeypatch.setattr(coordinator._legacy, "_event_to_instruction", lambda *_: "fix formal verification errors")
+    instance = coordinator.SkillRouter(
+        skill_tree_path=case[4], repo_root=case[0], capability_map=case[2],
+    )
+    monkeypatch.setattr(coordinator, "_skill_router", instance)
+
+    def central(**request):
+        role = request["target"]
+        outcome = "DENIED" if deny_research and role == research.value else "ADMITTED"
+        return {
+            "outcome": outcome,
+            "authority_score": "0.000000" if outcome == "DENIED" else (
+                "0.900000" if role == engineering.value else "0.600000"
+            ),
+            "denial_codes": ["TEST_DENIAL"] if outcome == "DENIED" else [],
+            "decision_root": "3" * 64, "receipt_root": "4" * 64,
+        }
+
+    monkeypatch.setattr(coordinator, "authorize_from_environment", central)
+    seen = []
+
+    async def record_run(task):
+        seen.append(task.role.value)
+        return {"executed": task.role.value}
+
+    monkeypatch.setattr(coordinator._legacy, "run_agent", record_run)
+    asyncio.run(coordinator.dispatch_event("advisory-test", {}))
+
+    if deny_research:
+        assert seen == [engineering.value]
+    else:
+        assert seen == [research.value, engineering.value]
+        assert coordinator.last_capability_advisory_receipt()["status"] == "OBSERVED_SKILL_PREFERENCE"
+    assert set(seen).issubset({engineering.value, research.value})
