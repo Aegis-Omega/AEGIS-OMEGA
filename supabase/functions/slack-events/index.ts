@@ -75,7 +75,7 @@ async function slackReply(channel: string, text: string, thread_ts?: string): Pr
 }
 
 // Call the agent function with a task
-async function runAgent(task: string, context?: string): Promise<string> {
+async function runAgent(task: string, dispatchId: string, context?: string): Promise<string | null> {
   // Do not dispatch (or spend) if the internal admission capability is absent.
   if (AGENT_INVOKE_SECRET.length < 32 || AGENT_INVOKE_SECRET.length > 256) {
     throw new Error('AGENT_AUTH_NOT_CONFIGURED')
@@ -84,8 +84,9 @@ async function runAgent(task: string, context?: string): Promise<string> {
   const res = await fetch(agentUrl, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'x-aegis-agent-secret': AGENT_INVOKE_SECRET },
-    body: JSON.stringify({ task, context }),
+    body: JSON.stringify({ task, context, dispatch_id: dispatchId }),
   })
+  if (res.status === 409) return null // Already claimed; no second result or model spend
   if (!res.ok) return `Agent error: ${res.status}`
   const data = await res.json()
   return data.result ?? 'No result'
@@ -116,6 +117,11 @@ Deno.serve(async (req) => {
       return new Response('Operator or channel not authorized', { status: 403 })
     }
     const ts      = params.get('message_ts') ?? undefined
+    const triggerId = params.get('trigger_id') ?? ''
+    if (!/^[a-zA-Z0-9_.:-]{5,180}$/.test(triggerId)) {
+      return new Response('Missing valid Slack trigger ID', { status: 400 })
+    }
+    const dispatchId = 'slack:slash:' + triggerId
 
     if (!task) {
       return new Response(JSON.stringify({
@@ -133,8 +139,8 @@ Deno.serve(async (req) => {
     // Explicitly bind background lifetime to Supabase EdgeRuntime.
     const registered = dispatchBackground(async () => {
       try {
-        const result = await runAgent(task, `Requested by @${user} in Slack`)
-        await slackReply(channel, `*AEGIS-Ω:* ${result}`, ts)
+        const result = await runAgent(task, dispatchId, `Requested by @${user} in Slack`)
+        if (result !== null) await slackReply(channel, `*AEGIS-Ω:* ${result}`, ts)
       } catch (e) {
         await slackReply(channel, `Agent error: ${(e as Error).message}`, ts)
       }
@@ -164,13 +170,18 @@ Deno.serve(async (req) => {
       }
       const text    = (event.event.text ?? '').replace(/<@[A-Z0-9]+>/g, '').trim()
       const ts      = event.event.ts
+      const eventId = event.event_id
+      if (typeof eventId !== 'string' || !/^[a-zA-Z0-9_.:-]{5,180}$/.test(eventId)) {
+        return new Response('Missing valid Slack event ID', { status: 400 })
+      }
+      const dispatchId = 'slack:event:' + eventId
 
       if (text) {
         const registered = dispatchBackground(async () => {
           try {
             await slackReply(channel, '_Running an approved task..._', ts)
-            const result = await runAgent(text, 'Requested via @AEGIS-Ω mention in Slack')
-            await slackReply(channel, `*AEGIS-Ω:* ${result}`, ts)
+            const result = await runAgent(text, dispatchId, 'Requested via @AEGIS-Ω mention in Slack')
+            if (result !== null) await slackReply(channel, `*AEGIS-Ω:* ${result}`, ts)
           } catch (e) {
             await slackReply(channel, `Error: ${(e as Error).message}`, ts)
           }
