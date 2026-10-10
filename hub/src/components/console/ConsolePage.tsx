@@ -114,7 +114,7 @@ export function ConsolePage() {
             <Divider />
             <StatChip label="contract" value={`v${snap.status.contract_version}`} color={T.text} />
             <Divider />
-            <StatChip label="chain" value={snap.status.chain_valid ? 'valid' : 'broken'} color={snap.status.chain_valid ? T.green : T.red} />
+            <StatChip label="chain" value={live ? (snap.status.chain_valid ? 'reported valid' : 'reported invalid') : 'unverified'} color={live ? (snap.status.chain_valid ? T.green : T.red) : T.amber} />
           </div>
 
           <div style={{ marginTop: 40, fontSize: 11, color: T.muted, fontFamily: MONO, letterSpacing: '0.1em' }}>
