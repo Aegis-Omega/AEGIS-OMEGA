@@ -98,6 +98,43 @@ class AutonomousCapabilityGrowthTests(unittest.TestCase):
         self.assertEqual(result.authority_score, 0.0)
         self.assertIn("INDEPENDENT_RUN_ATTESTATION_NOT_VERIFIED", result.reason_codes)
 
+    def test_evolution_tick_cannot_rewrite_or_reseal_untrusted_registry(self):
+        import tempfile
+        from pathlib import Path
+        with tempfile.TemporaryDirectory() as temp:
+            location = Path(temp) / "skill_tree.json"
+            data = tree()
+            observed = data["skills"][0]
+            observed.update({
+                "tier": "T2",
+                "validated_runs": 999,
+                "observation_state": "OBSERVED",
+                "confidence": 1.0,
+                "recency_score": 1.0,
+                "failure_rate": 0.0,
+                "last_validated": "2026-10-10T06:00:00Z",
+            })
+            data["registry_root"] = compute_registry_root(data)
+            data["genesis_seal"] = data["registry_root"]
+            location.write_text(json.dumps(data, sort_keys=True))
+            before = location.read_bytes()
+            engine = EvolutionEngine(tree_path=str(location), lineage=AdaptiveLineage())
+            decisions = engine.tick(apply_changes=True)
+            self.assertTrue(decisions[0].requires_guardian)
+            self.assertFalse(decisions[0].promoted)
+            self.assertEqual(before, location.read_bytes())
+            self.assertEqual(len(engine.lineage.events), 0)
+
+    def test_reported_failures_cannot_auto_demote_or_rewrite_tier(self):
+        engine = EvolutionEngine(lineage=AdaptiveLineage())
+        verdict = engine.evaluate_skill({
+            "skill_id": "x", "tier": "T1",
+            "validated_runs": 10, "failure_rate": 0.99, "confidence": 0.8,
+        })
+        self.assertFalse(verdict.promoted)
+        self.assertEqual(verdict.eligible_tier, "T2")
+        self.assertTrue(verdict.requires_guardian)
+
     def test_unobserved_skill_remains_unroutable(self):
         registry = tree()
         outcome = decide_skill_routing(
