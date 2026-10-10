@@ -109,6 +109,32 @@ class HolonContextTests(unittest.TestCase):
                 prs, source = ctx.open_prs()
         self.assertEqual((prs, source), ([], "unavailable"))
 
+    def test_quick_preflight_never_uses_remote_pr_listing(self):
+        import tempfile
+        with tempfile.TemporaryDirectory() as directory:
+            with patch.object(ctx, "git_dir", return_value=directory), \
+                 patch.object(ctx, "sh", side_effect=AssertionError("network called")):
+                self.assertEqual(ctx.open_prs(quick=True), ([], "unavailable"))
+
+    def test_quick_main_skips_fetch_scanning_and_billing_calls(self):
+        buf = io.StringIO()
+        with patch.object(ctx, "sh", return_value="") as sh, \
+             patch.object(ctx, "open_prs", return_value=([], "unavailable")) as prs, \
+             patch.object(ctx, "open_issue_board", return_value=([], "unavailable")) as issues, \
+             patch.object(ctx, "existing_code", side_effect=AssertionError("expensive grep")), \
+             patch.object(ctx, "billing_locked", side_effect=AssertionError("remote status")), \
+             patch.object(sys, "argv", ["agent_context.py", "--json", "--quick", "#735"]):
+            with contextlib.redirect_stdout(buf):
+                ctx.main()
+        obj = json.loads(buf.getvalue())
+        self.assertIsNone(obj["ci_billing_locked"])
+        self.assertIsNone(obj["open"])
+        self.assertEqual(obj["holon_disposition"], "HOLD_INCOMPLETE_SHARED_STATE")
+        prs.assert_called_once_with(quick=True)
+        issues.assert_called_once_with(timeout=4)
+        self.assertFalse(any(args.args[:3] == ("git", "fetch", "-q")
+                             for args in sh.call_args_list))
+
     def test_unavailable_billing_annotations_are_unknown(self):
         pr = [{"n": 735, "t": "task", "h": "head", "b": "main",
                "s": "a" * 40}]
