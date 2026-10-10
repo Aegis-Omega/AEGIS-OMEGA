@@ -10,7 +10,7 @@ import { CoreCanvas } from './CoreCanvas.js'
 import { VerificationPanel } from './SystemStatusBar.js'
 import { HomeostasisGauge } from './HomeostasisGauge.js'
 import { LiveSwarmRunner } from './LiveSwarmRunner.js'
-import { usePlatformConsole } from '../../lib/platformConsole.js'
+import { hasMeasuredCalibration, usePlatformConsole } from '../../lib/platformConsole.js'
 
 function ConsoleNav() {
   const links: [string, string][] = [['/', 'Home'], ['/platform', 'Platform'], ['/console', 'Console'], ['/docs', 'Docs'], ['/pricing', 'Pricing']]
@@ -50,8 +50,9 @@ function StatChip({ label, value, color }: { label: string; value: string; color
 
 export function ConsolePage() {
   const snap = usePlatformConsole()
-  const memoryActive = snap.calibration.window_size > 0
   const live = snap.source === 'live'
+  const measuredCalibration = live && hasMeasuredCalibration(snap.calibration)
+  const memoryActive = measuredCalibration // fitness samples observed; memory recall still not proven
 
   return (
     <div style={{ background: '#06070C', color: T.text, minHeight: '100vh', fontFamily: SANS, position: 'relative' }}>
@@ -110,7 +111,7 @@ export function ConsolePage() {
           }}>
             <StatChip label="dept roster" value={live ? `reported ${snap.status.total_agents}` : 'unverified'} color={live ? T.text : T.muted} />
             <Divider />
-            <StatChip label="homeostasis" value={live ? `reported ${snap.calibration.homeostasis_zone}` : 'unverified'} color={T.amber} />
+            <StatChip label="homeostasis" value={measuredCalibration ? `reported ${snap.calibration.homeostasis_zone}` : 'unverified'} color={T.amber} />
             <Divider />
             <StatChip label="contract" value={live ? `v${snap.status.contract_version}` : 'unverified'} color={live ? T.text : T.muted} />
             <Divider />
@@ -126,13 +127,13 @@ export function ConsolePage() {
         <main style={{ maxWidth: 1080, margin: '0 auto', padding: '40px 24px 80px', display: 'flex', flexDirection: 'column', gap: 24 }}>
           <SectionLabel n="01" title="System state" sub="Homeostasis and self-verification — the system's felt state and its honesty." />
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
-            {live ? <HomeostasisGauge cal={snap.calibration} /> : (
+            {measuredCalibration ? <HomeostasisGauge cal={snap.calibration} /> : (
               <div style={{ border: `1px solid ${T.border}`, borderRadius: 18, background: T.card, padding: 24 }}>
                 <div style={{ fontFamily: MONO, color: T.amber, letterSpacing: '0.1em', fontSize: 12 }}>
                   HOMEOSTASIS · UNVERIFIED
                 </div>
                 <p style={{ color: T.sub, fontSize: 14, lineHeight: 1.7, marginTop: 12 }}>
-                  No live calibration was received. Demo fitness, trend and thresholds are not measurements
+                  No measured calibration samples were received. Demo or zero-window fitness values are not measurements
                   and cannot be used to assess system health.
                 </p>
               </div>
