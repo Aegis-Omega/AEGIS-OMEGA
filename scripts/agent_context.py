@@ -51,7 +51,7 @@ def open_prs():
     prs = []
     for page in range(1, 20):
         out = sh("gh", "api", f"repos/{REPO}/pulls?state=open&per_page=100&page={page}",
-                 "--jq", ".[] | {n: .number, t: .title, h: .head.ref, b: .base.ref, d: .created_at[:10]}")
+                 "--jq", ".[] | {n: .number, t: .title, h: .head.ref, b: .base.ref, d: .created_at[:10], s: .head.sha}")
         batch = [json.loads(l) for l in out.splitlines() if l.strip()]
         prs += batch
         if len(batch) < 100:
@@ -67,6 +67,22 @@ def open_prs():
     prs = [{"n": None, "t": "", "h": l.split("refs/heads/", 1)[1], "b": "?", "d": ""}
            for l in heads.splitlines() if "refs/heads/" in l and not l.endswith("/main")]
     return prs, "branches"
+
+
+def billing_locked(prs):
+    """True when GitHub refuses to start Actions jobs for the account.
+
+    Then every check is red without running, and "fixing CI" in code is wasted work.
+    """
+    newest = max((p for p in prs if p.get("s")), key=lambda p: p["n"], default=None)
+    if not newest:
+        return False
+    out = sh("gh", "api", f"repos/{REPO}/commits/{newest['s']}/check-runs?per_page=100",
+             "--jq", '.check_runs[] | select(.conclusion=="failure") | .id')
+    for run_id in out.split()[:3]:
+        if "locked due to a billing issue" in sh("gh", "api", f"repos/{REPO}/check-runs/{run_id}/annotations"):
+            return True
+    return False
 
 
 def words(s):
@@ -98,12 +114,13 @@ def main():
     behind = sh("git", "rev-list", "--count", "HEAD..origin/main").strip() or "?"
     prs, source = open_prs()
     stacked = [p for p in prs if p["b"] not in ("main", "?")]
+    locked = billing_locked(prs)
     hits = overlaps(prs, query)
 
     if "--json" in sys.argv:
         print(json.dumps({"main": sha, "main_date": date, "main_age_days": age_days,
                           "branch": branch, "behind_main": behind, "open": len(prs),
-                          "stacked": len(stacked), "source": source,
+                          "stacked": len(stacked), "source": source, "ci_billing_locked": locked,
                           "overlaps": [{"pr": p["n"], "title": p["t"], "head": p["h"],
                                         "base": p["b"], "match": m} for _, p, m in hits]}))
         return
@@ -112,6 +129,10 @@ def main():
     lines = [f"AEGIS REPO STATE (measured now, not from docs)",
              f"- main = {sha} from {date} ({age_days} days old). You are on '{branch}', {behind} behind main.",
              f"- {len(prs)} {kind}; {len(stacked)} are stacked on non-main bases."]
+    if locked:
+        lines.append("- CI IS NOT RUNNING: GitHub Actions jobs fail with 'account is locked due to a "
+                     "billing issue'. Every red check is that lock, not your code. Do NOT open PRs to "
+                     "'fix' CI; nothing can be verified or merged until the operator fixes org billing.")
     if age_days is not None and age_days > 7 and len(prs) > 20:
         lines.append("- main is stale and the queue is huge: the work you are about to do may "
                      "already exist in an open PR. Check the list below before writing code.")
