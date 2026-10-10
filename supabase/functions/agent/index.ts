@@ -1,6 +1,6 @@
 // AEGIS-Ω autonomous agent endpoint — Claude API with tools
 // Deploy: supabase functions deploy agent --no-verify-jwt
-// Env vars: ANTHROPIC_API_KEY, NOTIFY_SECRET, SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY
+// Env vars: ANTHROPIC_API_KEY, NOTIFY_SECRET, SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, AEGIS_AGENT_INVOKE_SECRET
 // Accepts: { task: string, context?: string, notify?: boolean }
 // Returns: { result: string, actions: string[] }
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
@@ -129,10 +129,37 @@ async function runAgent(task: string, context?: string): Promise<{ result: strin
 }
 
 // ── HTTP handler ──────────────────────────────────────────────────────────────
+// Server-to-server invocation capability. Never infer access from endpoint reachability.
+async function secureEquals(a: string, b: string): Promise<boolean> {
+  const enc = new TextEncoder()
+  const [aa, bb] = await Promise.all([
+    crypto.subtle.digest('SHA-256', enc.encode(a)),
+    crypto.subtle.digest('SHA-256', enc.encode(b)),
+  ])
+  const x = new Uint8Array(aa), y = new Uint8Array(bb)
+  let diff = 0
+  for (let i = 0; i < x.length; i++) diff |= x[i] ^ y[i]
+  return diff === 0 && a.length === b.length
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response(null, { headers: CORS })
   if (req.method !== 'POST') {
     return new Response(JSON.stringify({ error: 'Method not allowed' }), { status: 405, headers: CORS })
+  }
+
+  // Authorization precedes provider credentials, privileged tools, and paid inference.
+  const invokeSecret = Deno.env.get('AEGIS_AGENT_INVOKE_SECRET') ?? ''
+  if (invokeSecret.length < 32 || invokeSecret.length > 256) {
+    return new Response(JSON.stringify({ error: 'AGENT_AUTH_NOT_CONFIGURED' }), {
+      status: 503, headers: CORS,
+    })
+  }
+  const presented = req.headers.get('x-aegis-agent-secret') ?? ''
+  if (!presented || presented.length > 256 || !(await secureEquals(presented, invokeSecret))) {
+    return new Response(JSON.stringify({ error: 'UNAUTHORIZED' }), {
+      status: 401, headers: CORS,
+    })
   }
 
   if (!ANTHROPIC_API_KEY) {
