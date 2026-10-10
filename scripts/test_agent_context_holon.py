@@ -77,7 +77,7 @@ class HolonContextTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             def response(*args, **_kwargs):
                 if args[:2] == ("gh", "api") and "page=1" in args[2]:
-                    return "\n".join(json.dumps(p) for p in first)
+                    return json.dumps(first, indent=2)
                 return ""
             with patch.object(ctx, "git_dir", return_value=directory), \
                  patch.object(ctx, "sh", side_effect=response):
@@ -95,13 +95,31 @@ class HolonContextTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             def response(*args, **_kwargs):
                 if args[:2] == ("gh", "api"):
-                    return ("\n".join(json.dumps(p) for p in first)
-                            if "page=1" in args[2] else json.dumps(second))
+                    return (json.dumps(first, indent=2)
+                            if "page=1" in args[2] else json.dumps([second], indent=2))
                 return ""
             with patch.object(ctx, "git_dir", return_value=directory), \
                  patch.object(ctx, "sh", side_effect=response):
                 entries, source = ctx.open_prs()
         self.assertEqual((len(entries), source), (101, "github"))
+
+    def test_empty_github_pr_array_is_really_complete(self):
+        import tempfile
+        with tempfile.TemporaryDirectory() as directory:
+            def answer(*args, **_kwargs):
+                return "[]" if args[:2] == ("gh", "api") else ""
+            with patch.object(ctx, "git_dir", return_value=directory), \
+                 patch.object(ctx, "sh", side_effect=answer):
+                self.assertEqual(ctx.open_prs(), ([], "github"))
+
+    def test_pretty_json_is_parsed_as_one_github_page(self):
+        import tempfile
+        record = {"n": 732, "t": "holon", "h": "claude/agent-ground-truth",
+                  "b": "main", "s": "a" * 40}
+        with tempfile.TemporaryDirectory() as directory:
+            with patch.object(ctx, "git_dir", return_value=directory), \
+                 patch.object(ctx, "sh", return_value=json.dumps([record], indent=2)):
+                self.assertEqual(ctx.open_prs(), ([record], "github"))
 
     def test_invalid_cached_pr_does_not_become_authority(self):
         import tempfile
