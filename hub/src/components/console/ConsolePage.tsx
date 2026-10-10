@@ -130,8 +130,8 @@ export function ConsolePage() {
             <VerificationPanel snap={snap} />
           </div>
 
-          <SectionLabel n="02" title="Live collaboration" sub="Stream a 39-department run — dag_step → agent_event → tool_call → completion." />
-          <LiveSwarmRunner memoryActive={memoryActive} />
+          <SectionLabel n="02" title="Authenticated collaboration" sub="Actual backend events and explicit result receipts — no simulated execution." />
+          <LiveSwarmRunner memoryActive={live && memoryActive} />
         </main>
 
         <footer style={{ borderTop: `1px solid rgba(255,255,255,0.06)`, padding: '24px', textAlign: 'center' }}>
