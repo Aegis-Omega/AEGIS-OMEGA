@@ -102,6 +102,24 @@ class HermeticRunnerTests(unittest.TestCase):
         self.assertEqual(result["envelope"]["scope"], "TEST_ONLY")
         self.assertEqual(self.calls.count("paid_model_call_mock"), 0)
 
+    def test_clean_demo_never_persists_synthetic_business_evidence(self):
+        events = self.execute(live=False)
+        self.assertEqual(events[-2]["type"], "completion")
+        self.assertIn("observation", self.calls)  # ephemeral diagnostic allowed
+        for forbidden in ("fitness_storage", "cycle_storage", "grace_storage"):
+            self.assertNotIn(forbidden, self.calls,
+                             "demo must not persist synthetic data: " + forbidden)
+
+    def test_clean_live_persists_only_after_final_integrity_check(self):
+        events = self.execute(live=True)
+        self.assertEqual(events[-2]["type"], "completion")
+        final_gate = max(i for i, call in enumerate(self.calls)
+                         if call == "chain_verification")
+        for op in ("fitness_storage", "cycle_storage", "grace_storage"):
+            self.assertIn(op, self.calls)
+            self.assertGreater(self.calls.index(op), final_gate,
+                               "live write preceded final chain gate: " + op)
+
     def test_corrupt_preflight_blocks_before_mock_inference_and_writes(self):
         self.checks = [False]
         events = self.execute(live=True)
