@@ -169,6 +169,9 @@ jobs:
       - name: Install Python deps
         run: pip install flask flask-cors
 
+      - name: Holon preflight regression tests (stdlib, no external API)
+        run: python3 -m unittest discover -s ../scripts -p 'test_agent_context_holon.py' -v
+
       - name: Run constitutional tests
         run: python python/tests/test_constitutional.py
 
