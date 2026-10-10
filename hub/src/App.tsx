@@ -1,33 +1,28 @@
-// AEGIS-Ω hub router
-// /               → HomepageLanding (product landing page)
-// /platform       → PlatformPage (agent catalog · execution trace · use cases)
-// /console         → ConsolePage (live operator console — vortex · homeostasis · stream)
-// /docs           → DocsPage (API reference)
-// /pricing        → PricingPage (API key purchase via PayPal)
-// /claim-sponsor  → ClaimSponsorPage (GitHub Sponsors key claim)
-// /runtime        → AegisRuntime (constitutional consciousness showcase)
-// /compliance     → CompliancePage (EU AI Act · GDPR · constitutional law)
-// /tools          → ToolsPage (creator tools, included with Operator/Sovereign)
-import { AegisRuntime }      from './components/AegisRuntime.js'
-import { ClaimSponsorPage }  from './components/ClaimSponsorPage.js'
-import { CompliancePage }    from './components/CompliancePage.js'
-import { ConsolePage }       from './components/console/ConsolePage.js'
-import { DocsPage }          from './components/DocsPage.js'
-import { HomepageLanding }   from './components/HomepageLanding.js'
-import { PlatformPage }      from './components/PlatformPage.js'
-import { PricingPage }       from './components/PricingPage.js'
-import { ToolsPage }         from './components/ToolsPage.js'
+// AEGIS Ω — Holon Glass unified visual shell.
+// Each existing operational route retains its original component and behavior.
+import { HolonHomepage, HolonRoute } from './HolonGlass.js'
+import { AegisRuntime } from './components/AegisRuntime.js'
+import { ClaimSponsorPage } from './components/ClaimSponsorPage.js'
+import { CompliancePage } from './components/CompliancePage.js'
+import { ConsolePage } from './components/console/ConsolePage.js'
+import { DocsPage } from './components/DocsPage.js'
+import { PlatformPage } from './components/PlatformPage.js'
+import { PricingPage } from './components/PricingPage.js'
+import { ToolsPage } from './components/ToolsPage.js'
 
-const path = window.location.pathname
+const route = window.location.pathname.replace(/\/+$/, '') || '/'
 
 export default function App() {
-  if (path === '/pricing')        return <PricingPage />
-  if (path === '/claim-sponsor')  return <ClaimSponsorPage />
-  if (path === '/compliance')     return <CompliancePage />
-  if (path === '/docs')           return <DocsPage />
-  if (path === '/platform')       return <PlatformPage />
-  if (path === '/console')        return <ConsolePage />
-  if (path === '/runtime')        return <AegisRuntime />
-  if (path === '/tools')          return <ToolsPage />
-  return <HomepageLanding />
+  if (route === '/') return <HolonHomepage />
+  switch (route) {
+    case '/pricing': return <HolonRoute route="pricing"><PricingPage /></HolonRoute>
+    case '/claim-sponsor': return <HolonRoute route="claim-sponsor"><ClaimSponsorPage /></HolonRoute>
+    case '/compliance': return <HolonRoute route="compliance"><CompliancePage /></HolonRoute>
+    case '/docs': return <HolonRoute route="docs"><DocsPage /></HolonRoute>
+    case '/platform': return <HolonRoute route="platform"><PlatformPage /></HolonRoute>
+    case '/console': return <HolonRoute route="console"><ConsolePage /></HolonRoute>
+    case '/runtime': return <HolonRoute route="runtime"><AegisRuntime /></HolonRoute>
+    case '/tools': return <HolonRoute route="tools"><ToolsPage /></HolonRoute>
+    default: return <HolonHomepage />
+  }
 }
