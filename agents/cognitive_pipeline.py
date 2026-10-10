@@ -6,8 +6,8 @@ constitutionally-governed knowledge pipeline:
 
     deep-research → corpus-ingestion → batch → chronology
 
-Each stage is a tier-0 (Mythos-level) agent. The corpus-ingestion ARBITRATION
-gate scores every candidate claim with the INT4 LUT-KAN scorer — a faithful
+Each stage is a Mythos-level agent. The corpus-ingestion ARBITRATION
+gate ranks unverified candidate text with the INT4 LUT-KAN scorer — a faithful
 Python port of `aegis-cl-psi::int4_lut_kan` — and hash-chains the decision into a
 KanInferenceLog. The whole pipeline is replay-certifiable:
 
@@ -16,7 +16,7 @@ KanInferenceLog. The whole pipeline is replay-certifiable:
 The INT4 LUT-KAN port here is byte-for-byte aligned with the Rust reference
 (big-endian hashing, power-of-two rescale, saturating i32 arithmetic, 16-entry
 LUTs). Determinism is the point: the same claim scores identically in Rust and
-Python, so the admission decision is reproducible across the whole substrate.
+Python, so the candidate-ranking record is reproducible, not an evidence admission.
 
 Usage:
     python -m agents.cognitive_pipeline run --topic "INT4 LUT-KAN viability"
@@ -155,31 +155,34 @@ class KanInferenceLog:
 
 
 def constitutional_scorer() -> KanScorer:
-    """
-    The canonical constitutional scorer used by the ARBITRATION gate.
+    """Advisory keyword score only: never grants scientific epistemic authority.
 
-    A 4-input → 4-hidden → 1-output INT4 LUT-KAN. The four inputs are the
-    constitutional feature quantisation of a claim:
-      [evidence_strength, determinism_signal, t45_contamination, citation_quality]
-    each quantised to [0,15]. Higher score = stronger admission case.
-
-    Edge LUTs are deterministic ramps/penalties — fixed constants, not learned,
-    so the gate is fully reproducible. (T2: weights are an engineering hypothesis;
-    promotion to T1 requires benchmarked calibration against labelled corpus.)
+    The old penalty LUT gave every zero-feature claim a saturated score of 90.
+    Keep the Rust-compatible primitive arithmetic and separate four channels.
     """
+    def identity() -> list[int]:
+        return list(range(LUT_SIZE))
+
+    def negative() -> list[int]:
+        return [-i for i in range(LUT_SIZE)]
+
+    def zero() -> list[int]:
+        return [0] * LUT_SIZE
+
     def ramp() -> list[int]:
         return [i * 6 for i in range(LUT_SIZE)]
 
-    def penalty() -> list[int]:
-        # Contamination feature: high values DECREASE the score.
-        return [(LUT_SIZE - 1 - i) * 6 for i in range(LUT_SIZE)]
-
-    # inner: 4 inputs → 4 hidden. evidence/determinism/citation ramp up; t45 penalises.
-    inner_edges = []
-    for _hidden in range(4):
-        inner_edges.extend([ramp(), ramp(), penalty(), ramp()])
-    inner = KanLayer(n_in=4, n_out=4, edges=inner_edges, rescale_shift=2)
-    outer = KanLayer(n_in=4, n_out=1, edges=[ramp(), ramp(), ramp(), ramp()], rescale_shift=2)
+    inner = KanLayer(
+        n_in=4, n_out=4,
+        edges=[
+            identity(), zero(), zero(), zero(),
+            zero(), identity(), zero(), zero(),
+            zero(), zero(), negative(), zero(),
+            zero(), zero(), zero(), identity(),
+        ],
+        rescale_shift=0,
+    )
+    outer = KanLayer(n_in=4, n_out=1, edges=[ramp()] * 4, rescale_shift=2)
     return KanScorer(inner, outer)
 
 
@@ -211,45 +214,43 @@ def quantise_claim(claim: str) -> list[int]:
     return [evidence, determinism, contamination, citation]
 
 
-# Admission threshold (fixed-point). Claims scoring below this with high
-# contamination are quarantined. T2 hypothesis — calibration pending.
+# Advisory review-priority threshold; not an admission or evidence threshold.
 ADMISSION_THRESHOLD = 30
 
 
 def arbitrate(claim: str, scorer: KanScorer, log: KanInferenceLog) -> dict[str, Any]:
-    """
-    ARBITRATION gate: score a claim, hash-chain the decision, return the verdict.
-    Hard quarantine on any T4/T5 keyword regardless of score (the gate is not
-    a vote — T4/T5 contamination is a veto, mirroring the constitutional rule).
+    """Route unverified text to review, never to canonical scientific admission.
+
+    No independently verified source, proof or measurement is an input here.
+    Those are mandatory in the separate trusted evidence/admission layer.
     """
     low = claim.lower()
     t45_hit = next((k for k in _T45_KW if k in low), None)
     features = quantise_claim(claim)
     rec = log.append_scored(scorer, features)
-
-    if t45_hit is not None:
-        tier, admitted = "T4/T5", False
-        reason = f"T4/T5 contamination keyword: '{t45_hit}'"
-    elif any(k in low for k in _T0_KW):
-        tier, admitted = "T0", rec.score >= ADMISSION_THRESHOLD
-        reason = "T0 mechanical keywords present"
-    elif any(k in low for k in _T1_KW):
-        tier, admitted = "T1", rec.score >= ADMISSION_THRESHOLD
-        reason = "T1 empirical keywords present"
-    elif any(k in low for k in _T2_KW):
-        tier, admitted = "T2", rec.score >= ADMISSION_THRESHOLD
-        reason = "T2 engineering-hypothesis keywords present"
-    else:
-        tier, admitted = "T3", rec.score >= ADMISSION_THRESHOLD
-        reason = "no tier keywords — defaulted to T3 conjecture"
-
+    claimed_tier = (
+        "T0" if any(k in low for k in _T0_KW)
+        else "T1" if any(k in low for k in _T1_KW)
+        else "T2" if any(k in low for k in _T2_KW)
+        else "T3"
+    )
+    candidate = t45_hit is None and rec.score >= ADMISSION_THRESHOLD
     return {
         "claim": claim,
         "features": features,
         "kan_score": rec.score,
-        "tier": tier,
-        "admitted": admitted,
-        "reason": reason,
+        "tier": "T4/T5" if t45_hit is not None else "T3",
+        "claimed_tier": claimed_tier,
+        "admitted": False,
+        "candidate_for_review": candidate,
+        "admission_status": (
+            "DENIED_T45" if t45_hit is not None
+            else "PENDING_INDEPENDENT_VERIFICATION"
+        ),
+        "reason": (
+            f"T4/T5 keyword quarantine: '{t45_hit}'" if t45_hit is not None
+            else "Unverified text heuristic: independent evidence required"
+        ),
         "record_hash": rec.record_hash.hex(),
         "sequence": rec.sequence,
     }
@@ -271,6 +272,7 @@ class PipelineResult:
     topic: str
     arbitration: list[dict] = field(default_factory=list)
     admitted: list[dict] = field(default_factory=list)
+    candidates: list[dict] = field(default_factory=list)
     quarantined: list[dict] = field(default_factory=list)
     kan_terminal_hash: str = ""
     chain_valid: bool = True
@@ -294,10 +296,8 @@ async def _research_claims(topic: str, api_key: str) -> list[str]:
         "2. Use fetch_url to read the most relevant sources.\n"
         "3. Extract specific, verifiable claims — not vague opinions.\n"
         "4. Each claim should be one sentence, starting with the topic name.\n"
-        "5. Include T0/T1/T2 markers where appropriate: e.g. '(SHA-256 hash-chained, "
-        "   deterministic)' for T0, '(empirically benchmarked)' for T1, "
-        "   '(engineering hypothesis)' for T2.\n"
-        "6. Use write_memory to store your best 3 claims for future cycles.\n\n"
+        "5. Include verifiable source coordinates; never invent a T0/T1 tier.\\n"
+        "6. Do not store unverified candidates as verified memory.\\n\\n"
         "Output: a numbered list of claims, one per line. No preamble."
     )
     result = await run_with_tools(
@@ -319,11 +319,7 @@ async def _research_claims(topic: str, api_key: str) -> list[str]:
         cleaned = re.sub(r"^[\d]+[.)]\s*|^[-•*]\s*", "", line).strip()
         if len(cleaned) > 20:
             claims.append(cleaned)
-    return claims[:10] if claims else [
-        f"{topic}: deterministic SHA-256 hash chain, byte-identical across platforms",
-        f"{topic}: engineering hypothesis — LUT-KAN replaces B-spline activations",
-        f"{topic}: empirically validated benchmark observed across production runs",
-    ]
+    return claims[:10]
 
 
 async def run_pipeline(topic: str, claims: list[str] | None = None,
@@ -359,39 +355,41 @@ async def run_pipeline(topic: str, claims: list[str] | None = None,
             result.stage_results["deep_researcher"] = f"research fallback: {exc}"
 
     if claims is None:
-        claims = [
-            f"{topic}: deterministic SHA-256 hash chain, byte-identical across platforms",
-            f"{topic}: engineering hypothesis — LUT-KAN replaces B-spline activations",
-            f"{topic}: empirically validated benchmark observed across runs",
-            f"{topic}: planetary civilizational self-improving sovereign consciousness",
-        ]
+        claims = []
+        result.stage_results.setdefault(
+            "deep_researcher", "NO_CLAIMS: no sourced research was obtained"
+        )
 
     # Stage 2 — ARBITRATION gate (always runs — this is the constitutional core)
     for claim in claims:
         verdict = arbitrate(claim, scorer, log)
         result.arbitration.append(verdict)
-        (result.admitted if verdict["admitted"] else result.quarantined).append(verdict)
+        if verdict["admitted"]:
+            result.admitted.append(verdict)
+        elif verdict["candidate_for_review"]:
+            result.candidates.append(verdict)
+        else:
+            result.quarantined.append(verdict)
 
     valid, _bad = log.verify_chain()
     result.chain_valid = valid
     result.kan_terminal_hash = log.terminal_hash().hex()
 
     # Stage 3 + 4 — live synthesis and narration
-    if live and _api_key:
+    if live and _api_key and result.candidates:
         try:
             from agents.tool_runner import run_with_tools
 
-            # Stage 3 — batch_processor: synthesize admitted claims
-            admitted_text = "\n".join(
-                f"  [{v['tier']}] {v['claim']}" for v in result.admitted[:8]
+            # Investigate candidates without promoting them into evidence.
+            candidate_text = "\n".join(
+                f"  [UNVERIFIED] {v['claim']}" for v in result.candidates[:8]
             )
             batch_task = (
-                f"You are the BATCH PROCESSOR. Synthesize these admitted claims about "
-                f"'{topic}' into a structured knowledge summary:\n\n{admitted_text}\n\n"
-                "Produce: (a) the 3 strongest claims with supporting evidence, "
-                "(b) the gaps that need more research, (c) one verified citation "
-                "per admitted T0/T1 claim. Use fetch_url if you need to verify a source. "
-                "Write the synthesis to memory key 'synthesis'."
+                f"You are the BATCH PROCESSOR. Investigate these unverified candidates "
+                f"about '{topic}':\n\n{candidate_text}\n\n"
+                "Fetch independent sources, record contradictions and proof gaps. "
+                "Do not assert T0/T1 admission or write canonical knowledge. "
+                "Exploratory notes must remain explicitly unverified."
             )
             batch_r = await run_with_tools(
                 role="batch_processor", task=batch_task,
@@ -404,7 +402,7 @@ async def run_pipeline(topic: str, claims: list[str] | None = None,
                 f"You are the CHRONOLOGIST. Narrate the epistemic history of this "
                 f"research cycle on '{topic}'.\n\n"
                 f"Chain terminal hash: {result.kan_terminal_hash[:32]}…\n"
-                f"Admitted: {len(result.admitted)}  Quarantined: {len(result.quarantined)}\n"
+                f"Admitted: {len(result.admitted)}  Candidates: {len(result.candidates)}  Quarantined: {len(result.quarantined)}\n"
                 f"Chain valid: {result.chain_valid}\n\n"
                 "Produce a retrospective: what was learned, what was rejected and why, "
                 "what the temporal sequence reveals about the epistemic quality of the "
@@ -428,11 +426,12 @@ def _print_result(r: PipelineResult) -> None:
     print(f"Topic: {r.topic}")
     print("=" * 64)
     for v in r.arbitration:
-        flag = "✓ ADMIT " if v["admitted"] else "✗ QUARANTINE"
+        flag = "⋯ REVIEW" if v["candidate_for_review"] else "✗ HOLD"
         print(f"  {flag} [{v['tier']:5s}] score={v['kan_score']:4d}  {v['claim'][:54]}")
         print(f"            reason: {v['reason']}")
     print("─" * 64)
     print(f"  Admitted:    {len(r.admitted)}")
+    print(f"  Candidates:  {len(r.candidates)}")
     print(f"  Quarantined: {len(r.quarantined)}")
     print(f"  KAN chain valid: {r.chain_valid}")
     print(f"  KAN terminal hash: {r.kan_terminal_hash[:32]}…")
@@ -468,7 +467,14 @@ def main() -> None:
                           if k != "record_hash"} | {"record_hash": verdict["record_hash"][:16]},
                          indent=2))
     elif args.command == "demo":
-        r = asyncio.run(run_pipeline("INT4 LUT-KAN viability"))
+        r = asyncio.run(run_pipeline(
+            "INT4 LUT-KAN viability",
+            claims=[
+                "SHA-256 deterministic hash-chain candidate, verification pending",
+                "Benchmark measurement without a linked data receipt",
+                "Planetary sovereign consciousness assertion",
+            ],
+        ))
         _print_result(r)
     else:
         parser.print_help()
