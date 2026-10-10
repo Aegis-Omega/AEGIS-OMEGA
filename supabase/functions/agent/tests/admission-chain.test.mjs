@@ -52,7 +52,8 @@ test('Slack missing signing secret or unauthorized user cannot dispatch',async()
 })
 test('signed allowlisted Slack event passes dedicated capability, not NOTIFY_SECRET',async()=>{
   const secret='S',capability='A'.repeat(48),requests=[]
-  const h=edge('supabase/functions/slack-events/index.ts',{SLACK_SIGNING_SECRET:secret,AEGIS_AGENT_INVOKE_SECRET:capability,AEGIS_SLACK_ALLOWED_USER_IDS:'U_OPERATOR',AEGIS_SLACK_ALLOWED_CHANNEL_IDS:'C123'},async(url,options)=>{
+  const h=edge('supabase/functions/slack-events/index.ts',{SLACK_SIGNING_SECRET:secret,AEGIS_AGENT_INVOKE_SECRET:capability,AEGIS_SLACK_ALLOWED_USER_IDS:'U_OPERATOR',AEGIS_SLACK_ALLOWED_CHANNEL_IDS:'C123',SLACK_BOT_TOKEN:'xoxb-test',SUPABASE_URL:'https://mock.invalid'},async(url,options)=>{
+    if (String(url).startsWith('https://slack.com/api/')) return Response.json({ok:true})
     requests.push({url,options})
     return new Response(JSON.stringify({result:'mock only'}),{status:200})
   })
@@ -96,6 +97,7 @@ test('Slack refuses to acknowledge execution without background lifetime support
   const h=edge('supabase/functions/slack-events/index.ts',{
     SLACK_SIGNING_SECRET:'S',AEGIS_AGENT_INVOKE_SECRET:'A'.repeat(48),
     AEGIS_SLACK_ALLOWED_USER_IDS:'U_OPERATOR',AEGIS_SLACK_ALLOWED_CHANNEL_IDS:'C123',
+    SLACK_BOT_TOKEN:'xoxb-test',SUPABASE_URL:'https://mock.invalid',
   },()=>{calls++;throw Error('UNEXPECTED_NETWORK')},false)
   const r=await h(await signed('task','S'))
   assert.equal(r.status,503)
@@ -117,7 +119,8 @@ test('authorized app mention registers background work',async()=>{
   const h=edge('supabase/functions/slack-events/index.ts',{
     SLACK_SIGNING_SECRET:secret,AEGIS_AGENT_INVOKE_SECRET:'A'.repeat(48),
     AEGIS_SLACK_ALLOWED_USER_IDS:'U_OPERATOR',AEGIS_SLACK_ALLOWED_CHANNEL_IDS:'C123',
-  },async(url,options)=>{requests.push({url,options});return Response.json({result:'mock'})})
+    SLACK_BOT_TOKEN:'xoxb-test',SUPABASE_URL:'https://mock.invalid',
+  },async(url,options)=>{if(String(url).startsWith('https://slack.com/api/'))return Response.json({ok:true});requests.push({url,options});return Response.json({result:'mock'})})
   assert.equal((await h(req)).status,200)
   assert.equal(h.pending.length,1)
   await Promise.all(h.pending)
@@ -227,6 +230,30 @@ test('failed atomic dispatch reservation denies paid inference',async()=>{
   assert.equal(res.status,503)
   assert.equal((await res.json()).error,'DISPATCH_CLAIM_UNAVAILABLE')
   assert.equal(paid,0)
+})
+test('no Slack delivery credential blocks paid dispatch before ACK',async()=>{
+  let calls=0
+  const h=edge('supabase/functions/slack-events/index.ts',{
+    SLACK_SIGNING_SECRET:'S',AEGIS_AGENT_INVOKE_SECRET:'A'.repeat(48),
+    AEGIS_SLACK_ALLOWED_USER_IDS:'U_OPERATOR',AEGIS_SLACK_ALLOWED_CHANNEL_IDS:'C123',
+    SUPABASE_URL:'https://mock.invalid',
+  },()=>{calls++;throw Error('UNEXPECTED_PAID_CALL')})
+  const r=await h(await signed('sensitive purchase result','S'))
+  assert.equal(r.status,503)
+  assert.equal(h.pending.length,0)
+  assert.equal(calls,0)
+})
+test('no internal agent endpoint blocks paid dispatch before ACK',async()=>{
+  let calls=0
+  const h=edge('supabase/functions/slack-events/index.ts',{
+    SLACK_SIGNING_SECRET:'S',AEGIS_AGENT_INVOKE_SECRET:'A'.repeat(48),
+    AEGIS_SLACK_ALLOWED_USER_IDS:'U_OPERATOR',AEGIS_SLACK_ALLOWED_CHANNEL_IDS:'C123',
+    SLACK_BOT_TOKEN:'xoxb-test',
+  },()=>{calls++;throw Error('UNEXPECTED_PAID_CALL')})
+  const r=await h(await signed('task','S'))
+  assert.equal(r.status,503)
+  assert.equal(h.pending.length,0)
+  assert.equal(calls,0)
 })
 test('bridge refuses synthetic attestation',async()=>{
   const h=edge('supabase/functions/bridge/index.ts')
