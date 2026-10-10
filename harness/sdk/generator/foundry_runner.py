@@ -110,6 +110,13 @@ def run_local_contract(
 
     match = _RAN.search(stderr)
     tests_run = int(match.group(1)) if match else 0
+    # Wall-clock durations and temporary directory names are observations,
+    # never deterministic receipt input. Preserve a raw digest separately.
+    normalized_stderr = re.sub(
+        r"(?m)^Ran ([0-9]+) tests? in [0-9.]+s$",
+        r"Ran \1 tests in [elapsed]s",
+        stderr.replace(str(root), "<WORKSPACE>"),
+    )
     # unittest outputs an independent completed OK line. This is not
     # cryptographic evidence, so admission remains NOT_ADMITTED even on PASS.
     passed = rc == 0 and tests_run >= 3 and re.search(r"(?m)^OK$", stderr) is not None
@@ -125,14 +132,21 @@ def run_local_contract(
         "exit_code": rc,
         "timed_out": timed_out,
         "stdout_sha256": hashlib.sha256(stdout.encode("utf-8")).hexdigest(),
-        "stderr_sha256": hashlib.sha256(stderr.encode("utf-8")).hexdigest(),
+        "stderr_sha256": hashlib.sha256(normalized_stderr.encode("utf-8")).hexdigest(),
         "admission": "NOT_ADMITTED",
         "authority_granted": False,
     }
-    body["receipt_sha256"] = hashlib.sha256(
+    receipt_sha256 = hashlib.sha256(
         _canonical({"domain": KIND, "receipt": body})
     ).hexdigest()
-    return body
+    return {
+        **body,
+        "receipt_sha256": receipt_sha256,
+        # Not part of the deterministic receipt and not independently signed.
+        "unattested_observation": {
+            "stderr_raw_sha256": hashlib.sha256(stderr.encode("utf-8")).hexdigest(),
+        },
+    }
 
 
 def materialize_candidate(
