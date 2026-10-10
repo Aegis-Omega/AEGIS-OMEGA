@@ -85,6 +85,9 @@ done
 cd "$REPO_ROOT"
 echo "═══════════════════════════════════════════════════════"
 echo ""
+echo "▸ Validating actual public product surfaces (not just Vercel READY)"
+python3 "$REPO_ROOT/scripts/product_surface_gate.py" || die "Production surface verification failed — do not claim deployment complete"
+
 log "All products deployed!"
 echo ""
 echo "Next steps:"
