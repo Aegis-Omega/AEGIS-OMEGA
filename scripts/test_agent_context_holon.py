@@ -65,6 +65,62 @@ class HolonContextTests(unittest.TestCase):
         with patch.object(ctx, "sh", return_value='{"total":1,"items":[{"n":"bad"}]}'):
             self.assertEqual(ctx.open_issue_board(), ([], "unavailable"))
 
+    def test_pr_second_page_outage_is_partial_not_complete(self):
+        """One good page followed by network failure must not clear collisions."""
+        import tempfile
+        first = [{"n": i + 1, "t": "task", "h": "head",
+                  "b": "main", "s": "a" * 40} for i in range(100)]
+        with tempfile.TemporaryDirectory() as directory:
+            def response(*args, **_kwargs):
+                if args[:2] == ("gh", "api") and "page=1" in args[2]:
+                    return "\\n".join(json.dumps(p) for p in first)
+                return ""
+            with patch.object(ctx, "git_dir", return_value=directory), \\
+                 patch.object(ctx, "sh", side_effect=response):
+                entries, source = ctx.open_prs()
+        self.assertEqual(len(entries), 100)
+        self.assertEqual(source, "partial")
+        self.assertEqual(ctx.holon_disposition(source, "github", [], []),
+                         "HOLD_INCOMPLETE_SHARED_STATE")
+
+    def test_pr_complete_two_pages_is_accepted(self):
+        import tempfile
+        first = [{"n": i + 1, "t": "task", "h": "head",
+                  "b": "main", "s": "a" * 40} for i in range(100)]
+        second = {"n": 101, "t": "end", "h": "head", "b": "main", "s": "b" * 40}
+        with tempfile.TemporaryDirectory() as directory:
+            def response(*args, **_kwargs):
+                if args[:2] == ("gh", "api"):
+                    return ("\\n".join(json.dumps(p) for p in first)
+                            if "page=1" in args[2] else json.dumps(second))
+                return ""
+            with patch.object(ctx, "git_dir", return_value=directory), \\
+                 patch.object(ctx, "sh", side_effect=response):
+                entries, source = ctx.open_prs()
+        self.assertEqual((len(entries), source), (101, "github"))
+
+    def test_invalid_cached_pr_does_not_become_authority(self):
+        import tempfile
+        with tempfile.TemporaryDirectory() as directory:
+            pathlib.Path(directory, "aegis-open-prs.json").write_text(
+                json.dumps([{"n": 1, "t": "fake"}]), encoding="utf-8")
+            with patch.object(ctx, "git_dir", return_value=directory), \\
+                 patch.object(ctx, "sh", return_value=""):
+                prs, source = ctx.open_prs()
+        self.assertEqual((prs, source), ([], "unavailable"))
+
+    def test_unavailable_billing_annotations_are_unknown(self):
+        pr = [{"n": 735, "t": "task", "h": "head", "b": "main",
+               "s": "a" * 40}]
+        with patch.object(ctx, "sh", return_value=""):
+            self.assertIsNone(ctx.billing_locked(pr))
+        with patch.object(ctx, "sh", side_effect=["114260308704", ""]):
+            self.assertIsNone(ctx.billing_locked(pr))
+        with patch.object(ctx, "sh", side_effect=[
+            "114260308704", "The job was not started because your account is locked due to a billing issue."
+        ]):
+            self.assertIs(ctx.billing_locked(pr), True)
+
     def test_json_does_not_claim_zero_on_disconnected_github(self):
         buf = io.StringIO()
         with patch.object(ctx, "sh", return_value=""), \
