@@ -7,14 +7,17 @@ import { webcrypto } from 'node:crypto'
 import { fileURLToPath } from 'node:url'
 // Node >=22.16 provides built-in TypeScript syntax stripping. No npm install needed.
 const root = fileURLToPath(new URL('../../../../', import.meta.url))
-function edge(path,env={},transport=()=>{throw Error('UNEXPECTED_NETWORK')}) {
+function edge(path,env={},transport=()=>{throw Error('UNEXPECTED_NETWORK')},backgroundAvailable=true) {
   const src=readFileSync(root+path,'utf8').replace(/^import .*$/gm,'')
   const js=stripTypeScriptTypes(src, { mode: 'strip' })
   let handler
+  const pending=[]
+  const EdgeRuntime=backgroundAvailable ? {waitUntil:p=>pending.push(p)} : undefined
   const Deno={env:{get:n=>env[n]??''},serve:f=>{handler=f}}
   const body = path === 'supabase/functions/agent/index.ts' ? 'const CORS = {};\n' + js : js
-  new Function('Deno','fetch','createClient','crypto',body)(Deno,transport,()=>{throw Error('UNEXPECTED_DB')},webcrypto)
+  new Function('Deno','fetch','createClient','crypto','EdgeRuntime',body)(Deno,transport,()=>{throw Error('UNEXPECTED_DB')},webcrypto,EdgeRuntime)
   assert.equal(typeof handler,'function')
+  handler.pending=pending
   return handler
 }
 async function signed(text,secret,time=String(Math.floor(Date.now()/1000)),channel='C123'){
@@ -58,7 +61,8 @@ test('signed allowlisted Slack event passes dedicated capability, not NOTIFY_SEC
   const ackBody=await ack.json()
   assert.equal(ackBody.response_type,'ephemeral')
   assert.equal(JSON.stringify(ackBody).includes('private customer data'),false)
-  await new Promise(r=>setTimeout(r,20))
+  assert.equal(h.pending.length,1)
+  await Promise.all(h.pending)
   assert.equal(requests.length,1)
   assert.equal(requests[0].options.headers['x-aegis-agent-secret'],capability)
   assert.equal(requests[0].options.headers['x-notify-secret'],undefined)
@@ -85,6 +89,39 @@ test('Slack channel must be configured (fail closed)',async()=>{
   const r=await h(await signed('show customer emails','S'))
   assert.equal(r.status,403)
   assert.equal(calls,0)
+})
+test('Slack refuses to acknowledge execution without background lifetime support',async()=>{
+  let calls=0
+  const h=edge('supabase/functions/slack-events/index.ts',{
+    SLACK_SIGNING_SECRET:'S',AEGIS_AGENT_INVOKE_SECRET:'A'.repeat(48),
+    AEGIS_SLACK_ALLOWED_USER_IDS:'U_OPERATOR',AEGIS_SLACK_ALLOWED_CHANNEL_IDS:'C123',
+  },()=>{calls++;throw Error('UNEXPECTED_NETWORK')},false)
+  const r=await h(await signed('task','S'))
+  assert.equal(r.status,503)
+  assert.equal(h.pending.length,0)
+  assert.equal(calls,0)
+})
+test('authorized app mention registers background work',async()=>{
+  const secret='S',requests=[]
+  const body=JSON.stringify({type:'event_callback',event:{
+    type:'app_mention',user:'U_OPERATOR',channel:'C123',text:'<@U_BOT> inspect evidence',ts:'1.0'
+  }})
+  const timestamp=String(Math.floor(Date.now()/1000))
+  const key=await webcrypto.subtle.importKey('raw',new TextEncoder().encode(secret),{name:'HMAC',hash:'SHA-256'},false,['sign'])
+  const mac=await webcrypto.subtle.sign('HMAC',key,new TextEncoder().encode('v0:'+timestamp+':'+body))
+  const req=new Request('https://host/functions/v1/slack-events',{
+    method:'POST',headers:{'content-type':'application/json','x-slack-request-timestamp':timestamp,
+      'x-slack-signature':'v0='+Buffer.from(mac).toString('hex')},body
+  })
+  const h=edge('supabase/functions/slack-events/index.ts',{
+    SLACK_SIGNING_SECRET:secret,AEGIS_AGENT_INVOKE_SECRET:'A'.repeat(48),
+    AEGIS_SLACK_ALLOWED_USER_IDS:'U_OPERATOR',AEGIS_SLACK_ALLOWED_CHANNEL_IDS:'C123',
+  },async(url,options)=>{requests.push({url,options});return Response.json({result:'mock'})})
+  assert.equal((await h(req)).status,200)
+  assert.equal(h.pending.length,1)
+  await Promise.all(h.pending)
+  assert.equal(requests.length,1)
+  assert.equal(requests[0].options.headers['x-aegis-agent-secret'],'A'.repeat(48))
 })
 test('bridge refuses synthetic attestation',async()=>{
   const h=edge('supabase/functions/bridge/index.ts')
