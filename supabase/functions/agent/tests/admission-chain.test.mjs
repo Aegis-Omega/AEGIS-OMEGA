@@ -2,14 +2,14 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
-import { createRequire } from 'node:module'
+import { stripTypeScriptTypes } from 'node:module'
 import { webcrypto } from 'node:crypto'
 import { fileURLToPath } from 'node:url'
-const ts = createRequire(import.meta.url)('typescript')
+// Node >=22.16 provides built-in TypeScript syntax stripping. No npm install needed.
 const root = fileURLToPath(new URL('../../../../', import.meta.url))
 function edge(path,env={},transport=()=>{throw Error('UNEXPECTED_NETWORK')}) {
   const src=readFileSync(root+path,'utf8').replace(/^import .*$/gm,'')
-  const js=ts.transpileModule(src,{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.None}}).outputText
+  const js=stripTypeScriptTypes(src, { mode: 'strip' })
   let handler
   const Deno={env:{get:n=>env[n]??''},serve:f=>{handler=f}}
   const body = path === 'supabase/functions/agent/index.ts' ? 'const CORS = {};\n' + js : js
