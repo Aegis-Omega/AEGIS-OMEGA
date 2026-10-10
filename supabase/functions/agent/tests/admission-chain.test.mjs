@@ -167,17 +167,20 @@ test('same signed event dispatch gets one and only one paid inference',async()=>
       return {error:null}
     }}
   }})
-  const h=edge('supabase/functions/agent/index.ts',env,async()=>{
+  const mockModel=async()=>{
     paid++
     return Response.json({stop_reason:'end_turn',content:[{type:'text',text:'ONE'}]})
-  },true,db)
+  }
+  // Two separately initialized Edge handlers share one atomic DB unique key.
+  const h=edge('supabase/functions/agent/index.ts',env,mockModel,true,db)
+  const h2=edge('supabase/functions/agent/index.ts',env,mockModel,true,db)
   const req=()=>new Request('https://host/agent',{method:'POST',
     headers:{'x-aegis-agent-secret':'A'.repeat(48)},
     body:JSON.stringify({task:'inspect',dispatch_id:'slack:event:Ev0123456789'})})
-  assert.equal((await h(req())).status,200)
-  const second=await h(req())
-  assert.equal(second.status,409)
-  assert.equal((await second.json()).error,'DUPLICATE_DISPATCH')
+  const [first,second]=await Promise.all([h(req()),h2(req())])
+  assert.deepEqual([first.status,second.status].sort((a,b)=>a-b),[200,409])
+  const duplicate=first.status===409 ? first : second
+  assert.equal((await duplicate.json()).error,'DUPLICATE_DISPATCH')
   assert.equal(paid,1)
   assert.deepEqual(tableNames,['aegis_agent_dispatch_claims_v1','aegis_agent_dispatch_claims_v1'])
   assert.equal(digests[0],digests[1])
