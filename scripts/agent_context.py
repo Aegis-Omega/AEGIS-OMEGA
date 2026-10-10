@@ -69,6 +69,36 @@ def open_prs():
     return prs, "branches"
 
 
+def existing_code(query, limit=8):
+    """Code on origin/main that matches the task's words.
+
+    Open PRs are only half of "what exists": most of the system is already on
+    main. Rare words weigh more than common ones (inverse document frequency),
+    a word in the file path weighs extra, and docs are left out.
+    """
+    import math
+    q = sorted(words(query), key=len, reverse=True)[:10]
+    if not q:
+        return []
+    hits = {}
+    for w in q:
+        out = sh("git", "grep", "-l", "-i", "-I", "-e", w, "origin/main", "--",
+                 "*.py", "*.ts", "*.tsx", "*.mjs", "*.js", "*.rs", "*.go",
+                 ":!*node_modules*", ":!*.min.js", ":!*/dist/*", timeout=20)
+        hits[w] = [l.split(":", 1)[1] for l in out.splitlines() if ":" in l]
+    score = {}
+    for w, files in hits.items():
+        if not files:
+            continue
+        weight = 1 / math.log(len(files) + 2)
+        for f in files:
+            m = score.setdefault(f, [0.0, set()])
+            m[0] += weight * (3 if w in f.lower() else 1)
+            m[1].add(w)
+    ranked = sorted(score.items(), key=lambda kv: -kv[1][0])
+    return [(f, sorted(ws)) for f, (sc, ws) in ranked if len(ws) >= min(2, len(q))][:limit]
+
+
 def billing_locked(prs):
     """True when GitHub refuses to start Actions jobs for the account.
 
@@ -116,13 +146,15 @@ def main():
     stacked = [p for p in prs if p["b"] not in ("main", "?")]
     locked = billing_locked(prs)
     hits = overlaps(prs, query)
+    code = existing_code(query) if query else []
 
     if "--json" in sys.argv:
         print(json.dumps({"main": sha, "main_date": date, "main_age_days": age_days,
                           "branch": branch, "behind_main": behind, "open": len(prs),
                           "stacked": len(stacked), "source": source, "ci_billing_locked": locked,
                           "overlaps": [{"pr": p["n"], "title": p["t"], "head": p["h"],
-                                        "base": p["b"], "match": m} for _, p, m in hits]}))
+                                        "base": p["b"], "match": m} for _, p, m in hits],
+                          "existing_code": [{"path": c, "match": m} for c, m in code]}))
         return
 
     kind = "open PRs" if source != "branches" else "remote branches (gh unavailable)"
@@ -144,6 +176,10 @@ def main():
             lines.append(f"  {ref} {p['h']}{base} — {p['t'][:90]} (match: {', '.join(m)})")
     elif query:
         lines.append("- No open PR/branch overlaps this task by keyword.")
+    if code:
+        lines.append("- Code already on main that matches this task (read it first; reuse or extend it):")
+        for path, m in code:
+            lines.append(f"  {path} (match: {', '.join(m)})")
     lines.append("- Rules: branch only from origin/main; PR base must be main; one PR per task. "
                  "Docs (HANDOFF/INDEX/CLAUDE.md) may be stale — the commands above are not.")
     print("\n".join(lines))
