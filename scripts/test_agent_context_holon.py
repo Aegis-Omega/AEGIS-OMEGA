@@ -51,7 +51,7 @@ class HolonContextTests(unittest.TestCase):
         self.assertEqual([i["n"] for i, _ in found], [739])
 
     def test_issue_board_api_success_and_unknown(self):
-        data = '{"total":1,"items":[{"n":735,"t":"CI lock","labels":["task","p0"]}]}'
+        data = '{"total":1,"incomplete":false,"items":[{"n":735,"t":"CI lock","labels":["task","p0"]}]}'
         with patch.object(ctx, "sh", return_value=data) as call:
             issues, status = ctx.open_issue_board()
             self.assertEqual((len(issues), status), (1, "github"))
@@ -60,7 +60,11 @@ class HolonContextTests(unittest.TestCase):
             self.assertIn("is%3Aissue", args[2])
         with patch.object(ctx, "sh", return_value=""):
             self.assertEqual(ctx.open_issue_board(), ([], "unavailable"))
-        with patch.object(ctx, "sh", return_value='{"total":101,"items":[]}'):
+        with patch.object(ctx, "sh", return_value='{"total":101,"incomplete":false,"items":[]}'):
+            self.assertEqual(ctx.open_issue_board(), ([], "partial"))
+        with patch.object(ctx, "sh", return_value='{"total":0,"incomplete":true,"items":[]}'):
+            self.assertEqual(ctx.open_issue_board(), ([], "partial"))
+        with patch.object(ctx, "sh", return_value='{"total":0,"items":[]}'):
             self.assertEqual(ctx.open_issue_board(), ([], "partial"))
         with patch.object(ctx, "sh", return_value='{"total":1,"items":[{"n":"bad"}]}'):
             self.assertEqual(ctx.open_issue_board(), ([], "unavailable"))
