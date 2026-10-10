@@ -54,8 +54,15 @@ def open_prs(quick=False):
         if time.time() - os.path.getmtime(cache) < CACHE_TTL:
             with open(cache) as f:
                 saved = json.load(f)
-            if isinstance(saved, list) and saved and all(_valid_pr_record(p) for p in saved):
-                return saved, "cache"
+            # Legacy plain-list caches may have been truncated by failed paging.
+            # Only trust snapshots recorded AFTER the completeness repair.
+            records = saved.get("prs") if isinstance(saved, dict) else None
+            if (isinstance(saved, dict)
+                    and saved.get("format") == "AEGIS_PR_SNAPSHOT_V2"
+                    and saved.get("complete") is True
+                    and isinstance(records, list) and records
+                    and all(_valid_pr_record(p) for p in records)):
+                return records, "cache"
     except (OSError, ValueError, TypeError):
         pass
     if quick:
@@ -81,7 +88,8 @@ def open_prs(quick=False):
     if complete:
         try:
             with open(cache, "w") as f:
-                json.dump(prs, f)
+                json.dump({"format": "AEGIS_PR_SNAPSHOT_V2",
+                           "complete": True, "prs": prs}, f)
         except OSError:
             pass
         return prs, "github"
