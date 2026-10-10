@@ -162,6 +162,26 @@ class HolonContextTests(unittest.TestCase):
                  patch.object(ctx, "sh", side_effect=AssertionError("network called")):
                 self.assertEqual(ctx.open_prs(quick=True), ([valid], "cache"))
 
+    def test_fresh_preflight_does_not_trust_cached_pr_snapshot(self):
+        """A new PR may have appeared after the last cache refresh."""
+        import tempfile
+        saved = {"n": 734, "t": "existing", "h": "head", "b": "main",
+                 "s": "a" * 40}
+        with tempfile.TemporaryDirectory() as directory:
+            pathlib.Path(directory, "aegis-open-prs.json").write_text(
+                json.dumps({"format": "AEGIS_PR_SNAPSHOT_V2",
+                            "complete": True, "prs": [saved]}), encoding="utf-8")
+            with patch.object(ctx, "git_dir", return_value=directory), \
+                 patch.object(ctx, "sh", return_value="") as sh:
+                self.assertEqual(ctx.open_prs(quick=False), ([], "unavailable"))
+                self.assertTrue(sh.called)
+
+    def test_cache_never_authorizes_new_work(self):
+        self.assertEqual(ctx.holon_disposition("cache", "github", [], []),
+                         "HOLD_INCOMPLETE_SHARED_STATE")
+        self.assertEqual(ctx.holon_disposition("github", "github", [], []),
+                         "ISSUE_ASSIGNMENT_AND_REVIEW_REQUIRED")
+
     def test_unavailable_billing_annotations_are_unknown(self):
         pr = [{"n": 735, "t": "task", "h": "head", "b": "main",
                "s": "a" * 40}]
