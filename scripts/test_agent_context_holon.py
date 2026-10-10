@@ -73,9 +73,9 @@ class HolonContextTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             def response(*args, **_kwargs):
                 if args[:2] == ("gh", "api") and "page=1" in args[2]:
-                    return "\\n".join(json.dumps(p) for p in first)
+                    return "\n".join(json.dumps(p) for p in first)
                 return ""
-            with patch.object(ctx, "git_dir", return_value=directory), \\
+            with patch.object(ctx, "git_dir", return_value=directory), \
                  patch.object(ctx, "sh", side_effect=response):
                 entries, source = ctx.open_prs()
         self.assertEqual(len(entries), 100)
@@ -91,10 +91,10 @@ class HolonContextTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             def response(*args, **_kwargs):
                 if args[:2] == ("gh", "api"):
-                    return ("\\n".join(json.dumps(p) for p in first)
+                    return ("\n".join(json.dumps(p) for p in first)
                             if "page=1" in args[2] else json.dumps(second))
                 return ""
-            with patch.object(ctx, "git_dir", return_value=directory), \\
+            with patch.object(ctx, "git_dir", return_value=directory), \
                  patch.object(ctx, "sh", side_effect=response):
                 entries, source = ctx.open_prs()
         self.assertEqual((len(entries), source), (101, "github"))
@@ -104,7 +104,7 @@ class HolonContextTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             pathlib.Path(directory, "aegis-open-prs.json").write_text(
                 json.dumps([{"n": 1, "t": "fake"}]), encoding="utf-8")
-            with patch.object(ctx, "git_dir", return_value=directory), \\
+            with patch.object(ctx, "git_dir", return_value=directory), \
                  patch.object(ctx, "sh", return_value=""):
                 prs, source = ctx.open_prs()
         self.assertEqual((prs, source), ([], "unavailable"))
