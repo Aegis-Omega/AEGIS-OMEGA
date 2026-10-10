@@ -255,6 +255,51 @@ test('no internal agent endpoint blocks paid dispatch before ACK',async()=>{
   assert.equal(h.pending.length,0)
   assert.equal(calls,0)
 })
+test('Slack HTTP 200 ok:false cannot count as delivered result',async()=>{
+  const calls=[]
+  const h=edge('supabase/functions/slack-events/index.ts',{
+    SLACK_SIGNING_SECRET:'S',AEGIS_AGENT_INVOKE_SECRET:'A'.repeat(48),
+    AEGIS_SLACK_ALLOWED_USER_IDS:'U_OPERATOR',AEGIS_SLACK_ALLOWED_CHANNEL_IDS:'C123',
+    SLACK_BOT_TOKEN:'xoxb-test',SUPABASE_URL:'https://mock.invalid',
+  },async(url,options)=>{
+    calls.push({url:String(url),options})
+    if(String(url).startsWith('https://slack.com/api/')) {
+      return Response.json({ok:false,error:'channel_not_found'})
+    }
+    return Response.json({result:'mock-only'})
+  })
+  assert.equal((await h(await signed('test','S'))).status,200)
+  assert.equal(h.pending.length,1)
+  await Promise.all(h.pending)
+  assert.equal(calls.filter(x=>x.url.includes('/functions/v1/agent')).length,1)
+  assert.equal(calls.filter(x=>x.url.includes('slack.com/api/')).length,2)
+  const attempted=calls.filter(x=>x.url.includes('slack.com/api/'))
+  assert.match(JSON.parse(attempted[1].options.body).text,/delivery failed/)
+})
+test('rejected Slack mention acknowledgement blocks inference',async()=>{
+  const calls=[]
+  const body=JSON.stringify({type:'event_callback',event_id:'Ev0123456789',event:{
+    type:'app_mention',user:'U_OPERATOR',channel:'C123',text:'<@U_BOT> inspect',ts:'1.0'
+  }})
+  const timestamp=String(Math.floor(Date.now()/1000))
+  const key=await webcrypto.subtle.importKey('raw',new TextEncoder().encode('S'),{name:'HMAC',hash:'SHA-256'},false,['sign'])
+  const mac=await webcrypto.subtle.sign('HMAC',key,new TextEncoder().encode('v0:'+timestamp+':'+body))
+  const h=edge('supabase/functions/slack-events/index.ts',{
+    SLACK_SIGNING_SECRET:'S',AEGIS_AGENT_INVOKE_SECRET:'A'.repeat(48),
+    AEGIS_SLACK_ALLOWED_USER_IDS:'U_OPERATOR',AEGIS_SLACK_ALLOWED_CHANNEL_IDS:'C123',
+    SLACK_BOT_TOKEN:'xoxb-test',SUPABASE_URL:'https://mock.invalid',
+  },async(url,options)=>{
+    calls.push(String(url))
+    if(String(url).startsWith('https://slack.com/api/')) return Response.json({ok:false,error:'invalid_auth'})
+    throw Error('DENIED_PAID_CALL')
+  })
+  const req=new Request('https://host/functions/v1/slack-events',{method:'POST',
+    headers:{'content-type':'application/json','x-slack-request-timestamp':timestamp,
+      'x-slack-signature':'v0='+Buffer.from(mac).toString('hex')},body})
+  assert.equal((await h(req)).status,200)
+  await Promise.all(h.pending)
+  assert.equal(calls.filter(x=>x.includes('/functions/v1/agent')).length,0)
+})
 test('bridge refuses synthetic attestation',async()=>{
   const h=edge('supabase/functions/bridge/index.ts')
   for(const ep of ['node','telemetry','resonance']){
