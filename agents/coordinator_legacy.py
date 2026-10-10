@@ -687,7 +687,7 @@ async def run_agent(task: AgentTask) -> AgentResult:
             is_valid=True,
         )
 
-    redis_conn = await aioredis.from_url(REDIS_URL, decode_responses=True)
+    redis_conn = aioredis.from_url(REDIS_URL, decode_responses=True)
     memory = AgentMemory(redis_conn, agent_def["memory_namespace"])
     proxy = ProxyClient(PROXY_URL)
 
