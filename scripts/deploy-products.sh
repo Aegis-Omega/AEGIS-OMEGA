@@ -60,9 +60,19 @@ for product in "${PRODUCTS[@]}"; do
   cd "$dir"
 
   # Build locally first to catch errors
-  npm install --silent
+  # Product-local packages and the separately locked shared package are both
+  # required: TypeScript follows @shared imports outside each product root.
+  if [[ -f package-lock.json ]]; then
+    npm ci --silent --include=dev
+  else
+    npm install --silent
+  fi
+  if [[ "$product" == "platform-picker" || "$product" == "hook-generator" || "$product" == "content-calendar" ]]; then
+    [[ -f "$REPO_ROOT/packages/shared/package-lock.json" ]] || die "Missing shared lockfile"
+    npm ci --silent --include=dev --prefix "$REPO_ROOT/packages/shared"
+  fi
   npm run build --silent
-  log "$product build OK"
+  log "$product local build OK"
 
   # Deploy to Vercel production. Canonical domains are documented in DEPLOY.md;
   # the deployment URL printed by Vercel should be aliased to the matching domain.
@@ -78,13 +88,16 @@ for product in "${PRODUCTS[@]}"; do
 
   log "$product production target: ${PRODUCTION_URLS[$product]}"
 
-  log "$product deployed ✓"
+  log "$product deployment command completed; public surface not yet verified"
   echo ""
 done
 
 cd "$REPO_ROOT"
 echo "═══════════════════════════════════════════════════════"
 echo ""
+echo "▸ Validating actual public product surfaces (not just Vercel READY)"
+python3 "$REPO_ROOT/scripts/product_surface_gate.py" || die "Production surface verification failed — do not claim deployment complete"
+
 log "All products deployed!"
 echo ""
 echo "Next steps:"
