@@ -6,6 +6,7 @@ on:
       - "agents/**"
       - "harness/**"
       - "sovereign-omega-v2/python/tests/test_coordinator_authority.py"
+      - "sovereign-omega-v2/python/tests/test_capability_selection.py"
       - ".github/workflows/coordinator-authority.yml"
   workflow_dispatch:
 
@@ -39,3 +40,6 @@ jobs:
 
       - name: Run coordinator fail-closed tests
         run: pytest -q sovereign-omega-v2/python/tests/test_coordinator_authority.py
+
+      - name: Run capability selection falsifiers
+        run: pytest -q sovereign-omega-v2/python/tests/test_capability_selection.py
