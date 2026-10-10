@@ -100,18 +100,19 @@ def open_prs(quick=False):
     for page in range(1, 20):
         out = sh("gh", "api",
                  f"repos/{REPO}/pulls?state=open&per_page=100&page={page}",
-                 "--jq", ".[] | {n: .number, t: .title, h: .head.ref, b: .base.ref, d: .created_at[:10], s: .head.sha}")
+                 "--jq", "[.[] | {n: .number, t: .title, h: .head.ref, b: .base.ref, d: .created_at[:10], s: .head.sha}]")
         if not out.strip():
             break  # Ambiguous final page or failed request: status stays UNKNOWN.
         try:
-            batch = [json.loads(line) for line in out.splitlines() if line.strip()]
+            batch = json.loads(out)
         except (TypeError, ValueError):
             break
-        if not batch or len(batch) > 100 or not all(_valid_pr_record(p) for p in batch):
+        if (not isinstance(batch, list) or len(batch) > 100
+                or not all(_valid_pr_record(p) for p in batch)):
             break
         prs.extend(batch)
         if len(batch) < 100:
-            complete = True
+            complete = True  # [] is a valid, authenticated end of pagination.
             break
     if complete:
         try:
