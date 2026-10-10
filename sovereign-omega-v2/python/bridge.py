@@ -53,6 +53,7 @@ from platform_helpers import (
     validate_tier_capabilities as _validate_tier_caps,
     retrieve_swarm_memory as _retrieve_swarm_memory,
     swarm_collaborate_live as _swarm_live,
+    store_swarm_memory as _store_swarm_memory,
     swarm_collaborate_autonomous as _swarm_autonomous,
     make_autonomous_agent_call as _make_autonomous_agent_call,
     evaluate_generation_fitness as _eval_fitness,
@@ -368,6 +369,13 @@ def _platform_run_collaboration(
         # Live writes are attempted only after the final integrity gate; these
         # fire-and-forget helpers do NOT prove durable persistence.
         if live:
+            # Provider-confirmed non-autonomous output: memory must be saved
+            # after the final integrity check, never inside the model helper.
+            if not autonomous and email:
+                _store_swarm_memory(
+                    email, objective, mode,
+                    swarm['artifacts'], projection, verdict,
+                )
             _store_fitness(objective, mode, generation, cycle_id, fitness_scores, verdict_pre)
             _platform_record_cycle(
                 cycle_id, objective, mode,
