@@ -45,7 +45,7 @@ class SystemFoundryLocalRunnerTests(unittest.TestCase):
         # in a local fixture; the runner must not report a fake PASS.
         with patch(
             "harness.sdk.generator.system_foundry._TEST",
-            'raise RuntimeError("BROKEN_CONTRACT_TEST")\\n'
+            'raise RuntimeError("BROKEN_CONTRACT_TEST")\n'
         ):
             result = run_local_contract(blueprint())
         self.assertEqual(result["outcome"], "LOCAL_TEST_FAIL")
@@ -79,7 +79,7 @@ class SystemFoundryLocalRunnerTests(unittest.TestCase):
 
     def test_artifact_tamper_rejected(self):
         items = build_readonly_json_api(blueprint())
-        items[0].content += "\\n# altered"
+        items[0].content += "\n# altered"
         with self.assertRaisesRegex(LocalBuildError, "HASH_MISMATCH"):
             _verify_artifacts(items)
 
@@ -105,11 +105,11 @@ class SystemFoundryLocalRunnerTests(unittest.TestCase):
         from types import SimpleNamespace
         first = SimpleNamespace(
             returncode=0, stdout="",
-            stderr="...\\nRan 3 tests in 0.001s\\n\\nOK\\n",
+            stderr="...\nRan 3 tests in 0.001s\n\nOK\n",
         )
         second = SimpleNamespace(
             returncode=0, stdout="",
-            stderr="...\\nRan 3 tests in 0.983s\\n\\nOK\\n",
+            stderr="...\nRan 3 tests in 0.983s\n\nOK\n",
         )
         with patch("harness.sdk.generator.foundry_runner.subprocess.run", return_value=first):
             left = run_local_contract(blueprint())
