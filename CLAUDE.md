@@ -102,7 +102,7 @@ broken vs contradictory is **`REPO_MAP.md`** (repo root) — read it instead of
 re-discovering the tree; when a doc disagrees with the code, the code wins. The two
 rules that matter most:
 
-0. **Before writing code, run `python3 scripts/agent_context.py "<your task>"`.** It measures
+0. **Follow `AGENTS.md` (the one protocol for every model).** Before writing code, run `python3 scripts/agent_context.py "<your task>"`. It measures
    main's age, the open-PR queue, and lists open PRs that already overlap your task. If one
    overlaps, extend it or explain why not — never rebuild it. Branch from `origin/main` only;
    PR base is `main` only. (The `aegis-ground-truth` mod in `.claude/skills/` injects this
