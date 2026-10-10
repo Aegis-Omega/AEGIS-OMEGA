@@ -1,8 +1,9 @@
 # GATE 202: Harness SDK Implementation
 
-## Status: COMPLETE
-**Epistemic Tier:** T0 (Mechanically Proven) for core modules  
-**Date:** 2024
+## Historical status: REPORTED COMPLETE (superseded; not production-admitted)
+**Current evidence disposition:** Planner structure can be verified as a deterministic contract; Builder/Evaluator are fail-closed candidates; full-stack security and operational admission **OPEN**.
+**Historical document date:** 2024; this document's prior `T0` and PASS claims are *not* supported by an identified exact-head proof artifact.
+**Verified focused evidence:** System Foundry PR #727, independent GitLab exact-source replay (see PR for head, runner, logs and receipt). This is **not** full harness validation.
 
 ---
 
@@ -216,6 +217,8 @@ report_json = evaluator.export_report(report)
 
 ## F. Testing Results
 
+**Evidence correction (2026-10-10):** The historical percentages, test statuses and T0 labels immediately below are *reported legacy statements*, not reproducible admission evidence. They must not be consumed as positive skill competence or as a deployed service. The existing `harness/skill_tree.json` correctly keeps the relevant skills `UNOBSERVED` with `validated_runs=0`; focused GitLab CI proves only explicitly linked source and behavior. **No implicit promotion is permitted.**
+
 ### Unit Tests
 
 | Module | Tests | Pass Rate | Coverage |
@@ -277,4 +280,4 @@ report_json = evaluator.export_report(report)
 
 ---
 
-**Gate 202 Status: COMPLETE ✓**
+**Gate 202 operational admission: NOT_ESTABLISHED; focused isolated Foundry tests do not establish a complete harness implementation.**
