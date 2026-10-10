@@ -71,13 +71,22 @@ function dispatchBackground(work: () => Promise<void>): boolean {
 
 // Post a message back to Slack
 async function slackReply(channel: string, text: string, thread_ts?: string): Promise<void> {
-  if (!ALLOWED_SLACK_CHANNELS.has(channel)) return
-  if (!SLACK_BOT_TOKEN) return
-  await fetch('https://slack.com/api/chat.postMessage', {
+  if (!ALLOWED_SLACK_CHANNELS.has(channel)) throw new Error('SLACK_CHANNEL_NOT_AUTHORIZED')
+  if (!SLACK_BOT_TOKEN) throw new Error('SLACK_DELIVERY_UNCONFIGURED')
+  const res = await fetch('https://slack.com/api/chat.postMessage', {
     method: 'POST',
     headers: { 'Authorization': `Bearer ${SLACK_BOT_TOKEN}`, 'Content-Type': 'application/json' },
     body: JSON.stringify({ channel, text, thread_ts }),
   })
+  // Slack may return HTTP 200 with {ok:false, error:...}. HTTP success alone
+  // must never count as verified delivery of an already-paid inference result.
+  if (!res.ok) throw new Error(`SLACK_DELIVERY_HTTP_${res.status}`)
+  let payload: unknown
+  try { payload = await res.json() } catch { throw new Error('SLACK_DELIVERY_INVALID_JSON') }
+  if (!payload || typeof payload !== 'object' ||
+      (payload as {ok?: unknown}).ok !== true) {
+    throw new Error('SLACK_DELIVERY_REJECTED')
+  }
 }
 
 // Call the agent function with a task
@@ -148,7 +157,14 @@ Deno.serve(async (req) => {
         const result = await runAgent(task, dispatchId, `Requested by @${user} in Slack`)
         if (result !== null) await slackReply(channel, `*AEGIS-Ω:* ${result}`, ts)
       } catch (e) {
-        await slackReply(channel, `Agent error: ${(e as Error).message}`, ts)
+        // Do not leak provider/DB errors into Slack. A second delivery failure
+        // is observable in the Edge log, never silently treated as success.
+        console.error('AEGIS_SLACK_DISPATCH_FAILED')
+        try {
+          await slackReply(channel, 'AEGIS task or result delivery failed; contact the Operator.', ts)
+        } catch (deliveryError) {
+          console.error('AEGIS_SLACK_RESULT_UNDELIVERED')
+        }
       }
     })
     if (!registered) return new Response('Agent dispatch unavailable', { status: 503 })
@@ -189,7 +205,12 @@ Deno.serve(async (req) => {
             const result = await runAgent(text, dispatchId, 'Requested via @AEGIS-Ω mention in Slack')
             if (result !== null) await slackReply(channel, `*AEGIS-Ω:* ${result}`, ts)
           } catch (e) {
-            await slackReply(channel, `Error: ${(e as Error).message}`, ts)
+            console.error('AEGIS_SLACK_DISPATCH_FAILED')
+            try {
+              await slackReply(channel, 'AEGIS task or result delivery failed; contact the Operator.', ts)
+            } catch (deliveryError) {
+              console.error('AEGIS_SLACK_RESULT_UNDELIVERED')
+            }
           }
         })
         if (!registered) return new Response('Agent dispatch unavailable', { status: 503 })
