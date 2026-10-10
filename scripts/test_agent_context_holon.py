@@ -133,7 +133,7 @@ class HolonContextTests(unittest.TestCase):
         obj = json.loads(buf.getvalue())
         self.assertIsNone(obj["ci_billing_locked"])
         self.assertIsNone(obj["open"])
-        self.assertEqual(obj["holon_disposition"], "HOLD_INCOMPLETE_SHARED_STATE")
+        self.assertEqual(obj["holon_disposition"], "HOLD_UNVERIFIED_MAIN")
         prs.assert_called_once_with(quick=True)
         issues.assert_called_once_with(timeout=4)
         self.assertFalse(any(args.args[:3] == ("git", "fetch", "-q")
@@ -194,12 +194,45 @@ class HolonContextTests(unittest.TestCase):
         ]):
             self.assertIs(ctx.billing_locked(pr), True)
 
+    def test_failed_git_fetch_never_verifies_main(self):
+        import subprocess
+        failed = subprocess.CompletedProcess(args=["git"], returncode=128,
+                                             stdout="", stderr="network unavailable")
+        with patch.object(ctx.subprocess, "run", return_value=failed):
+            self.assertEqual(ctx.verify_main_freshness()["state"], "FETCH_FAILED")
+
+    def test_same_origin_and_fetch_head_sha_verifies_main(self):
+        import subprocess
+        ok = subprocess.CompletedProcess(args=["git"], returncode=0,
+                                         stdout="", stderr="")
+        with patch.object(ctx.subprocess, "run", return_value=ok), \
+             patch.object(ctx, "sh", side_effect=["a" * 40, "a" * 40]):
+            receipt = ctx.verify_main_freshness()
+        self.assertEqual(receipt, {"state": "FRESH", "sha": "a" * 40})
+
+    def test_diverged_or_malformed_local_head_fails_closed(self):
+        import subprocess
+        ok = subprocess.CompletedProcess(args=["git"], returncode=0,
+                                         stdout="", stderr="")
+        with patch.object(ctx.subprocess, "run", return_value=ok), \
+             patch.object(ctx, "sh", side_effect=["a" * 40, "b" * 40]):
+            self.assertEqual(ctx.verify_main_freshness()["state"], "REF_DIVERGED")
+        with patch.object(ctx.subprocess, "run", return_value=ok), \
+             patch.object(ctx, "sh", side_effect=["a" * 40, ""]):
+            self.assertEqual(ctx.verify_main_freshness()["state"], "REF_UNVERIFIED")
+
+    def test_quick_mode_does_not_fetch_or_claim_fresh_head(self):
+        with patch.object(ctx.subprocess, "run", side_effect=AssertionError("network prohibited")):
+            self.assertEqual(ctx.verify_main_freshness(quick=True),
+                             {"state": "UNVERIFIED_QUICK", "sha": None})
+
     def test_json_does_not_claim_zero_on_disconnected_github(self):
         buf = io.StringIO()
         with patch.object(ctx, "sh", return_value=""), \
              patch.object(ctx, "open_prs", return_value=([], "unavailable")), \
              patch.object(ctx, "open_issue_board", return_value=([], "unavailable")), \
              patch.object(ctx, "existing_code", return_value=[]), \
+             patch.object(ctx, "verify_main_freshness", return_value={"state": "FETCH_FAILED", "sha": None}), \
              patch.object(sys, "argv", ["agent_context.py", "--json", "holon"]):
             with contextlib.redirect_stdout(buf):
                 ctx.main()
@@ -207,7 +240,7 @@ class HolonContextTests(unittest.TestCase):
         self.assertIsNone(obj["open"])
         self.assertIsNone(obj["issue_count"])
         self.assertIsNone(obj["ci_billing_locked"])
-        self.assertEqual(obj["holon_disposition"], "HOLD_INCOMPLETE_SHARED_STATE")
+        self.assertEqual(obj["holon_disposition"], "HOLD_UNVERIFIED_MAIN")
 
     def test_human_output_explains_unknown_vs_no_overlap(self):
         buf = io.StringIO()
@@ -215,6 +248,7 @@ class HolonContextTests(unittest.TestCase):
              patch.object(ctx, "open_prs", return_value=([], "unavailable")), \
              patch.object(ctx, "open_issue_board", return_value=([], "unavailable")), \
              patch.object(ctx, "existing_code", return_value=[]), \
+             patch.object(ctx, "verify_main_freshness", return_value={"state": "FETCH_FAILED", "sha": None}), \
              patch.object(sys, "argv", ["agent_context.py", "holon"]):
             with contextlib.redirect_stdout(buf):
                 ctx.main()
