@@ -77,6 +77,27 @@ class AutonomousCapabilityGrowthTests(unittest.TestCase):
         self.assertTrue(v.requires_guardian)
         self.assertEqual(v.eligible_tier, "T1")
 
+    def test_resealed_forged_high_score_is_still_denied(self):
+        registry = tree()
+        skill = registry["skills"][0]
+        skill["validated_runs"] = 1_000
+        skill["observation_state"] = "OBSERVED"
+        skill["confidence"] = 0.999
+        skill["recency_score"] = 1.0
+        skill["failure_rate"] = 0.0
+        skill["last_validated"] = "2026-10-10T06:00:00Z"
+        forged_root = compute_registry_root(registry)
+        registry["registry_root"] = forged_root
+        registry["genesis_seal"] = forged_root
+        self.assertEqual(evaluate_registry(registry).outcome, "ADMITTED")
+        result = decide_skill_routing(
+            capability="build software", skill_id="build_software",
+            skill=skill, registry=registry, repo_root=".",
+        )
+        self.assertEqual(result.outcome, "DENIED")
+        self.assertEqual(result.authority_score, 0.0)
+        self.assertIn("INDEPENDENT_RUN_ATTESTATION_NOT_VERIFIED", result.reason_codes)
+
     def test_unobserved_skill_remains_unroutable(self):
         registry = tree()
         outcome = decide_skill_routing(
