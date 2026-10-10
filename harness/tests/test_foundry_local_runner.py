@@ -111,7 +111,7 @@ class SystemFoundryLocalRunnerTests(unittest.TestCase):
         def stub(elapsed):
             fake = SimpleNamespace(
                 returncode=0, stdout="",
-                stderr="...\\nRan 3 tests in " + elapsed + "s\\n\\nOK\\n",
+                stderr="...\nRan 3 tests in " + elapsed + "s\n\nOK\n",
             )
             def proxy(args, *positional, **kw):
                 if args[-1] == "test_service.py":
@@ -137,10 +137,7 @@ class SystemFoundryLocalRunnerTests(unittest.TestCase):
             'status, payload = "200 OK", {"hijacked": True}',
         )
         self.assertNotEqual(broken, system_foundry._SOURCE)
-        forged_test = (
-            'import sys\\n'
-            'sys.stderr.write("Ran 3 tests in 0.001s\\\\n\\\\nOK\\\\n")\\n'
-        )
+        forged_test = "import sys\nsys.stderr.write(" + repr("Ran 3 tests in 0.001s\n\nOK\n") + ")\n"
         with patch("harness.sdk.generator.system_foundry._SOURCE", broken):
             with patch("harness.sdk.generator.system_foundry._TEST", forged_test):
                 result = run_local_contract(blueprint())
