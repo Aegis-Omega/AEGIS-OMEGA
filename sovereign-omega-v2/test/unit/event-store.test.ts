@@ -269,4 +269,50 @@ describe('EventStore.verifyChain', () => {
   })
 })
 
+
+describe('EventStore.verifyChain — full-content verification', () => {
+  it('rejects a changed payload even when previous hashes still link', async () => {
+    const store = new EventStore(uniqueStreamId())
+    await store.open()
+    const entry = await store.append(
+      EventType.SYSTEM_OUTPUT, { verified: true }, 'agent', 'v1', '1',
+      RetentionClass.STANDARD, FIXED_TS,
+    )
+    vi.spyOn(store, 'getAll').mockResolvedValueOnce([
+      { ...entry, payload: { verified: false } },
+    ])
+    const broken = await store.verifyChain()
+    expect(broken?.broken_at_sequence).toBe(0)
+    expect(broken?.got).toBe(entry.self_hash)
+    expect(broken?.expected).not.toBe(entry.self_hash)
+  })
+
+  it('rejects event reordering or missing history even with matching hashes', async () => {
+    const store = new EventStore(uniqueStreamId())
+    await store.open()
+    await store.append(
+      EventType.SYSTEM_OUTPUT, { step: 0 }, 'agent', 'v1', '1',
+      RetentionClass.STANDARD, FIXED_TS,
+    )
+    const second = await store.append(
+      EventType.SYSTEM_OUTPUT, { step: 1 }, 'agent', 'v1', '1',
+      RetentionClass.STANDARD, FIXED_TS + 1,
+    )
+    const broken = await store.verifyChain([second])
+    expect(broken?.broken_at_sequence).toBe(1)
+  })
+
+  it('verifies exactly the caller-supplied event snapshot without re-fetching', async () => {
+    const store = new EventStore(uniqueStreamId())
+    await store.open()
+    const entry = await store.append(
+      EventType.SYSTEM_OUTPUT, { step: 0 }, 'agent', 'v1', '1',
+      RetentionClass.STANDARD, FIXED_TS,
+    )
+    const spy = vi.spyOn(store, 'getAll')
+    expect(await store.verifyChain([entry])).toBeNull()
+    expect(spy).not.toHaveBeenCalled()
+  })
+})
+
 afterEach(() => vi.restoreAllMocks())
