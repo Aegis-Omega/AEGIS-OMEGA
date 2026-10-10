@@ -681,10 +681,10 @@ async def run_agent(task: AgentTask) -> AgentResult:
             role=task.role,
             output=("[dry-run] AEGIS_SWARM_LIVE!=1 — no inference call made ($0). "
                     "Set AEGIS_SWARM_LIVE=1 to enable live agent runs."),
-            governance={"is_valid": True, "dry_run": True},
+            governance={"is_valid": False, "dry_run": True, "execution_status": "NOT_EXECUTED"},
             ralph_cycles=0,
             duration_ms=0,
-            is_valid=True,
+            is_valid=False,
         )
 
     redis_conn = aioredis.from_url(REDIS_URL, decode_responses=True)
@@ -722,7 +722,7 @@ async def run_agent(task: AgentTask) -> AgentResult:
         governance=final_governance,
         ralph_cycles=cycles,
         duration_ms=duration_ms,
-        is_valid=final_governance.get("is_valid", True),
+        is_valid=final_governance.get("is_valid") is True,
     )
 
     # Evidence boundary: no SKILL_VALIDATED, SKILL_DEGRADED, or evolutionary
