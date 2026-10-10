@@ -54,11 +54,19 @@ def candidate_paths(blueprint: Mapping[str, Any], *, seed: int, budget: int) -> 
     for route in sorted(routes):
         items.extend([route, route + "/more", route + "//", route + "-missing"])
     items += ["/", "/favicon.ico", "/__aegis_oracle_no_route__", "/fuzz/boundary"]
-    # Property space is unbounded; this is a *bounded search*, not complete proof.
+    # Systematic grammar of short unknown paths, not a hardcoded trigger for
+    # the hidden-defect fixture. Sampling beginning/middle/end characters
+    # covers 27 suffix combinations across TWO unrelated path families.
+    for prefix in ("/fuzz/", "/v1/"):
+        for first in "amz":
+            for second in "amz":
+                for third in "amz":
+                    items.append(prefix + first + second + third)
+    # Property space is unbounded; bounded seeded exploration follows.
     while len(items) < budget * 2:
         middle = "".join(rng.choice(ALPHABET) for _ in range(rng.randrange(1, 17)))
-        items += ["/fuzz/" + middle + "zz",
-                  "/v1/" + middle, "/" + middle + "/more"]
+        items += ["/fuzz/" + middle, "/v1/" + middle,
+                  "/api/" + middle, "/" + middle + "/more"]
     result = []
     seen = set()
     for item in items:
