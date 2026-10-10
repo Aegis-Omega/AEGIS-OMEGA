@@ -6,6 +6,7 @@ Commands:
   execute <objective>             Async execution with live SSE stream
   get <execution_id>              Fetch a completed execution by ID
   delete <execution_id>           Remove a stored execution
+  verify-receipts <file>          Verify a receipts chain (offline, no key)
 
 Environment:
   AEGIS_API_KEY                   Your API key (or pass via --key)
@@ -219,7 +220,21 @@ def main(argv: list[str] | None = None) -> int:
     p_del = sub.add_parser("delete", help="Remove a stored execution")
     p_del.add_argument("execution_id")
 
+    p_vr = sub.add_parser("verify-receipts", help="Verify a receipts chain file (offline, no key)")
+    p_vr.add_argument("file")
+
     args = parser.parse_args(argv)
+
+    if args.command == "verify-receipts":
+        from .receipts import verify
+        result = verify(args.file)
+        if args.json:
+            print(json.dumps(result))
+        elif result["valid"]:
+            print(_c(_GREEN, "VALID") + f"  {result['count']} receipts · terminal {result['terminal_hash'][:16]}…")
+        else:
+            print(_c(_RED, "INVALID") + f"  {result['error']}")
+        return 0 if result["valid"] else 1
 
     api_key  = args.key or os.environ.get("AEGIS_API_KEY", "")
     base_url = args.base or os.environ.get("AEGIS_BASE_URL", BASE_URL)

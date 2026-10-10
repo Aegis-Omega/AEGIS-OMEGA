@@ -91,6 +91,26 @@ Both clients target the same `/platform/*` endpoints and validate the
 `PlatformEnvelope` contract version on every response; a mismatch raises
 `AegisError`.
 
+## Receipts — a verifiable trail of LLM calls
+
+```python
+from anthropic import Anthropic
+from aegis.receipts import Recorder, wrap_anthropic
+
+client = wrap_anthropic(Anthropic(), Recorder("receipts.json"))
+client.messages.create(model="claude-opus-5-5", max_tokens=256,
+                       messages=[{"role": "user", "content": "hi"}])
+```
+
+```bash
+aegis verify-receipts receipts.json   # VALID / INVALID, exit code 0 / 1
+```
+
+Every call appends a hash-chained envelope (request and response digests, model,
+provider, sequence, previous hash). Editing, reordering or dropping any receipt
+makes verification fail. A VALID chain proves integrity and order only: it does
+not yet prove who recorded it (signing is Phase 2).
+
 ## License
 
 MIT
