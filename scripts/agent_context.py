@@ -39,34 +39,58 @@ def git_dir():
     return sh("git", "rev-parse", "--absolute-git-dir").strip() or ".git"
 
 
+def _valid_pr_record(p):
+    return (isinstance(p, dict) and type(p.get("n")) is int and p["n"] > 0
+            and isinstance(p.get("t"), str) and isinstance(p.get("h"), str) and bool(p["h"])
+            and isinstance(p.get("b"), str) and bool(p["b"])
+            and isinstance(p.get("s"), str)
+            and bool(re.fullmatch(r"[0-9a-f]{40}", p["s"])))
+
+
 def open_prs():
+    """Never certify a partially fetched PR list as the whole board."""
     cache = os.path.join(git_dir(), "aegis-open-prs.json")
     try:
         if time.time() - os.path.getmtime(cache) < CACHE_TTL:
             with open(cache) as f:
-                return json.load(f), "cache"
-    except (OSError, ValueError):
+                saved = json.load(f)
+            if isinstance(saved, list) and saved and all(_valid_pr_record(p) for p in saved):
+                return saved, "cache"
+    except (OSError, ValueError, TypeError):
         pass
-    # Manual paging: gh --paginate follows numeric-id Link URLs some proxies refuse.
     prs = []
+    complete = False
     for page in range(1, 20):
-        out = sh("gh", "api", f"repos/{REPO}/pulls?state=open&per_page=100&page={page}",
+        out = sh("gh", "api",
+                 f"repos/{REPO}/pulls?state=open&per_page=100&page={page}",
                  "--jq", ".[] | {n: .number, t: .title, h: .head.ref, b: .base.ref, d: .created_at[:10], s: .head.sha}")
-        batch = [json.loads(l) for l in out.splitlines() if l.strip()]
-        prs += batch
-        if len(batch) < 100:
+        if not out.strip():
+            break  # Ambiguous final page or failed request: status stays UNKNOWN.
+        try:
+            batch = [json.loads(line) for line in out.splitlines() if line.strip()]
+        except (TypeError, ValueError):
             break
-    if prs:
+        if not batch or len(batch) > 100 or not all(_valid_pr_record(p) for p in batch):
+            break
+        prs.extend(batch)
+        if len(batch) < 100:
+            complete = True
+            break
+    if complete:
         try:
             with open(cache, "w") as f:
                 json.dump(prs, f)
         except OSError:
             pass
         return prs, "github"
+    if prs:
+        return prs, "partial"
     heads = sh("git", "ls-remote", "--heads", "origin", timeout=30)
-    prs = [{"n": None, "t": "", "h": l.split("refs/heads/", 1)[1], "b": "?", "d": ""}
-           for l in heads.splitlines() if "refs/heads/" in l and not l.endswith("/main")]
-    return prs, "branches" if prs else "unavailable"
+    branches = [{"n": None, "t": "", "h": line.split("refs/heads/", 1)[1],
+                 "b": "?", "d": ""}
+                for line in heads.splitlines()
+                if "refs/heads/" in line and not line.endswith("/main")]
+    return branches, "branches" if branches else "unavailable"
 
 
 def open_issue_board():
@@ -159,17 +183,21 @@ def existing_code(query, limit=8):
 
 
 def billing_locked(prs):
-    """True when GitHub refuses to start Actions jobs for the account.
-
-    Then every check is red without running, and "fixing CI" in code is wasted work.
-    """
-    newest = max((p for p in prs if p.get("s")), key=lambda p: p["n"], default=None)
-    if not newest:
-        return False
+    """True if annotated billing lock, False if checked, None if indeterminate."""
+    newest = max((p for p in prs if _valid_pr_record(p)),
+                 key=lambda p: p["n"], default=None)
+    if newest is None:
+        return None
     out = sh("gh", "api", f"repos/{REPO}/commits/{newest['s']}/check-runs?per_page=100",
              "--jq", '.check_runs[] | select(.conclusion=="failure") | .id')
-    for run_id in out.split()[:3]:
-        if "locked due to a billing issue" in sh("gh", "api", f"repos/{REPO}/check-runs/{run_id}/annotations"):
+    run_ids = out.split()
+    if not run_ids or any(not i.isdigit() for i in run_ids):
+        return None
+    for run_id in run_ids[:3]:
+        annotation = sh("gh", "api", f"repos/{REPO}/check-runs/{run_id}/annotations")
+        if not annotation.strip():
+            return None
+        if "locked due to a billing issue" in annotation.lower():
             return True
     return False
 
