@@ -12,6 +12,7 @@ from harness.sdk.generator import (
     CodeArtifact, GenerationStatus, Generator, RalphExecutor,
 )
 from harness.sdk.evaluator import Evaluator, EvaluationVerdict, PlaywrightRunner
+from harness.sdk.generator.system_foundry import build_readonly_json_api, SystemBlueprintError
 
 
 def artifact(path: str = "src/main.py", content: str = "print('works')\n") -> CodeArtifact:
@@ -22,6 +23,72 @@ def artifact(path: str = "src/main.py", content: str = "print('works')\n") -> Co
 
 
 class SystemFoundryEvidenceTests(unittest.TestCase):
+    def test_blueprint_builds_a_runnable_wsig_app(self):
+        blueprint = {
+            "system_id": "customer-api", "kind": "readonly-json-api",
+            "routes": {"/health": {"status": "ok"}, "/api/users": {"count": 2}},
+        }
+        generated = build_readonly_json_api(blueprint)
+        self.assertEqual(len(generated), 3)
+        self.assertEqual(
+            [(a.path, a.hash) for a in generated],
+            [(a.path, a.hash) for a in build_readonly_json_api(blueprint)],
+        )
+        source = next(item.content for item in generated if item.path == "service.py")
+        namespace = {"__name__": "system_foundry_candidate_under_test"}
+        exec(compile(source, "<generated service>", "exec"), namespace)
+        def start(status, headers):
+            observed.append((status, dict(headers)))
+        observed = []
+        response = namespace["application"](
+            {"REQUEST_METHOD": "GET", "PATH_INFO": "/api/users"}, start
+        )
+        self.assertEqual(observed[0][0], "200 OK")
+        self.assertEqual(b"".join(response), b'{"count":2}')
+        self.assertEqual(observed[0][1]["X-Content-Type-Options"], "nosniff")
+        self.assertTrue(all(a.metadata["claim"] == "CANDIDATE_NOT_TESTED" for a in generated))
+
+    def test_input_is_data_not_arbitrary_python(self):
+        hostile = "__import__('os').system('echo SHOULD_NOT_RUN')"
+        generated = build_readonly_json_api({
+            "system_id": "safe-api", "kind": "readonly-json-api",
+            "routes": {"/": {"text": hostile}},
+        })
+        namespace = {"__name__": "inert_data_probe"}
+        exec(compile(generated[0].content, "<generated service>", "exec"), namespace)
+        seen = []
+        body = namespace["application"](
+            {"REQUEST_METHOD": "GET", "PATH_INFO": "/"},
+            lambda status, headers: seen.append(status),
+        )
+        self.assertEqual(seen, ["200 OK"])
+        import json
+        self.assertEqual(json.loads(b"".join(body))["text"], hostile)
+
+    def test_invalid_system_blueprints_rejected(self):
+        for blueprint in (
+            {"system_id": "../bad", "kind": "readonly-json-api", "routes": {"/": {}}},
+            {"system_id": "good-api", "kind": "shell", "routes": {"/": {}}},
+            {"system_id": "good-api", "kind": "readonly-json-api", "routes": {"../../etc": {}}},
+            {"system_id": "good-api", "kind": "readonly-json-api", "routes": {}},
+            {"system_id": "good-api", "kind": "readonly-json-api", "routes": {"/": {"nan": float("nan")}}},
+            {"system_id": "good-api", "kind": "readonly-json-api", "routes": {"/": {}},"approve": True},
+        ):
+            with self.subTest(blueprint=blueprint), self.assertRaises(SystemBlueprintError):
+                build_readonly_json_api(blueprint)
+
+    def test_generated_system_remains_unverified_in_legacy_pipeline(self):
+        generated = build_readonly_json_api({
+            "system_id": "gate-api", "kind": "readonly-json-api",
+            "routes": {"/health": {"status": "ok"}},
+        })
+        result = Generator(RalphExecutor({}, artifact_builder=lambda _: generated)).execute_sprint({
+            "id": "build", "description": "Generate bounded JSON API",
+        })
+        self.assertEqual(result.status, GenerationStatus.REJECTED)
+        self.assertTrue(result.artifacts)
+        self.assertTrue(all(t["tests_run"] == 0 for t in result.test_results))
+
     def test_missing_builder_cannot_generate_fake_rust(self):
         engine = RalphExecutor(constraints={})
         self.assertEqual(engine.execute("Build a payment platform"), [])
