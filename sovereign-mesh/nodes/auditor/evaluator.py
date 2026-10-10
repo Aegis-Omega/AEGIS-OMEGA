@@ -15,6 +15,7 @@ Model Assignment: Qwen-Plus / Claude Haiku 4.5
 
 import json
 import hashlib
+import hmac
 from datetime import datetime, timezone
 from typing import Dict, List, Any, Optional, Tuple
 from dataclasses import dataclass, asdict
@@ -55,40 +56,37 @@ class GenesisVerifier:
         0x5a, 0x6b, 0x7c, 0x8d, 0x9e, 0x0f, 0x1a, 0x2b,
     ])
     
-    def verify_artifact(self, content: str, expected_seal: str) -> Tuple[bool, str]:
-        """
-        Verify artifact against Genesis Seal
-        
-        Returns:
-            Tuple of (verified, message)
-        """
-        # Compute hash of content
-        content_hash = hashlib.sha256(content.encode()).hexdigest()
-        
-        # Check if seal matches (simplified - in production would check against full ledger)
-        if content_hash.startswith(expected_seal[:8]):
-            return True, "Genesis Seal verified"
-        
-        # Secondary check: ensure content is not empty or corrupted
-        if len(content) < 10:
-            return False, "Content too short - possible corruption"
-        
-        # Check for basic structural integrity
-        if "// TODO" not in content and "TODO" not in content:
-            # Content should have implementation markers
-            pass
-        
-        return True, "Genesis Seal verified (partial match)"
-    
-    def verify_sprint_result(self, result_data: Dict, contract_seal: str) -> bool:
-        """Verify entire sprint result against contract seal"""
-        # Serialize result data
-        result_json = json.dumps(result_data, sort_keys=True)
-        result_hash = hashlib.sha256(result_json.encode()).hexdigest()
-        
-        # Check seal prefix match
-        return result_hash.startswith(contract_seal[:8])
+    @staticmethod
+    def _valid_digest(value: object) -> bool:
+        # No empty values, short prefixes or wildcards.
+        return isinstance(value, str) and len(value) == 64 and all(
+            ch in "0123456789abcdef" for ch in value
+        )
 
+    def verify_artifact(self, content: str, expected_seal: str) -> Tuple[bool, str]:
+        """Check bytes against an independently expected full SHA-256 digest.
+
+        Integrity is not proof of authorship, execution, scientific validity,
+        ledger admission or signing authority. Never reuse the directive
+        Nuqta seal as the hash of each generated output artifact.
+        """
+        if not isinstance(content, str) or not self._valid_digest(expected_seal):
+            return False, "Missing or malformed full artifact SHA-256"
+        actual = hashlib.sha256(content.encode("utf-8")).hexdigest()
+        if not hmac.compare_digest(actual, expected_seal):
+            return False, "Artifact SHA-256 mismatch"
+        return True, "Artifact SHA-256 matches expected digest (integrity only)"
+
+    def verify_sprint_result(self, result_data: Dict, contract_seal: str) -> bool:
+        """Verify a canonical result against an independently trusted digest."""
+        if not isinstance(result_data, dict) or not self._valid_digest(contract_seal):
+            return False
+        try:
+            blob = json.dumps(result_data, sort_keys=True, separators=(",", ":"),
+                              ensure_ascii=False, allow_nan=False).encode("utf-8")
+        except (ValueError, TypeError):
+            return False
+        return hmac.compare_digest(hashlib.sha256(blob).hexdigest(), contract_seal)
 
 class NLAAuditor:
     """Natural Language Autoencoder for hidden motivation detection"""
@@ -400,18 +398,43 @@ class EvaluatorNode:
         sprint_id = contract["sprint_id"]
         contract_seal = contract["nuqta_seal"]
         
-        # Phase 1: Genesis Seal verification
-        artifacts = result_data.get("artifacts", [])
-        genesis_verified = True
-        for artifact in artifacts:
-            verified, _ = self.genesis_verifier.verify_artifact(
-                artifact.get("content", ""),
-                contract_seal
-            )
-            if not verified:
-                genesis_verified = False
-                break
-        
+        # Phase 1: separate directive Nuqta seal from output artifact digests.
+        # No trusted precommitted manifest -> verification MUST fail closed.
+        directive = contract.get("directive")
+        directive_verified, _ = self.genesis_verifier.verify_artifact(
+            directive, contract_seal
+        )
+        raw_artifacts = result_data.get("artifacts", [])
+        artifacts = raw_artifacts if isinstance(raw_artifacts, list) else []
+        expected_artifacts = contract.get("artifact_sha256")
+        genesis_verified = (
+            directive_verified
+            and isinstance(raw_artifacts, list)
+            and len(artifacts) > 0
+            and isinstance(expected_artifacts, dict)
+            and len(expected_artifacts) == len(artifacts)
+        )
+        seen_paths = set()
+        if genesis_verified:
+            for artifact in artifacts:
+                if not isinstance(artifact, dict):
+                    genesis_verified = False
+                    break
+                file_path = artifact.get("file_path")
+                if not isinstance(file_path, str) or not file_path or file_path in seen_paths:
+                    genesis_verified = False
+                    break
+                seen_paths.add(file_path)
+                expected = expected_artifacts.get(file_path)
+                verified, _ = self.genesis_verifier.verify_artifact(
+                    artifact.get("content"), expected
+                )
+                if not verified:
+                    genesis_verified = False
+                    break
+        if genesis_verified and set(expected_artifacts) != seen_paths:
+            genesis_verified = False
+
         # Phase 2: NLA auditing
         all_nla_findings = []
         for artifact in artifacts:
