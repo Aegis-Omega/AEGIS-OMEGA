@@ -12,7 +12,8 @@ function edge(path,env={},transport=()=>{throw Error('UNEXPECTED_NETWORK')}) {
   const js=ts.transpileModule(src,{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.None}}).outputText
   let handler
   const Deno={env:{get:n=>env[n]??''},serve:f=>{handler=f}}
-  new Function('Deno','fetch','CORS','createClient','crypto',js)(Deno,transport,{},()=>{throw Error('UNEXPECTED_DB')},webcrypto)
+  const body = path === 'supabase/functions/agent/index.ts' ? 'const CORS = {};\n' + js : js
+  new Function('Deno','fetch','createClient','crypto',body)(Deno,transport,()=>{throw Error('UNEXPECTED_DB')},webcrypto)
   assert.equal(typeof handler,'function')
   return handler
 }
