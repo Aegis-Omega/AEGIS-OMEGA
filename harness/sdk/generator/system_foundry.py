@@ -73,7 +73,10 @@ class ServiceContractTests(unittest.TestCase):
                 self.assertEqual(headers["X-Content-Type-Options"], "nosniff")
 
     def test_unknown_route_is_404(self):
-        (status, _), payload = self.call("/__aegis_nonexistent__")
+        path = "/__aegis_nonexistent__"
+        while path in ROUTES:
+            path += "_"
+        (status, _), payload = self.call(path)
         self.assertEqual(status, "404 Not Found")
         self.assertEqual(payload["error"], "not_found")
 
@@ -124,10 +127,10 @@ def build_readonly_json_api(blueprint: Mapping[str, Any]) -> list[CodeArtifact]:
 
     source = _SOURCE.replace("__ROUTES__", repr(encoded))
     guide = (
-        f"# {system_id}\\n\\n"
+        f"# {system_id}\n\n"
         "Generated read-only JSON API candidate. No authentication, data writes, "
-        "persistence, or external side effects. Not deployment-approved.\\n\\n"
-        "Run: `python service.py`. Tests: `python -m unittest -v test_service.py`.\\n"
+        "persistence, or external side effects. Not deployment-approved.\n\n"
+        "Run: `python service.py`. Tests: `python -m unittest -v test_service.py`.\n"
     )
     files = [
         ("service.py", source, "python"),
