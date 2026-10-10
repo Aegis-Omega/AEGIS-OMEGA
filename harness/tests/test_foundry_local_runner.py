@@ -101,6 +101,26 @@ class SystemFoundryLocalRunnerTests(unittest.TestCase):
         self.assertNotEqual(a["receipt_sha256"], c["receipt_sha256"])
         self.assertNotEqual(a["artifacts"]["service.py"], c["artifacts"]["service.py"])
 
+    def test_time_telemetry_does_not_mutate_deterministic_receipt(self):
+        from types import SimpleNamespace
+        first = SimpleNamespace(
+            returncode=0, stdout="",
+            stderr="...\\nRan 3 tests in 0.001s\\n\\nOK\\n",
+        )
+        second = SimpleNamespace(
+            returncode=0, stdout="",
+            stderr="...\\nRan 3 tests in 0.983s\\n\\nOK\\n",
+        )
+        with patch("harness.sdk.generator.foundry_runner.subprocess.run", return_value=first):
+            left = run_local_contract(blueprint())
+        with patch("harness.sdk.generator.foundry_runner.subprocess.run", return_value=second):
+            right = run_local_contract(blueprint())
+        self.assertEqual(left["receipt_sha256"], right["receipt_sha256"])
+        self.assertNotEqual(
+            left["unattested_observation"]["stderr_raw_sha256"],
+            right["unattested_observation"]["stderr_raw_sha256"],
+        )
+
     def test_empty_environment_does_not_leak_secret_into_receipt(self):
         with patch.dict("os.environ", {"AEGIS_SENSITIVE_TEST_SECRET": "DONT_LEAK"}, clear=False):
             result = run_local_contract(blueprint())
