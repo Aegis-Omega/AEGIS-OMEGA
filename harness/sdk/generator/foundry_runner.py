@@ -63,6 +63,63 @@ def _write_artifacts(artifacts: list[CodeArtifact], directory: Path) -> None:
         (directory / item.path).write_text(item.content, encoding="utf-8")
 
 
+def _replay_persisted_negative_knowledge(
+    blueprint: Mapping[str, Any], service_source: str,
+) -> dict[str, Any]:
+    """Require every applicable versioned failure witness to remain fixed.
+
+    Witnesses may veto a candidate, never authorize one. Missing/invalid
+    repository memory fails closed. The program's own self-tests are not
+    consulted. This reads only small local source-controlled JSON records.
+    """
+    from harness.sdk.generator.counterexample_memory import digest, replay
+
+    registry = Path(__file__).resolve().parents[2] / "knowledge" / "counterexamples"
+    result: dict[str, Any] = {
+        "status": "REGISTRY_INVALID",
+        "registered": 0,
+        "applicable": 0,
+        "replays": [],
+        "authority_granted": False,
+    }
+    try:
+        if registry.is_symlink() or not registry.is_dir():
+            return result
+        records = sorted(registry.glob("*.json"))
+        if not records or len(records) > 100:
+            return result
+        expected_bp = digest(blueprint)
+        visited: set[str] = set()
+        for path in records:
+            if path.is_symlink() or not path.is_file() or path.stat().st_size > 65_536:
+                return result
+            record = json.loads(path.read_text(encoding="utf-8"))
+            if (not isinstance(record, dict)
+                or not isinstance(record.get("blueprint_sha256"), str)
+                or not isinstance(record.get("memory_sha256"), str)):
+                return result
+            result["registered"] += 1
+            memory_id = record["memory_sha256"]
+            if memory_id in visited:
+                return result
+            visited.add(memory_id)
+            if record["blueprint_sha256"] != expected_bp:
+                continue
+            result["applicable"] += 1
+            current = replay(blueprint, service_source, record)
+            result["replays"].append({
+                "memory_sha256": memory_id,
+                "outcome": current["outcome"],
+            })
+            if current["outcome"] != "WITNESS_NOW_PASSES":
+                result["status"] = "REGRESSION_PRESENT"
+                return result
+    except (OSError, ValueError, TypeError, KeyError, UnicodeError):
+        return result
+    result["status"] = "REPLAY_PASS" if result["applicable"] else "NO_APPLICABLE_WITNESS"
+    return result
+
+
 def run_local_contract(
     blueprint: Mapping[str, Any], *, timeout_seconds: int = 10,
 ) -> dict[str, Any]:
@@ -159,6 +216,13 @@ def run_local_contract(
         and oracle_result.get("admission") == "NOT_ADMITTED"
         and oracle_result.get("authority_granted") is False
     )
+    # Replay persisted failures from previous builds. A previously observed
+    # violation must not return simply because generated tests still say OK.
+    memory = _replay_persisted_negative_knowledge(
+        blueprint,
+        next(a.content for a in artifacts if a.path == "service.py"),
+    )
+    memory_pass = memory["status"] in {"REPLAY_PASS", "NO_APPLICABLE_WITNESS"}
     match = _RAN.search(stderr)
     tests_run = int(match.group(1)) if match else 0
     # Wall-clock durations and temporary directory names are observations,
@@ -173,7 +237,7 @@ def run_local_contract(
     passed = bool(
         rc == 0 and not timed_out and tests_run >= 3
         and re.search(r"(?m)^OK$", stderr) is not None
-        and oracle_pass and not oracle_timeout
+        and oracle_pass and not oracle_timeout and memory_pass
     )
     body: dict[str, Any] = {
         "schema_version": "1.0.0",
@@ -185,6 +249,7 @@ def run_local_contract(
         "outcome": "LOCAL_TEST_PASS" if passed else "LOCAL_TEST_FAIL",
         "test_count": tests_run,
         "exit_code": rc,
+        "counterexample_memory": memory,
         "independent_oracle": {
             "source_sha256": oracle_source_digest,
             "report_sha256": hashlib.sha256(
