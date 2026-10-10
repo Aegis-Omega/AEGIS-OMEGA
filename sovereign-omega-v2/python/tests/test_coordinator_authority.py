@@ -403,3 +403,39 @@ def test_memory_tools_use_synchronous_redis_client_constructor(monkeypatch: Any)
     assert asyncio.run(agent_tools.write_memory("test", "key", "abc")).startswith("stored")
     assert len(instances) == 2
     assert all(client.closed for client in instances)
+
+
+def test_ralph_cycle_missing_governance_persists_unverified() -> None:
+    """A completed text response without a governance decision is not validated."""
+    class Memory:
+        state: dict[str, Any] = {}
+
+        async def load_history(self) -> list[dict[str, Any]]:
+            return []
+
+        async def append_history(self, _role: str, _content: str) -> None:
+            pass
+
+        async def get_state(self) -> dict[str, Any]:
+            return {}
+
+        async def set_state(self, state: dict[str, Any]) -> None:
+            self.state = state
+
+    class Proxy:
+        async def messages(self, *_args: Any, **_kwargs: Any) -> dict[str, Any]:
+            return {"content": [{"type": "text", "text": "HARMONIZE_COMPLETE"}]}
+
+    memory = Memory()
+    task = coordinator._legacy.AgentTask(
+        task_id="governance-omitted",
+        role=coordinator.AgentRole.ENGINEERING,
+        instruction="test",
+        backend=coordinator._legacy.BackendType.DIRECT,
+    )
+    output, governance = asyncio.run(coordinator._legacy._ralph_cycle(
+        {}, task, memory, Proxy(), 0,
+    ))
+    assert output == "HARMONIZE_COMPLETE"
+    assert governance == {}
+    assert memory.state["last_is_valid"] is False
