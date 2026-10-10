@@ -254,3 +254,79 @@ def test_dispatch_binds_established_repository_knowledge_into_authority_and_task
     }
     assert len(executed) == 1
     assert executed[0].context["repository_knowledge"] == calls[0]["action"]["repository_knowledge"]
+
+
+def test_boolean_only_skill_event_is_not_validated_evidence(tmp_path: Path) -> None:
+    """A caller-supplied success=True must not mint competency by writing JSON."""
+    instance = router(tmp_path, {"code_review": "observed"})
+    before = instance._skill_tree_path.read_bytes()
+    instance.emit_skill_event("code_review", success=True)
+    assert instance._skill_tree_path.read_bytes() == before
+    assert instance._last_mutation_error == "INDEPENDENT_VERIFICATION_REQUIRED"
+
+
+@pytest.mark.parametrize("valid", [True, False])
+def test_self_reported_harmonize_never_mints_skill_or_evolution(
+    tmp_path: Path, monkeypatch: Any, valid: bool,
+) -> None:
+    """Even a live model response must not become proof of ALL agent skills."""
+    monkeypatch.setenv("AEGIS_SWARM_LIVE", "1")
+    role = coordinator.AgentRole.ENGINEERING
+
+    class FakeRedis:
+        async def aclose(self) -> None:
+            pass
+
+    class FakeMemory:
+        def __init__(self, _client: Any, _namespace: str) -> None:
+            pass
+
+        async def increment_task_count(self) -> int:
+            return 1
+
+    class FakeProxy:
+        def __init__(self, *_args: Any, **_kwargs: Any) -> None:
+            pass
+
+        async def aclose(self) -> None:
+            pass
+
+    async def redis_from_url(*_args: Any, **_kwargs: Any) -> FakeRedis:
+        return FakeRedis()
+
+    async def ralph_cycle(*_args: Any, **_kwargs: Any) -> tuple[str, dict[str, bool]]:
+        return "HARMONIZE_COMPLETE all skills verified", {"is_valid": valid}
+
+    class ForbiddenSkillRouter:
+        def emit_skill_event(self, *_args: Any, **_kwargs: Any) -> None:
+            raise AssertionError("model output must not mint validated_runs")
+
+    def forbidden_evolution(*_args: Any, **_kwargs: Any) -> None:
+        raise AssertionError("model output must not promote evolution tiers")
+
+    monkeypatch.setattr(coordinator._legacy.aioredis, "from_url", redis_from_url)
+    monkeypatch.setattr(coordinator._legacy, "AgentMemory", FakeMemory)
+    monkeypatch.setattr(coordinator._legacy, "ProxyClient", FakeProxy)
+    monkeypatch.setattr(coordinator._legacy, "_ralph_cycle", ralph_cycle)
+    monkeypatch.setattr(coordinator._legacy, "_skill_router", ForbiddenSkillRouter())
+    monkeypatch.setattr(coordinator._legacy, "_record_evolution", forbidden_evolution)
+    monkeypatch.setattr(coordinator._legacy, "_load_agent_defs", lambda: {
+        "agents": {
+            role.value: {
+                "memory_namespace": "test-no-telemetry-promotion",
+                "capabilities": ["code_review", "formal_verification"],
+                "evolving": True,
+            },
+        },
+    })
+
+    task = coordinator._legacy.AgentTask(
+        task_id="test-replay-1",
+        role=role,
+        instruction="run independently verifiable tool",
+        max_ralph_cycles=1,
+    )
+    result = asyncio.run(coordinator._legacy.run_agent(task))
+    assert result.governance["is_valid"] is valid
+    assert result.ralph_cycles == 1
+    assert "HARMONIZE_COMPLETE" in result.output
