@@ -10,17 +10,16 @@ from __future__ import annotations
 
 import hashlib
 import json
-import os
 import subprocess
-import time
 from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Any
 
 from agents import coordinator_legacy as _legacy
 from harness.sdk.authority_client import authorize_from_environment
+from harness.sdk.capability_selection import advise_admitted_order
 from harness.sdk.repository_knowledge import build_snapshot, verify_snapshot
-from harness.sdk.skill_routing import ADMITTED, DENIED, SkillRoutingReceipt, record_skill_observation
+from harness.sdk.skill_routing import ADMITTED, DENIED, SkillRoutingReceipt
 
 for _name in dir(_legacy):
     if not _name.startswith("__") and _name not in globals():
@@ -211,26 +210,22 @@ class SkillRouter(_legacy.SkillRouter):
         return self.role_routing_receipt(role, task_instruction, agent_defs).authority_score
 
     def emit_skill_event(self, capability: str, success: bool) -> None:
-        """Record telemetry only; an observation never grants authority by itself."""
-        skill_id = self._capability_map.get(capability)
-        try:
-            tree = json.loads(self._skill_tree_path.read_text(encoding="utf-8"))
-            if skill_id is None:
-                raise ValueError("unmapped capability")
-            observed_at = time.strftime("%Y-%m-%dT%H:%M:%S+00:00", time.gmtime())
-            updated = record_skill_observation(tree, skill_id=skill_id, success=success, observed_at=observed_at, repo_root=self._repo_root)
-            temporary = self._skill_tree_path.with_suffix(".json.tmp")
-            temporary.write_text(json.dumps(updated, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
-            os.replace(temporary, self._skill_tree_path)
-            self._last_mutation_error = None
-        except (OSError, TypeError, ValueError) as exc:
-            self._last_mutation_error = type(exc).__name__
+        """Deny claims of validated skill from unverified completion signals.
+
+        This legacy public method accepts only a caller-supplied boolean. No
+        verifier identity, tool-output commitment or task-bound proof is present.
+        It MUST NOT write to the sealed skill registry. A separately authenticated
+        tool-result ingestion path is required before observed competence can be
+        raised; successful model output is not such a result.
+        """
+        self._last_mutation_error = "INDEPENDENT_VERIFICATION_REQUIRED"
 
 
 _legacy.SkillRouter = SkillRouter
 _skill_router = SkillRouter()
 _legacy._skill_router = _skill_router
 _last_dispatch_receipts: tuple[RoleRoutingReceipt, ...] = ()
+_last_capability_advisory: dict[str, Any] | None = None
 
 
 def _knowledge_denial_receipts(
@@ -255,7 +250,8 @@ def _knowledge_denial_receipts(
 
 
 async def dispatch_event(event_type: str, payload: dict) -> list["AgentResult"]:
-    global _last_dispatch_receipts
+    global _last_dispatch_receipts, _last_capability_advisory
+    _last_capability_advisory = None
     candidate_roles = _legacy.EVENT_ROUTING.get(event_type, [_legacy.AgentRole.ENGINEERING])
 
     knowledge = establish_repository_knowledge(repo_root=_legacy._REPO_ROOT)
@@ -291,7 +287,24 @@ async def dispatch_event(event_type: str, payload: dict) -> list["AgentResult"]:
     ]
     _last_dispatch_receipts = tuple(item[2] for item in indexed)
     admitted = [item for item in indexed if item[2].outcome == ADMITTED]
-    admitted.sort(key=lambda item: (-item[2].authority_score, item[0]))
+    # Advisory optimiser sees ONLY centrally admitted roles. It never grants
+    # operational authority, adds roles or changes the admitted set.
+    order, _last_capability_advisory = advise_admitted_order(
+        [(index, role.value, receipt.authority_score)
+         for index, role, receipt in admitted],
+        task_instruction=instruction_sample,
+        agent_defs=agent_defs,
+        capability_map=definitions.get("capability_skill_map", _legacy.CAPABILITY_SKILL_MAP),
+        registry_path=_skill_router._skill_tree_path,
+        repo_root=_skill_router._repo_root,
+        required_capabilities=(
+            payload["required_capabilities"]
+            if isinstance(payload.get("required_capabilities"), (list, tuple))
+            else ()
+        ),
+    )
+    order_index = {index: position for position, index in enumerate(order)}
+    admitted.sort(key=lambda item: order_index[item[0]])
     results: list[AgentResult] = []
     for _, role, _receipt in admitted:
         task = _legacy.AgentTask(
@@ -313,8 +326,14 @@ def last_dispatch_receipts() -> tuple[dict[str, Any], ...]:
     return tuple(asdict(receipt) for receipt in _last_dispatch_receipts)
 
 
+def last_capability_advisory_receipt() -> dict[str, Any] | None:
+    """Inspectable ordering evidence; NOT an execution authorization receipt."""
+    return dict(_last_capability_advisory) if _last_capability_advisory is not None else None
+
+
 _legacy.dispatch_event = dispatch_event
 _legacy.last_dispatch_receipts = last_dispatch_receipts
+_legacy.last_capability_advisory_receipt = last_capability_advisory_receipt
 
 
 def main() -> None:

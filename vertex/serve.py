@@ -79,7 +79,7 @@ class ChainState:
         self._seq = 0
 
     async def init(self):
-        self.redis = await aioredis.from_url(REDIS_URL, decode_responses=True)
+        self.redis = aioredis.from_url(REDIS_URL, decode_responses=True)
         if ANTHROPIC_API_KEY:
             self.anthropic = anthropic.AsyncAnthropic(api_key=ANTHROPIC_API_KEY)
         # restore sequence from Redis
