@@ -653,7 +653,7 @@ async def _ralph_cycle(
     state = await memory.get_state()
     state["last_task_id"] = task.task_id
     state["last_cycle"] = cycle
-    state["last_is_valid"] = governance.get("is_valid", True)
+    state["last_is_valid"] = governance.get("is_valid") is True
     await memory.set_state(state)
 
     return output_text, governance
