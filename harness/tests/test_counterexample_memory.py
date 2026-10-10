@@ -100,6 +100,27 @@ class CounterexampleLearningTests(unittest.TestCase):
         self.assertEqual(repaired["outcome"], "WITNESS_NOW_PASSES")
         self.assertFalse(repaired["authority_granted"])
 
+    def test_real_foundry_runner_uses_prior_memory_not_just_static_oracle(self):
+        from unittest.mock import patch
+        from harness.sdk.generator.foundry_runner import run_local_contract
+        from harness.sdk.generator import system_foundry
+
+        healthy = run_local_contract(blueprint())
+        self.assertEqual(healthy["outcome"], "LOCAL_TEST_PASS")
+        self.assertEqual(healthy["counterexample_memory"]["status"], "REPLAY_PASS")
+        self.assertEqual(healthy["counterexample_memory"]["applicable"], 1)
+
+        # This source passes the generated smoke tests AND the original
+        # independent static acceptance oracle, yet violates prior memory.
+        with patch("harness.sdk.generator.system_foundry._SOURCE", hidden_fault()):
+            regression = run_local_contract(blueprint())
+        self.assertEqual(regression["test_count"], 3)
+        self.assertEqual(regression["exit_code"], 0)
+        self.assertEqual(regression["independent_oracle"]["outcome"], "ORACLE_PASS")
+        self.assertEqual(regression["counterexample_memory"]["status"], "REGRESSION_PRESENT")
+        self.assertEqual(regression["outcome"], "LOCAL_TEST_FAIL")
+        self.assertEqual(regression["admission"], "NOT_ADMITTED")
+
     def test_witness_tampering_and_spec_swap_denied(self):
         bp = blueprint()
         witness = discover(bp, hidden_fault(), seed=12345, budget=120)
