@@ -1,0 +1,66 @@
+name: RH Ten Block Rational SOS Preflight V1
+
+on:
+  push:
+    branches:
+      - 'research/rh-ten-block-sos-preflight-v1'
+    paths:
+      - 'research/rh/RH_TEN_BLOCK_SOS_PREFLIGHT_V1.md'
+      - 'research/rh/ten_block_sos_preflight_v1.py'
+      - '.github/workflows/rh-ten-block-sos-preflight-v1.yml'
+  pull_request:
+    paths:
+      - 'research/rh/RH_TEN_BLOCK_SOS_PREFLIGHT_V1.md'
+      - 'research/rh/ten_block_sos_preflight_v1.py'
+      - '.github/workflows/rh-ten-block-sos-preflight-v1.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    name: exact-rational ten-block SOS preflight
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Checkout exact candidate
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+
+      - name: Run exact Fraction certificate
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p evidence
+          python3 research/rh/ten_block_sos_preflight_v1.py | tee evidence/ten-block-sos.txt
+          grep -Fx 'TEN_BLOCK_RATIONAL_SOS=PASS' evidence/ten-block-sos.txt
+          grep -Fx 'CANDIDATE_MARGIN=3591/3200' evidence/ten-block-sos.txt
+          grep -Fx 'ACTUAL_TEN_PACKET_BINDING=NOT_PROVEN' evidence/ten-block-sos.txt
+          grep -Fx 'RH=NOT_PROVEN' evidence/ten-block-sos.txt
+          grep -Fx 'AUTHORITY_EFFECT=NONE' evidence/ten-block-sos.txt
+
+      - name: Emit bounded disposition
+        shell: bash
+        run: |
+          cat > evidence/DISPOSITION.txt <<EOF
+          SOURCE_SHA=${{ github.event.pull_request.head.sha || github.sha }}
+          PARENT_GAP9_HEAD=414a0120517fa3ae3354a31780c09e03a7fa5ff1
+          DIAGONAL=5671/3200
+          GAPS_1_8=1/100
+          GAP_9=57/100
+          SOS_MARGIN=3591/3200
+          ACTUAL_TEN_PACKET_BINDING=NOT_PROVEN
+          UNIVERSAL_FINAL_SIGN=NOT_PROVEN
+          RH=NOT_PROVEN
+          AUTHORITY_EFFECT=NONE
+          EOF
+
+      - name: Upload preflight evidence
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: rh-ten-block-sos-preflight-${{ github.event.pull_request.head.sha || github.sha }}
+          path: evidence/
+          if-no-files-found: error
+          retention-days: 30

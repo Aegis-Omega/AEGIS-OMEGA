@@ -6,6 +6,9 @@
   "observability": {
     "enabled": true
   },
+  "build": {
+    "command": "bash scripts/cloudflare-lean-replay.sh"
+  },
   "assets": {
     "directory": "aegisomega-webgpu",
     "binding": "ASSETS"

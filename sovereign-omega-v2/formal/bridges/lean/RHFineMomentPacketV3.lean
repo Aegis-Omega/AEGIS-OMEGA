@@ -121,7 +121,7 @@ def gFine : WeilCompactSmoothGV1 :=
 theorem gFine_moments_v3 : WeilMomentConditionsV1 gFine := by
   constructor
   · have hreal : ∫ x in Ioi (0 : ℝ), x⁻¹ * fineRealPacket x = 0 := by
-      unfold fineRealPacket
+      change ∫ x in Ioi (0 : ℝ), x⁻¹ * mulPacket phiFine x = 0
       rw [integral_mulPacket_inv phiFine_contDiff_v3.continuous
         phiFine_vanishes_below_v3 phiFine_vanishes_above_v3]
       exact phiFine_moments_v3.1
@@ -130,12 +130,14 @@ theorem gFine_moments_v3 : WeilMomentConditionsV1 gFine := by
       rw [← integral_complex_ofReal]
       apply setIntegral_congr_fun measurableSet_Ioi
       intro x hx
-      show (fineRealPacket x : ℂ) / (x : ℂ) = ((x⁻¹ * fineRealPacket x : ℝ) : ℂ)
-      push_cast
-      rw [div_eq_inv_mul]
+      change finePacketFn x / (x : ℂ) =
+        ((x⁻¹ * fineRealPacket x : ℝ) : ℂ)
+      unfold finePacketFn
+      rw [Complex.ofReal_mul, Complex.ofReal_inv]
+      ring
     rw [hcast, hreal, Complex.ofReal_zero]
   · have hreal : ∫ x in Ioi (0 : ℝ), fineRealPacket x = 0 := by
-      unfold fineRealPacket
+      change ∫ x in Ioi (0 : ℝ), mulPacket phiFine x = 0
       rw [integral_mulPacket phiFine_contDiff_v3.continuous
         phiFine_vanishes_below_v3 phiFine_vanishes_above_v3]
       exact phiFine_moments_v3.2
@@ -158,8 +160,9 @@ theorem gFine_ne_zero_v3 : gFine.1 ≠ 0 := by
 
 theorem logLift_gFine_apply_v3 (t : ℝ) :
     logLift gFine.1 t = (Real.exp (t / 2) : ℂ) * (phiFine t : ℂ) := by
-  show (Real.exp (t / 2) : ℂ) * (fineRealPacket (Real.exp t) : ℂ) = _
-  unfold fineRealPacket
+  change (Real.exp (t / 2) : ℂ) * finePacketFn (Real.exp t) =
+    (Real.exp (t / 2) : ℂ) * (phiFine t : ℂ)
+  unfold finePacketFn fineRealPacket
   rw [mulPacket_of_pos (Real.exp_pos t), Real.log_exp]
 
 theorem gFine_width_v3 : WidthOneSixtyFourAt gFine 0 := by
