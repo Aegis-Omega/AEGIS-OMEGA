@@ -5,6 +5,15 @@ on:
       - 'sovereign-omega-v2/python/gate.py'
       - 'sovereign-omega-v2/python/dna.py'
       - 'sovereign-omega-v2/python/router.py'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'sovereign-omega-v2/python/gate.py'
+      - 'sovereign-omega-v2/python/dna.py'
+      - 'sovereign-omega-v2/python/router.py'
+
+permissions:
+  contents: read
 
 jobs:
   verify-hashes:
