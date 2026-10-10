@@ -2,8 +2,8 @@
 -- No production schema change occurs until this migration is independently
 -- reviewed and explicitly deployed by the authorized operator.
 --
--- Each receipt is only a SHA-256 digest of an authenticated Slack event ID,
--- bound to the agent invoke secret. No task text, person, Slack token or
+-- Each receipt is only a domain-separated SHA-256 digest of an authenticated
+-- Slack event ID, stable across invoke-token rotation. No task text, person, Slack token or
 -- provider response is stored. The unique primary key is the concurrency gate.
 -- A CLAIMED dispatch cannot be re-executed automatically, even after an
 -- ambiguous timeout: retries could double-charge an API call.
