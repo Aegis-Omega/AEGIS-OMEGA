@@ -108,6 +108,57 @@ def run_local_contract(
                 stderr = stderr.decode("utf-8", "replace")
             timed_out = True
 
+    # The generated application's self-tests are not an acceptance oracle.
+    # Run source-controlled acceptance logic from OUTSIDE generated artifacts.
+    oracle_source = Path(__file__).resolve().with_name("independent_oracle.py")
+    oracle_source_digest = hashlib.sha256(oracle_source.read_bytes()).hexdigest()
+    oracle_result: dict[str, Any] = {}
+    oracle_exit: int | None = None
+    oracle_stdout = ""
+    oracle_stderr = ""
+    oracle_timeout = False
+    with tempfile.TemporaryDirectory(prefix="aegis-foundry-oracle-") as tmp:
+        oracle_root = Path(tmp)
+        _write_artifacts(artifacts, oracle_root)
+        blueprint_path = oracle_root / "blueprint.json"
+        blueprint_path.write_bytes(_canonical(blueprint))
+        try:
+            oracle_proc = subprocess.run(
+                [sys.executable, "-I", "-S", "-B", str(oracle_source),
+                 str(blueprint_path), str(oracle_root / "service.py")],
+                cwd=oracle_root,
+                env={"PYTHONDONTWRITEBYTECODE": "1", "PYTHONNOUSERSITE": "1"},
+                capture_output=True,
+                text=True,
+                timeout=timeout_seconds,
+                check=False,
+                encoding="utf-8",
+                errors="replace",
+            )
+            oracle_exit = oracle_proc.returncode
+            oracle_stdout = oracle_proc.stdout[:_MAX_OUTPUT]
+            oracle_stderr = oracle_proc.stderr[:_MAX_OUTPUT]
+            try:
+                oracle_result = json.loads(oracle_stdout)
+            except (ValueError, TypeError):
+                oracle_result = {}
+        except subprocess.TimeoutExpired:
+            oracle_timeout = True
+
+    oracle_expected_sha = hashlib.sha256(
+        next(a.content.encode("utf-8") for a in artifacts if a.path == "service.py")
+    ).hexdigest()
+    oracle_pass = bool(
+        oracle_exit == 0
+        and oracle_result.get("outcome") == "ORACLE_PASS"
+        and oracle_result.get("service_sha256") == oracle_expected_sha
+        and oracle_result.get("blueprint_sha256") == hashlib.sha256(_canonical(blueprint)).hexdigest()
+        and type(oracle_result.get("total")) is int
+        and oracle_result["total"] >= len(blueprint["routes"]) + 6
+        and oracle_result.get("passed") == oracle_result["total"]
+        and oracle_result.get("admission") == "NOT_ADMITTED"
+        and oracle_result.get("authority_granted") is False
+    )
     match = _RAN.search(stderr)
     tests_run = int(match.group(1)) if match else 0
     # Wall-clock durations and temporary directory names are observations,
@@ -119,7 +170,11 @@ def run_local_contract(
     )
     # unittest outputs an independent completed OK line. This is not
     # cryptographic evidence, so admission remains NOT_ADMITTED even on PASS.
-    passed = rc == 0 and tests_run >= 3 and re.search(r"(?m)^OK$", stderr) is not None
+    passed = bool(
+        rc == 0 and not timed_out and tests_run >= 3
+        and re.search(r"(?m)^OK$", stderr) is not None
+        and oracle_pass and not oracle_timeout
+    )
     body: dict[str, Any] = {
         "schema_version": "1.0.0",
         "receipt_kind": KIND,
@@ -130,6 +185,17 @@ def run_local_contract(
         "outcome": "LOCAL_TEST_PASS" if passed else "LOCAL_TEST_FAIL",
         "test_count": tests_run,
         "exit_code": rc,
+        "independent_oracle": {
+            "source_sha256": oracle_source_digest,
+            "report_sha256": hashlib.sha256(
+                _canonical(oracle_result) if oracle_result else b""
+            ).hexdigest(),
+            "test_count": oracle_result.get("total", 0),
+            "passed_count": oracle_result.get("passed", 0),
+            "outcome": "ORACLE_PASS" if oracle_pass else "ORACLE_FAIL",
+            "exit_code": oracle_exit,
+            "timed_out": oracle_timeout,
+        },
         "timed_out": timed_out,
         "stdout_sha256": hashlib.sha256(stdout.encode("utf-8")).hexdigest(),
         "stderr_sha256": hashlib.sha256(normalized_stderr.encode("utf-8")).hexdigest(),
