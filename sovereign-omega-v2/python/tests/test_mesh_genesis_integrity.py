@@ -134,3 +134,65 @@ def test_missing_or_duplicate_artifact_paths_fail(tmp_path):
         tmp_path, contract_hashes=expected, artifacts_override=dup,
     ).genesis_seal_verified is False
     assert evaluate(tmp_path, contract_hashes=expected, artifacts_override=None).genesis_seal_verified is False
+
+
+def test_playwright_stub_must_not_fabricate_executed_tests():
+    result = mesh.PlaywrightMCP().run_tests([{"file_path": "src/main.py", "content": "x"}])
+    assert result["tests_run"] == 0
+    assert result["tests_passed"] == 0
+    assert result["coverage"] == 0.0
+    assert result["execution_verified"] is False
+    assert "PLAYWRIGHT_MCP_NOT_CONFIGURED" in result["errors"]
+
+
+def test_unattested_perfect_scores_are_denied():
+    """False PASS previously possible with fake tests_passed/coverage."""
+    emitter = mesh.VerdictEmitter()
+    verdict, reasons = emitter.determine_verdict(
+        genesis_verified=True,
+        nla_findings=[],
+        playwright_results={
+            "tests_run": 100, "tests_passed": 100, "tests_failed": 0,
+            "coverage": 1.0, "execution_verified": False,
+        },
+        alignment_scores={
+            "truth_over_flow": True,
+            "mechanism_over_metaphor": True,
+            "feasibility_as_constraint": True,
+            "adversarial_self_correction": True,
+        },
+        score=1.0,
+    )
+    assert verdict is mesh.Verdict.REJECT_REROLL
+    assert "NO_INDEPENDENT_BROWSER_EXECUTION_EVIDENCE" in reasons
+
+
+def test_bound_digest_without_browser_execution_still_rejected(tmp_path):
+    """Output bytes match a manifest; this does NOT prove a working app."""
+    expected = {"src/main.py": digest("legitimate output")}
+    result = evaluate(tmp_path, contract_hashes=expected)
+    assert result.genesis_seal_verified is True
+    # The existing test harness injects an unverified optimistic result.
+    assert result.verdict is mesh.Verdict.REJECT_REROLL
+
+
+def test_no_synthetic_pass_with_default_playwright(tmp_path):
+    """No monkeypatched browser runner; prove production code path denies."""
+    directive = "implement"
+    contract = {
+        "sprint_id": "no-run",
+        "directive": directive,
+        "nuqta_seal": digest(directive),
+        "artifact_sha256": {"x.py": digest("print('ok')")},
+    }
+    result = {"artifacts": [{"file_path": "x.py", "content": "print('ok')"}], "documentation": ""}
+    cpath = tmp_path / "contract.json"
+    rpath = tmp_path / "result.json"
+    config = tmp_path / "config.json"
+    cpath.write_text(json.dumps(contract))
+    rpath.write_text(json.dumps(result))
+    config.write_text(json.dumps({"state_dir": str(tmp_path / "state")}))
+    actual = mesh.EvaluatorNode(str(config)).evaluate_sprint(str(rpath), str(cpath))
+    assert actual.genesis_seal_verified is True
+    assert actual.playwright_results["tests_run"] == 0
+    assert actual.verdict is mesh.Verdict.REJECT_REROLL
