@@ -17,8 +17,8 @@ function edge(path,env={},transport=()=>{throw Error('UNEXPECTED_NETWORK')}) {
   assert.equal(typeof handler,'function')
   return handler
 }
-async function signed(text,secret,time=String(Math.floor(Date.now()/1000))){
-  const body=new URLSearchParams({text,channel_id:'C123',user_id:'U_OPERATOR'}).toString()
+async function signed(text,secret,time=String(Math.floor(Date.now()/1000)),channel='C123'){
+  const body=new URLSearchParams({text,channel_id:channel,user_id:'U_OPERATOR'}).toString()
   const key=await webcrypto.subtle.importKey('raw',new TextEncoder().encode(secret),{name:'HMAC',hash:'SHA-256'},false,['sign'])
   const mac=await webcrypto.subtle.sign('HMAC',key,new TextEncoder().encode('v0:'+time+':'+body))
   return new Request('https://host/functions/v1/slack-events',{method:'POST',headers:{'content-type':'application/x-www-form-urlencoded','x-slack-request-timestamp':time,'x-slack-signature':'v0='+Buffer.from(mac).toString('hex')},body})
@@ -49,15 +49,42 @@ test('Slack missing signing secret or unauthorized user cannot dispatch',async()
 })
 test('signed allowlisted Slack event passes dedicated capability, not NOTIFY_SECRET',async()=>{
   const secret='S',capability='A'.repeat(48),requests=[]
-  const h=edge('supabase/functions/slack-events/index.ts',{SLACK_SIGNING_SECRET:secret,AEGIS_AGENT_INVOKE_SECRET:capability,AEGIS_SLACK_ALLOWED_USER_IDS:'U_OPERATOR'},async(url,options)=>{
+  const h=edge('supabase/functions/slack-events/index.ts',{SLACK_SIGNING_SECRET:secret,AEGIS_AGENT_INVOKE_SECRET:capability,AEGIS_SLACK_ALLOWED_USER_IDS:'U_OPERATOR',AEGIS_SLACK_ALLOWED_CHANNEL_IDS:'C123'},async(url,options)=>{
     requests.push({url,options})
     return new Response(JSON.stringify({result:'mock only'}),{status:200})
   })
-  assert.equal((await h(await signed('test',secret))).status,200)
+  const ack=await h(await signed('a sensitive task with private customer data',secret))
+  assert.equal(ack.status,200)
+  const ackBody=await ack.json()
+  assert.equal(ackBody.response_type,'ephemeral')
+  assert.equal(JSON.stringify(ackBody).includes('private customer data'),false)
   await new Promise(r=>setTimeout(r,20))
   assert.equal(requests.length,1)
   assert.equal(requests[0].options.headers['x-aegis-agent-secret'],capability)
   assert.equal(requests[0].options.headers['x-notify-secret'],undefined)
+})
+test('allowed Slack user cannot dispatch to an unapproved channel',async()=>{
+  let calls=0
+  const h=edge('supabase/functions/slack-events/index.ts',{
+    SLACK_SIGNING_SECRET:'S',
+    AEGIS_AGENT_INVOKE_SECRET:'A'.repeat(48),
+    AEGIS_SLACK_ALLOWED_USER_IDS:'U_OPERATOR',
+    AEGIS_SLACK_ALLOWED_CHANNEL_IDS:'C_PRIVATE',
+  },()=>{calls++;throw Error('UNAUTHORIZED_NETWORK')})
+  const r=await h(await signed('show customer emails','S',undefined,'C123'))
+  assert.equal(r.status,403)
+  assert.equal(calls,0)
+})
+test('Slack channel must be configured (fail closed)',async()=>{
+  let calls=0
+  const h=edge('supabase/functions/slack-events/index.ts',{
+    SLACK_SIGNING_SECRET:'S',
+    AEGIS_AGENT_INVOKE_SECRET:'A'.repeat(48),
+    AEGIS_SLACK_ALLOWED_USER_IDS:'U_OPERATOR',
+  },()=>{calls++;throw Error('UNEXPECTED_NETWORK')})
+  const r=await h(await signed('show customer emails','S'))
+  assert.equal(r.status,403)
+  assert.equal(calls,0)
 })
 test('bridge refuses synthetic attestation',async()=>{
   const h=edge('supabase/functions/bridge/index.ts')
