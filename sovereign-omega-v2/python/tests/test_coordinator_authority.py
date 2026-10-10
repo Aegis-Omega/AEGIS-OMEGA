@@ -291,7 +291,8 @@ def test_self_reported_harmonize_never_mints_skill_or_evolution(
         async def aclose(self) -> None:
             pass
 
-    async def redis_from_url(*_args: Any, **_kwargs: Any) -> FakeRedis:
+    def redis_from_url(*_args: Any, **_kwargs: Any) -> FakeRedis:
+        """redis.asyncio.from_url is a synchronous constructor, not a coroutine."""
         return FakeRedis()
 
     async def ralph_cycle(*_args: Any, **_kwargs: Any) -> tuple[str, dict[str, bool]]:
@@ -330,3 +331,25 @@ def test_self_reported_harmonize_never_mints_skill_or_evolution(
     assert result.governance["is_valid"] is valid
     assert result.ralph_cycles == 1
     assert "HARMONIZE_COMPLETE" in result.output
+
+
+def test_async_redis_client_construction_is_not_awaited_in_runtime() -> None:
+    """Regression for redis-py from_url() returning a client synchronously."""
+    import ast
+
+    for relative in ("agents/coordinator_legacy.py", "agents/tools.py", "vertex/serve.py"):
+        source = (REPO_ROOT / relative).read_text(encoding="utf-8")
+        tree = ast.parse(source, filename=relative)
+        offenders = []
+        for parent in ast.walk(tree):
+            if not isinstance(parent, ast.Await):
+                continue
+            call = parent.value
+            if not isinstance(call, ast.Call):
+                continue
+            attr = call.func
+            if not isinstance(attr, ast.Attribute) or attr.attr != "from_url":
+                continue
+            if isinstance(attr.value, ast.Name) and attr.value.id == "aioredis":
+                offenders.append(parent.lineno)
+        assert not offenders, f"{relative}: awaited synchronous from_url on {offenders}"
