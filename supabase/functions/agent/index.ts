@@ -1,7 +1,7 @@
 // AEGIS-Ω autonomous agent endpoint — Claude API with tools
 // Deploy: supabase functions deploy agent --no-verify-jwt
 // Env vars: ANTHROPIC_API_KEY, NOTIFY_SECRET, SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, AEGIS_AGENT_INVOKE_SECRET
-// Accepts: { task: string, context?: string, notify?: boolean }
+// Accepts: { task: string, dispatch_id: string, context?: string, notify?: boolean }
 // Returns: { result: string, actions: string[] }
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { CORS } from '../_shared/cors.ts'
@@ -166,9 +166,53 @@ Deno.serve(async (req) => {
     return new Response(JSON.stringify({ error: 'ANTHROPIC_API_KEY not configured' }), { status: 503, headers: CORS })
   }
 
-  const { task, context, notify } = await req.json() as { task?: string; context?: string; notify?: boolean }
-  if (!task) {
-    return new Response(JSON.stringify({ error: 'task is required' }), { status: 400, headers: CORS })
+  // This is a privileged and paid tool surface. A stable, signed-Slack-sourced
+  // event ID is mandatory; a caller may not invent a retryable execution.
+  let payload: unknown
+  try {
+    payload = await req.json()
+  } catch {
+    return new Response(JSON.stringify({ error: 'INVALID_JSON' }), { status: 400, headers: CORS })
+  }
+  if (!payload || typeof payload !== 'object' || Array.isArray(payload)) {
+    return new Response(JSON.stringify({ error: 'INVALID_INPUT' }), { status: 400, headers: CORS })
+  }
+  const { task, context, notify, dispatch_id } = payload as {
+    task?: unknown; context?: unknown; notify?: unknown; dispatch_id?: unknown
+  }
+  if (typeof task !== 'string' || !task.trim() || task.length > 4000 ||
+      (context !== undefined && (typeof context !== 'string' || context.length > 6000)) ||
+      typeof dispatch_id !== 'string' ||
+      !/^slack:(slash|event):[a-zA-Z0-9_.:-]{5,180}$/.test(dispatch_id)) {
+    return new Response(JSON.stringify({ error: 'INVALID_DISPATCH' }), { status: 400, headers: CORS })
+  }
+  if (!SUPABASE_URL || !SERVICE_KEY) {
+    return new Response(JSON.stringify({ error: 'DISPATCH_STORE_NOT_CONFIGURED' }), {
+      status: 503, headers: CORS,
+    })
+  }
+
+  // A UNIQUE insert is an atomic, durable cross-isolate claim. A verified
+  // signature and allowed Slack user alone do not prevent replay within 300s.
+  // Reserve BEFORE any model/API call; failures are denied (not assumed safe).
+  const encoder = new TextEncoder()
+  const bytes = await crypto.subtle.digest(
+    'SHA-256', encoder.encode('AEGIS_AGENT_DISPATCH_V1\\0' + invokeSecret + '\\0' + dispatch_id),
+  )
+  const event_digest = Array.from(new Uint8Array(bytes))
+    .map(b => b.toString(16).padStart(2, '0')).join('')
+  const store = createClient(SUPABASE_URL, SERVICE_KEY)
+  const { error: claimError } = await store.from('aegis_agent_dispatch_claims_v1')
+    .insert({ event_digest })
+  if (claimError) {
+    if (claimError.code === '23505') {
+      return new Response(JSON.stringify({ error: 'DUPLICATE_DISPATCH' }), {
+        status: 409, headers: CORS,
+      })
+    }
+    return new Response(JSON.stringify({ error: 'DISPATCH_CLAIM_UNAVAILABLE' }), {
+      status: 503, headers: CORS,
+    })
   }
 
   try {
