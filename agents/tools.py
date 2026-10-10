@@ -351,7 +351,7 @@ async def search_github(
 async def read_memory(namespace: str, key: str) -> str:
     """Read from Redis KV. Returns empty string if not set."""
     try:
-        redis = await aioredis.from_url(REDIS_URL, decode_responses=True)
+        redis = aioredis.from_url(REDIS_URL, decode_responses=True)
         val = await redis.get(f"aegis:agent:{namespace}:{key}")
         await redis.aclose()
         return val or ""
@@ -364,7 +364,7 @@ async def write_memory(namespace: str, key: str, value: str) -> str:
     if len(value) > 65536:
         value = value[:65536]
     try:
-        redis = await aioredis.from_url(REDIS_URL, decode_responses=True)
+        redis = aioredis.from_url(REDIS_URL, decode_responses=True)
         await redis.set(f"aegis:agent:{namespace}:{key}", value, ex=_MEMORY_TTL)
         await redis.aclose()
         return f"stored '{key}' ({len(value)} bytes, TTL 7d)"
