@@ -39,6 +39,34 @@ def git_dir():
     return sh("git", "rev-parse", "--absolute-git-dir").strip() or ".git"
 
 
+def verify_main_freshness(quick=False):
+    """Prove that FETCH_HEAD and origin/main refer to the same fetched SHA.
+
+    A successful command's empty stdout is not a fetch receipt. Failure,
+    timeout, local-only and divergence are never equivalent to FRESH.
+    """
+    if quick:
+        return {"state": "UNVERIFIED_QUICK", "sha": None}
+    try:
+        result = subprocess.run(
+            ["git", "fetch", "-q", "origin", "main"],
+            capture_output=True, text=True, timeout=20,
+        )
+    except (OSError, subprocess.TimeoutExpired):
+        return {"state": "FETCH_FAILED", "sha": None}
+    if result.returncode != 0:
+        return {"state": "FETCH_FAILED", "sha": None}
+    remote = sh("git", "rev-parse", "FETCH_HEAD").strip()
+    local = sh("git", "rev-parse", "refs/remotes/origin/main").strip()
+    if not (re.fullmatch(r"[0-9a-f]{40}", remote)
+            and re.fullmatch(r"[0-9a-f]{40}", local)):
+        return {"state": "REF_UNVERIFIED", "sha": None}
+    if remote != local:
+        return {"state": "REF_DIVERGED", "sha": None}
+    return {"state": "FRESH", "sha": remote}
+
+
+
 def _valid_pr_record(p):
     return (isinstance(p, dict) and type(p.get("n")) is int and p["n"] > 0
             and isinstance(p.get("t"), str) and isinstance(p.get("h"), str) and bool(p["h"])
@@ -235,8 +263,7 @@ def main():
     quick = "--quick" in sys.argv
     args = [a for a in sys.argv[1:] if a not in ("--json", "--quick")]
     query = " ".join(args)
-    if not quick:
-        sh("git", "fetch", "-q", "origin", "main", timeout=20)
+    main_receipt = verify_main_freshness(quick=quick)
     sha, _, date = sh("git", "log", "-1", "--format=%h %cs", "origin/main").strip().partition(" ")
     age = sh("git", "log", "-1", "--format=%ct", "origin/main").strip()
     age_days = int((time.time() - int(age)) / 86400) if age else None
@@ -249,12 +276,15 @@ def main():
     hits = overlaps(prs, query)
     issue_hits = relevant_issues(issues, query)
     disposition = holon_disposition(source, issue_source, hits, issue_hits)
+    if main_receipt["state"] != "FRESH":
+        disposition = "HOLD_UNVERIFIED_MAIN"
     p0 = [issue for issue in issues if "p0" in issue["labels"]]
     code = existing_code(query) if query and not quick else []
 
     if "--json" in sys.argv:
         print(json.dumps({"main": sha, "main_date": date, "main_age_days": age_days,
                           "branch": branch, "behind_main": behind,
+                          "main_freshness": main_receipt,
                           "open": len(prs) if source in ("github", "cache") else None,
                           "stacked": len(stacked) if source in ("github", "cache") else None,
                           "source": source, "ci_billing_locked": locked,
@@ -274,6 +304,8 @@ def main():
     kind = "open PRs" if source in ("github", "cache") else "remote branches (not a complete PR list)"
     lines = [f"AEGIS REPO STATE (measured now, not from docs)",
              f"- main = {sha} from {date} ({age_days} days old). You are on '{branch}', {behind} behind main."]
+    lines.append(f"- Fetched main: {main_receipt['state']} "
+                 f"({main_receipt['sha'] or 'SHA UNVERIFIED'}). Local origin/main is not a trusted remote fact otherwise.")
     if quick:
         lines.append("- QUICK: bounded 4s issue lookup; PRs only from fresh cache; run full preflight before editing.")
     if source in ("github", "cache"):
