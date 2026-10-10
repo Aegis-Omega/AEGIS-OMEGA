@@ -1,6 +1,6 @@
 // AEGIS-Ω Slack event handler — slash commands + app mentions → autonomous agent
 // Deploy: supabase functions deploy slack-events --no-verify-jwt
-// Env vars: SLACK_SIGNING_SECRET, SLACK_BOT_TOKEN, SUPABASE_URL, NOTIFY_SECRET, AEGIS_AGENT_INVOKE_SECRET
+// Env vars: SLACK_SIGNING_SECRET, SLACK_BOT_TOKEN, SUPABASE_URL, NOTIFY_SECRET, AEGIS_AGENT_INVOKE_SECRET, AEGIS_SLACK_ALLOWED_USER_IDS
 //
 // Slack app setup (api.slack.com/apps):
 //   1. Incoming Webhooks → ON → install to #aegis-alerts → copy URL → SLACK_WEBHOOK_URL secret
@@ -15,6 +15,12 @@ const SLACK_BOT_TOKEN      = Deno.env.get('SLACK_BOT_TOKEN') ?? ''
 const SUPABASE_URL         = Deno.env.get('SUPABASE_URL') ?? ''
 const NOTIFY_SECRET        = Deno.env.get('NOTIFY_SECRET') ?? ''
 const AGENT_INVOKE_SECRET  = Deno.env.get('AEGIS_AGENT_INVOKE_SECRET') ?? ''
+// An authenticated Slack workspace event does not authenticate its author as
+// AEGIS operator. Reject all execution when the explicit allowlist is absent.
+const ALLOWED_SLACK_USERS = new Set(
+  (Deno.env.get('AEGIS_SLACK_ALLOWED_USER_IDS') ?? '')
+    .split(',').map(x => x.trim()).filter(Boolean),
+)
 
 const CORS = {
   'Access-Control-Allow-Origin': '*',
@@ -86,6 +92,10 @@ Deno.serve(async (req) => {
     const task    = params.get('text')?.trim() ?? ''
     const channel = params.get('channel_id') ?? ''
     const user    = params.get('user_name') ?? 'unknown'
+    const userId  = params.get('user_id') ?? ''
+    if (!userId || !ALLOWED_SLACK_USERS.has(userId)) {
+      return new Response('Operator not authorized', { status: 403 })
+    }
     const ts      = params.get('message_ts') ?? undefined
 
     if (!task) {
@@ -127,6 +137,10 @@ Deno.serve(async (req) => {
 
     // App mention: @AEGIS-Ω <task>
     if (event.event?.type === 'app_mention') {
+      const userId = event.event.user ?? ''
+      if (!userId || !ALLOWED_SLACK_USERS.has(userId)) {
+        return new Response('Operator not authorized', { status: 403 })
+      }
       const text    = (event.event.text ?? '').replace(/<@[A-Z0-9]+>/g, '').trim()
       const channel = event.event.channel
       const ts      = event.event.ts
