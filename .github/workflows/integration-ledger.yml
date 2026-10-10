@@ -32,6 +32,13 @@ jobs:
       - name: Run generator regression tests
         run: python3 scripts/test_integration_ledger.py
 
+      - name: Falsify synthetic System Foundry receipts
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m py_compile harness/sdk/generator/__init__.py harness/sdk/evaluator/__init__.py
+          python3 -m unittest discover -s harness/tests -p test_system_foundry_evidence.py -v
+
       - name: Generate commit-bound Markdown and JSON
         shell: bash
         run: |
