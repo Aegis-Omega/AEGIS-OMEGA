@@ -185,6 +185,36 @@ test('same signed event dispatch gets one and only one paid inference',async()=>
   assert.deepEqual(tableNames,['aegis_agent_dispatch_claims_v1','aegis_agent_dispatch_claims_v1'])
   assert.equal(digests[0],digests[1])
 })
+test('token rotation cannot turn the same Slack event into a fresh paid dispatch',async()=>{
+  const seen=new Set()
+  let paid=0
+  const config={
+    ANTHROPIC_API_KEY:'dummy',SUPABASE_URL:'https://mock.invalid',
+    SUPABASE_SERVICE_ROLE_KEY:'mock-service-key',
+  }
+  const db=()=>({from:()=>({insert:async({event_digest})=>{
+    if(seen.has(event_digest))return {error:{code:'23505'}}
+    seen.add(event_digest)
+    return {error:null}
+  }})})
+  const model=async()=>{
+    paid++
+    return Response.json({stop_reason:'end_turn',content:[{type:'text',text:'MOCK'}]})
+  }
+  const a=edge('supabase/functions/agent/index.ts',{
+    ...config,AEGIS_AGENT_INVOKE_SECRET:'A'.repeat(48),
+  },model,true,db)
+  const b=edge('supabase/functions/agent/index.ts',{
+    ...config,AEGIS_AGENT_INVOKE_SECRET:'B'.repeat(48),
+  },model,true,db)
+  const req=(token)=>new Request('https://host/agent',{method:'POST',
+    headers:{'x-aegis-agent-secret':token},
+    body:JSON.stringify({task:'inspect',dispatch_id:'slack:event:Ev0123456789'})})
+  assert.equal((await a(req('A'.repeat(48)))).status,200)
+  assert.equal((await b(req('B'.repeat(48)))).status,409)
+  assert.equal(seen.size,1)
+  assert.equal(paid,1)
+})
 test('failed atomic dispatch reservation denies paid inference',async()=>{
   let paid=0
   const env={AEGIS_AGENT_INVOKE_SECRET:'A'.repeat(48),ANTHROPIC_API_KEY:'dummy',
