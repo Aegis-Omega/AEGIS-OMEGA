@@ -32,6 +32,28 @@ jobs:
       - name: Run generator regression tests
         run: python3 scripts/test_integration_ledger.py
 
+      - name: Falsify synthetic System Foundry receipts
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m py_compile \
+            harness/sdk/generator/__init__.py \
+            harness/sdk/generator/system_foundry.py \
+            harness/sdk/generator/foundry_runner.py \
+            harness/sdk/generator/independent_oracle.py \
+            harness/sdk/generator/oracle_mutation.py \
+            harness/sdk/generator/counterexample_memory.py \
+            harness/sdk/evaluator/__init__.py
+          python3 -m py_compile harness/sdk/planner/__init__.py harness/sdk/skill_routing.py agents/coordinator.py agents/evolution.py
+          python3 -m py_compile harness/sdk/research/rh_frontier.py
+          python3 -m unittest discover -s harness/tests -p 'test_*foundry*.py' -v
+          python3 -m unittest discover -s harness/tests -p 'test_planner_proof_contract.py' -v
+          python3 -m unittest discover -s harness/tests -p 'test_autonomous_capability_growth.py' -v
+          python3 -m agents.evolution selftest
+          python3 -m unittest discover -s harness/tests -p 'test_oracle_mutation.py' -v
+          python3 -m unittest discover -s harness/tests -p 'test_rh_frontier_synthesis.py' -v
+          python3 -m unittest discover -s harness/tests -p 'test_counterexample_memory.py' -v
+
       - name: Generate commit-bound Markdown and JSON
         shell: bash
         run: |

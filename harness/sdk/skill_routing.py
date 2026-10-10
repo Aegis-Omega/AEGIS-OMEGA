@@ -135,6 +135,12 @@ def decide_skill_routing(
             reasons.append("INSUFFICIENT_VALIDATED_RUNS")
 
     score = safe_competency_score(skill, minimum_runs=minimum_runs)
+    # `safe_competency_score` is a metric over mutable registry fields,
+    # NOT proof that an independent run actually happened. Until an external
+    # attestation verifier is implemented, no positive routing may arise
+    # from mutable JSON counters, even if a caller re-hashes the registry.
+    if score > 0.0:
+        reasons.append("INDEPENDENT_RUN_ATTESTATION_NOT_VERIFIED")
     if score <= 0.0:
         reasons.append("ZERO_AUTHORITY")
 
@@ -164,76 +170,57 @@ def decide_skill_routing(
 
 
 def record_skill_observation(
-    registry: Mapping[str, Any],
-    *,
+    registry: Mapping[str, Any], *,
     skill_id: str,
     success: bool,
     observed_at: str,
     repo_root: str | Path,
 ) -> dict[str, Any]:
-    """Return a root-consistent registry with one empirical observation added.
+    """REJECT unattested, actor-supplied event promotion.
 
-    `OBSERVED` means at least one recorded run; it does not grant authority.
-    `safe_competency_score` continues to deny until the minimum run threshold.
+    The historical interface let any caller claim success=True three times,
+    increment `validated_runs`, then re-seal the modified registry. Hash
+    integrity proves only *consistency*, not independent observation.
+
+    Reintroduction of capability promotion requires a verifier independent
+    of the agent, signed upstream run provenance, exact source/artifact hashes,
+    failure-inclusive history, anti-replay, and explicit admission authority.
+    No such verifier is configured here; fail closed rather than treating a
+    caller's bool as trusted evidence.
     """
-    current_receipt = evaluate_registry(registry)
-    if current_receipt.outcome != ADMITTED:
-        raise ValueError("cannot mutate an invalid skill registry")
+    raise ValueError("INDEPENDENT_EXECUTION_ATTESTATION_REQUIRED")
 
-    updated = copy.deepcopy(dict(registry))
-    skills = updated.get("skills")
-    if not isinstance(skills, list):
-        raise ValueError("skills must be an array")
 
-    target: dict[str, Any] | None = None
-    for raw in skills:
-        if isinstance(raw, dict) and raw.get("skill_id") == skill_id:
-            target = raw
-            break
-    if target is None:
-        raise ValueError(f"unknown skill_id: {skill_id}")
-
-    evidence_errors = evidence_violations(target, repo_root=repo_root)
-    if evidence_errors:
-        raise ValueError("invalid skill evidence: " + ",".join(evidence_errors))
-
-    previous_runs = _safe_runs(target)
-    previous_failure_rate = target.get("failure_rate", 0.0)
-    if isinstance(previous_failure_rate, bool) or not isinstance(previous_failure_rate, (int, float)):
-        previous_failure_rate = 0.0
-    previous_failures = round(float(previous_failure_rate) * previous_runs)
-
-    total = previous_runs + 1
-    failures = previous_failures + (0 if success else 1)
-    failure_rate = failures / total
-
-    previous_confidence = target.get("confidence", 0.0)
-    if isinstance(previous_confidence, bool) or not isinstance(previous_confidence, (int, float)):
-        previous_confidence = 0.0
-    previous_recency = target.get("recency_score", 0.0)
-    if isinstance(previous_recency, bool) or not isinstance(previous_recency, (int, float)):
-        previous_recency = 0.0
-
-    target["observation_state"] = OBSERVED
-    target["validated_runs"] = total
-    target["failure_rate"] = failure_rate
-    target["failure_rate_observed"] = failure_rate
-    target["last_validated"] = observed_at
-
-    if success:
-        target["recency_score"] = min(1.0, float(previous_recency) * 0.95 + 0.05)
-        if total >= MIN_VALIDATED_RUNS and failure_rate < 0.1:
-            target["confidence"] = min(0.95, float(previous_confidence) + 0.02)
-    else:
-        target["recency_score"] = max(0.0, float(previous_recency) * 0.9)
-        target["confidence"] = max(0.0, float(previous_confidence) - 0.05)
-
-    updated.pop("registry_root", None)
-    updated.pop("genesis_seal", None)
-    root = compute_registry_root(updated)
-    updated["registry_root"] = root
-    updated["genesis_seal"] = root
-    return updated
+def propose_skill_observation(
+    *, skill_id: str, success: bool, observed_at: str, source_commit: str
+) -> dict[str, Any]:
+    """Record an untrusted attempt for later review, never mutate skill state."""
+    if not isinstance(skill_id, str) or not skill_id or len(skill_id) > 128:
+        raise ValueError("SKILL_ID_INVALID")
+    if type(success) is not bool or not isinstance(observed_at, str) or not observed_at:
+        raise ValueError("OBSERVATION_EVENT_INVALID")
+    if not isinstance(source_commit, str) or len(source_commit) != 40 or any(
+        c not in "0123456789abcdef" for c in source_commit
+    ):
+        raise ValueError("OBSERVATION_SOURCE_INVALID")
+    body = {
+        "schema_version": "1.0.0",
+        "kind": "AEGIS_UNTRUSTED_SKILL_ATTEMPT_V1",
+        "skill_id": skill_id,
+        "claimed_success": success,
+        "observed_at_claim": observed_at,
+        "source_commit_claim": source_commit,
+        "verification": "PENDING_EXTERNAL_ATTESTATION",
+        "authority_granted": False,
+        "validated_run_increment": 0,
+    }
+    return {
+        **body,
+        "proposal_sha256": sha256_hex(canonical_bytes({
+            "domain": "AEGIS_UNTRUSTED_SKILL_ATTEMPT_V1",
+            "body": body,
+        })),
+    }
 
 
 def receipt_dict(receipt: SkillRoutingReceipt) -> dict[str, Any]:

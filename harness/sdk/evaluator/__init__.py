@@ -80,18 +80,18 @@ class PlaywrightRunner:
         self.results: List[PlaywrightTestResult] = []
     
     def run_tests(self, artifact_paths: List[str]) -> List[PlaywrightTestResult]:
-        """Run Playwright tests on artifacts"""
-        # Placeholder - would integrate with actual Playwright in production
-        results = []
-        for path in artifact_paths:
-            result = PlaywrightTestResult(
+        """No browser available here: unexecuted QA must never pass."""
+        targets = artifact_paths or ["NO_ARTIFACTS"]
+        self.results = [
+            PlaywrightTestResult(
                 test_name=f"qa_{hashlib.sha256(path.encode()).hexdigest()[:8]}",
-                passed=True,
-                duration_ms=50.0
+                passed=False,
+                duration_ms=0.0,
+                error_message="PLAYWRIGHT_EXECUTION_NOT_CONFIGURED",
             )
-            results.append(result)
-        self.results = results
-        return results
+            for path in targets
+        ]
+        return self.results
 
 
 class Evaluator:
@@ -132,7 +132,7 @@ class Evaluator:
         errors = []
         
         # Phase 4: Playwright QA
-        artifact_paths = [a["path"] for a in artifacts]
+        artifact_paths = [a.get("path", "") for a in artifacts if isinstance(a, dict)]
         playwright_results = self.playwright_runner.run_tests(artifact_paths)
         
         # Phase 4: Tashkeel Validation
@@ -141,8 +141,22 @@ class Evaluator:
             sprint_result.get("test_results", [])
         )
         
+        if sprint_result.get("status") != "complete":
+            errors.append("SPRINT_NOT_COMPLETE")
+        if not artifact_paths:
+            errors.append("NO_BUILD_ARTIFACTS")
         if not tashkeel_validation.confidence_threshold_met:
             errors.append(f"Confidence {confidence:.2%} below threshold {self.confidence_threshold:.2%}")
+        if not all(
+            isinstance(item, dict)
+            and item.get("passed") is True
+            and item.get("independent_receipt_verified") is True
+            and type(item.get("tests_run")) is int and item["tests_run"] > 0
+            and type(item.get("tests_passed")) is int
+            and item["tests_passed"] == item["tests_run"]
+            for item in sprint_result.get("test_results", [])
+        ) or not sprint_result.get("test_results"):
+            errors.append("INDEPENDENT_TEST_EVIDENCE_MISSING")
         
         # Phase 5: Tanasub Validation (fractal scaling)
         tanasub_validation = self._validate_tanasub(artifacts)
@@ -188,13 +202,13 @@ class Evaluator:
             high_risk_nodes.append("low_confidence")
         
         # Check test results for failures
-        failed_tests = sum(1 for t in test_results if not t.get("passed", True))
+        failed_tests = sum(1 for t in test_results if not isinstance(t, dict) or t.get("passed") is not True)
         if failed_tests > 0:
             high_risk_nodes.append(f"failed_tests:{failed_tests}")
         
         return TashkeelValidation(
             confidence_threshold_met=confidence >= self.confidence_threshold,
-            assumptions_validated=len(test_results),
+            assumptions_validated=0,  # No evidence-backed assumption verifier is wired
             high_risk_nodes=high_risk_nodes,
             overall_confidence=confidence
         )
@@ -206,23 +220,26 @@ class Evaluator:
         harmony_index = min(1.0, artifact_count / 10.0)  # Simplified
         
         return TanasubValidation(
-            is_proportional=harmony_index > 0.7,
+            is_proportional=False,  # Cannot certify scale from artifact count
             harmony_index=harmony_index,
             scale_factor=1.0,
             user_capacity=1000
         )
     
     def _run_constitutional_checks(self, sprint_result: Dict) -> Dict[str, bool]:
-        """Run constitutional compliance checks"""
-        checks = {
-            "genesis_seal_verified": True,  # Would verify actual seal
-            "no_tokio_critical": True,
-            "btreemap_deterministic": True,
-            "domain_isolation": True,
-            "agpl3_compliance": True,
+        """Constitutional verification is not implemented in this legacy evaluator.
+
+        Never equate an unverified default with a verified constitutional fact.
+        The central Automaton-3 evaluator must provide positive authority.
+        """
+        return {
+            "genesis_seal_verified": False,
+            "no_tokio_critical": False,
+            "btreemap_deterministic": False,
+            "domain_isolation": False,
+            "agpl3_compliance": False,
         }
-        return checks
-    
+
     def _determine_verdict(
         self,
         playwright_results: List[PlaywrightTestResult],
@@ -233,7 +250,7 @@ class Evaluator:
     ) -> EvaluationVerdict:
         """Determine final evaluation verdict"""
         # Check for critical failures
-        playwright_passed = all(r.passed for r in playwright_results)
+        playwright_passed = bool(playwright_results) and all(r.passed for r in playwright_results)
         constitutional_passed = all(constitutional.values())
         
         if errors:

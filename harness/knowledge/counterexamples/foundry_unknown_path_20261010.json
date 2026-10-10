@@ -1,0 +1,21 @@
+{
+  "admission": "NOT_ADMITTED",
+  "authority_granted": false,
+  "blueprint_sha256": "c00f23ee214c90028a54571f4cdee1bfe6f65d73101904a59aaeefbf37fa8159",
+  "candidate_report_sha256": "f63b5b052befd5ea9aff1317731a1f70e2a225354601e5e159133c37aaf7d338",
+  "candidate_source_sha256": "2b00718222267a723a8456413a02b3a676e85f1845c1d10f2450d56f95d5eee2",
+  "kind": "AEGIS_REPLAYABLE_COUNTEREXAMPLE_V1",
+  "memory_sha256": "bb248fe0ec644102948288611988d67a6790ed3a718c4d9bd852196e082b7025",
+  "outcome": "COUNTEREXAMPLE_DISCOVERED",
+  "probe_budget": 120,
+  "schema_version": "1.0.0",
+  "seed": 12345,
+  "witness": {
+    "failure_codes": [
+      "BODY_MISMATCH",
+      "STATUS_MISMATCH"
+    ],
+    "method": "GET",
+    "path": "/fuzz/zz"
+  }
+}
