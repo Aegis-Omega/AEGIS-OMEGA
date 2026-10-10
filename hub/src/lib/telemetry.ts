@@ -63,7 +63,12 @@ async function getJson<T>(path: string, signal: AbortSignal): Promise<T | undefi
   try {
     const res = await fetch(`${BRIDGE_URL}${path}`, { signal })
     if (!res.ok) return undefined
-    return (await res.json()) as T
+    const payload: unknown = await res.json()
+    // A successful HTTP response is not a governance certification.
+    // Format screening only; real cryptographic provenance still required.
+    if (!payload || typeof payload !== 'object' || Array.isArray(payload) ||
+        (payload as { verified?: unknown }).verified !== true) return undefined
+    return payload as T
   } catch {
     return undefined
   }
