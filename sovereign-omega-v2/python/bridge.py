@@ -362,14 +362,19 @@ def _platform_run_collaboration(
         chain_state = _mc_chain_integrity_snapshot()
         if chain_state['valid'] is not True:
             raise RuntimeError('METACOGNITIVE_CHAIN_VALIDATION_FAILED:' + str(chain_state['reason']))
-        # Commit no fitness or revenue effects until the final integrity gate.
-        _store_fitness(objective, mode, generation, cycle_id, fitness_scores, verdict_pre)
-        _platform_record_cycle(
-            cycle_id, objective, mode,
-            projection['first_year_arr_usd'], verdict,
-        )
-        # Grace chain: each dept passes a grace to the next (forward-only, fire-and-forget)
-        _award_graces(cycle_id, artifacts, verdict)
+        # Never persist synthetic/demo output to production business evidence.
+        # These helpers write to Supabase fitness, revenue and grace ledgers when
+        # configured. The API's demo mode is observational, not an admission path.
+        # Live writes are attempted only after the final integrity gate; these
+        # fire-and-forget helpers do NOT prove durable persistence.
+        if live:
+            _store_fitness(objective, mode, generation, cycle_id, fitness_scores, verdict_pre)
+            _platform_record_cycle(
+                cycle_id, objective, mode,
+                projection['first_year_arr_usd'], verdict,
+            )
+            # Grace chain: only real live cycles may award persistent graces.
+            _award_graces(cycle_id, artifacts, verdict)
 
         result = {
             'cycle_id': cycle_id,
