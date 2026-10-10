@@ -71,6 +71,7 @@ class HermeticRunnerTests(unittest.TestCase):
             "_eval_fitness": fitness,
             "_store_fitness": tracked("fitness_storage", None),
             "_platform_record_cycle": tracked("cycle_storage", None),
+            "_store_swarm_memory": tracked("memory_storage", None),
             "_award_graces": tracked("grace_storage", None),
             "_build_live_state_context": lambda: "T2 observation only",
             "_mc_recent_context": lambda *args: "no context",
@@ -84,8 +85,9 @@ class HermeticRunnerTests(unittest.TestCase):
         exec(CODE, globals_dict)
         self.run_collaboration = globals_dict["_platform_run_collaboration"]
 
-    def execute(self, live):
-        self.run_collaboration("task-1", "bounded read-only experiment", "analysis", live=live)
+    def execute(self, live, email=""):
+        self.run_collaboration("task-1", "bounded read-only experiment", "analysis",
+                               live=live, email=email)
         events = list(self.events.queue)
         self.assertIsNone(events[-1], "SSE must close with sentinel")
         return events
@@ -103,10 +105,10 @@ class HermeticRunnerTests(unittest.TestCase):
         self.assertEqual(self.calls.count("paid_model_call_mock"), 0)
 
     def test_clean_demo_never_persists_synthetic_business_evidence(self):
-        events = self.execute(live=False)
+        events = self.execute(live=False, email="operator@example.invalid")
         self.assertEqual(events[-2]["type"], "completion")
         self.assertIn("observation", self.calls)  # ephemeral diagnostic allowed
-        for forbidden in ("fitness_storage", "cycle_storage", "grace_storage"):
+        for forbidden in ("fitness_storage", "cycle_storage", "grace_storage", "memory_storage"):
             self.assertNotIn(forbidden, self.calls,
                              "demo must not persist synthetic data: " + forbidden)
 
@@ -119,6 +121,20 @@ class HermeticRunnerTests(unittest.TestCase):
             self.assertIn(op, self.calls)
             self.assertGreater(self.calls.index(op), final_gate,
                                "live write preceded final chain gate: " + op)
+
+    def test_live_memory_waits_for_final_chain_verification(self):
+        self.execute(live=True, email="operator@example.invalid")
+        self.assertIn("memory_storage", self.calls)
+        last_gate = max(i for i, name in enumerate(self.calls)
+                        if name == "chain_verification")
+        self.assertGreater(self.calls.index("memory_storage"), last_gate)
+
+    def test_corrupt_midrun_chain_blocks_memory_write(self):
+        self.fitness_corrupts = True
+        self.execute(live=True, email="operator@example.invalid")
+        self.assertNotIn("memory_storage", self.calls)
+        self.assertNotIn("fitness_storage", self.calls)
+        self.assertIsNone(self.stored["task-1"]["result"])
 
     def test_corrupt_preflight_blocks_before_mock_inference_and_writes(self):
         self.checks = [False]
