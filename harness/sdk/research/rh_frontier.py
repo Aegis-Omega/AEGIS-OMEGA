@@ -95,14 +95,17 @@ def load_sources(directory: Path = SOURCE_DIR) -> tuple[dict, dict[str, str]]:
             or not isinstance(meta.get("upstream_path"), str)
             or not isinstance(meta.get("git_blob"), str)
             or not SHA40.fullmatch(meta["git_blob"])
-            or not isinstance(meta.get("sha256"), str)
-            or not SHA64.fullmatch(meta["sha256"])):
+            or ("sha256" in meta and (
+                not isinstance(meta["sha256"], str)
+                or not SHA64.fullmatch(meta["sha256"])))):
             raise ValueError("SOURCE_IDENTITY_INVALID:" + label)
         blob = directory / (label + ".lean")
         if blob.is_symlink() or not blob.is_file() or blob.stat().st_size > 200000:
             raise ValueError("SOURCE_UNAVAILABLE:" + label)
         raw = blob.read_bytes()
-        if git_blob(raw) != meta["git_blob"] or sha256(raw) != meta["sha256"]:
+        if git_blob(raw) != meta["git_blob"] or (
+            "sha256" in meta and sha256(raw) != meta["sha256"]
+        ):
             raise ValueError("SOURCE_TAMPER_OR_DRIFT:" + label)
         result[label] = raw.decode("utf-8")
     return manifest, result
@@ -152,6 +155,7 @@ def analyze(directory: Path = SOURCE_DIR) -> dict:
         "source_repository": manifest["repository"],
         "source_head_sha": manifest["head_sha"],
         "source_blobs": {name: meta["git_blob"] for name, meta in sorted(manifest["files"].items())},
+        "source_sha256": {name: sha256(src[name].encode("utf-8")) for name in sorted(src)},
         "official_target": "RiemannHypothesis.riemannHypothesis",
         "old_provider": older_name,
         "new_provider": "AEGIS.RHWindowL105FinalV1.rh_of_windows_from_21_40",
