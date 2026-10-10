@@ -7,7 +7,7 @@ const MAIN = /^(origin\/)?main$/
 
 async function context($: EngineInterface, query: string): Promise<string | undefined> {
   const root = await $.session.root()
-  const ran = await $.process.run(['python3', SCRIPT, query.slice(0, 2000)], { cwd: root, timeoutMs: 20000 })
+  const ran = await $.process.run(['python3', SCRIPT, '--quick', query.slice(0, 2000)], { cwd: root, timeoutMs: 20000 })
   return ran.exitCode === 0 && ran.stdout.trim() ? ran.stdout.trim() : undefined
 }
 
