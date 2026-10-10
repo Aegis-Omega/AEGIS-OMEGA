@@ -33,6 +33,9 @@ The preflight's `holon_disposition` is **advisory, never authorization**:
 - Branch only from `origin/main`. PR base is `main`. Never stack on an unmerged branch.
 - One PR per issue. Do not open a new PR while you have an unmerged one older
   than 48 h: finish, fix, or close it first.
+- New or changed GitHub Actions workflows reach the repo only through a PR to `main`.
+  Workflows that exist only on a branch are disabled (370 were, 2026-10-10); never
+  re-enable one or add one on a feature branch to "get CI".
 - Red CI: read the failing job's log before touching code. If the annotation says
   the account is locked (billing), stop. It is not your bug.
 

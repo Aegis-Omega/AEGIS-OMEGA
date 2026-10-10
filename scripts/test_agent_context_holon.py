@@ -76,7 +76,7 @@ class HolonContextTests(unittest.TestCase):
                   "b": "main", "s": "a" * 40} for i in range(100)]
         with tempfile.TemporaryDirectory() as directory:
             def response(*args, **_kwargs):
-                if args[:2] == ("gh", "api") and "page=1" in args[2]:
+                if args[:2] == ("gh", "api") and args[2].endswith("&page=1"):
                     return json.dumps(first, indent=2)
                 return ""
             with patch.object(ctx, "git_dir", return_value=directory), \
@@ -96,7 +96,7 @@ class HolonContextTests(unittest.TestCase):
             def response(*args, **_kwargs):
                 if args[:2] == ("gh", "api"):
                     return (json.dumps(first, indent=2)
-                            if "page=1" in args[2] else json.dumps([second], indent=2))
+                            if args[2].endswith("&page=1") else json.dumps([second], indent=2))
                 return ""
             with patch.object(ctx, "git_dir", return_value=directory), \
                  patch.object(ctx, "sh", side_effect=response):
