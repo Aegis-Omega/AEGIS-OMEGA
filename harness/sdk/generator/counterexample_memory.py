@@ -127,7 +127,15 @@ def probe_in_subprocess(
 
 
 def _probe_mode(blueprint: dict, source: Path, cases: list[dict[str, str]]) -> dict[str, Any]:
-    from harness.sdk.generator.independent_oracle import _check_one
+    # -I intentionally excludes the caller repository from sys.path; load
+    # the source-controlled oracle by its adjacent absolute file path.
+    oracle_file = Path(__file__).resolve().with_name("independent_oracle.py")
+    oracle_spec = importlib.util.spec_from_file_location("_aegis_external_oracle", oracle_file)
+    if oracle_spec is None or oracle_spec.loader is None:
+        raise ValueError("ORACLE_SOURCE_NOT_AVAILABLE")
+    oracle_mod = importlib.util.module_from_spec(oracle_spec)
+    oracle_spec.loader.exec_module(oracle_mod)
+    check_one = oracle_mod._check_one
     spec = importlib.util.spec_from_file_location("_aegis_probe_candidate", source)
     if spec is None or spec.loader is None:
         raise ValueError("CANDIDATE_IMPORT_DENIED")
@@ -145,7 +153,7 @@ def _probe_mode(blueprint: dict, source: Path, cases: list[dict[str, str]]) -> d
             status, payload = "200 OK", blueprint["routes"][path]
         else:
             status, payload = "404 Not Found", {"error": "not_found"}
-        failures = _check_one(app, path, method, status, payload)
+        failures = check_one(app, path, method, status, payload)
         observations.append({"path": path, "method": method,
                              "failures": failures})
     return {"kind": "AEGIS_PROPERTY_PROBE_V1",
