@@ -100,6 +100,9 @@ workspace stream ID** for browser-origin persistence:
    closed with no partial graph returned.
 4. 'recallLineage' traces transitive dependencies across agents by graph IDs,
    without mutating the source record or granting execution authority.
+5. 'recordAgentMemory' converts an existing replayable 'AgentMemoryEntry' into
+   a shared 'agent_interaction' node, retaining agent ID and content hash while
+   refusing un-replayable recollections. No raw memory text is copied.
 
 Existing 'replayLineage' remains an **immediate predecessor lookup**. The
 bridge's 'recallLineage' implements full transitive ancestry over a verified
