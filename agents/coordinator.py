@@ -19,6 +19,7 @@ from typing import Any
 
 from agents import coordinator_legacy as _legacy
 from harness.sdk.authority_client import authorize_from_environment
+from harness.sdk.capability_selection import advise_admitted_order
 from harness.sdk.repository_knowledge import build_snapshot, verify_snapshot
 from harness.sdk.skill_routing import ADMITTED, DENIED, SkillRoutingReceipt, record_skill_observation
 
@@ -231,6 +232,7 @@ _legacy.SkillRouter = SkillRouter
 _skill_router = SkillRouter()
 _legacy._skill_router = _skill_router
 _last_dispatch_receipts: tuple[RoleRoutingReceipt, ...] = ()
+_last_capability_advisory: dict[str, Any] | None = None
 
 
 def _knowledge_denial_receipts(
@@ -255,7 +257,8 @@ def _knowledge_denial_receipts(
 
 
 async def dispatch_event(event_type: str, payload: dict) -> list["AgentResult"]:
-    global _last_dispatch_receipts
+    global _last_dispatch_receipts, _last_capability_advisory
+    _last_capability_advisory = None
     candidate_roles = _legacy.EVENT_ROUTING.get(event_type, [_legacy.AgentRole.ENGINEERING])
 
     knowledge = establish_repository_knowledge(repo_root=_legacy._REPO_ROOT)
@@ -291,7 +294,24 @@ async def dispatch_event(event_type: str, payload: dict) -> list["AgentResult"]:
     ]
     _last_dispatch_receipts = tuple(item[2] for item in indexed)
     admitted = [item for item in indexed if item[2].outcome == ADMITTED]
-    admitted.sort(key=lambda item: (-item[2].authority_score, item[0]))
+    # Advisory optimiser sees ONLY centrally admitted roles. It never grants
+    # operational authority, adds roles or changes the admitted set.
+    order, _last_capability_advisory = advise_admitted_order(
+        [(index, role.value, receipt.authority_score)
+         for index, role, receipt in admitted],
+        task_instruction=instruction_sample,
+        agent_defs=agent_defs,
+        capability_map=definitions.get("capability_skill_map", _legacy.CAPABILITY_SKILL_MAP),
+        registry_path=_skill_router._skill_tree_path,
+        repo_root=_skill_router._repo_root,
+        required_capabilities=(
+            payload["required_capabilities"]
+            if isinstance(payload.get("required_capabilities"), (list, tuple))
+            else ()
+        ),
+    )
+    order_index = {index: position for position, index in enumerate(order)}
+    admitted.sort(key=lambda item: order_index[item[0]])
     results: list[AgentResult] = []
     for _, role, _receipt in admitted:
         task = _legacy.AgentTask(
@@ -313,8 +333,14 @@ def last_dispatch_receipts() -> tuple[dict[str, Any], ...]:
     return tuple(asdict(receipt) for receipt in _last_dispatch_receipts)
 
 
+def last_capability_advisory_receipt() -> dict[str, Any] | None:
+    """Inspectable ordering evidence; NOT an execution authorization receipt."""
+    return dict(_last_capability_advisory) if _last_capability_advisory is not None else None
+
+
 _legacy.dispatch_event = dispatch_event
 _legacy.last_dispatch_receipts = last_dispatch_receipts
+_legacy.last_capability_advisory_receipt = last_capability_advisory_receipt
 
 
 def main() -> None:
