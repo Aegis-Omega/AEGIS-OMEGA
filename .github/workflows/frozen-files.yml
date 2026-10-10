@@ -5,12 +5,16 @@ on:
       - 'sovereign-omega-v2/python/gate.py'
       - 'sovereign-omega-v2/python/dna.py'
       - 'sovereign-omega-v2/python/router.py'
+      - 'sovereign-omega-v2/scripts/verify-hashes.mjs'
+      - '.github/workflows/frozen-files.yml'
   pull_request:
     branches: [main]
     paths:
       - 'sovereign-omega-v2/python/gate.py'
       - 'sovereign-omega-v2/python/dna.py'
       - 'sovereign-omega-v2/python/router.py'
+      - 'sovereign-omega-v2/scripts/verify-hashes.mjs'
+      - '.github/workflows/frozen-files.yml'
 
 permissions:
   contents: read
