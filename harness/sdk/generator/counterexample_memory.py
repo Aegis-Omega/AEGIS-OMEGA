@@ -54,7 +54,7 @@ def candidate_paths(blueprint: Mapping[str, Any], *, seed: int, budget: int) -> 
     items: list[str] = []
     for route in sorted(routes):
         items.extend([route, route + "/more", route + "//", route + "-missing"])
-    items += ["/", "/favicon.ico", "/__aegis_oracle_no_route__", "/fuzz/zz"]
+    items += ["/", "/favicon.ico", "/__aegis_oracle_no_route__", "/fuzz/boundary"]
     # Property space is unbounded; this is a *bounded search*, not complete proof.
     while len(items) < budget * 2:
         middle = "".join(rng.choice(ALPHABET) for _ in range(rng.randrange(1, 17)))
