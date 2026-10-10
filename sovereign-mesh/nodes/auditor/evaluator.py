@@ -56,30 +56,14 @@ class GenesisVerifier:
     ])
     
     def verify_artifact(self, content: str, expected_seal: str) -> Tuple[bool, str]:
-        """
-        Verify artifact against Genesis Seal
-        
-        Returns:
-            Tuple of (verified, message)
-        """
-        # Compute hash of content
-        content_hash = hashlib.sha256(content.encode()).hexdigest()
-        
-        # Check if seal matches (simplified - in production would check against full ledger)
-        if content_hash.startswith(expected_seal[:8]):
-            return True, "Genesis Seal verified"
-        
-        # Secondary check: ensure content is not empty or corrupted
-        if len(content) < 10:
-            return False, "Content too short - possible corruption"
-        
-        # Check for basic structural integrity
-        if "// TODO" not in content and "TODO" not in content:
-            # Content should have implementation markers
-            pass
-        
-        return True, "Genesis Seal verified (partial match)"
-    
+        """Strict full digest comparison; a partial match is never proof."""
+        if not isinstance(content, str) or not isinstance(expected_seal, str):
+            return False, "SEAL_INPUT_INVALID"
+        if len(expected_seal) != 64 or any(c not in "0123456789abcdef" for c in expected_seal):
+            return False, "SEAL_INVALID"
+        actual = hashlib.sha256(content.encode("utf-8")).hexdigest()
+        return (actual == expected_seal, "EXACT_CONTENT_HASH_MATCH" if actual == expected_seal else "CONTENT_HASH_MISMATCH")
+
     def verify_sprint_result(self, result_data: Dict, contract_seal: str) -> bool:
         """Verify entire sprint result against contract seal"""
         # Serialize result data
@@ -224,33 +208,14 @@ class PlaywrightMCP:
         }
     
     def run_tests(self, artifacts: List[Dict]) -> Dict:
-        """
-        Run Playwright integration tests
-        
-        In production, this would:
-        1. Spin up test environment
-        2. Deploy generated code
-        3. Execute browser-based tests
-        4. Measure code coverage
-        5. Capture screenshots/videos
-        """
-        # Simulated test results for now
-        # In production: actual Playwright execution
-        
-        test_count = len(artifacts) * 3  # 3 tests per artifact
-        passed = test_count  # Assume all pass for simulation
-        
+        """No wired Playwright adapter: return negative evidence."""
         self.results = {
-            "tests_run": test_count,
-            "tests_passed": passed,
-            "tests_failed": 0,
-            "coverage": 0.85 + (0.15 * (len(artifacts) / 10)),  # Scale with artifacts
-            "errors": [],
-            "timestamp": datetime.now(timezone.utc).isoformat()
+            "tests_run": 0, "tests_passed": 0, "tests_failed": 0,
+            "coverage": 0.0, "errors": ["PLAYWRIGHT_MCP_NOT_CONFIGURED"],
+            "execution_verified": False,
         }
-        
         return self.results
-    
+
     def generate_test_report(self) -> str:
         """Generate human-readable test report"""
         r = self.results
@@ -321,6 +286,12 @@ class VerdictEmitter:
                 "Fix failing tests before resubmission"
             ]
         
+        if (playwright_results.get("execution_verified") is not True
+                or type(playwright_results.get("tests_run")) is not int
+                or playwright_results["tests_run"] < 1
+                or playwright_results.get("tests_passed") != playwright_results["tests_run"]):
+            return Verdict.REJECT_REROLL, ["NO_INDEPENDENT_BROWSER_EXECUTION_EVIDENCE"]
+
         # Coverage threshold
         coverage = playwright_results.get("coverage", 0)
         if coverage < 0.70:
