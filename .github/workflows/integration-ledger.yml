@@ -40,6 +40,7 @@ jobs:
             harness/sdk/generator/__init__.py \
             harness/sdk/generator/system_foundry.py \
             harness/sdk/generator/foundry_runner.py \
+            harness/sdk/generator/independent_oracle.py \
             harness/sdk/evaluator/__init__.py
           python3 -m unittest discover -s harness/tests -p 'test_*foundry*.py' -v
 
