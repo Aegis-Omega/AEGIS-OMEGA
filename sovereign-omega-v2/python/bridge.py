@@ -343,7 +343,7 @@ def _platform_run_collaboration(
         prev_artifacts = _retrieve_prior_artifacts(objective, mode) if generation > 0 else []
         fitness_scores = _eval_fitness(prev_artifacts, artifacts, objective)
         verdict_pre = constitutional_audit.get('verdict', 'APPROVED')
-        _store_fitness(objective, mode, generation, cycle_id, fitness_scores, verdict_pre)
+        # Do not persist fitness before the final metacognitive-chain check.
 
         # ── AUDIT HASH + METACOGNITIVE CHAIN ──────────────────────────────────
         audit_hash = _hl_col.sha256(
@@ -362,6 +362,8 @@ def _platform_run_collaboration(
         chain_state = _mc_chain_integrity_snapshot()
         if chain_state['valid'] is not True:
             raise RuntimeError('METACOGNITIVE_CHAIN_VALIDATION_FAILED:' + str(chain_state['reason']))
+        # Commit no fitness or revenue effects until the final integrity gate.
+        _store_fitness(objective, mode, generation, cycle_id, fitness_scores, verdict_pre)
         _platform_record_cycle(
             cycle_id, objective, mode,
             projection['first_year_arr_usd'], verdict,
