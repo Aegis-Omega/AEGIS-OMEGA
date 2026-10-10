@@ -28,6 +28,13 @@ jobs:
       - name: Install exact workflow parser
         run: pip install PyYAML==6.0.2
 
+      - name: Reject fabricated metacognitive-chain PASS
+        run: |
+          python3 -m py_compile sovereign-omega-v2/python/bridge.py sovereign-omega-v2/python/chain_verifier.py
+          python3 sovereign-omega-v2/python/tests/test_chain_verifier.py
+          python3 sovereign-omega-v2/python/tests/test_collaboration_chain_side_effects.py
+          python3 sovereign-omega-v2/python/tests/test_swarm_live_provenance.py
+
       - name: Prove grace-cycle control flow
         run: python sovereign-omega-v2/python/tests/test_grace_chain_repair.py
 

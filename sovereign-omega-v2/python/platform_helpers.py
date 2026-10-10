@@ -1444,15 +1444,14 @@ def swarm_collaborate_live(
         mode: One of VALID_MODES.
         departments: Department manifest list.
         system: Caller-supplied constitutional system prompt prefix.
-        email: Customer email — used to tag stored swarm memory.
+        email: Retained for signature compatibility; persistence belongs to the caller's final integrity gate.
         memory_context: Pre-fetched memory string from retrieve_swarm_memory().
 
     Returns:
         {artifacts, constitutional_audit, projection}
 
-    Falls back to template outputs if no Anthropic client is available
-    (no ADC credentials and no ANTHROPIC_API_KEY) — callers always receive
-    a valid result.
+    Fail-closed: an unavailable, refusing, incomplete or invalid live model
+    response is an error, never successful template evidence.
     """
     dept_manifest = '\n'.join(
         f'{d["id"]} | {d["role"]} ({d["category"]})'
@@ -1494,25 +1493,20 @@ def swarm_collaborate_live(
             create_kwargs['thinking'] = {'type': 'adaptive'}
 
         resp = _client.messages.create(**create_kwargs)
-        # Fable 5 refusals surface as stop_reason='refusal' (HTTP 200) — fall back
+        # Refusals (including HTTP 200 with stop_reason='refusal') are not
+        # provider-backed completion evidence.
         if getattr(resp, 'stop_reason', None) == 'refusal':
-            return _swarm_fallback(objective, mode, departments)
+            raise RuntimeError('LIVE_PROVIDER_REFUSED')
         raw = ''.join(b.text for b in resp.content if hasattr(b, 'text'))
     except Exception:
-        return _swarm_fallback(objective, mode, departments)
+        # Do not promote a network/client failure to an APPROVED template.
+        raise RuntimeError('LIVE_PROVIDER_UNAVAILABLE_OR_REFUSED') from None
 
-    result = _parse_swarm_response(raw, objective, mode, departments)
-
-    # Store to swarm_memory so future calls can build on these insights (T1 corpus)
-    if email:
-        store_swarm_memory(
-            email, objective, mode,
-            result['artifacts'],
-            result['projection'],
-            result['constitutional_audit']['verdict'],
-        )
-
-    return result
+    # Reject partial model outputs rather than silently filling missing roles.
+    # The caller persists memory only after its independent final chain gate.
+    return _parse_swarm_response(
+        raw, objective, mode, departments, require_complete=True,
+    )
 
 
 def _parse_swarm_response(
@@ -1520,6 +1514,8 @@ def _parse_swarm_response(
     objective: str,
     mode: str,
     departments: list,
+    *,
+    require_complete: bool = False,
 ) -> dict:
     """
     Parse Claude's JSON swarm response into {artifacts, constitutional_audit, projection}.
@@ -1535,23 +1531,39 @@ def _parse_swarm_response(
     try:
         data = json.loads(text)
     except Exception:
+        if require_complete:
+            raise ValueError('LIVE_RESPONSE_INVALID_JSON') from None
         return _swarm_fallback(objective, mode, departments)
+
+    if require_complete and (
+        not isinstance(data, dict) or not isinstance(data.get('departments'), list)
+    ):
+        raise ValueError('LIVE_RESPONSE_MISSING_DEPARTMENTS')
 
     # Build dept_id → output map from the response
     dept_map: dict = {}
     for item in data.get('departments', []):
         if isinstance(item, dict) and isinstance(item.get('id'), str):
+            if require_complete and item['id'] in dept_map:
+                raise ValueError('LIVE_RESPONSE_DUPLICATE_DEPARTMENT')
             dept_map[item['id']] = str(item.get('output', ''))
 
     # Merge with canonical department order; fall back per-dept if absent/empty
     artifacts = []
     for dept in departments:
         live_out = dept_map.get(dept['id'], '').strip()
+        if require_complete and not live_out:
+            raise ValueError('LIVE_RESPONSE_MISSING_DEPARTMENT_OUTPUT')
         output = live_out if live_out else dept_output(objective, mode, dept)
         artifacts.append({'role': dept['role'], 'output': output})
 
     # Constitutional audit
     raw_audit = data.get('constitutional_audit', {})
+    if require_complete and (
+        not isinstance(raw_audit, dict)
+        or raw_audit.get('verdict') not in ('APPROVED', 'FLAG', 'QUARANTINE')
+    ):
+        raise ValueError('LIVE_RESPONSE_UNVERIFIED_VERDICT')
     verdict = raw_audit.get('verdict', 'APPROVED')
     if verdict not in ('APPROVED', 'FLAG', 'QUARANTINE'):
         verdict = 'APPROVED'
@@ -1559,6 +1571,14 @@ def _parse_swarm_response(
 
     # Projection — clamp ARR to sane range
     raw_proj = data.get('projection', {})
+    if require_complete:
+        import math as _math_live
+        if not isinstance(raw_proj, dict):
+            raise ValueError('LIVE_RESPONSE_INVALID_PROJECTION')
+        arr = raw_proj.get('first_year_arr_usd')
+        if (isinstance(arr, bool) or not isinstance(arr, (int, float))
+                or not _math_live.isfinite(arr) or arr < 0):
+            raise ValueError('LIVE_RESPONSE_INVALID_PROJECTION')
     try:
         arr_usd = max(0, int(raw_proj.get('first_year_arr_usd', 2_000_000)))
     except (TypeError, ValueError):

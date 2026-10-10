@@ -37,8 +37,8 @@ export interface PlatformStatus {
   version: string
   contract_version: string
   total_agents: number
-  chain_valid: boolean
-  audit_chain_hash: string
+  chain_valid: boolean | null
+  audit_chain_hash: string | null
   available: boolean
 }
 
@@ -78,8 +78,8 @@ const DEMO_SNAPSHOT: ConsoleSnapshot = {
   reason: 'bridge unreachable — showing representative demo state',
   status: {
     version: '1.0.0', contract_version: '1.0.0', total_agents: 39,
-    chain_valid: true, audit_chain_hash: 'a3f9c8d2e1b6f047c5e9a182b4d6079e3f1c8a25b7e0d934f6a1c8e5b2079d4f3',
-    available: true,
+    chain_valid: null, audit_chain_hash: null,
+    available: false,
   },
   calibration: {
     homeostasis_zone: 'optimal', recommendation: 'MAINTAIN',
@@ -90,6 +90,16 @@ const DEMO_SNAPSHOT: ConsoleSnapshot = {
   checks: [],
 }
 
+// The backend's own empty fitness fallback reports "optimal" with window_size=0.
+// Zero samples or malformed numerical fields are NEVER evidence of homeostasis.
+export function hasMeasuredCalibration(cal: CalibrationStatus): boolean {
+  return Number.isSafeInteger(cal.window_size) && cal.window_size > 0
+    && [cal.fitness_mean, cal.fitness_variance, cal.hd_equivalent,
+      cal.stagnation_rate, cal.constitutional_factor_mean].every(Number.isFinite)
+    && cal.fitness_mean >= 0 && cal.fitness_mean <= 1
+    && cal.fitness_variance >= 0 && cal.hd_equivalent >= 0
+}
+
 // ── Loud verification: derive a legible check list from the live/demo state ────
 
 export function deriveChecks(
@@ -97,19 +107,26 @@ export function deriveChecks(
   status: PlatformStatus,
   cal: CalibrationStatus,
 ): SystemCheck[] {
+  const live = source === 'live'
+  const measured = live && hasMeasuredCalibration(cal)
+  const chainClaim = !live ? 'UNKNOWN — demonstration data'
+    : status.chain_valid === true ? 'REPORTED_VALID — no independently verified receipt'
+    : status.chain_valid === false ? 'REPORTED_INVALID — investigate backend evidence'
+    : 'UNKNOWN — backend supplied no chain verdict'
   return [
-    { label: 'Bridge reachable', ok: source === 'live',
-      reason: source === 'live' ? 'connected' : 'unreachable — demo fallback engaged' },
-    { label: 'Contract version', ok: status.contract_version === '1.0.0',
-      reason: status.contract_version === '1.0.0' ? 'v1.0.0 matched' : `mismatch: ${status.contract_version}` },
-    { label: 'Hash chain valid', ok: status.chain_valid,
-      reason: status.chain_valid ? 'corruption_count=0 · drift<1/φ' : 'corruption detected — T0_ABORT' },
-    { label: 'Homeostasis', ok: cal.homeostasis_zone === 'optimal' || cal.homeostasis_zone === 'slack',
-      reason: `${cal.homeostasis_zone} · ${cal.recommendation}` },
-    { label: 'Stagnation guard', ok: cal.stagnation_rate < 0.5,
-      reason: `${Math.round(cal.stagnation_rate * 100)}% of recent runs flagged` },
-    { label: 'Constitutional factor', ok: cal.constitutional_factor_mean >= 0.7,
-      reason: `mean ${cal.constitutional_factor_mean.toFixed(2)} (APPROVED=1.0 · FLAG=0.70)` },
+    { label: 'Platform reachable', ok: live,
+      reason: live ? 'HTTP transport observed; not a governance verdict' : 'unreachable — demo only' },
+    { label: 'Contract version', ok: live && status.contract_version === '1.0.0',
+      reason: live ? `backend reports ${status.contract_version}` : 'UNKNOWN — demo only' },
+    { label: 'Independent chain verification', ok: false, reason: chainClaim },
+    { label: 'Homeostasis observation', ok: false,
+      reason: measured ? `REPORTED_ONLY — ${cal.homeostasis_zone} · ${cal.recommendation}` : 'UNKNOWN — no fitness measurements' },
+    { label: 'Stagnation observation', ok: false,
+      reason: measured && Number.isFinite(cal.stagnation_rate)
+        ? `REPORTED_ONLY — ${Math.round(cal.stagnation_rate * 100)}%` : 'UNKNOWN — not measured' },
+    { label: 'Constitutional factor observation', ok: false,
+      reason: measured && Number.isFinite(cal.constitutional_factor_mean)
+        ? `REPORTED_ONLY — mean ${cal.constitutional_factor_mean.toFixed(2)}` : 'UNKNOWN — not measured' },
   ]
 }
 
@@ -137,9 +154,17 @@ export async function fetchConsoleSnapshot(): Promise<ConsoleSnapshot> {
       return { ...DEMO_SNAPSHOT, checks: deriveChecks('demo', DEMO_SNAPSHOT.status, DEMO_SNAPSHOT.calibration) }
     }
     const tools = toolsEnv?.tools?.length ? toolsEnv.tools : DEMO_TOOLS
+    // Normalize missing/ambiguous provenance to UNKNOWN, not false.
+    const normalizedStatus: PlatformStatus = {
+      ...status,
+      chain_valid: status.chain_valid === true ? true : status.chain_valid === false ? false : null,
+      audit_chain_hash: typeof status.audit_chain_hash === 'string' && /^[a-f0-9]{64}$/i.test(status.audit_chain_hash)
+        ? status.audit_chain_hash : null,
+    }
     return {
-      source: 'live', reason: 'connected', status, calibration, tools,
-      checks: deriveChecks('live', status, calibration),
+      source: 'live', reason: 'backend responded; verification not established',
+      status: normalizedStatus, calibration, tools,
+      checks: deriveChecks('live', normalizedStatus, calibration),
     }
   } finally {
     clearTimeout(timer)

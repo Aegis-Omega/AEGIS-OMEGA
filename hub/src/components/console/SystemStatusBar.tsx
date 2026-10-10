@@ -23,10 +23,11 @@ export function SystemStatusBar({ snap }: { snap: ConsoleSnapshot }) {
         <span style={{ fontSize: 12, color: T.muted }}>{snap.reason}</span>
       </div>
       <div className="flex items-center gap-5">
-        <Field label="contract" value={`v${snap.status.contract_version}`} />
-        <Field label="agents" value={String(snap.status.total_agents)} />
-        <Field label="chain" value={snap.status.audit_chain_hash.slice(0, 12) + '…'}
-          color={snap.status.chain_valid ? T.green : T.red} />
+        <Field label="contract" value={live ? `v${snap.status.contract_version}` : 'unverified'} />
+        <Field label="agents" value={live ? `reported ${snap.status.total_agents}` : 'unverified'} />
+        <Field label="chain" value={live && snap.status.audit_chain_hash
+          ? `reported ${snap.status.audit_chain_hash.slice(0, 12)}…` : 'unverified'}
+          color={live && snap.status.chain_valid === false ? T.red : T.amber} />
       </div>
     </div>
   )
