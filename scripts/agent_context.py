@@ -47,7 +47,7 @@ def _valid_pr_record(p):
             and bool(re.fullmatch(r"[0-9a-f]{40}", p["s"])))
 
 
-def open_prs():
+def open_prs(quick=False):
     """Never certify a partially fetched PR list as the whole board."""
     cache = os.path.join(git_dir(), "aegis-open-prs.json")
     try:
@@ -58,6 +58,8 @@ def open_prs():
                 return saved, "cache"
     except (OSError, ValueError, TypeError):
         pass
+    if quick:
+        return [], "unavailable"  # Hook only trusts a fresh full cache.
     prs = []
     complete = False
     for page in range(1, 20):
@@ -93,7 +95,7 @@ def open_prs():
     return branches, "branches" if branches else "unavailable"
 
 
-def open_issue_board():
+def open_issue_board(timeout=15):
     """Read the shared work board. API failure is UNKNOWN, never an empty board.
 
     Search excludes pull requests, unlike GitHub's /issues endpoint. The
@@ -106,7 +108,7 @@ def open_issue_board():
     query = quote(f"repo:{REPO} is:issue is:open", safe="")
     endpoint = f"search/issues?q={query}&per_page=100"
     jq = "{total: .total_count, items: [.items[] | {n: .number, t: .title, labels: [.labels[].name]}]}"
-    raw = sh("gh", "api", endpoint, "--jq", jq, timeout=15)
+    raw = sh("gh", "api", endpoint, "--jq", jq, timeout=timeout)
     if not raw.strip():
         return [], "unavailable"
     try:
@@ -221,23 +223,25 @@ def overlaps(prs, query, limit=8):
 
 
 def main():
-    args = [a for a in sys.argv[1:] if a != "--json"]
+    quick = "--quick" in sys.argv
+    args = [a for a in sys.argv[1:] if a not in ("--json", "--quick")]
     query = " ".join(args)
-    sh("git", "fetch", "-q", "origin", "main", timeout=20)
+    if not quick:
+        sh("git", "fetch", "-q", "origin", "main", timeout=20)
     sha, _, date = sh("git", "log", "-1", "--format=%h %cs", "origin/main").strip().partition(" ")
     age = sh("git", "log", "-1", "--format=%ct", "origin/main").strip()
     age_days = int((time.time() - int(age)) / 86400) if age else None
     branch = sh("git", "branch", "--show-current").strip() or "(detached)"
     behind = sh("git", "rev-list", "--count", "HEAD..origin/main").strip() or "?"
-    prs, source = open_prs()
-    issues, issue_source = open_issue_board()
+    prs, source = open_prs(quick=quick)
+    issues, issue_source = open_issue_board(timeout=4 if quick else 15)
     stacked = [p for p in prs if p["b"] not in ("main", "?")]
-    locked = billing_locked(prs) if source in ("github", "cache") else None
+    locked = (billing_locked(prs) if not quick and source in ("github", "cache") else None)
     hits = overlaps(prs, query)
     issue_hits = relevant_issues(issues, query)
     disposition = holon_disposition(source, issue_source, hits, issue_hits)
     p0 = [issue for issue in issues if "p0" in issue["labels"]]
-    code = existing_code(query) if query else []
+    code = existing_code(query) if query and not quick else []
 
     if "--json" in sys.argv:
         print(json.dumps({"main": sha, "main_date": date, "main_age_days": age_days,
@@ -261,6 +265,8 @@ def main():
     kind = "open PRs" if source in ("github", "cache") else "remote branches (not a complete PR list)"
     lines = [f"AEGIS REPO STATE (measured now, not from docs)",
              f"- main = {sha} from {date} ({age_days} days old). You are on '{branch}', {behind} behind main."]
+    if quick:
+        lines.append("- QUICK: bounded 4s issue lookup; PRs only from fresh cache; run full preflight before editing.")
     if source in ("github", "cache"):
         lines.append(f"- {len(prs)} {kind}; {len(stacked)} stacked on non-main bases.")
     else:
