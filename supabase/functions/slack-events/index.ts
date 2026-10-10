@@ -1,6 +1,6 @@
 // AEGIS-Ω Slack event handler — slash commands + app mentions → autonomous agent
 // Deploy: supabase functions deploy slack-events --no-verify-jwt
-// Env vars: SLACK_SIGNING_SECRET, SLACK_BOT_TOKEN, SUPABASE_URL, NOTIFY_SECRET, AEGIS_AGENT_INVOKE_SECRET, AEGIS_SLACK_ALLOWED_USER_IDS
+// Env vars: SLACK_SIGNING_SECRET, SLACK_BOT_TOKEN, SUPABASE_URL, NOTIFY_SECRET, AEGIS_AGENT_INVOKE_SECRET, AEGIS_SLACK_ALLOWED_USER_IDS, AEGIS_SLACK_ALLOWED_CHANNEL_IDS
 //
 // Slack app setup (api.slack.com/apps):
 //   1. Incoming Webhooks → ON → install to #aegis-alerts → copy URL → SLACK_WEBHOOK_URL secret
@@ -19,6 +19,12 @@ const AGENT_INVOKE_SECRET  = Deno.env.get('AEGIS_AGENT_INVOKE_SECRET') ?? ''
 // AEGIS operator. Reject all execution when the explicit allowlist is absent.
 const ALLOWED_SLACK_USERS = new Set(
   (Deno.env.get('AEGIS_SLACK_ALLOWED_USER_IDS') ?? '')
+    .split(',').map(x => x.trim()).filter(Boolean),
+)
+// Inference results may contain purchase/customer data. A signed, allowed
+// caller must not route sensitive output into an unapproved Slack channel.
+const ALLOWED_SLACK_CHANNELS = new Set(
+  (Deno.env.get('AEGIS_SLACK_ALLOWED_CHANNEL_IDS') ?? '')
     .split(',').map(x => x.trim()).filter(Boolean),
 )
 
@@ -48,6 +54,7 @@ async function verifySlackSignature(body: string, timestamp: string, sig: string
 
 // Post a message back to Slack
 async function slackReply(channel: string, text: string, thread_ts?: string): Promise<void> {
+  if (!ALLOWED_SLACK_CHANNELS.has(channel)) return
   if (!SLACK_BOT_TOKEN) return
   await fetch('https://slack.com/api/chat.postMessage', {
     method: 'POST',
@@ -93,8 +100,9 @@ Deno.serve(async (req) => {
     const channel = params.get('channel_id') ?? ''
     const user    = params.get('user_name') ?? 'unknown'
     const userId  = params.get('user_id') ?? ''
-    if (!userId || !ALLOWED_SLACK_USERS.has(userId)) {
-      return new Response('Operator not authorized', { status: 403 })
+    if (!userId || !ALLOWED_SLACK_USERS.has(userId) ||
+        !ALLOWED_SLACK_CHANNELS.has(channel)) {
+      return new Response('Operator or channel not authorized', { status: 403 })
     }
     const ts      = params.get('message_ts') ?? undefined
 
@@ -107,8 +115,8 @@ Deno.serve(async (req) => {
 
     // Acknowledge immediately (Slack requires <3s response)
     const ackResponse = new Response(JSON.stringify({
-      response_type: 'in_channel',
-      text: `_Running: "${task}"..._`,
+      response_type: 'ephemeral',
+      text: 'Task accepted for execution in an approved channel.',
     }), { headers: { 'Content-Type': 'application/json' } })
 
     // Run agent in background and post result
@@ -138,17 +146,18 @@ Deno.serve(async (req) => {
     // App mention: @AEGIS-Ω <task>
     if (event.event?.type === 'app_mention') {
       const userId = event.event.user ?? ''
-      if (!userId || !ALLOWED_SLACK_USERS.has(userId)) {
-        return new Response('Operator not authorized', { status: 403 })
+      const channel = event.event.channel ?? ''
+      if (!userId || !ALLOWED_SLACK_USERS.has(userId) ||
+          !ALLOWED_SLACK_CHANNELS.has(channel)) {
+        return new Response('Operator or channel not authorized', { status: 403 })
       }
       const text    = (event.event.text ?? '').replace(/<@[A-Z0-9]+>/g, '').trim()
-      const channel = event.event.channel
       const ts      = event.event.ts
 
       if (text) {
         ;(async () => {
           try {
-            await slackReply(channel, `_On it: "${text}"..._`, ts)
+            await slackReply(channel, '_Running an approved task..._', ts)
             const result = await runAgent(text, 'Requested via @AEGIS-Ω mention in Slack')
             await slackReply(channel, `*AEGIS-Ω:* ${result}`, ts)
           } catch (e) {
