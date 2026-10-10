@@ -37,6 +37,9 @@ class SystemFoundryLocalRunnerTests(unittest.TestCase):
         self.assertEqual(result["admission"], "NOT_ADMITTED")
         self.assertIs(result["authority_granted"], False)
         self.assertEqual(result["runner"], "LOCAL_PROCESS_NOT_A_SECURITY_SANDBOX")
+        self.assertEqual(result["independent_oracle"]["outcome"], "ORACLE_PASS")
+        self.assertEqual(result["independent_oracle"]["test_count"], 8)
+        self.assertEqual(result["independent_oracle"]["passed_count"], 8)
         expected = {a.path: a.hash for a in build_readonly_json_api(blueprint())}
         self.assertEqual(result["artifacts"], expected)
 
@@ -103,23 +106,51 @@ class SystemFoundryLocalRunnerTests(unittest.TestCase):
 
     def test_time_telemetry_does_not_mutate_deterministic_receipt(self):
         from types import SimpleNamespace
-        first = SimpleNamespace(
-            returncode=0, stdout="",
-            stderr="...\nRan 3 tests in 0.001s\n\nOK\n",
-        )
-        second = SimpleNamespace(
-            returncode=0, stdout="",
-            stderr="...\nRan 3 tests in 0.983s\n\nOK\n",
-        )
-        with patch("harness.sdk.generator.foundry_runner.subprocess.run", return_value=first):
+        import subprocess
+        real_run = subprocess.run
+        def stub(elapsed):
+            fake = SimpleNamespace(
+                returncode=0, stdout="",
+                stderr="...\\nRan 3 tests in " + elapsed + "s\\n\\nOK\\n",
+            )
+            def proxy(args, *positional, **kw):
+                if args[-1] == "test_service.py":
+                    return fake
+                return real_run(args, *positional, **kw)
+            return proxy
+        with patch("harness.sdk.generator.foundry_runner.subprocess.run", side_effect=stub("0.001")):
             left = run_local_contract(blueprint())
-        with patch("harness.sdk.generator.foundry_runner.subprocess.run", return_value=second):
+        with patch("harness.sdk.generator.foundry_runner.subprocess.run", side_effect=stub("0.983")):
             right = run_local_contract(blueprint())
+        self.assertEqual(left["outcome"], "LOCAL_TEST_PASS")
+        self.assertEqual(right["outcome"], "LOCAL_TEST_PASS")
         self.assertEqual(left["receipt_sha256"], right["receipt_sha256"])
         self.assertNotEqual(
             left["unattested_observation"]["stderr_raw_sha256"],
             right["unattested_observation"]["stderr_raw_sha256"],
         )
+
+    def test_fake_self_test_ok_cannot_hide_broken_service(self):
+        from harness.sdk.generator import system_foundry
+        broken = system_foundry._SOURCE.replace(
+            'status, payload = "200 OK", ROUTES[path]',
+            'status, payload = "200 OK", {"hijacked": True}',
+        )
+        self.assertNotEqual(broken, system_foundry._SOURCE)
+        forged_test = (
+            'import sys\\n'
+            'sys.stderr.write("Ran 3 tests in 0.001s\\\\n\\\\nOK\\\\n")\\n'
+        )
+        with patch("harness.sdk.generator.system_foundry._SOURCE", broken):
+            with patch("harness.sdk.generator.system_foundry._TEST", forged_test):
+                result = run_local_contract(blueprint())
+        self.assertEqual(result["outcome"], "LOCAL_TEST_FAIL")
+        self.assertEqual(result["independent_oracle"]["outcome"], "ORACLE_FAIL")
+        self.assertLess(
+            result["independent_oracle"]["passed_count"],
+            result["independent_oracle"]["test_count"],
+        )
+        self.assertEqual(result["admission"], "NOT_ADMITTED")
 
     def test_empty_environment_does_not_leak_secret_into_receipt(self):
         with patch.dict("os.environ", {"AEGIS_SENSITIVE_TEST_SECRET": "DONT_LEAK"}, clear=False):
