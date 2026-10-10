@@ -11,6 +11,10 @@ import unittest
 from harness.sdk.generator import (
     CodeArtifact, GenerationStatus, Generator, RalphExecutor,
 )
+import importlib.util
+import sys
+from pathlib import Path
+
 from harness.sdk.evaluator import Evaluator, EvaluationVerdict, PlaywrightRunner
 from harness.sdk.generator.system_foundry import build_readonly_json_api, SystemBlueprintError
 
@@ -88,6 +92,39 @@ class SystemFoundryEvidenceTests(unittest.TestCase):
         self.assertEqual(result.status, GenerationStatus.REJECTED)
         self.assertTrue(result.artifacts)
         self.assertTrue(all(t["tests_run"] == 0 for t in result.test_results))
+
+    def test_mesh_auditor_rejects_partial_hash_and_fake_browser(self):
+        path = Path(__file__).resolve().parents[2] / "sovereign-mesh/nodes/auditor/evaluator.py"
+        spec = importlib.util.spec_from_file_location("aegis_mesh_auditor_probe", path)
+        module = importlib.util.module_from_spec(spec)
+        sys.modules[spec.name] = module
+        spec.loader.exec_module(module)
+        content = "actual content"
+        expected = hashlib.sha256(content.encode()).hexdigest()
+        self.assertFalse(module.GenesisVerifier().verify_artifact(content + "tamper", expected)[0])
+        self.assertTrue(module.GenesisVerifier().verify_artifact(content, expected)[0])
+        browser = module.PlaywrightMCP().run_tests([{"content": "anything"}])
+        self.assertEqual(browser["tests_run"], 0)
+        self.assertEqual(browser["tests_passed"], 0)
+        self.assertFalse(browser["execution_verified"])
+        verdict, _ = module.VerdictEmitter().determine_verdict(
+            True, [], browser, {"truth_over_flow": True}, 1.0
+        )
+        self.assertNotIn(verdict, (module.Verdict.PASS, module.Verdict.PASS_WITH_WARNINGS))
+
+    def test_mesh_artisan_does_not_claim_generated_draft_is_shipped(self):
+        path = Path(__file__).resolve().parents[2] / "sovereign-mesh/nodes/artisan/generator.py"
+        spec = importlib.util.spec_from_file_location("aegis_mesh_artisan_probe", path)
+        module = importlib.util.module_from_spec(spec)
+        sys.modules[spec.name] = module
+        spec.loader.exec_module(module)
+        contract = {
+            "sprint_id": "sample", "directive": "Build API",
+            "specifications": ["PROCESS: implement Python API"],
+            "constraints": [], "complexity_lambda": 2,
+        }
+        result = module.SprintExecutor(contract).execute()
+        self.assertFalse(result.success)
 
     def test_missing_builder_cannot_generate_fake_rust(self):
         engine = RalphExecutor(constraints={})
