@@ -660,10 +660,11 @@ async def _ralph_cycle(
 
 
 async def run_agent(task: AgentTask) -> AgentResult:
-    """Run an agent through RALPH loops until completion or max_cycles.
+    """Run RALPH loops without minting skill evidence from self-reported output.
 
-    Phase 2: emits SKILL_VALIDATED / SKILL_DEGRADED events back to skill_tree.json
-    after each execution, closing the evidence loop for probabilistic competency modeling.
+    A language-model completion or governance-valid response is not a verified
+    outcome of every declared agent capability. Independent tool-specific
+    verification must precede any skill registry update or tier promotion.
     """
     defs = _load_agent_defs()
     agent_def = defs["agents"][task.role.value]
@@ -696,8 +697,8 @@ async def run_agent(task: AgentTask) -> AgentResult:
     final_output = ""
     final_governance: dict = {}
     cycles = 0
-    succeeded = False
-
+    # Completion here is a model/proxy signal, not proof of capability.
+    # Do not create `succeeded` telemetry from this unverified signal.
     try:
         for cycle in range(task.max_ralph_cycles):
             cycles = cycle + 1
@@ -707,7 +708,6 @@ async def run_agent(task: AgentTask) -> AgentResult:
 
             # Terminal condition: agent declared harmonization complete
             if "HARMONIZE_COMPLETE" in output or cycle == task.max_ralph_cycles - 1:
-                succeeded = governance.get("is_valid", True) and "ERROR" not in output[:200]
                 break
 
     finally:
@@ -725,17 +725,9 @@ async def run_agent(task: AgentTask) -> AgentResult:
         is_valid=final_governance.get("is_valid", True),
     )
 
-    # Phase 2: emit skill events for all capabilities declared by this agent
-    capabilities: list[str] = agent_def.get("capabilities", [])
-    for cap in capabilities:
-        _skill_router.emit_skill_event(cap, success=succeeded)
-
-    # Evolution: record this run in the hash-chained AdaptiveLineage and, when an
-    # agent's skills cross the promotion threshold, the engine earns it a TIER_PROMOTION.
-    # Guarded — evolution is observational metabolism and must never break a run.
-    if agent_def.get("evolving"):
-        _record_evolution(task.role.value, capabilities, succeeded)
-
+    # Evidence boundary: no SKILL_VALIDATED, SKILL_DEGRADED, or evolutionary
+    # promotion follows from an LLM completion. A separate independent
+    # task-specific verifier must produce a bound outcome first.
     return result
 
 
