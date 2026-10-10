@@ -3,8 +3,8 @@ AEGIS-Ω Agent Evolution — Hash-Chained Adaptive Lineage
 =======================================================
 The evolutionary metabolism of the automaton's agent system.
 
-Skills are not fixed at their birth tier. They earn promotion through accumulated,
-hash-chained evidence — exactly as CLAUDE.md §"Tier Promotion Protocol" specifies:
+Skills are not fixed at their birth tier. They may become promotion candidates through
+reported counters, but require separate signed external attestation; hash-chained evidence — exactly as CLAUDE.md §"Tier Promotion Protocol" specifies:
 
     T2 → T1   ≥3 independent validations (failure_rate < 0.1)   → TIER_PROMOTION entry
     T1 → T0   formal proof OR byte-identical cross-platform demo → TIER_PROMOTION + guardian
@@ -178,7 +178,7 @@ class EvolutionEngine:
     Evaluates the skill tree for tier promotions and records them in the lineage.
 
     Promotion is evidence-driven, not asserted:
-      - T2 → T1: automatic when ≥3 validated_runs, failure_rate < 0.1, confidence ≥ 0.9.
+      - T2 → T1: candidate only; unverified counters cannot authorize promotion.
       - T1 → T0: NEVER automatic. Recorded as guardian-required; not self-granted.
       - Demotion: when failure_rate ≥ 0.5 after ≥3 runs, the prior tier basis is
         invalidated → demote one tier (new evidence invalidates the prior basis).
@@ -234,13 +234,16 @@ class EvolutionEngine:
                 )
             return PromotionVerdict(sid, tier, None, False, "T1 stable — no promotion criteria met")
 
-        # T2 → T1 — automatic when the evidence threshold is crossed.
+        # T2 → T1 counters may identify candidates, NEVER self-promote.
+        # The counters themselves are mutable JSON; hash chaining does not
+        # establish the independent origin of a claimed validation.
         if tier == "T2":
             if (runs >= PROMOTION_MIN_RUNS and fail < PROMOTION_MAX_FAILURE_RATE
                     and conf >= PROMOTION_MIN_CONFIDENCE):
                 return PromotionVerdict(
-                    sid, tier, "T1", True,
-                    f"T2→T1: {runs} validations, failure_rate={fail:.2f}, confidence={conf:.2f}",
+                    sid, tier, "T1", False,
+                    "T2→T1 eligibility ONLY: independent signed test attestation and guardian review required",
+                    requires_guardian=True,
                 )
             return PromotionVerdict(
                 sid, tier, None, False,
@@ -271,11 +274,9 @@ class EvolutionEngine:
                 )
                 skill["tier"] = v.eligible_tier
             elif v.requires_guardian and apply_changes:
-                # Record eligibility WITHOUT promoting (no self-grant of T0).
-                self.lineage.append(
-                    "EVIDENCE_RECORDED", v.skill_id, v.current_tier, v.eligible_tier or v.current_tier,
-                    f"T0-eligible, guardian gate not yet satisfied: {v.reason}",
-                )
+                # Eligibility is not evidence. No lineage entries or registry
+                # mutations without an independently established receipt.
+                pass
 
         if apply_changes:
             self.lineage.save()
@@ -394,7 +395,8 @@ def _cmd_selftest() -> int:
     v = engine.evaluate_skill(
         {"skill_id": "x", "tier": "T2", "validated_runs": 5, "failure_rate": 0.0, "confidence": 0.92}
     )
-    check("T2 with 5 clean runs is promotion-eligible", v.promoted and v.eligible_tier == "T1")
+    check("T2 with 5 claimed runs is held for independent review",
+          not v.promoted and v.eligible_tier == "T1" and v.requires_guardian)
 
     # 7 — T2 with insufficient runs does not promote
     v = engine.evaluate_skill(
