@@ -52,6 +52,17 @@ async function verifySlackSignature(body: string, timestamp: string, sig: string
   return computed === sig
 }
 
+// Edge Functions may retire the isolate as soon as the HTTP request returns.
+// Register all expensive agent work so a quick Slack ACK cannot discard it.
+// If the host lacks this execution guarantee, reject rather than acknowledge work.
+function dispatchBackground(work: () => Promise<void>): boolean {
+  if (typeof EdgeRuntime === 'undefined' || typeof EdgeRuntime.waitUntil !== 'function') {
+    return false
+  }
+  EdgeRuntime.waitUntil(work())
+  return true
+}
+
 // Post a message back to Slack
 async function slackReply(channel: string, text: string, thread_ts?: string): Promise<void> {
   if (!ALLOWED_SLACK_CHANNELS.has(channel)) return
@@ -119,16 +130,16 @@ Deno.serve(async (req) => {
       text: 'Task accepted for execution in an approved channel.',
     }), { headers: { 'Content-Type': 'application/json' } })
 
-    // Run agent in background and post result
-    ;(async () => {
+    // Explicitly bind background lifetime to Supabase EdgeRuntime.
+    const registered = dispatchBackground(async () => {
       try {
         const result = await runAgent(task, `Requested by @${user} in Slack`)
         await slackReply(channel, `*AEGIS-Ω:* ${result}`, ts)
       } catch (e) {
         await slackReply(channel, `Agent error: ${(e as Error).message}`, ts)
       }
-    })()
-
+    })
+    if (!registered) return new Response('Background worker unavailable', { status: 503 })
     return ackResponse
   }
 
@@ -155,7 +166,7 @@ Deno.serve(async (req) => {
       const ts      = event.event.ts
 
       if (text) {
-        ;(async () => {
+        const registered = dispatchBackground(async () => {
           try {
             await slackReply(channel, '_Running an approved task..._', ts)
             const result = await runAgent(text, 'Requested via @AEGIS-Ω mention in Slack')
@@ -163,7 +174,8 @@ Deno.serve(async (req) => {
           } catch (e) {
             await slackReply(channel, `Error: ${(e as Error).message}`, ts)
           }
-        })()
+        })
+        if (!registered) return new Response('Background worker unavailable', { status: 503 })
       }
 
       return new Response('ok', { status: 200 })
