@@ -108,13 +108,13 @@ export function ConsolePage() {
             background: 'rgba(9,10,15,0.86)', border: `1px solid rgba(255,255,255,0.10)`,
             backdropFilter: 'blur(16px) saturate(140%)', boxShadow: '0 24px 70px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.06)',
           }}>
-            <StatChip label="departments" value={String(snap.status.total_agents)} color={T.text} />
+            <StatChip label="dept roster" value={live ? `reported ${snap.status.total_agents}` : 'unverified'} color={live ? T.text : T.muted} />
             <Divider />
-            <StatChip label="homeostasis" value={snap.calibration.homeostasis_zone} color={T.green} />
+            <StatChip label="homeostasis" value={live ? `reported ${snap.calibration.homeostasis_zone}` : 'unverified'} color={T.amber} />
             <Divider />
-            <StatChip label="contract" value={`v${snap.status.contract_version}`} color={T.text} />
+            <StatChip label="contract" value={live ? `v${snap.status.contract_version}` : 'unverified'} color={live ? T.text : T.muted} />
             <Divider />
-            <StatChip label="chain" value={live ? (snap.status.chain_valid ? 'reported valid' : 'reported invalid') : 'unverified'} color={live ? (snap.status.chain_valid ? T.green : T.red) : T.amber} />
+            <StatChip label="chain" value={!live || snap.status.chain_valid === null ? 'unverified' : snap.status.chain_valid ? 'reported valid' : 'reported invalid'} color={live && snap.status.chain_valid === false ? T.red : T.amber} />
           </div>
 
           <div style={{ marginTop: 40, fontSize: 11, color: T.muted, fontFamily: MONO, letterSpacing: '0.1em' }}>
@@ -126,7 +126,17 @@ export function ConsolePage() {
         <main style={{ maxWidth: 1080, margin: '0 auto', padding: '40px 24px 80px', display: 'flex', flexDirection: 'column', gap: 24 }}>
           <SectionLabel n="01" title="System state" sub="Homeostasis and self-verification — the system's felt state and its honesty." />
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
-            <HomeostasisGauge cal={snap.calibration} />
+            {live ? <HomeostasisGauge cal={snap.calibration} /> : (
+              <div style={{ border: `1px solid ${T.border}`, borderRadius: 18, background: T.card, padding: 24 }}>
+                <div style={{ fontFamily: MONO, color: T.amber, letterSpacing: '0.1em', fontSize: 12 }}>
+                  HOMEOSTASIS · UNVERIFIED
+                </div>
+                <p style={{ color: T.sub, fontSize: 14, lineHeight: 1.7, marginTop: 12 }}>
+                  No live calibration was received. Demo fitness, trend and thresholds are not measurements
+                  and cannot be used to assess system health.
+                </p>
+              </div>
+            )}
             <VerificationPanel snap={snap} />
           </div>
 
