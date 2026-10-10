@@ -90,6 +90,16 @@ const DEMO_SNAPSHOT: ConsoleSnapshot = {
   checks: [],
 }
 
+// The backend's own empty fitness fallback reports "optimal" with window_size=0.
+// Zero samples or malformed numerical fields are NEVER evidence of homeostasis.
+export function hasMeasuredCalibration(cal: CalibrationStatus): boolean {
+  return Number.isSafeInteger(cal.window_size) && cal.window_size > 0
+    && [cal.fitness_mean, cal.fitness_variance, cal.hd_equivalent,
+      cal.stagnation_rate, cal.constitutional_factor_mean].every(Number.isFinite)
+    && cal.fitness_mean >= 0 && cal.fitness_mean <= 1
+    && cal.fitness_variance >= 0 && cal.hd_equivalent >= 0
+}
+
 // ── Loud verification: derive a legible check list from the live/demo state ────
 
 export function deriveChecks(
@@ -98,6 +108,7 @@ export function deriveChecks(
   cal: CalibrationStatus,
 ): SystemCheck[] {
   const live = source === 'live'
+  const measured = live && hasMeasuredCalibration(cal)
   const chainClaim = !live ? 'UNKNOWN — demonstration data'
     : status.chain_valid === true ? 'REPORTED_VALID — no independently verified receipt'
     : status.chain_valid === false ? 'REPORTED_INVALID — investigate backend evidence'
@@ -109,12 +120,12 @@ export function deriveChecks(
       reason: live ? `backend reports ${status.contract_version}` : 'UNKNOWN — demo only' },
     { label: 'Independent chain verification', ok: false, reason: chainClaim },
     { label: 'Homeostasis observation', ok: false,
-      reason: live ? `REPORTED_ONLY — ${cal.homeostasis_zone} · ${cal.recommendation}` : 'UNKNOWN — not measured' },
+      reason: measured ? `REPORTED_ONLY — ${cal.homeostasis_zone} · ${cal.recommendation}` : 'UNKNOWN — no fitness measurements' },
     { label: 'Stagnation observation', ok: false,
-      reason: live && Number.isFinite(cal.stagnation_rate)
+      reason: measured && Number.isFinite(cal.stagnation_rate)
         ? `REPORTED_ONLY — ${Math.round(cal.stagnation_rate * 100)}%` : 'UNKNOWN — not measured' },
     { label: 'Constitutional factor observation', ok: false,
-      reason: live && Number.isFinite(cal.constitutional_factor_mean)
+      reason: measured && Number.isFinite(cal.constitutional_factor_mean)
         ? `REPORTED_ONLY — mean ${cal.constitutional_factor_mean.toFixed(2)}` : 'UNKNOWN — not measured' },
   ]
 }
