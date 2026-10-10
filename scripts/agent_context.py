@@ -66,7 +66,66 @@ def open_prs():
     heads = sh("git", "ls-remote", "--heads", "origin", timeout=30)
     prs = [{"n": None, "t": "", "h": l.split("refs/heads/", 1)[1], "b": "?", "d": ""}
            for l in heads.splitlines() if "refs/heads/" in l and not l.endswith("/main")]
-    return prs, "branches"
+    return prs, "branches" if prs else "unavailable"
+
+
+def open_issue_board():
+    """Read the shared work board. API failure is UNKNOWN, never an empty board.
+
+    Search excludes pull requests, unlike GitHub's /issues endpoint. The
+    returned source distinguishes a complete set from a truncated search.
+    No issue claim is auto-expired here: doing so requires reviewing the actual
+    comment history and current ownership.
+    """
+    from urllib.parse import quote
+
+    query = quote(f"repo:{REPO} is:issue is:open", safe="")
+    endpoint = f"search/issues?q={query}&per_page=100"
+    jq = "{total: .total_count, items: [.items[] | {n: .number, t: .title, labels: [.labels[].name]}]}"
+    raw = sh("gh", "api", endpoint, "--jq", jq, timeout=15)
+    if not raw.strip():
+        return [], "unavailable"
+    try:
+        payload = json.loads(raw)
+        total = payload["total"]
+        issues = payload["items"]
+        if type(total) is not int or total < 0 or not isinstance(issues, list):
+            raise ValueError("Invalid issue search result")
+        for issue in issues:
+            if (not isinstance(issue, dict) or type(issue.get("n")) is not int
+                    or not isinstance(issue.get("t"), str)
+                    or not isinstance(issue.get("labels"), list)
+                    or any(not isinstance(x, str) for x in issue["labels"])):
+                raise ValueError("Malformed issue record")
+        return issues, "github" if len(issues) == total else "partial"
+    except (KeyError, TypeError, ValueError, json.JSONDecodeError):
+        return [], "unavailable"
+
+
+def relevant_issues(issues, query, limit=8):
+    """Prefer explicit #issue IDs; other matches are advisory title keywords."""
+    keys = words(query)
+    explicit = {int(n) for n in re.findall(r"(?<!\\w)#(\\d+)", query)}
+    found = []
+    for issue in issues:
+        matched = sorted(keys & words(issue["t"]))
+        if issue["n"] in explicit or len(matched) >= 2:
+            found.append((issue["n"] in explicit, len(matched), issue, matched))
+    found.sort(key=lambda x: (-int(x[0]), -x[1], x[2]["n"]))
+    return [(issue, matched) for _, _, issue, matched in found[:limit]]
+
+
+def holon_disposition(pr_source, issue_source, pr_hits, issue_hits):
+    """Informational work allocation ONLY; never an execution authorization."""
+    if pr_source not in ("github", "cache") or issue_source != "github":
+        return "HOLD_INCOMPLETE_SHARED_STATE"
+    if any("needs-operator" in issue["labels"] for issue, _ in issue_hits):
+        return "OPERATOR_ACTION_REQUIRED"
+    if any("claimed" in issue["labels"] for issue, _ in issue_hits):
+        return "HOLD_CLAIMED_WORK_COORDINATE"
+    if pr_hits:
+        return "REVIEW_EXISTING_PR_FIRST"
+    return "ISSUE_ASSIGNMENT_AND_REVIEW_REQUIRED"
 
 
 def existing_code(query, limit=8):
@@ -143,29 +202,58 @@ def main():
     branch = sh("git", "branch", "--show-current").strip() or "(detached)"
     behind = sh("git", "rev-list", "--count", "HEAD..origin/main").strip() or "?"
     prs, source = open_prs()
+    issues, issue_source = open_issue_board()
     stacked = [p for p in prs if p["b"] not in ("main", "?")]
-    locked = billing_locked(prs)
+    locked = billing_locked(prs) if source in ("github", "cache") else None
     hits = overlaps(prs, query)
+    issue_hits = relevant_issues(issues, query)
+    disposition = holon_disposition(source, issue_source, hits, issue_hits)
+    p0 = [issue for issue in issues if "p0" in issue["labels"]]
     code = existing_code(query) if query else []
 
     if "--json" in sys.argv:
         print(json.dumps({"main": sha, "main_date": date, "main_age_days": age_days,
-                          "branch": branch, "behind_main": behind, "open": len(prs),
-                          "stacked": len(stacked), "source": source, "ci_billing_locked": locked,
+                          "branch": branch, "behind_main": behind,
+                          "open": len(prs) if source in ("github", "cache") else None,
+                          "stacked": len(stacked) if source in ("github", "cache") else None,
+                          "source": source, "ci_billing_locked": locked,
+                          "issue_source": issue_source,
+                          "issue_count": len(issues) if issue_source == "github" else None,
+                          "holon_disposition": disposition,
+                          "p0_issues": [{"number": i["n"], "title": i["t"], "labels": i["labels"]}
+                                        for i in p0],
+                          "issue_matches": [{"number": i["n"], "title": i["t"],
+                                             "labels": i["labels"], "match": m}
+                                            for i, m in issue_hits],
                           "overlaps": [{"pr": p["n"], "title": p["t"], "head": p["h"],
                                         "base": p["b"], "match": m} for _, p, m in hits],
                           "existing_code": [{"path": c, "match": m} for c, m in code]}))
         return
 
-    kind = "open PRs" if source != "branches" else "remote branches (gh unavailable)"
+    kind = "open PRs" if source in ("github", "cache") else "remote branches (not a complete PR list)"
     lines = [f"AEGIS REPO STATE (measured now, not from docs)",
-             f"- main = {sha} from {date} ({age_days} days old). You are on '{branch}', {behind} behind main.",
-             f"- {len(prs)} {kind}; {len(stacked)} are stacked on non-main bases."]
+             f"- main = {sha} from {date} ({age_days} days old). You are on '{branch}', {behind} behind main."]
+    if source in ("github", "cache"):
+        lines.append(f"- {len(prs)} {kind}; {len(stacked)} stacked on non-main bases.")
+    else:
+        lines.append("- OPEN PR COUNT UNKNOWN: GitHub list unavailable. Remote branches cannot establish issue/PR state.")
+    if issue_source == "github":
+        lines.append(f"- Issue board: {len(issues)} open issues ({len(p0)} P0); claims are advisory, not auto-expired.")
+        for i in p0[:8]:
+            labels = ", ".join(i["labels"])
+            lines.append(f"  P0 #{i['n']} {i['t'][:100]} [{labels}]")
+    else:
+        lines.append("- ISSUE BOARD UNKNOWN/PARTIAL: do not assume an unclaimed task.")
+    if issue_hits:
+        lines.append("- Related issues (check owners/claims; coordinate before editing):")
+        for issue, matched in issue_hits:
+            lines.append(f"  #{issue['n']} {issue['t'][:100]} [labels: {', '.join(issue['labels'])}] (match: {', '.join(matched)})")
+    lines.append(f"- Holon coordination: {disposition}. Informational only; never authorizes a merge/release.")
     if locked:
         lines.append("- CI IS NOT RUNNING: GitHub Actions jobs fail with 'account is locked due to a "
                      "billing issue'. Every red check is that lock, not your code. Do NOT open PRs to "
                      "'fix' CI; nothing can be verified or merged until the operator fixes org billing.")
-    if age_days is not None and age_days > 7 and len(prs) > 20:
+    if age_days is not None and age_days > 7 and source in ("github", "cache") and len(prs) > 20:
         lines.append("- main is stale and the queue is huge: the work you are about to do may "
                      "already exist in an open PR. Check the list below before writing code.")
     if hits:
@@ -175,7 +263,7 @@ def main():
             base = "" if p["b"] in ("main", "?") else f" [stacked on {p['b']}]"
             lines.append(f"  {ref} {p['h']}{base} — {p['t'][:90]} (match: {', '.join(m)})")
     elif query:
-        lines.append("- No open PR/branch overlaps this task by keyword.")
+        lines.append("- No *title-keyword* PR overlap found in available data; code and file-path overlap NOT ruled out.")
     if code:
         lines.append("- Code already on main that matches this task (read it first; reuse or extend it):")
         for path, m in code:
