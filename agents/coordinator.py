@@ -10,9 +10,7 @@ from __future__ import annotations
 
 import hashlib
 import json
-import os
 import subprocess
-import time
 from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Any
@@ -21,7 +19,7 @@ from agents import coordinator_legacy as _legacy
 from harness.sdk.authority_client import authorize_from_environment
 from harness.sdk.capability_selection import advise_admitted_order
 from harness.sdk.repository_knowledge import build_snapshot, verify_snapshot
-from harness.sdk.skill_routing import ADMITTED, DENIED, SkillRoutingReceipt, record_skill_observation
+from harness.sdk.skill_routing import ADMITTED, DENIED, SkillRoutingReceipt
 
 for _name in dir(_legacy):
     if not _name.startswith("__") and _name not in globals():
