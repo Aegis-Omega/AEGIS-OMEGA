@@ -11,6 +11,7 @@
 
 import type { EventEnvelope, EventType, RetentionClass, UUIDv7, SHA256Hex, SequenceNumber } from '../core/types.js'
 import { canonicalizeJCS } from '../core/canonicalize.js'
+import { hashValue } from '../core/hashing.js'
 import { generateUUIDv7 } from './uuid.js'
 
 const DB_NAME = 'sovereign-omega-events'
@@ -202,19 +203,55 @@ export class EventStore {
    * Verify the hash chain integrity of the event log.
    * Returns the first broken link, or null if the chain is intact.
    */
-  async verifyChain(): Promise<{ broken_at_sequence: number; expected: string; got: string } | null> {
-    const events = await this.getAll()
+  async verifyChain(
+    snapshot?: readonly EventEnvelope[]
+  ): Promise<{ broken_at_sequence: number; expected: string; got: string } | null> {
+    // Verify exactly the snapshot the caller will replay. Re-reading the store
+    // here would introduce a TOCTOU gap under concurrent appends.
+    const events = snapshot ?? await this.getAll()
     const genesisHash = '0'.repeat(64) as SHA256Hex
 
     for (let i = 0; i < events.length; i++) {
       const event = events[i]!
       const expectedPrevHash = i === 0 ? genesisHash : events[i - 1]!.self_hash
 
+      // A valid chain starts at zero and cannot have missing or reordered events.
+      if (event.sequence !== BigInt(i) || event.stream_id !== this.streamId) {
+        return {
+          broken_at_sequence: Number(event.sequence),
+          expected: String(i) + '@' + this.streamId,
+          got: event.sequence.toString() + '@' + event.stream_id,
+        }
+      }
       if (event.prev_hash !== expectedPrevHash) {
         return {
           broken_at_sequence: Number(event.sequence),
           expected: expectedPrevHash,
           got: event.prev_hash,
+        }
+      }
+
+      // The old verifier checked only prev_hash links. A modified payload
+      // or producer field could therefore retain a falsely valid chain.
+      // Reproduce the exact append() hashing envelope, excluding self_hash.
+      const expectedSelfHash = await hashValue({
+        event_id: event.event_id,
+        stream_id: event.stream_id,
+        event_type: event.event_type,
+        timestamp_ms: event.timestamp_ms,
+        sequence: event.sequence.toString(),
+        producer_id: event.producer_id,
+        producer_version: event.producer_version,
+        payload_schema_version: event.payload_schema_version,
+        payload: event.payload,
+        prev_hash: event.prev_hash,
+        retention_class: event.retention_class,
+      })
+      if (event.self_hash !== expectedSelfHash) {
+        return {
+          broken_at_sequence: Number(event.sequence),
+          expected: expectedSelfHash,
+          got: event.self_hash,
         }
       }
     }
