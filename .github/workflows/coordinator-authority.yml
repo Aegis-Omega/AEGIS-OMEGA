@@ -5,8 +5,10 @@ on:
     paths:
       - "agents/**"
       - "harness/**"
+      - "sovereign-mesh/nodes/auditor/**"
       - "sovereign-omega-v2/python/tests/test_coordinator_authority.py"
       - "sovereign-omega-v2/python/tests/test_capability_selection.py"
+      - "sovereign-omega-v2/python/tests/test_mesh_genesis_integrity.py"
       - ".github/workflows/coordinator-authority.yml"
   workflow_dispatch:
 
@@ -43,3 +45,5 @@ jobs:
 
       - name: Run capability selection falsifiers
         run: pytest -q sovereign-omega-v2/python/tests/test_capability_selection.py
+      - name: Verify legacy mesh artifact-integrity fail-closed boundary
+        run: pytest -q sovereign-omega-v2/python/tests/test_mesh_genesis_integrity.py
