@@ -48,50 +48,63 @@ class SprintResult:
 
 
 class RalphExecutor:
+    """Generate candidate artifacts through an explicit implementation adapter.
+
+    The default is a denied/no-builder result, not synthetic Rust code.
+    Compilation is only a syntax check; independent execution evidence is
+    required before a sprint can be marked complete.
     """
-    Ralph Executor - Core execution engine for sprint work.
-    Generates code while maintaining constitutional constraints.
-    """
-    
-    def __init__(self, constraints: Dict[str, bool]):
+
+    def __init__(
+        self,
+        constraints: Dict[str, bool],
+        artifact_builder: Optional[Callable[[str], List[CodeArtifact]]] = None,
+    ):
         self.constraints = constraints
+        self.artifact_builder = artifact_builder
         self.artifacts: List[CodeArtifact] = []
         self.execution_log: List[Dict] = []
-    
-    def execute(self, task_description: str) -> List[CodeArtifact]:
-        """Execute a task and generate artifacts"""
-        start_time = time.time()
-        
-        # Placeholder implementation - would integrate with LLM in production
-        artifact = CodeArtifact(
-            path=f"generated/{hashlib.sha256(task_description.encode()).hexdigest()[:8]}.rs",
-            content=f"// Generated code for: {task_description}\n",
-            language="rust",
-            hash=hashlib.sha256(task_description.encode()).hexdigest(),
-            metadata={"task": task_description}
-        )
-        
-        self.artifacts.append(artifact)
-        self.execution_log.append({
-            "task": task_description,
-            "timestamp": time.time(),
-            "artifact_hash": artifact.hash
-        })
-        
-        return [artifact]
-    
-    def run_tests(self, artifacts: List[CodeArtifact]) -> List[Dict]:
-        """Run tests on generated artifacts"""
-        results = []
-        for artifact in artifacts:
-            results.append({
-                "artifact": artifact.path,
-                "passed": True,  # Placeholder
-                "tests_run": 1,
-                "tests_passed": 1
-            })
-        return results
 
+    def execute(self, task_description: str) -> List[CodeArtifact]:
+        if self.artifact_builder is None:
+            self.execution_log.append({
+                "task_digest": hashlib.sha256(task_description.encode()).hexdigest(),
+                "outcome": "DENIED_NO_IMPLEMENTATION_ADAPTER",
+            })
+            return []
+        candidates = self.artifact_builder(task_description)
+        if not isinstance(candidates, list) or not candidates:
+            raise ValueError("IMPLEMENTATION_ADAPTER_PRODUCED_NO_ARTIFACTS")
+        seen = set()
+        for artifact in candidates:
+            if not isinstance(artifact, CodeArtifact):
+                raise ValueError("ARTIFACT_TYPE_INVALID")
+            if not isinstance(artifact.path, str) or artifact.path.startswith("/") or "\\" in artifact.path or any(p in ("", ".", "..") for p in artifact.path.split("/")):
+                raise ValueError("ARTIFACT_PATH_UNSAFE")
+            if artifact.path in seen:
+                raise ValueError("ARTIFACT_PATH_DUPLICATE")
+            seen.add(artifact.path)
+            if not isinstance(artifact.content, str) or not artifact.content.strip():
+                raise ValueError("ARTIFACT_CONTENT_EMPTY")
+            if hashlib.sha256(artifact.content.encode("utf-8")).hexdigest() != artifact.hash:
+                raise ValueError("ARTIFACT_HASH_MISMATCH")
+        self.artifacts.extend(candidates)
+        self.execution_log.append({
+            "task_digest": hashlib.sha256(task_description.encode()).hexdigest(),
+            "outcome": "CANDIDATE_GENERATED_UNVERIFIED",
+            "artifact_hashes": {item.path: item.hash for item in candidates},
+        })
+        return candidates
+
+    def run_tests(self, artifacts: List[CodeArtifact]) -> List[Dict]:
+        """Never invent test passes; require a separate trusted executor."""
+        return [{
+            "artifact": artifact.path,
+            "passed": False,
+            "tests_run": 0,
+            "tests_passed": 0,
+            "reason": "INDEPENDENT_TEST_RUN_NOT_ATTACHED",
+        } for artifact in artifacts]
 
 class Generator:
     """
@@ -123,16 +136,22 @@ class Generator:
         # Run tests
         test_results = self.executor.run_tests(artifacts)
         
-        # Calculate confidence based on test results
-        passed = sum(1 for t in test_results if t.get("passed", False))
-        total = len(test_results) if test_results else 1
-        confidence = passed / total
+        # A caller-authored boolean is not independent test evidence.
+        verified = bool(artifacts) and bool(test_results) and all(
+            isinstance(t, dict)
+            and t.get("passed") is True
+            and type(t.get("tests_run")) is int and t["tests_run"] > 0
+            and type(t.get("tests_passed")) is int and t["tests_passed"] == t["tests_run"]
+            and t.get("independent_receipt_verified") is True
+            for t in test_results
+        )
+        confidence = 1.0 if verified else 0.0
         
         execution_time = (time.time() - start_time) * 1000
         
         result = SprintResult(
             task_id=task_id,
-            status=GenerationStatus.COMPLETE if confidence > 0.8 else GenerationStatus.FAILED,
+            status=GenerationStatus.COMPLETE if verified else GenerationStatus.REJECTED,
             artifacts=artifacts,
             test_results=test_results,
             execution_time_ms=execution_time,
