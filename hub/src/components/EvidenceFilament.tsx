@@ -1,5 +1,6 @@
 /** One state-driven, data-bound visual slice of the existing ResearchOS atlas. */
 import { selectEvidenceFilament, type FilamentSource } from '../lib/evidenceFilament.js'
+import { SovereignMatter } from './SovereignMatter.js'
 
 type Props = {
   sources: readonly FilamentSource[]
@@ -18,7 +19,8 @@ export function EvidenceFilament({ sources, selectedId, onSelect }: Props) {
       <span className="ef-mode">CURATED DATA · NOT LIVE TELEMETRY</span>
     </header>
     {flow ? <>
-      <div className="ef-map">
+      <div className="ef-map ef-map-material">
+        <SovereignMatter sourceId={flow.source.id} limitCount={flow.source.boundaries.length} />
         <svg className="ef-engraving" viewBox="0 0 1080 390" preserveAspectRatio="xMidYMid slice" aria-hidden="true" focusable="false">
           <defs>
             <linearGradient id="ef-beam" x1="0" y1="0" x2="1" y2="1">
