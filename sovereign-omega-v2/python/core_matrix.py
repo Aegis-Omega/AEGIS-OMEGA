@@ -142,8 +142,8 @@ def M2(state: memoryview, verifier_result: bytes, confidence_fixed: int, sequenc
     Returns: (vcg_error_fixed, gate_lcb_fixed) — both Q16.16 fixed-point.
 
     INVARIANT: confidence_fixed must be in [0, INT_SCALE] (representing [0.0, 1.0]).
-    INVARIANT: Pure function — no side effects.
-    INVARIANT: sequence must be included in offset to prevent same-length collision.
+    INVARIANT: Writes only within the source's aligned 8-byte slot namespace.
+    INVARIANT: Invalid sequence/address inputs fail before modifying M2 memory.
     """
     # Clamp confidence to valid range
     confidence_fixed = fixed_clamp(confidence_fixed, 0, INT_SCALE)
@@ -165,8 +165,11 @@ def M2(state: memoryview, verifier_result: bytes, confidence_fixed: int, sequenc
     # Writer namespaces are independent. Slot arithmetic precedes byte conversion.
     # Validation occurs before any memory mutation (fail closed on invalid input).
     offset = _m2_byte_offset(len(state), sequence, source)
-    state[offset:offset + 4] = vcg_error_fixed.to_bytes(4, 'little', signed=False)
-    state[offset + 4:offset + 8] = gate_lcb_fixed.to_bytes(4, 'little', signed=False)
+    # Compose the record before touching memory. One slice assignment is not a
+    # cross-thread atomic commit; readers still need synchronization.
+    record = (vcg_error_fixed.to_bytes(4, 'little', signed=False)
+              + gate_lcb_fixed.to_bytes(4, 'little', signed=False))
+    state[offset:offset + 8] = record
 
     return vcg_error_fixed, gate_lcb_fixed
 
@@ -297,6 +300,12 @@ class CoreMatrix:
         INVARIANT: All temporal values derive from sequence, never wall clock.
         """
         with self._lock:
+            # M1 increments sequence before M2. Prevent M1 mutation followed
+            # by a late M2 uint64 rejection at the sequence boundary (#763).
+            if type(self._sequence) is not int or not 0 <= self._sequence < (1 << 64) - 1:
+                return {'status': 'REJECTED', 'reason': 'SEQUENCE_EXHAUSTED',
+                        'sequence': self._sequence}
+
             # Check failsafe state before processing — FROZEN and RECOVERING both gate events
             failsafe_state = self._failsafe.state
             if failsafe_state in (EpochState.FROZEN, EpochState.RECOVERING):
