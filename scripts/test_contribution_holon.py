@@ -15,6 +15,12 @@ class ContributionTruth(unittest.TestCase):
             with io.StringIO() as buf, contextlib.redirect_stdout(buf):
                 mod.main();out=buf.getvalue()
         self.assertIn('unverified',out.lower())
+    def test_empty_git_history_has_zero_commits_not_one(self):
+        with patch.object(mod,'git',side_effect=['','', '', '']),patch.object(sys,'argv',['contribution.py']):
+            with io.StringIO() as buf, contextlib.redirect_stdout(buf):
+                mod.main();out=buf.getvalue()
+        self.assertIn('of 0 commits',out)
+
     def test_model_coauthor_still_detected(self):
         self.assertEqual(mod.agent_of('Co-Authored-By: Claude Opus <x@example.com>',[]),'Claude Opus')
         self.assertEqual(mod.agent_of('Co-Authored-By: GPT-6 <x@example.com>',[]),'GPT-6')
