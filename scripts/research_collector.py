@@ -18,7 +18,7 @@ import socket
 import ssl
 from urllib.parse import urlsplit
 
-from research_attestation import sign_capture, read_protected_key, AttestationError
+from research_attestation import sign_capture, read_protected_key, AttestationError, _validate_key, _binding
 
 MAX_RESPONSE = 131072
 MAX_EXCERPT = 16000
@@ -102,7 +102,14 @@ class PinnedTLS(http.client.HTTPSConnection):
 
 def acquire(url: str, allow_hosts: tuple[str, ...], *, resolver=socket.getaddrinfo,
             connection_factory=PinnedTLS, clock=None,
-            signing_key: bytes | None = None, signing_key_id: str | None = None) -> dict:
+            signing_key: bytes | None = None, signing_key_id: str | None = None,
+            capture_binding: dict | None = None) -> dict:
+    # Admission fails before DNS or network I/O for a malformed signing context.
+    if signing_key is not None:
+        _validate_key(signing_key, signing_key_id)
+        _binding(capture_binding)
+    elif signing_key_id is not None or capture_binding is not None:
+        raise CaptureDenied('SIGNING_KEY_REQUIRED')
     host, path = target(url, allow_hosts)
     addresses = public_ip_set(host, resolver)
     # Every DNS answer is checked; a single validated public IP is selected.
@@ -161,8 +168,9 @@ def acquire(url: str, allow_hosts: tuple[str, ...], *, resolver=socket.getaddrin
             'claim_truth': 'NOT_VERIFIED', 'authority_effect': 'NONE',
         }
         if signing_key is not None:
-            return sign_capture(snapshot, signing_key, signing_key_id)
-        if signing_key_id is not None:
+            return sign_capture(snapshot, signing_key, signing_key_id,
+                                binding=capture_binding)
+        if signing_key_id is not None or capture_binding is not None:
             raise CaptureDenied('SIGNING_KEY_REQUIRED')
         return snapshot
     except (OSError, ssl.SSLError, http.client.HTTPException) as e:
@@ -219,6 +227,14 @@ def packet_source(snapshot: dict, source_id: str) -> dict:
             type(snapshot.get('truncated')) is not bool or
             snapshot['truncated'] != (excerpt_size != body_size)):
         raise CaptureDenied('CAPTURE_EVIDENCE_INVALID')
+    if 'attestation' in snapshot:
+        try:
+            from research_attestation import _binding
+            signed_context = _binding(snapshot['attestation']['binding'])
+            if signed_context['source_id'] != source_id:
+                raise CaptureDenied('SOURCE_ID_BINDING_MISMATCH')
+        except (TypeError, KeyError, AttestationError) as exc:
+            raise CaptureDenied('INVALID_CAPTURE_BINDING') from exc
     return {'id': source_id, 'url': snapshot['url'],
             'captured_at': snapshot['captured_at'],
             'content': value, 'sha256': snapshot['excerpt_sha256'],
@@ -234,6 +250,9 @@ def main(argv=None):
     a.add_argument('--output', help='explicit local output path (else stdout)')
     a.add_argument('--signing-key-file', help='32 raw secret bytes in owner-only file; trusted runner ONLY')
     a.add_argument('--signing-key-id', help='externally configured trusted runner key ID')
+    a.add_argument('--task-id', help='trusted runner task identity (required to sign)')
+    a.add_argument('--repo-head', help='trusted runner exact source Git OID (required to sign)')
+    a.add_argument('--source-id', help='trusted runner stable source ID (required to sign)')
     args = a.parse_args(argv)
     if not args.allow_network:
         a.error('NETWORK_DISABLED: pass --allow-network for explicitly authorized public capture')
@@ -243,8 +262,15 @@ def main(argv=None):
     try:
         if bool(args.signing_key_file) != bool(args.signing_key_id):
             raise CaptureDenied('KEY_AND_ID_REQUIRED')
+        if args.signing_key_file and not all((args.task_id, args.repo_head, args.source_id)):
+            raise CaptureDenied('BINDING_ARGUMENTS_REQUIRED')
+        if not args.signing_key_file and any((args.task_id, args.repo_head, args.source_id)):
+            raise CaptureDenied('UNSIGNED_BINDING_FORBIDDEN')
         key = read_protected_key(args.signing_key_file) if args.signing_key_file else None
-        result = acquire(args.url, hosts, signing_key=key, signing_key_id=args.signing_key_id)
+        binding = {'task_id': args.task_id, 'repo_head': args.repo_head,
+                   'source_id': args.source_id} if key is not None else None
+        result = acquire(args.url, hosts, signing_key=key,
+                         signing_key_id=args.signing_key_id, capture_binding=binding)
     except (CaptureDenied, AttestationError, OSError) as exc:
         a.exit(2, 'DENIED: ' + str(exc) + '\n')
     encoded = json.dumps(result, sort_keys=True, indent=2, ensure_ascii=False) + '\n'
