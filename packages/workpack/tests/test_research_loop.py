@@ -65,6 +65,21 @@ class ResearchCycleTests(unittest.TestCase):
             raw=text.encode()
             (self.root/source["artifact"]).write_bytes(raw)
             source["sha256"]=hashlib.sha256(raw).hexdigest()
+    def set_evaluation(self, doc, cases=None, outcome="SUPPORTED"):
+        cases = cases or [
+            {"id":"case01", "expected":"alpha", "baseline":"wrong", "candidate":"alpha"},
+            {"id":"case02", "expected":"beta", "baseline":"beta", "candidate":"beta"},
+            {"id":"case03", "expected":"gamma", "baseline":"wrong", "candidate":"gamma"}
+        ]
+        payload = {"schema":"aegis.exact-match-eval.v1", "cases":cases}
+        raw = (json.dumps(payload,sort_keys=True)+"\n").encode()
+        (self.root/"evidence"/"eval-cases.json").write_bytes(raw)
+        doc["evaluation"].update({"metric_kind":"case_exact_match",
+                                   "evidence_artifact":"evidence/eval-cases.json",
+                                   "evidence_sha256":hashlib.sha256(raw).hexdigest(),
+                                   "outcome":outcome})
+        return doc
+
     def audit(self, doc=None):
         return audit_research(self.root,doc if doc is not None else self.doc,now=T)
     def fails(self,doc,expected=None):
@@ -149,7 +164,13 @@ class ResearchCycleTests(unittest.TestCase):
         (self.root/"manifest.json").write_text(json.dumps(basic))
         with contextlib.redirect_stdout(io.StringIO()):
             self.assertEqual(cli([str(self.root)]),1)
-        basic["research"]["evaluation"]["outcome"]="FALSIFIED"  # still untrusted self-report
+        basic["research"]["evaluation"]["outcome"]="FALSIFIED"  # forged claim alone
+        forged=verify(self.root,basic)
+        self.assertEqual(forged["delivery_readiness"],"BLOCKED_RESEARCH_OR_COMPARISON")
+        (self.root/"manifest.json").write_text(json.dumps(basic))
+        with contextlib.redirect_stdout(io.StringIO()):
+            self.assertEqual(cli([str(self.root)]),1)
+        self.set_evaluation(basic["research"])
         measured=verify(self.root,basic)
         self.assertEqual(measured["delivery_readiness"],"RESEARCH_AND_FALSIFICATION_REPORTED_UNATTESTED")
         (self.root/"manifest.json").write_text(json.dumps(basic))
@@ -157,5 +178,74 @@ class ResearchCycleTests(unittest.TestCase):
             self.assertEqual(cli([str(self.root)]),0)
         self.assertEqual(measured["domain_quality"],"UNVERIFIED")
         self.assertEqual(measured["authority_effect"],"NONE")
+
+    def test_forged_outcome_without_evidence_denied(self):
+        d=copy.deepcopy(self.doc);d["evaluation"]["outcome"]="SUPPORTED"
+        self.fails(d,"EVALUATOR_KIND_UNSUPPORTED")
+
+    def test_computed_improvement_replays(self):
+        d=self.set_evaluation(copy.deepcopy(self.doc))
+        r=self.audit(d)
+        self.assertEqual(r["status"],"LOCAL_PACKET_COMPLETE_UNATTESTED")
+        self.assertEqual(r["evaluation_replay"]["baseline_matches"],1)
+        self.assertEqual(r["evaluation_replay"]["candidate_matches"],3)
+        self.assertEqual(r["evaluation_replay"]["case_count"],3)
+        self.assertEqual(r["improvement"],"UNPROVEN")
+        self.assertEqual(r["evaluation_replay"]["authenticity"],"UNVERIFIED")
+
+    def test_falsified_self_report_of_supported_denied(self):
+        d=self.set_evaluation(copy.deepcopy(self.doc),outcome="FALSIFIED")
+        self.fails(d,"EVALUATION_OUTCOME_DISAGREES_WITH_REPLAY")
+
+    def test_evaluation_artifact_tampering_denied(self):
+        d=self.set_evaluation(copy.deepcopy(self.doc))
+        (self.root/"evidence"/"eval-cases.json").write_text("changed")
+        self.fails(d,"EVALUATION_ARTIFACT_TAMPERED")
+
+    def test_duplicate_case_ids_denied(self):
+        cases=[{"id":"same1","expected":"a","baseline":"b","candidate":"a"}]*3
+        d=self.set_evaluation(copy.deepcopy(self.doc),cases)
+        self.fails(d,"EVALUATION_CASE_ID_INVALID_OR_DUPLICATE")
+
+    def test_less_than_three_cases_denied(self):
+        cases=[{"id":"only1","expected":"a","baseline":"b","candidate":"a"}]
+        d=self.set_evaluation(copy.deepcopy(self.doc),cases)
+        self.fails(d,"EVALUATION_CASE_COUNT")
+
+    def test_unsupported_evaluator_denied(self):
+        d=self.set_evaluation(copy.deepcopy(self.doc))
+        d["evaluation"]["metric_kind"]="arbitrary_python"
+        self.fails(d,"EVALUATOR_KIND_UNSUPPORTED")
+
+    def test_wrong_evidence_path_denied(self):
+        d=self.set_evaluation(copy.deepcopy(self.doc))
+        d["evaluation"]["evidence_artifact"]="../../secrets.txt"
+        self.fails(d,"ARTIFACT_PATH_INVALID")
+
+    def test_invalid_json_dataset_denied(self):
+        d=self.set_evaluation(copy.deepcopy(self.doc))
+        raw=b'{invalid'
+        (self.root/"evidence"/"eval-cases.json").write_bytes(raw)
+        d["evaluation"]["evidence_sha256"]=hashlib.sha256(raw).hexdigest()
+        self.fails(d,"EVALUATION_ARTIFACT_INVALID_JSON")
+
+    def test_equal_scores_must_be_inconclusive(self):
+        cases=[{"id":f"case{i}","expected":str(i),"baseline":str(i),"candidate":str(i)} for i in range(1,4)]
+        d=self.set_evaluation(copy.deepcopy(self.doc),cases,outcome="SUPPORTED")
+        self.fails(d,"EVALUATION_OUTCOME_DISAGREES_WITH_REPLAY")
+        d["evaluation"]["outcome"]="INCONCLUSIVE"
+        self.assertEqual(self.audit(d)["evaluation_replay"]["calculated_outcome"],"INCONCLUSIVE")
+
+    def test_candidate_regression_requires_falsified_outcome(self):
+        cases=[{"id":f"case{i}","expected":str(i),"baseline":str(i),"candidate":"bad"} for i in range(1,4)]
+        d=self.set_evaluation(copy.deepcopy(self.doc),cases,outcome="FALSIFIED")
+        self.assertEqual(self.audit(d)["evaluation_replay"]["calculated_outcome"],"FALSIFIED")
+
+    def test_duplicate_dataset_json_key_denied(self):
+        d=self.set_evaluation(copy.deepcopy(self.doc))
+        raw=b'{"schema":"aegis.exact-match-eval.v1","schema":"aegis.exact-match-eval.v1","cases":[]}'
+        (self.root/"evidence"/"eval-cases.json").write_bytes(raw)
+        d["evaluation"]["evidence_sha256"]=hashlib.sha256(raw).hexdigest()
+        self.fails(d,"DUPLICATE_JSON_KEY")
 
 if __name__=="__main__": unittest.main()
