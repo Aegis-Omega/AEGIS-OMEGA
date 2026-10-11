@@ -1,6 +1,9 @@
-// AEGIS Ω — runtime observation is not attestation.
-// Public console never treats a fallback, a reported hash, or a claimed verdict
-// as proof of independent replay. Nothing here authorizes execution.
+/**
+ * AEGIS Ω public operator observation — source-bound, auth-sparing, fail closed.
+ * Only GET /platform/status is documented as anonymously readable.
+ * Protected calibration/tools are NOT fetched without a scoped credential.
+ * An API-reported verdict is not an independently replayed proof.
+ */
 import { useCallback, useEffect, useRef, useState } from 'react'
 
 export type HomeostasisZone = 'slack' | 'optimal' | 'stressed' | 'critical'
@@ -28,118 +31,97 @@ export interface PlatformStatus {
 }
 export interface SystemCheck { label: string; ok: boolean; reason: string }
 export interface ConsoleSnapshot {
+  /** 'live' means a valid public API response, not verified inference, authority or telemetry. */
   source: 'live' | 'unavailable'
   reason: string
   checked_at: string | null
+  upstream_at: string | null
   status: PlatformStatus
-  calibration: CalibrationStatus
+  /** Null explicitly represents unqueried protected calibration. */
+  calibration: CalibrationStatus | null
   tools: AgentTool[]
+  tools_observed: boolean
   checks: SystemCheck[]
 }
 const PLATFORM_URL = ((import.meta.env.VITE_PLATFORM_URL as string | undefined) || 'https://aegis-vertex.aegisomega.com').replace(/\/$/, '')
 export const PLATFORM_ORIGIN = PLATFORM_URL
-export const EMPTY_CALIBRATION: CalibrationStatus = {
-  homeostasis_zone: 'slack', recommendation: 'MAINTAIN', fitness_mean: 0,
-  fitness_variance: 0, hd_equivalent: 0, stagnation_rate: 0,
-  window_size: 0, trend: 'stable', constitutional_factor_mean: 0,
-}
+// Only a public, schema-bounded GET through the dedicated read-only edge observer.
+export const PUBLIC_STATUS_GATEWAY = 'https://aegis-public-observation.tarikskalic33.workers.dev/api/status'
 export const EMPTY_PLATFORM: PlatformStatus = {
   version: 'unknown', contract_version: 'unknown', total_agents: 0,
   chain_valid: null, audit_chain_hash: null, available: false,
 }
-export function deriveChecks(source: 'live'|'unavailable', status: PlatformStatus, cal: CalibrationStatus): SystemCheck[] {
-  const live = source === 'live'
+export function deriveChecks(source:'live'|'unavailable', status:PlatformStatus):SystemCheck[]{
+  const observed = source === 'live'
+  const version = status.contract_version
   return [
-    { label: 'Remote API observation', ok: live, reason: live ? 'HTTP payload received; not independent admission' : 'UNKNOWN — no complete remote observation' },
-    { label: 'Schema version', ok: live && status.contract_version === '1.0.0', reason: !live ? 'UNKNOWN — not observed' : status.contract_version === '1.0.0' ? 'REPORTED v1.0.0; schema not independently audited' : `REPORTED mismatch: ${status.contract_version}` },
-    { label: 'Audit-chain evidence', ok: false, reason: !live ? 'UNKNOWN — no runtime receipt' : status.chain_valid === false ? 'REPORTED INVALID — inspect signed evidence' : status.chain_valid === true ? 'REPORTED VALID — not independently replayed' : 'UNKNOWN — no chain verdict' },
-    { label: 'Calibration data', ok: live && cal.window_size > 0, reason: live && cal.window_size > 0 ? `REPORTED ${cal.homeostasis_zone}; ${cal.window_size} observations` : 'UNKNOWN — no measured window' },
+    {label:'Public status endpoint',ok:observed,reason:observed?'HTTP response parsed and schema-checked; authenticity not independently attested':'UNKNOWN — no valid public status observation'},
+    {label:'Contract version',ok:observed && version==='1.0.0',reason:!observed?'UNKNOWN — no contract observed':version==='1.0.0'?'REPORTED v1.0.0; compatible with documented hub schema':`REPORTED ${version}; verify against the server contract`},
+    {label:'Audit-chain evidence',ok:false,reason:!observed?'UNKNOWN — no runtime receipt':status.chain_valid===false?'REPORTED INVALID — independent incident review required':status.chain_valid===true?'REPORTED VALID — not independently replayed':'UNKNOWN — remote edge provides no chain verdict'},
+    {label:'Calibration',ok:false,reason:'NOT QUERIED — documented authenticated endpoint; no key supplied'},
+    {label:'Provider tool catalog',ok:false,reason:'NOT QUERIED — documented authenticated endpoint; no key supplied'},
   ]
 }
 export const UNAVAILABLE_SNAPSHOT: ConsoleSnapshot = {
-  source: 'unavailable',
-  reason: 'Remote platform data unavailable. No demo substitute is presented as evidence.',
-  checked_at: null,
-  status: EMPTY_PLATFORM,
-  calibration: EMPTY_CALIBRATION,
-  tools: [],
-  checks: deriveChecks('unavailable', EMPTY_PLATFORM, EMPTY_CALIBRATION),
+  source:'unavailable',reason:'Public status unreachable, unauthorized, or invalid; no synthetic fallback.',
+  checked_at:null,upstream_at:null,status:EMPTY_PLATFORM,calibration:null,tools:[],tools_observed:false,
+  checks:deriveChecks('unavailable',EMPTY_PLATFORM),
 }
-
-async function fetchEnvelope<T>(path: string, signal: AbortSignal): Promise<T | null> {
-  try {
-    const response = await fetch(`${PLATFORM_URL}${path}`, { signal, method: 'GET', credentials: 'omit', cache: 'no-store' })
-    if (!response.ok) return null
-    const json: unknown = await response.json()
-    if (!json || typeof json !== 'object' || !('data' in json)) return null
-    return (json as {data: T}).data || null
-  } catch { return null }
+function isPlatformStatus(value:unknown):value is Record<string,unknown>{
+  if(!value||typeof value!=='object'||Array.isArray(value))return false
+  const s=value as Record<string,unknown>
+  return typeof s.version==='string'&&s.version.length<=80 && typeof s.contract_version==='string'&&s.contract_version.length<=80
+    && Number.isSafeInteger(s.total_agents)&& (s.total_agents as number)>=0 && (s.total_agents as number)<=100000
+    && typeof s.available==='boolean'
+    && (s.chain_valid==null||typeof s.chain_valid==='boolean')
+    && (s.audit_chain_hash==null||typeof s.audit_chain_hash==='string'&&s.audit_chain_hash.length<=256)
 }
-function isPlatformStatus(value: unknown): value is PlatformStatus {
-  if (!value || typeof value !== 'object') return false
-  const v = value as Record<string, unknown>
-  return typeof v.version === 'string' && typeof v.contract_version === 'string'
-    && typeof v.total_agents === 'number' && Number.isFinite(v.total_agents)
-    && typeof v.available === 'boolean'
-    && (v.chain_valid === undefined || typeof v.chain_valid === 'boolean')
+function normalize(value:Record<string,unknown>):PlatformStatus{
+  return {version:value.version as string,contract_version:value.contract_version as string,
+    total_agents:value.total_agents as number,available:value.available as boolean,
+    chain_valid:typeof value.chain_valid==='boolean'?value.chain_valid:null,
+    audit_chain_hash:typeof value.audit_chain_hash==='string'?value.audit_chain_hash:null}
 }
-function isCalibration(value: unknown): value is CalibrationStatus {
-  if (!value || typeof value !== 'object') return false
-  const v = value as Record<string, unknown>
-  return typeof v.homeostasis_zone === 'string' && typeof v.recommendation === 'string'
-    && typeof v.window_size === 'number' && Number.isFinite(v.window_size)
-}
+/** Anonymous public observation; NEVER probes key-protected endpoints. */
 export async function fetchConsoleSnapshot(): Promise<ConsoleSnapshot> {
-  const ctrl = new AbortController()
-  const timeout = setTimeout(() => ctrl.abort(), 3200)
-  try {
-    const [status, cal, toolset] = await Promise.all([
-      fetchEnvelope<unknown>('/platform/status', ctrl.signal),
-      fetchEnvelope<unknown>('/platform/calibration', ctrl.signal),
-      fetchEnvelope<unknown>('/platform/tools', ctrl.signal),
-    ])
-    const checked_at = new Date().toISOString()
-    if (!isPlatformStatus(status) || !isCalibration(cal)) {
-      return { ...UNAVAILABLE_SNAPSHOT, checked_at, reason: 'Required status or calibration response missing, invalid, unauthorized or blocked. No fallback telemetry.' }
-    }
-    const normalized: PlatformStatus = {
-      ...status, chain_valid: typeof status.chain_valid === 'boolean' ? status.chain_valid : null,
-      audit_chain_hash: typeof status.audit_chain_hash === 'string' ? status.audit_chain_hash : null,
-    }
-    const tools = toolset && typeof toolset === 'object' && 'tools' in toolset && Array.isArray(toolset.tools)
-      ? (toolset.tools as AgentTool[]).filter(t => t && typeof t.api_name === 'string' && Array.isArray(t.capabilities)).slice(0, 80)
-      : []
-    return { source:'live', reason:'Remote API responded. Values are observed/reported, not independently certified.',
-      checked_at, status:normalized, calibration:cal, tools, checks:deriveChecks('live', normalized, cal) }
-  } finally { clearTimeout(timeout) }
+  const controller=new AbortController()
+  const timeout=setTimeout(()=>controller.abort(),3200)
+  const checked_at=new Date().toISOString()
+  try{
+    const response=await fetch(PUBLIC_STATUS_GATEWAY,{method:'GET',signal:controller.signal,credentials:'omit',cache:'no-store'})
+    if(!response.ok) return {...UNAVAILABLE_SNAPSHOT,checked_at,reason:`Public observation gateway HTTP ${response.status}; protected endpoints not probed.`}
+    const json:unknown=await response.json()
+    const packet=json&&typeof json==='object'&&!Array.isArray(json)?json as Record<string,unknown>:null
+    const gateway=packet?.gateway&&typeof packet.gateway==='object'&&!Array.isArray(packet.gateway)?packet.gateway as Record<string,unknown>:null
+    const accepted=gateway?.schema==='AEGIS_PUBLIC_OBSERVATION_GATE_V1' && gateway.upstream===PLATFORM_ORIGIN
+      && gateway.authority==='UNSIGNED_REMOTE_REPORT_NOT_INDEPENDENTLY_VERIFIED'
+    const data=accepted?packet?.data:null
+    if(!isPlatformStatus(data))return {...UNAVAILABLE_SNAPSHOT,checked_at,reason:'Public gateway origin, schema, or status payload invalid; nothing inferred.'}
+    const status=normalize(data)
+    const upstream_at=typeof packet?.timestamp==='string'&&Number.isFinite(Date.parse(packet.timestamp))?packet.timestamp:null
+    return {source:'live',reason:'Public upstream status relayed through a read-only edge gateway. This is a reported observation, not signed attestation. Protected endpoints were not queried.',
+      checked_at,upstream_at,status,calibration:null,tools:[],tools_observed:false,checks:deriveChecks('live',status)}
+  }catch{
+    return {...UNAVAILABLE_SNAPSHOT,checked_at,reason:'Read-only observation gateway request failed or timed out; protected endpoints not probed.'}
+  }finally{clearTimeout(timeout)}
 }
-export function useConsoleController(): {snap: ConsoleSnapshot; busy: boolean; refresh: ()=>Promise<void>} {
-  const [snap, setSnap] = useState<ConsoleSnapshot>(UNAVAILABLE_SNAPSHOT)
-  const [busy, setBusy] = useState(true)
-  // All async results are bound to the latest request and current mount.
-  const revision = useRef(0)
-  const active = useRef(false)
-  const refresh = useCallback(async () => {
-    const request = ++revision.current
-    if (!active.current) return
+export function useConsoleController():{snap:ConsoleSnapshot;busy:boolean;refresh:()=>Promise<void>}{
+  const [snap,setSnap]=useState<ConsoleSnapshot>(UNAVAILABLE_SNAPSHOT)
+  const [busy,setBusy]=useState(true)
+  const revision=useRef(0)
+  const active=useRef(false)
+  const refresh=useCallback(async()=>{
+    const request=++revision.current
+    if(!active.current)return
     setBusy(true)
-    try {
-      const next = await fetchConsoleSnapshot()
-      if (active.current && request === revision.current) setSnap(next)
-    } finally {
-      if (active.current && request === revision.current) setBusy(false)
-    }
-  }, [])
-  useEffect(() => {
-    active.current = true
-    void refresh()
-    const timer = setInterval(() => { void refresh() }, 30000)
-    return () => { active.current = false; revision.current++; clearInterval(timer) }
-  }, [refresh])
+    try{const s=await fetchConsoleSnapshot();if(active.current&&request===revision.current)setSnap(s)}
+    finally{if(active.current&&request===revision.current)setBusy(false)}
+  },[])
+  useEffect(()=>{
+    active.current=true;void refresh()
+    const id=setInterval(()=>{void refresh()},30000)
+    return ()=>{active.current=false;revision.current++;clearInterval(id)}
+  },[refresh])
   return {snap,busy,refresh}
 }
-// Compat for legacy consumers; new console uses controller with explicit reload.
-export function usePlatformConsole(): ConsoleSnapshot {
-  const {snap} = useConsoleController()
-  return snap
-}
+export function usePlatformConsole():ConsoleSnapshot{return useConsoleController().snap}
