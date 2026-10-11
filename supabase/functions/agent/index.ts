@@ -82,6 +82,26 @@ async function runTool(name: string, input: Record<string, unknown>,
     if (error) return `DB error: ${error.message}`
     // A missing DB payload is UNKNOWN, not evidence that there are zero rows.
     if (!Array.isArray(data)) return 'DB_RESULT_UNVERIFIED'
+    // The query projection is the evidence contract. Do not launder extra
+    // adapter fields (potentially secret) or partial/invalid records into a
+    // supposedly observed sample. Nullable customer_email is legitimate.
+    const expectedColumns = ['customer_email', 'ls_order_id', 'plan', 'updated_at']
+    for (const row of data) {
+      if (!row || typeof row !== 'object' || Array.isArray(row))
+        return 'DB_RESULT_UNVERIFIED'
+      const r = row as Record<string, unknown>
+      if (Object.keys(r).length !== expectedColumns.length ||
+          expectedColumns.some(k => !Object.prototype.hasOwnProperty.call(r, k)) ||
+          (r.customer_email !== null &&
+            (typeof r.customer_email !== 'string' || r.customer_email.length > 320)) ||
+          typeof r.plan !== 'string' || !r.plan.trim() || r.plan.length > 64 ||
+          typeof r.ls_order_id !== 'string' || !r.ls_order_id.trim() || r.ls_order_id.length > 256 ||
+          typeof r.updated_at !== 'string' ||
+          !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})$/.test(r.updated_at) ||
+          !Number.isFinite(Date.parse(r.updated_at))) {
+        return 'DB_RESULT_UNVERIFIED'
+      }
+    }
     return JSON.stringify(data)
   }
 
