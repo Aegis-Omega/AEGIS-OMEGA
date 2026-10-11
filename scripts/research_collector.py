@@ -2,8 +2,9 @@
 """AEGIS UWP-13 opt-in public HTTPS snapshot acquisition, NO admission/learning.
 
 Every connection is made to an explicitly validated public IP while TLS verifies
-its original hostname. No environment proxies, redirects, credentials, cookies,
-subprocesses or writes beyond an explicitly named local output file.
+its original hostname. No inherited proxies, redirects, cookies or implicit
+authentication. The opt-in CLI uses a supervised subprocess; direct acquire()
+has no end-to-end deadline. The publishing parent re-verifies any capture MAC.
 """
 from __future__ import annotations
 
