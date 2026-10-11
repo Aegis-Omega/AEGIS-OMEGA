@@ -263,10 +263,26 @@ def _trusted_check_origin(repo, pr, check, token):
     try:
         run = _api(repo, f"actions/runs/{run_id}", token)
         path = run.get("path")
+        # Do NOT insist on overall run success: the same run can also contain
+        # this evidence verifier, whose verdict depends on the successful test
+        # job. Requiring overall success here creates a circular admission gate.
         if not (isinstance(path, str) and WORKFLOW_FILE.fullmatch(path)
                 and run.get("head_sha") == sha and run.get("event") == "pull_request"
-                and run.get("status") == "completed" and run.get("conclusion") == "success"
+                and run.get("status") == "completed"
                 and type(run.get("workflow_id")) is int and run["workflow_id"] > 0):
+            return False
+        job = _api(repo, f"actions/jobs/{job_id}", token)
+        steps = job.get("steps")
+        if not (job.get("id") == job_id and job.get("run_id") == run_id
+                and job.get("head_sha") == sha
+                and job.get("status") == "completed" and job.get("conclusion") == "success"
+                and isinstance(steps, list) and any(
+                    isinstance(step, dict) and step.get("status") == "completed"
+                    and step.get("conclusion") == "success"
+                    and isinstance(step.get("name"), str)
+                    and step["name"].strip()
+                    and step["name"] not in {"Set up job", "Complete job"}
+                    for step in steps)):
             return False
         base = _api(repo, f"contents/{path}?ref={base_sha}", token)
         head = _api(repo, f"contents/{path}?ref={sha}", token)
@@ -305,6 +321,14 @@ def live_snapshot(repo, number, token):
     # A read-only API sequence is not an atomic snapshot; fail closed on observable drift.
     latest_pr = _api(repo, f"pulls/{number}", token)
     latest_issue = _api(repo, f"issues/{int(links[0])}", token)
+    latest_reviews = _api(repo, f"pulls/{number}/reviews?per_page=100", token)
+    latest_checks = _api(repo, f"commits/{sha}/check-runs?per_page=100&filter=latest", token)
+    # Order-independent consistency of the read evidence surfaces. If review
+    # decisions or check results changed while gathering evidence, abstain.
+    require(isinstance(latest_reviews, list) and latest_reviews == reviews,
+            "REVIEWS_CHANGED_DURING_SNAPSHOT")
+    require(isinstance(latest_checks, dict) and latest_checks == data,
+            "CHECKS_CHANGED_DURING_SNAPSHOT")
     pr_fields = (("head", "sha"), ("base", "ref"))
     require(all(pr.get(outer, {}).get(inner) == latest_pr.get(outer, {}).get(inner)
                 for outer, inner in pr_fields)
