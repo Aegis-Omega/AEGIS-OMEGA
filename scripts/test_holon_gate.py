@@ -293,5 +293,57 @@ class VerifiedDescriptorReaderTests(unittest.TestCase):
         self.assertEqual((state, data), ('HASH_MATCH', self.raw))
 
 
+class IndexedScopeCollisionTests(unittest.TestCase):
+    """Differential check against the original exhaustive scope comparison."""
+
+    @staticmethod
+    def old_collisions(by_id):
+        active = {'CLAIMED', 'IN_PROGRESS', 'REVIEW'}
+        collisions = {key: set() for key in by_id}
+        tasks = sorted(by_id.items())
+        for index, (a, left) in enumerate(tasks):
+            for b, right in tasks[index + 1:]:
+                if left['state'] not in active and right['state'] not in active:
+                    continue
+                if any(h.path_overlaps(x, y) for x in left['paths'] for y in right['paths']):
+                    collisions[a].add(b)
+                    collisions[b].add(a)
+        return collisions
+
+    def test_mixed_directory_and_file_scopes(self):
+        tasks = {
+            'a': task('a', ['scripts'], owner='alpha', state='CLAIMED'),
+            'b': task('b', ['scripts/a.py']),
+            'c': task('c', ['scripts/a.py.bak'], owner='beta', state='REVIEW'),
+            'd': task('d', ['script']),
+            'e': task('e', ['scripts/a.py', 'scripts/a.py']),
+        }
+        self.assertEqual(h.scope_collisions(tasks), self.old_collisions(tasks))
+
+    def test_randomized_differential_safety(self):
+        import random
+        rng = random.Random(735732)
+        words = ('api', 'scripts', 'tests', 'src', 'docs', 'api-test')
+        states = ('OPEN', 'CLAIMED', 'IN_PROGRESS', 'REVIEW', 'BLOCKED', 'REPORTED_LANDED')
+        for seed in range(100):
+            tasks = {}
+            for index in range(rng.randrange(0, 32)):
+                paths = ['/'.join(rng.choice(words) for _ in range(rng.randrange(1, 5)))
+                         for _ in range(rng.randrange(0, 5))]
+                tasks[f'{seed}:{index}'] = task(f'{seed}:{index}', paths,
+                                                  state=rng.choice(states))
+            self.assertEqual(h.scope_collisions(tasks), self.old_collisions(tasks),
+                             f'mismatch in randomized scenario {seed}')
+
+    def test_large_disjoint_scopes_do_not_fabricate_collisions(self):
+        tasks = {f't{index}': task(f't{index}',
+                                  [f'pkg{index}/src', f'pkg{index}/tests', f'pkg{index}/docs'],
+                                  state='CLAIMED' if index % 4 == 0 else 'OPEN')
+                 for index in range(1000)}
+        result = h.scope_collisions(tasks)
+        self.assertEqual(len(result), 1000)
+        self.assertTrue(all(not siblings for siblings in result.values()))
+
+
 if __name__ == '__main__':
     unittest.main(verbosity=2)
