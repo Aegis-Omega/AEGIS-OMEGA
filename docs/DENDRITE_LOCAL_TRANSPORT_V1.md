@@ -94,3 +94,69 @@ Existing `.github/workflows/ci.yml` Python Bridge job includes these tests.
 A GitHub workflow showing `SKIPPED` or no executed steps is **not** a
 native success. Do not merge or activate external delivery while exact-head
 hosted tests, signature policy and independent review remain unresolved.
+
+
+## Optional attested local relay (HMAC-SHA256)
+
+The default mailbox remains **unverified local information**. A second, explicitly
+opted-in verification mode in agents/dendrite_attestation.py provides relay-key
+authentication. It does not verify the originating publication or Git commit,
+does not make a scientific claim true, and does not grant tool-use authority.
+
+The signing scope binds: recipient role, event hash, source HEAD, packet hash,
+route receipt hash, relay key ID, and information_only=true. The MAC is
+HMAC-SHA256 with domain separation. A strict consumer rejects missing,
+malformed, altered, unauthorized-key or mismatching attestations. Legacy
+read_local continues to return **untrusted**, unauthenticated data;
+consumers requiring relay verification MUST use read_attested or its CLI.
+
+Use a private pre-existing, operator-managed raw key file of at least 32
+cryptographically random bytes. Permissions must be 0600 and ownership must
+match the current Unix user. Do not commit, paste, transmit or log this key.
+Pass the file path, never key material, on the CLI:
+
+~~~sh
+# From an exact-head PR #773 checkout; no change to protected main
+python3 -m agents.dendrite_attestation publish \
+  examples/dendrite_formal_observation.json \
+  --root "$HOME/.aegis-dendrite-inbox" \
+  --key-file "$HOME/.config/aegis/dendrite-relay.key" \
+  --key-id operator_relay
+
+# Separate process: strict local authenticated relay read
+python3 -m agents.dendrite_attestation read engineering \
+  --root "$HOME/.aegis-dendrite-inbox" \
+  --key-file "$HOME/.config/aegis/dendrite-relay.key" \
+  --key-id operator_relay
+
+# Existing offline research producer (auth off unless explicitly requested)
+python3 -m agents.cognitive_pipeline demo \
+  --dendrite --source-head "$(git rev-parse HEAD)" \
+  --spool-dir "$HOME/.aegis-dendrite-inbox" \
+  --relay-key-file "$HOME/.config/aegis/dendrite-relay.key" \
+  --relay-key-id operator_relay
+~~~
+
+The existing Revenue Engine exposes the same --relay-key-file and
+--relay-key-id alongside --spool-dir. Its pre-existing evolution
+side-effects still require a disposable checkout. An incomplete relay-key
+option pair is rejected before a pipeline run.
+
+**Security limits:**
+- A shared HMAC secret authenticates the **local relaying party** only, not
+  the original author, original repository, actual theorem proof, or model.
+- Shared-key members can forge another member's relay attestation. Therefore
+  this is NOT public-key identity, tenant isolation, or end-to-end provenance.
+- A replayed, previously authenticated packet remains authenticated; there
+  is no expiration, revocation or globally monotonic stream validation.
+- Files are plaintext and private to the same OS user; compromise of that
+  user account or secret key defeats the relay trust boundary.
+- Per-recipient files/attestations are written atomically, but the batch is
+  not atomic; rerunning the same publication fills missing signatures.
+- No canonical operational EventEnvelope dispatch, capability escalation,
+  automatic agent execution, external network transport or settlement.
+- Never reuse Kernel One operational signing keys as local relay keys.
+
+Reproduction: python3 -m unittest agents.tests.test_dendrite_attestation -v
+(19 dedicated tests in the candidate, including independent-process publishing,
+key mismatches, missing-signature denial and strict mode).
