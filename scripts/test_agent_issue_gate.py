@@ -374,6 +374,20 @@ class GateTests(unittest.TestCase):
         x = good(); x["check_runs"][0]["details_url"] = "https://evil.invalid/check/999"
         self.assertFalse(_trusted_check_origin(x["repo"], x["pr"], x["check_runs"][0], "", "Run stdlib falsifiers"))
 
+    def test_two_acceptance_criteria_cannot_reuse_one_check(self):
+        x = good()
+        contract = contract_from_body(BODY)
+        contract["acceptance"].append({"id": "A2", "criterion": "Independent second test must execute",
+                                       "method": "github_check", "check": "aegis / issue-gate-tests",
+                                       "app_id": 15368, "required_step": "Second evaluation step"})
+        x["issue"]["body"] = "<!-- AEGIS_WORK_V1\n" + json.dumps(contract) + "\n-->"
+        digest = contract_digest(contract)
+        x["pr"]["body"] = "AEGIS-WORK-ISSUE: #888\nAEGIS-WORK-CONTRACT-SHA256: " + digest
+        x["reviews"][0]["body"] = "AEGIS-WORK-CONTRACT-SHA256: " + digest
+        y = assess(x)
+        self.assertEqual(y["contract"], "INVALID")
+        self.assertEqual(y["disposition"], "NOT_ADMITTED")
+
     def test_pr_commit_count_cannot_be_truncated_in_reducer(self):
         x = good(); x["pr"]["commits"] = 2
         self.fail_gate(x, "signed_commits")
