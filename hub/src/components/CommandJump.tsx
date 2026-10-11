@@ -16,7 +16,8 @@ export function CommandJump() {
     function onKey(e:KeyboardEvent){
       if((e.metaKey||e.ctrlKey)&&!e.altKey&&!e.repeat&&e.key.toLowerCase()==='k'){
         e.preventDefault()
-        setOpen(value=>!value)
+        if(open){setOpen(false);trigger.current?.focus()}
+        else setOpen(true)
       }
       if(e.key==='Escape'&&open){
         e.preventDefault()
@@ -47,7 +48,7 @@ export function CommandJump() {
       const next=nextPaletteIndex(-1,links.length,event.key)
       if(next>=0){event.preventDefault();links[next]?.focus()}
     }
-    if(event.key==='Enter'&&matches.length>0){
+    if(event.key==='Enter'&&query.trim()!==''&&matches.length>0){
       event.preventDefault()
       window.location.assign(matches[0].href)
     }
@@ -64,17 +65,17 @@ export function CommandJump() {
   }
 
   return <div className="cc-jump" ref={root}>
-    <button ref={trigger} type="button" className="cc-jump-trigger" aria-haspopup="true"
+    <button ref={trigger} type="button" className="cc-jump-trigger" aria-haspopup="dialog"
       aria-label="Search published AEGIS pages" aria-controls={open?'cc-jump-results':undefined}
       aria-expanded={open} onClick={()=>setOpen(value=>!value)}>
       <span aria-hidden="true">⌕</span> Jump to a system page <kbd aria-hidden="true">⌘ K</kbd>
     </button>
-    {open&&<div className="cc-jump-panel" id="cc-jump-results" role="region" aria-label="Published route search">
+    {open&&<div className="cc-jump-panel" id="cc-jump-results" role="dialog" aria-modal="false" aria-label="Published route search">
       <label htmlFor="cc-jump-query">FIND A ROUTE · LOCAL INDEX</label>
       <input id="cc-jump-query" ref={input} type="search" autoComplete="off"
         placeholder="Research, console, tools..." value={query}
         onKeyDown={onSearchKeyDown} onChange={e=>setQuery(e.target.value)}/>
-      <div className="cc-jump-results" onKeyDown={onResultsKeyDown} aria-label="Matching published pages">
+      <div className="cc-jump-results" role="group" onKeyDown={onResultsKeyDown} aria-label="Matching published pages">
         {matches.length?matches.map(r=><a key={r.href} href={r.href}>
           <b>{r.label}</b><span>{r.detail}</span><span aria-hidden="true">↗</span>
         </a>):<p role="status">No matching published route. No results inferred.</p>}
