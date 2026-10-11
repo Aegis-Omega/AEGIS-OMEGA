@@ -668,6 +668,12 @@ class BridgeHandler(BaseHTTPRequestHandler):
                 # record_signal() deliberately returns None and may silently
                 # ignore a sealed gate or an old sequence. Never ACK a
                 # decision the governance gate has not actually accepted.
+                # Take the count before checking the gate sequence. The
+                # constitutional gate counts *all* record_signal attempts,
+                # including duplicate and out-of-order signals. We can use
+                # that counter to detect concurrent competing producers
+                # without touching or changing the frozen gate implementation.
+                prior_gate_attempts = gate.total_signals()
                 if gate.is_sealed:
                     self._respond(409, {'status': 'REJECTED', 'reason': 'GATE_SEALED'})
                     return
@@ -684,9 +690,12 @@ class BridgeHandler(BaseHTTPRequestHandler):
                     accepted=accepted,
                     lcb=lcb,
                 ))
-                if gate.last_sequence() != seq:
-                    # Gate can be sealed by another thread after the precheck,
-                    # or advanced by a competing producer. ACK must fail closed.
+                if (gate.last_sequence() != seq
+                        or gate.total_signals() != prior_gate_attempts + 1):
+                    # Sealing can discard this signal; an independent producer
+                    # could commit the same sequence just ahead of us. Sequence
+                    # equality alone would incorrectly ACK that discarded
+                    # duplicate. The attempt-count delta rejects both cases.
                     # M2 telemetry is not rolled back by this check.
                     self._respond(409, {'status': 'REJECTED', 'reason': 'GATE_NOT_APPLIED'})
                     return
