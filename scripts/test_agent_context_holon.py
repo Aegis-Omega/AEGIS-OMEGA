@@ -18,6 +18,43 @@ SPEC.loader.exec_module(ctx)
 
 
 class HolonContextTests(unittest.TestCase):
+    def test_closing_issue_ref_detects_pr_with_unrelated_title(self):
+        pr = {"n": 732, "t": "Refactor core", "h": "claude/transport",
+              "b": "main", "s": "a" * 40, "body": "Closes #734\nChecks"}
+        matches = ctx.overlaps([pr], "#734")
+        self.assertEqual(len(matches), 1)
+        self.assertIn("#734", matches[0][2])
+
+    def test_issue_ref_outranks_title_keyword_overlap(self):
+        closing = {"n": 732, "t": "Other work", "h": "branch/z",
+                   "body": "Fixes #734"}
+        similar = {"n": 733, "t": "holon transport",
+                   "h": "holon/transport", "body": ""}
+        matches = ctx.overlaps([similar, closing], "holon transport #734")
+        self.assertEqual(matches[0][1]["n"], 732)
+
+    def test_unrelated_issue_mention_is_not_closing_claim(self):
+        pr = {"n": 732, "t": "Other work", "h": "branch/z",
+              "body": "See #734 for context. Closes #999"}
+        self.assertEqual(ctx.overlaps([pr], "#734"), [])
+
+    def test_missing_or_invalid_body_never_fabricates_issue_match(self):
+        pr = {"n": 732, "t": "Other work", "h": "branch/z"}
+        self.assertEqual(ctx.overlaps([pr], "#734"), [])
+        pr["body"] = None
+        self.assertEqual(ctx.overlaps([pr], "#734"), [])
+
+    def test_pr_page_query_includes_bounded_body(self):
+        import tempfile
+        record = {"n": 732, "t": "Other work", "h": "branch/z",
+                  "b": "main", "s": "a" * 40, "body": "Resolves #734"}
+        with tempfile.TemporaryDirectory() as folder:
+            with patch.object(ctx, "git_dir", return_value=folder), \
+                 patch.object(ctx, "sh", return_value=json.dumps([record])) as call:
+                prs, source = ctx.open_prs()
+        self.assertEqual((len(prs), source), (1, "github"))
+        self.assertIn("body:", call.call_args_list[0].args[4])
+
     def test_holon_vector_never_hides_operator_and_peer_blockers(self):
         claimed = {"n": 739, "t": "Receipts", "labels": ["claimed", "needs-operator"]}
         overlap = [(2, {"n": 743, "t": "Receipts", "h": "a", "b": "main"}, ["receipts"])]
