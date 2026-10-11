@@ -265,3 +265,24 @@
   .hg-brand-word small{display:none}
   .hg-orbit-caption{max-width:70%}
 }
+
+/* SOVEREIGN MATTER HOME INTEGRATION — same material primitive as /platform.
+   One visible existing motion control, no duplicated animation API. */
+.hg-orbit-stage .sm-stage {
+  position:relative;inset:auto;width:100%;height:550px;min-height:550px;
+  border:0;border-radius:0;overflow:hidden;
+}
+.hg-orbit-stage .sm-command {display:none}
+.hg-orbit-stage .sm-north {right:13%;top:9%;font-size:9px}
+.hg-orbit-stage .sm-south {right:13%;bottom:12%;font-size:9px}
+.hg-orbit-stage .sm-stage:after {
+  background:radial-gradient(ellipse 74% 76% at center,transparent 47%,var(--hg-bg,#020611) 95%);
+}
+@media(max-width:900px) {
+  .hg-orbit-stage .sm-stage {height:490px;min-height:490px}
+}
+@media(max-width:600px) {
+  .hg-orbit-stage .sm-stage {height:345px;min-height:345px}
+  .hg-orbit-stage .sm-north {top:12%;right:8%;font-size:8px}
+  .hg-orbit-stage .sm-south {bottom:14%;right:8%;font-size:8px}
+}
