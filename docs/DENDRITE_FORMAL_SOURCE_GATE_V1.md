@@ -100,7 +100,12 @@ timeouts; the file-size check runs before loading source bytes.
 python3 -m unittest agents.tests.test_dendrite_formal_gate -v
 ```
 
-Fourteen new adversarial tests were executed locally, alongside the prior 98
+Sixteen new adversarial tests were executed locally, alongside the prior 98
 dendrite tests. GitHub commit and blob identity must be rebound after every
 new branch change; independently executed exact-head checks remain required
 before PR admission.
+
+The added forged-relay test deliberately signs an altered Lean excerpt using
+an otherwise valid HMAC key: the strict reader still denies it because local
+Git source bytes do not match. A second test confirms a formerly matching
+packet is denied after the checkout moves to a different exact HEAD.
