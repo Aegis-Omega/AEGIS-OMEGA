@@ -690,7 +690,8 @@ class BridgeHandler(BaseHTTPRequestHandler):
                     accepted=accepted,
                     lcb=lcb,
                 ))
-                if (gate.last_sequence() != seq
+                if (gate.is_sealed
+                        or gate.last_sequence() != seq
                         or gate.total_signals() != prior_gate_attempts + 1):
                     # Sealing can discard this signal; an independent producer
                     # could commit the same sequence just ahead of us. Sequence
