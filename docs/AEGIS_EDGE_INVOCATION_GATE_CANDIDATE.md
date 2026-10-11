@@ -53,3 +53,32 @@ This is *not* a complete exact-head build or live credential/quota
 exercise; existing 18 admission/provider tests and staging SQL
 integration remain separate release requirements. No production
 deployment, database migration, billing activation or authority change.
+
+
+## 2026-10-11 complete exact-blob replay and CI coverage
+
+The six exact GitHub file blobs (two Worker modules, three Node regression
+files, and root `package.json`) were reconstructed byte-for-byte in a
+dependency-free local replay. Under Node v22.16.0:
+
+```bash
+npm run test:edge-invocation # 20/20 PASS, process exit 0
+tsc --noEmit --strict --target ES2022 --module esnext \
+  --moduleResolution bundler --lib ES2022,DOM,DOM.Iterable \
+  --skipLibCheck worker-src/paidInvocation.ts worker-src/invocationGate.ts # exit 0
+```
+
+The new workflow `.github/workflows/edge-paid-invocation.yml` (Git blob
+`212ba9a80fc31f62e052bb58e9ab701a990b488f`) adds a source-triggered
+exact-head Node 22 check for changes in the Worker, tests, root test script
+and itself. It uses read-only repository permission and requests **no**
+provider credentials, database secrets or paid inference; dependency-free
+tests do not require installation or network.
+
+**Hosted workflow is NOT PASS:** at first observed head
+`4c6117adbc0599315ef1d28ce6f8df3b04cdf373` the
+`Paid Invocation Admission` GitHub workflow run `38119538309` was
+reported FAILURE with **zero reported job steps** (job `114411225391`).
+No paid-source test failure is inferable from that result. Confirm runner
+startup, account policy/billing and job logs before re-running or asserting
+production readiness. Draft branch only; no deployment or authority change.
