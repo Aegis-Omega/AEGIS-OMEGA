@@ -1,19 +1,11 @@
-// AEGIS-Ω Console — live platform data layer.
-// EPISTEMIC TIER: T1 — observational projection of the /platform/* API.
-//
-// Fetches /platform/status, /platform/calibration, /platform/tools with a hard
-// 2s abort. When the bridge is unreachable, falls back to a curated demo
-// snapshot — never a blank. Every state carries its REASON (loud, not silent):
-// the operator always knows whether they're seeing live data or demo, and why.
-
-import { useEffect, useState } from 'react'
-
-// ── Mirrored contract shapes (source of truth: @shared/lib/platform-contract) ──
+// AEGIS Ω — runtime observation is not attestation.
+// Public console never treats a fallback, a reported hash, or a claimed verdict
+// as proof of independent replay. Nothing here authorizes execution.
+import { useCallback, useEffect, useState } from 'react'
 
 export type HomeostasisZone = 'slack' | 'optimal' | 'stressed' | 'critical'
 export type CalibrationRecommendation = 'EASE' | 'MAINTAIN' | 'TIGHTEN'
 export type Tier = 'explorer' | 'operator' | 'sovereign'
-
 export interface CalibrationStatus {
   homeostasis_zone: HomeostasisZone
   recommendation: CalibrationRecommendation
@@ -25,143 +17,117 @@ export interface CalibrationStatus {
   trend: 'rising' | 'falling' | 'stable'
   constitutional_factor_mean: number
 }
-
-export interface AgentTool {
-  api_name: string
-  endpoint_url: string
-  capabilities: string[]
-  tier_required: Tier
-}
-
+export interface AgentTool { api_name: string; endpoint_url: string; capabilities: string[]; tier_required: Tier }
 export interface PlatformStatus {
   version: string
   contract_version: string
   total_agents: number
-  chain_valid: boolean
-  audit_chain_hash: string
+  chain_valid: boolean | null
+  audit_chain_hash: string | null
   available: boolean
 }
-
-// A single legible verification line — the loud-failure primitive.
-export interface SystemCheck {
-  label: string
-  ok: boolean
-  reason: string
-}
-
+export interface SystemCheck { label: string; ok: boolean; reason: string }
 export interface ConsoleSnapshot {
   source: 'live' | 'demo'
   reason: string
+  checked_at: string | null
   status: PlatformStatus
   calibration: CalibrationStatus
   tools: AgentTool[]
   checks: SystemCheck[]
 }
-
-const PLATFORM_URL =
-  ((import.meta.env.VITE_PLATFORM_URL as string | undefined) ??
-    'https://aegis-vertex.aegisomega.com').replace(/\/$/, '')
-
-// ── Demo snapshot — curated, believable, premium. Used when bridge unreachable ──
-
-const DEMO_TOOLS: AgentTool[] = [
-  { api_name: 'Anthropic Claude', endpoint_url: 'api.anthropic.com',  capabilities: ['inference', 'governed-call', 'streaming'], tier_required: 'sovereign' },
-  { api_name: 'DashScope Qwen',   endpoint_url: 'dashscope.aliyuncs', capabilities: ['inference', 'fallback'],                  tier_required: 'operator' },
-  { api_name: 'Supabase',         endpoint_url: 'supabase.co',        capabilities: ['ledger', 'key-store', 'memory'],         tier_required: 'operator' },
-  { api_name: 'Stripe',           endpoint_url: 'api.stripe.com',     capabilities: ['provision', 'webhook-verify'],           tier_required: 'operator' },
-  { api_name: 'Resend',           endpoint_url: 'api.resend.com',     capabilities: ['key-delivery'],                          tier_required: 'explorer' },
-  { api_name: 'GitHub',           endpoint_url: 'api.github.com',     capabilities: ['sponsors', 'webhook-verify'],            tier_required: 'explorer' },
-]
-
-const DEMO_SNAPSHOT: ConsoleSnapshot = {
-  source: 'demo',
-  reason: 'bridge unreachable — showing representative demo state',
-  status: {
-    version: '1.0.0', contract_version: '1.0.0', total_agents: 39,
-    chain_valid: true, audit_chain_hash: 'a3f9c8d2e1b6f047c5e9a182b4d6079e3f1c8a25b7e0d934f6a1c8e5b2079d4f3',
-    available: true,
-  },
-  calibration: {
-    homeostasis_zone: 'optimal', recommendation: 'MAINTAIN',
-    fitness_mean: 0.612, fitness_variance: 0.014, hd_equivalent: 0.118,
-    stagnation_rate: 0.0, window_size: 10, trend: 'rising', constitutional_factor_mean: 0.94,
-  },
-  tools: DEMO_TOOLS,
-  checks: [],
+const PLATFORM_URL = ((import.meta.env.VITE_PLATFORM_URL as string | undefined) || 'https://aegis-vertex.aegisomega.com').replace(/\/$/, '')
+export const PLATFORM_ORIGIN = PLATFORM_URL
+export const EMPTY_CALIBRATION: CalibrationStatus = {
+  homeostasis_zone: 'slack', recommendation: 'MAINTAIN', fitness_mean: 0,
+  fitness_variance: 0, hd_equivalent: 0, stagnation_rate: 0,
+  window_size: 0, trend: 'stable', constitutional_factor_mean: 0,
 }
-
-// ── Loud verification: derive a legible check list from the live/demo state ────
-
-export function deriveChecks(
-  source: 'live' | 'demo',
-  status: PlatformStatus,
-  cal: CalibrationStatus,
-): SystemCheck[] {
+export const EMPTY_PLATFORM: PlatformStatus = {
+  version: 'unknown', contract_version: 'unknown', total_agents: 0,
+  chain_valid: null, audit_chain_hash: null, available: false,
+}
+export function deriveChecks(source: 'live'|'demo', status: PlatformStatus, cal: CalibrationStatus): SystemCheck[] {
+  const live = source === 'live'
   return [
-    { label: 'Bridge reachable', ok: source === 'live',
-      reason: source === 'live' ? 'connected' : 'unreachable — demo fallback engaged' },
-    { label: 'Contract version', ok: status.contract_version === '1.0.0',
-      reason: status.contract_version === '1.0.0' ? 'v1.0.0 matched' : `mismatch: ${status.contract_version}` },
-    { label: 'Hash chain valid', ok: status.chain_valid,
-      reason: status.chain_valid ? 'corruption_count=0 · drift<1/φ' : 'corruption detected — T0_ABORT' },
-    { label: 'Homeostasis', ok: cal.homeostasis_zone === 'optimal' || cal.homeostasis_zone === 'slack',
-      reason: `${cal.homeostasis_zone} · ${cal.recommendation}` },
-    { label: 'Stagnation guard', ok: cal.stagnation_rate < 0.5,
-      reason: `${Math.round(cal.stagnation_rate * 100)}% of recent runs flagged` },
-    { label: 'Constitutional factor', ok: cal.constitutional_factor_mean >= 0.7,
-      reason: `mean ${cal.constitutional_factor_mean.toFixed(2)} (APPROVED=1.0 · FLAG=0.70)` },
+    { label: 'Remote API observation', ok: live, reason: live ? 'HTTP payload received; not independent admission' : 'UNKNOWN — no complete remote observation' },
+    { label: 'Schema version', ok: live && status.contract_version === '1.0.0', reason: !live ? 'UNKNOWN — not observed' : status.contract_version === '1.0.0' ? 'REPORTED v1.0.0; schema not independently audited' : `REPORTED mismatch: ${status.contract_version}` },
+    { label: 'Audit-chain evidence', ok: false, reason: !live ? 'UNKNOWN — no runtime receipt' : status.chain_valid === false ? 'REPORTED INVALID — inspect signed evidence' : status.chain_valid === true ? 'REPORTED VALID — not independently replayed' : 'UNKNOWN — no chain verdict' },
+    { label: 'Calibration data', ok: live && cal.window_size > 0, reason: live && cal.window_size > 0 ? `REPORTED ${cal.homeostasis_zone}; ${cal.window_size} observations` : 'UNKNOWN — no measured window' },
   ]
 }
-
-async function getData<T>(path: string, signal: AbortSignal): Promise<T | undefined> {
-  try {
-    const res = await fetch(`${PLATFORM_URL}${path}`, { signal })
-    if (!res.ok) return undefined
-    const env = (await res.json()) as { data?: T }
-    return env.data
-  } catch {
-    return undefined
-  }
+export const UNAVAILABLE_SNAPSHOT: ConsoleSnapshot = {
+  source: 'demo',
+  reason: 'Remote platform data unavailable. No demo substitute is presented as evidence.',
+  checked_at: null,
+  status: EMPTY_PLATFORM,
+  calibration: EMPTY_CALIBRATION,
+  tools: [],
+  checks: deriveChecks('demo', EMPTY_PLATFORM, EMPTY_CALIBRATION),
 }
 
+async function fetchEnvelope<T>(path: string, signal: AbortSignal): Promise<T | null> {
+  try {
+    const response = await fetch(`${PLATFORM_URL}${path}`, { signal, method: 'GET', credentials: 'omit', cache: 'no-store' })
+    if (!response.ok) return null
+    const json: unknown = await response.json()
+    if (!json || typeof json !== 'object' || !('data' in json)) return null
+    return (json as {data: T}).data || null
+  } catch { return null }
+}
+function isPlatformStatus(value: unknown): value is PlatformStatus {
+  if (!value || typeof value !== 'object') return false
+  const v = value as Record<string, unknown>
+  return typeof v.version === 'string' && typeof v.contract_version === 'string'
+    && typeof v.total_agents === 'number' && Number.isFinite(v.total_agents)
+    && typeof v.available === 'boolean'
+    && (v.chain_valid === undefined || typeof v.chain_valid === 'boolean')
+}
+function isCalibration(value: unknown): value is CalibrationStatus {
+  if (!value || typeof value !== 'object') return false
+  const v = value as Record<string, unknown>
+  return typeof v.homeostasis_zone === 'string' && typeof v.recommendation === 'string'
+    && typeof v.window_size === 'number' && Number.isFinite(v.window_size)
+}
 export async function fetchConsoleSnapshot(): Promise<ConsoleSnapshot> {
   const ctrl = new AbortController()
-  const timer = setTimeout(() => ctrl.abort(), 2000)
+  const timeout = setTimeout(() => ctrl.abort(), 3200)
   try {
-    const [status, calibration, toolsEnv] = await Promise.all([
-      getData<PlatformStatus>('/platform/status', ctrl.signal),
-      getData<CalibrationStatus>('/platform/calibration', ctrl.signal),
-      getData<{ tools: AgentTool[] }>('/platform/tools', ctrl.signal),
+    const [status, cal, toolset] = await Promise.all([
+      fetchEnvelope<unknown>('/platform/status', ctrl.signal),
+      fetchEnvelope<unknown>('/platform/calibration', ctrl.signal),
+      fetchEnvelope<unknown>('/platform/tools', ctrl.signal),
     ])
-    if (!status || !calibration) {
-      return { ...DEMO_SNAPSHOT, checks: deriveChecks('demo', DEMO_SNAPSHOT.status, DEMO_SNAPSHOT.calibration) }
+    const checked_at = new Date().toISOString()
+    if (!isPlatformStatus(status) || !isCalibration(cal)) {
+      return { ...UNAVAILABLE_SNAPSHOT, checked_at, reason: 'Required status or calibration response missing, invalid, unauthorized or blocked. No fallback telemetry.' }
     }
-    const tools = toolsEnv?.tools?.length ? toolsEnv.tools : DEMO_TOOLS
-    return {
-      source: 'live', reason: 'connected', status, calibration, tools,
-      checks: deriveChecks('live', status, calibration),
+    const normalized: PlatformStatus = {
+      ...status, chain_valid: typeof status.chain_valid === 'boolean' ? status.chain_valid : null,
+      audit_chain_hash: typeof status.audit_chain_hash === 'string' ? status.audit_chain_hash : null,
     }
-  } finally {
-    clearTimeout(timer)
-  }
+    const tools = toolset && typeof toolset === 'object' && 'tools' in toolset && Array.isArray(toolset.tools)
+      ? (toolset.tools as AgentTool[]).filter(t => t && typeof t.api_name === 'string' && Array.isArray(t.capabilities)).slice(0, 80)
+      : []
+    return { source:'live', reason:'Remote API responded. Values are observed/reported, not independently certified.',
+      checked_at, status:normalized, calibration:cal, tools, checks:deriveChecks('live', normalized, cal) }
+  } finally { clearTimeout(timeout) }
 }
-
-// React hook — single fetch on mount, then poll every 8s. Always returns a
-// usable snapshot (demo until the first live response lands).
-export function usePlatformConsole(): ConsoleSnapshot {
-  const [snap, setSnap] = useState<ConsoleSnapshot>({
-    ...DEMO_SNAPSHOT,
-    checks: deriveChecks('demo', DEMO_SNAPSHOT.status, DEMO_SNAPSHOT.calibration),
-  })
+export function useConsoleController(): {snap: ConsoleSnapshot; busy: boolean; refresh: ()=>Promise<void>} {
+  const [snap, setSnap] = useState<ConsoleSnapshot>(UNAVAILABLE_SNAPSHOT)
+  const [busy, setBusy] = useState(true)
+  const refresh = useCallback(async () => { setBusy(true); try {setSnap(await fetchConsoleSnapshot())} finally {setBusy(false)}}, [])
   useEffect(() => {
-    let cancelled = false
-    async function poll() {
-      const s = await fetchConsoleSnapshot()
-      if (!cancelled) setSnap(s)
-    }
+    let active = true
+    async function poll() {const next = await fetchConsoleSnapshot(); if(active){setSnap(next);setBusy(false)}}
     void poll()
-    const id = setInterval(() => { void poll() }, 8000)
-    return () => { cancelled = true; clearInterval(id) }
+    const timer = setInterval(()=>{void poll()}, 30000)
+    return ()=>{active=false;clearInterval(timer)}
   }, [])
+  return {snap,busy,refresh}
+}
+// Compat for legacy consumers; new console uses controller with explicit reload.
+export function usePlatformConsole(): ConsoleSnapshot {
+  const {snap} = useConsoleController()
   return snap
 }
