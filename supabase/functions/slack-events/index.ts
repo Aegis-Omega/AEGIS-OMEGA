@@ -92,6 +92,14 @@ async function slackReply(channel: string, text: string, thread_ts?: string): Pr
       (payload as {ok?: unknown}).ok !== true) {
     throw new Error('SLACK_DELIVERY_REJECTED')
   }
+  // HTTP 200 and ok:true alone do not establish where an output was posted.
+  // Require the exact channel and a Slack-assigned message timestamp.
+  // Missing/mismatched receipt evidence is ambiguous: leave outbox SENDING.
+  const receipt = payload as {channel?: unknown, ts?: unknown}
+  if (receipt.channel !== channel || typeof receipt.ts !== 'string' ||
+      !/^\d{10,}\.\d{6}$/.test(receipt.ts)) {
+    throw new Error('SLACK_DELIVERY_ACK_UNVERIFIED')
+  }
 }
 
 // Same authenticated worker route owns dispatch, encrypted outbox and delivery
