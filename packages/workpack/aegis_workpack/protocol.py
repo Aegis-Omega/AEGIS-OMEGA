@@ -211,6 +211,18 @@ def verify(root, manifest):
                 artifacts[path] = None
                 report["artifacts"].append({"path": path, "result": "FAIL", "reason": str(e)})
         report["artifact_integrity"] = "PASS" if all_match else "FAIL"
+        # Research is compulsory for delivery readiness. Old v0.1 manifests
+        # remain inspectable for artifact integrity, but are NOT complete work.
+        from .research_loop import audit_research
+        research = audit_research(root, task.get("research"))
+        report["research"] = research
+        report["delivery_readiness"] = (
+            "RESEARCH_AND_FALSIFICATION_REPORTED_UNATTESTED"
+            if research["status"] == "LOCAL_PACKET_COMPLETE_UNATTESTED"
+            and research.get("falsification_outcome_reported") != "NOT_RUN"
+            else "BLOCKED_UNRUN_FALSIFICATION" if
+            research["status"] == "LOCAL_PACKET_COMPLETE_UNATTESTED"
+            else "BLOCKED_RESEARCH_OR_COMPARISON")
         for check in task["checks"]:
             raw = artifacts.get(check["artifact"])
             if raw is None:
@@ -235,6 +247,8 @@ def cli(argv=None):
     parser.add_argument("workspace", help="Directory containing artefacts and manifest.json")
     parser.add_argument("--manifest", default="manifest.json", help="Manifest file in workspace")
     parser.add_argument("--output", help="Optional receipt output path (otherwise stdout)")
+    parser.add_argument("--integrity-only", action="store_true",
+                        help="Diagnostic backward-compatibility mode; bypasses research delivery requirement")
     ns = parser.parse_args(argv)
     try:
         require(valid_path(ns.manifest), "MANIFEST_PATH_INVALID")
@@ -252,7 +266,9 @@ def cli(argv=None):
     if ns.output:
         Path(ns.output).write_text(rendered, encoding="utf-8")
     print(rendered, end="")
-    return 0 if result["disposition"] == "LOCAL_INTEGRITY_AND_STRUCTURE_VERIFIED" else 1
+    return 0 if (result["disposition"] == "LOCAL_INTEGRITY_AND_STRUCTURE_VERIFIED"
+                 and (ns.integrity_only or result.get("delivery_readiness") ==
+                      "RESEARCH_AND_FALSIFICATION_REPORTED_UNATTESTED")) else 1
 
 
 if __name__ == "__main__":
