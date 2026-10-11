@@ -78,6 +78,15 @@ def verify_main_freshness(quick=False):
         return {"state": "REF_UNVERIFIED", "sha": None}
     if remote != local:
         return {"state": "REF_DIVERGED", "sha": None}
+    # The two refs above are local Git state, not independent proof of the
+    # GitHub repository's actual main commit (e.g. git url.insteadOf rewrite).
+    # A concurrent main update must hold admission rather than infer freshness.
+    github_head = sh("gh", "api", f"repos/{REPO}/git/ref/heads/main",
+                     "--jq", ".object.sha", timeout=10).strip()
+    if not re.fullmatch(r"[0-9a-f]{40}", github_head):
+        return {"state": "GITHUB_HEAD_UNVERIFIED", "sha": None}
+    if github_head != remote:
+        return {"state": "GITHUB_HEAD_DIVERGED", "sha": None}
     return {"state": "FRESH", "sha": remote}
 
 
