@@ -1,8 +1,23 @@
 {
   "framework": "vite",
-  "ignoreCommand": "git diff --quiet HEAD^ HEAD -- :/hub :/packages",
+  "git": {
+    "deploymentEnabled": {
+      "**": false,
+      "main": true,
+      "preview/hub/**": true,
+      "deploy/hub/**": true,
+      "preview/all/**": true,
+      "deploy/all/**": true
+    }
+  },
+  "ignoreCommand": "case \"${VERCEL_GIT_COMMIT_REF:-}\" in main|preview/hub/*|deploy/hub/*|preview/all/*|deploy/all/*) exit 1 ;; esac; [ -n \"${VERCEL_GIT_PREVIOUS_SHA:-}\" ] && [ -n \"${VERCEL_GIT_COMMIT_SHA:-}\" ] || exit 0; git diff --quiet \"$VERCEL_GIT_PREVIOUS_SHA\" \"$VERCEL_GIT_COMMIT_SHA\" -- :/hub :/packages/shared; s=$?; [ \"$s\" -eq 1 ] && exit 1; exit 0",
   "buildCommand": "npm run build",
   "outputDirectory": "dist",
   "installCommand": "npm install",
-  "rewrites": [{"source": "/(.*)", "destination": "/index.html"}]
+  "rewrites": [
+    {
+      "source": "/(.*)",
+      "destination": "/index.html"
+    }
+  ]
 }
