@@ -9,6 +9,7 @@ are wired in at startup. gate receives every /gate_signal; router dispatches
 every /event to the appropriate core_matrix handler.
 """
 import json
+from ipaddress import ip_address
 from math import isfinite
 import os
 import threading
@@ -462,13 +463,57 @@ def _build_live_state_context() -> str:
         )
 
 
+def _gate_peer_is_loopback(client_address) -> bool:
+    """Fail closed for unauthenticated gate ingress, ignoring forwarded headers.
+
+    This only limits network reachability. Loopback is NOT an identity or
+    authorization proof; authenticated remote ingress needs a separate adapter.
+    """
+    try:
+        return ip_address(client_address[0]).is_loopback
+    except (ValueError, TypeError, IndexError, KeyError):
+        return False
+
+
 class BridgeHandler(BaseHTTPRequestHandler):
     def log_message(self, format, *args): pass  # suppress access log
 
     def do_POST(self):
         global last_ack_sequence
-        length = int(self.headers.get('Content-Length', 0))
-        data = json.loads(self.rfile.read(length)) if length else {}
+        if self.path == '/gate_signal':
+            # The bridge currently binds 0.0.0.0. Without a verified signed
+            # caller identity, remote peers must NEVER reach mutation authority.
+            # Do this before reading request bytes or accepting proxy headers.
+            if not _gate_peer_is_loopback(self.client_address):
+                self._respond(403, {'status': 'REJECTED', 'reason': 'GATE_PEER_UNTRUSTED'})
+                return
+
+            # Bounded JSON-only ingress also prevents text/plain browser CSRF
+            # and unbounded/ambiguous request bodies at this authority edge.
+            media_type = self.headers.get('Content-Type', '').split(';', 1)[0].strip().lower()
+            raw_length = self.headers.get('Content-Length', '')
+            if media_type != 'application/json':
+                self._respond(415, {'status': 'REJECTED', 'reason': 'GATE_JSON_REQUIRED'})
+                return
+            if self.headers.get('Transfer-Encoding') is not None:
+                self._respond(400, {'status': 'REJECTED', 'reason': 'GATE_FRAMING_INVALID'})
+                return
+            if (not 1 <= len(raw_length) <= 4 or not raw_length.isascii()
+                    or not raw_length.isdecimal()
+                    or not 0 < int(raw_length) <= 4096):
+                self._respond(413, {'status': 'REJECTED', 'reason': 'GATE_BODY_BOUNDS'})
+                return
+            try:
+                data = json.loads(self.rfile.read(int(raw_length)))
+            except (ValueError, UnicodeDecodeError):
+                self._respond(400, {'status': 'REJECTED', 'reason': 'GATE_JSON_INVALID'})
+                return
+            if type(data) is not dict:
+                self._respond(400, {'status': 'REJECTED', 'reason': 'GATE_OBJECT_REQUIRED'})
+                return
+        else:
+            length = int(self.headers.get('Content-Length', 0))
+            data = json.loads(self.rfile.read(length)) if length else {}
 
         if self.path == '/gate_signal':
             seq = data.get('sequence', -1)
