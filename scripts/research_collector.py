@@ -139,12 +139,28 @@ def acquire(url: str, allow_hosts: tuple[str, ...], *, resolver=socket.getaddrin
             raise CaptureDenied('UNSUPPORTED_CONTENT_TYPE')
         if (response.getheader('Content-Encoding') or 'identity').lower() != 'identity':
             raise CaptureDenied('ENCODED_CONTENT_FORBIDDEN')
+        # HTTP/1.1 has different framing for declared-length, chunked and
+        # connection-close bodies. Never sign bytes from an incomplete or
+        # ambiguous framing as if they were the full server response.
         length = response.getheader('Content-Length')
+        transfer = (response.getheader('Transfer-Encoding') or '').strip().lower()
+        if length is not None and transfer:
+            raise CaptureDenied('AMBIGUOUS_TRANSFER_FRAMING')
+        if transfer and transfer != 'chunked':
+            raise CaptureDenied('UNSUPPORTED_TRANSFER_ENCODING')
+        # http.client parses/dechunks framing; don't accept a claimed chunked
+        # body through a transport that has not actually enabled decoding.
+        if bool(getattr(response, 'chunked', False)) != (transfer == 'chunked'):
+            raise CaptureDenied('TRANSFER_FRAMING_MISMATCH')
         if length is not None and (not length.isdigit() or int(length) > MAX_RESPONSE):
             raise CaptureDenied('RESPONSE_TOO_LARGE')
         body = response.read(MAX_RESPONSE + 1)
         if len(body) > MAX_RESPONSE or not body:
             raise CaptureDenied('RESPONSE_TOO_LARGE_OR_EMPTY')
+        if length is not None and len(body) != int(length):
+            if len(body) < int(length):
+                raise CaptureDenied('INCOMPLETE_RESPONSE_BODY')
+            raise CaptureDenied('CONTENT_LENGTH_MISMATCH')
         try:
             text = body.decode('utf-8', errors='strict')
         except UnicodeError as e:
