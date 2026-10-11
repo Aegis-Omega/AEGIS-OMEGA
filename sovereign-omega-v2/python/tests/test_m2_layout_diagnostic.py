@@ -430,6 +430,9 @@ class TestM2LayoutDiagnosticGate(unittest.TestCase):
             ({"lcb": float("inf")}, "INVALID_LCB"),
             ({"lcb": float("-inf")}, "INVALID_LCB"),
             ({"lcb": 10 ** 1000}, "INVALID_LCB"),
+            ({"lcb": -0.1}, "INCONSISTENT_GATE_DECISION"),
+            ({"lcb": 0.0}, "INCONSISTENT_GATE_DECISION"),
+            ({"accepted": False, "lcb": 0.1}, "INCONSISTENT_GATE_DECISION"),
             ({"lcb": "0.7"}, "INVALID_LCB"),
             ({"lcb": None}, "INVALID_LCB"),
             ({"lcb": True}, "INVALID_LCB"),
@@ -591,6 +594,23 @@ class TestM2LayoutDiagnosticGate(unittest.TestCase):
             self.assertEqual(guarded_gate._total_signals, 0)
             self.assertFalse(guarded_gate._window)
             self.assertEqual(guarded_gate._proposals, {})
+            self.assertEqual(scope["last_ack_sequence"], -1)
+
+        for inconsistent in (
+            {"accepted": True, "lcb": -0.1},
+            {"accepted": False, "lcb": 0.5},
+            {"accepted": True, "lcb": 0.0},
+        ):
+            events.clear()
+            scope["_gate_branch"](handler_stub, {
+                "sequence": 1, "proposal_id": "valid-proposal",
+                **inconsistent,
+            })
+            self.assertEqual(events, [("RESPONSE", 400, {
+                "status": "REJECTED", "reason": "INCONSISTENT_GATE_DECISION",
+            })])
+            self.assertEqual(guarded_gate._total_signals, 0)
+            self.assertEqual(guarded_gate._last_sequence, -1)
             self.assertEqual(scope["last_ack_sequence"], -1)
 
         # Valid control must preserve the unchanged frozen gate behavior.
