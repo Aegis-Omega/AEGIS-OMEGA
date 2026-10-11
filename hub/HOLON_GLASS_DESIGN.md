@@ -131,3 +131,36 @@ deployments for this branch, newest at
 `008926c15fe019c9839435e9913c0d5c0ee202b2`; those are **older**
 than the current PR and cannot verify this patch. Do not deploy, merge,
 alter pricing or infer protected-main admission from those deployments.
+
+
+## 2026-10-11 first-value navigation integrity
+
+**Product journey defect discovered:** the top-navigation primary action was labeled
+"Enter AEGIS" but silently linked to `/pricing`. This offered a payment-related
+destination before a real first product action and the label did not disclose
+the destination. The existing `/console` route in `hub/src/App.tsx` renders
+the public, authority-bounded operator console; using it does not grant
+capabilities, execute paid inference, or authorize runtime operations.
+
+**Bounded repair:** keep `/pricing` available through the already published
+navigation "Access" route and elsewhere. Reuse `/console` as the header
+primary action with the explicit label "Open console" and the accessible
+name "Open AEGIS operator console" (needed when mobile CSS visually hides
+the button text). Centralize those read-only invariants in
+`hub/src/lib/navigationContract.ts`; render those values in
+`hub/src/HolonGlass.tsx`.
+
+**Verified local, not a human outcome study:** 6/6 tests of the exact contract
+source and exact `hub/tests/navigation-contract.test.mjs` file PASS under
+Node v22.16.0 with `--experimental-strip-types`. GitHub SHA readback must
+match tested Git blob bytes. The remote `App.tsx` route was independently
+inspected and maps `/console` to `ConsolePage`. The full React build,
+actual end-to-end browser behavior, mobile user journey, accessibility and
+comparative conversion/retention are **NOT** established by this pure
+contract test.
+
+**Human evaluation needed:** compare old `Enter AEGIS → /pricing` with new
+`Open console → /console` at realistic mobile+desktop sizes using measured
+time-to-first-useful-action, navigation comprehension and qualified
+conversions. A direct free entrypoint is a candidate UX improvement,
+not a proven revenue or world-leading experience.
