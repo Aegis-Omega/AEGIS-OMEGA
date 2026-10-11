@@ -50,3 +50,9 @@ Across at least 10 **real heterogeneous tasks**, with held-out acceptance tests:
 - [MCP Authorization](https://github.com/modelcontextprotocol/modelcontextprotocol/blob/main/docs/specification/2026-07-28/basic/authorization/index.mdx): scoped tool authorization; no claimed plug-and-play certification.
 
 **Scope note:** This initial reference comparison was web-checked in this conversation, but was *not* independently replayed by a second agent. Future agent tasks must generate their own bounded, current source retrievals rather than reuse a frozen reference list indefinitely.
+
+## v0.5 — falsifiable statistics instead of optimistic labels
+
+A 3-case comparison with a 2-case gain produces `calculated_outcome=SUPPORTED` in the backward-compatible **direction-only** field, but receives `statistical_signal=UNDERPOWERED` and `paired_p_value=0.5`. On paired case outcomes the verifier recomputes discordant win/loss counts and the exact two-sided McNemar/binomial p-value; minimum 20 cases and p≤0.05 are required for a descriptive statistical signal. Report regressions and ties as well as improvements.
+
+This significance heuristic assumes independent, identically evaluated matched cases and does not correct for multiple hypotheses, selective reporting, repeated attempts or contaminated holdouts. Even a positive signal is not independently established truth: `oracle_independence=UNVERIFIED`, `holdout_integrity=UNVERIFIED`, `cross_model_superiority=UNPROVEN`, `authority_effect=NONE`. For any public “best-in-class” claim, require a preregistered independent real-task benchmark with source authentication, cost parity, repeated trials and uncertainty intervals; do not infer it from WorkPack fixtures. Source: [Anthropic on agent evaluations](https://www.anthropic.com/engineering/demystifying-evals-for-ai-agents) and [OpenAI agent evals](https://developers.openai.com/api/docs/guides/agent-evals).

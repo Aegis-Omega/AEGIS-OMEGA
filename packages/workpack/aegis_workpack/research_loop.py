@@ -7,6 +7,7 @@ The connected agent/harness must obtain current web evidence independently.
 from datetime import datetime, timezone, timedelta
 import hashlib
 import json
+import math
 import ipaddress
 import re
 from urllib.parse import urlsplit
@@ -89,6 +90,9 @@ def _evidence_exact_match(workspace, evaluation):
     cases = dataset.get("cases")
     require(isinstance(cases, list) and 3 <= len(cases) <= 100, "EVALUATION_CASE_COUNT")
     seen, base, candidate = set(), 0, 0
+    # Compare the same cases as pairs. A raw improvement from only a few cases
+    # is not evidence of reliable superiority.
+    improved, regressed = 0, 0
     for case in cases:
         require(isinstance(case, dict) and set(case) == {"id", "expected", "baseline", "candidate"},
                 "EVALUATION_CASE_FIELDS")
@@ -99,14 +103,39 @@ def _evidence_exact_match(workspace, evaluation):
         for k in ("expected", "baseline", "candidate"):
             require(isinstance(case[k], str) and len(case[k]) <= 500,
                     "EVALUATION_CASE_VALUE_INVALID")
-        base += int(case["baseline"] == case["expected"])
-        candidate += int(case["candidate"] == case["expected"])
+        baseline_ok = case["baseline"] == case["expected"]
+        candidate_ok = case["candidate"] == case["expected"]
+        base += int(baseline_ok)
+        candidate += int(candidate_ok)
+        improved += int(candidate_ok and not baseline_ok)
+        regressed += int(baseline_ok and not candidate_ok)
     derived = "SUPPORTED" if candidate > base else "FALSIFIED" if candidate < base else "INCONCLUSIVE"
     require(evaluation["outcome"] == derived, "EVALUATION_OUTCOME_DISAGREES_WITH_REPLAY")
+    # Two-sided exact McNemar/sign test on discordant PAIRS, not two
+    # independent proportions. N=0 is inconclusive by definition.
+    discordant = improved + regressed
+    p_value = min(1.0, (2 * sum(math.comb(discordant, k)
+                                 for k in range(min(improved, regressed) + 1)) /
+                         2 ** discordant)) if discordant else 1.0
+    enough_cases = len(cases) >= 20
+    distinguishable = enough_cases and p_value <= 0.05
+    signal = ("POSITIVE_PAIRED_SIGNAL" if distinguishable and improved > regressed
+              else "NEGATIVE_PAIRED_SIGNAL" if distinguishable and regressed > improved
+              else "UNDERPOWERED" if not enough_cases else "NO_SIGNIFICANT_DIFFERENCE")
+    # Even a statistically distinguishable SELF-REPORTED case set does not
+    # authenticate reference answers, sampling, domain correctness or trial independence.
     return {"kind": "case_exact_match", "case_count": len(cases),
             "baseline_matches": base, "candidate_matches": candidate,
-            "calculated_outcome": derived, "evidence_sha256": digest,
-            "authenticity": "UNVERIFIED", "holdout_integrity": "UNVERIFIED"}
+            "candidate_improvements": improved, "candidate_regressions": regressed,
+            "discordant_pairs": discordant, "paired_accuracy_delta_pp":
+                round(100 * (candidate - base) / len(cases), 6),
+            "paired_test": "exact_two_sided_mcnemar_binomial",
+            "paired_p_value": round(p_value, 12), "minimum_cases_for_signal": 20,
+            "statistical_signal": signal, "calculated_outcome": derived,
+            "outcome_interpretation": "SELF_REPORTED_DIRECTION_ONLY",
+            "evidence_sha256": digest, "authenticity": "UNVERIFIED",
+            "holdout_integrity": "UNVERIFIED", "oracle_independence": "UNVERIFIED",
+            "cross_model_superiority": "UNPROVEN"}
 
 
 def audit_research(workspace, record, *, now=None):

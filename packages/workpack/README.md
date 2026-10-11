@@ -89,3 +89,9 @@ The containing AEGIS-OMEGA repository is licensed AGPL-3.0. The protocol uses po
 ## Methodology compared with frontier
 
 The OpenAI Agents SDK provides runtime handoffs/tracing/guardrails; Anthropic describes routing and evaluator-optimizer patterns; A2A targets inter-agent task interoperability; MCP provides tool integration and authorization. WorkPack is **only** a minimal artifact contract and local check, not a replacement for those systems. Quality should be assessed in independent, real-world tasks with confidential holdouts to avoid contaminated benchmark claims.
+
+## v0.5 — calibrated paired comparisons (still NOT_ADMITTED)
+
+The original exact-match evaluator could label a 2-of-3 directional gain as `SUPPORTED` without quantifying uncertainty. The read-only comparator now emits `candidate_improvements` and `candidate_regressions` on the SAME cases, `discordant_pairs`, `paired_accuracy_delta_pp`, a two-sided exact McNemar/binomial `paired_p_value`, and `statistical_signal`. Samples smaller than **20** cases are always `UNDERPOWERED`, regardless of the score. At 20+ cases, a signal requires an exact paired p-value ≤0.05. This is a conservative descriptive threshold, **not** a valid causal or cross-model superiority claim: task independence, multiple comparisons, holdout ownership, authentic reference answers, source provenance and repeated trials remain unverified. `calculated_outcome=SUPPORTED` is only the directional score, explicitly marked `SELF_REPORTED_DIRECTION_ONLY`.
+
+The evaluator neither learns nor validates the reference oracle, and no outcome changes the default `NOT_ADMITTED` state. Use real heterogeneous agent tasks, held-out independent adjudication, repeated attempts and controlled costs to make comparative claims. Synthetic test fixtures measure only implementation behavior.

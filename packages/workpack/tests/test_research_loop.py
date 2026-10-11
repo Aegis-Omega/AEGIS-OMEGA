@@ -257,6 +257,55 @@ class ResearchCycleTests(unittest.TestCase):
         self.assertEqual(r["improvement"],"UNPROVEN")
         self.assertEqual(r["evaluation_replay"]["authenticity"],"UNVERIFIED")
 
+    def test_three_cases_cannot_claim_statistical_signal(self):
+        d=self.set_evaluation(copy.deepcopy(self.doc))
+        e=self.audit(d)["evaluation_replay"]
+        self.assertEqual((e["candidate_improvements"],e["candidate_regressions"]),(2,0))
+        self.assertEqual(e["paired_p_value"],0.5)
+        self.assertEqual(e["statistical_signal"],"UNDERPOWERED")
+        self.assertEqual(e["cross_model_superiority"],"UNPROVEN")
+
+    def test_twenty_discordant_wins_replay_exact_probability(self):
+        cases=[{"id":f"case{i:02d}","expected":str(i),"baseline":"wrong",
+                "candidate":str(i)} for i in range(20)]
+        d=self.set_evaluation(copy.deepcopy(self.doc),cases)
+        e=self.audit(d)["evaluation_replay"]
+        self.assertEqual(e["statistical_signal"],"POSITIVE_PAIRED_SIGNAL")
+        self.assertEqual(e["candidate_improvements"],20)
+        self.assertAlmostEqual(e["paired_p_value"],2/(2**20),places=11)
+        self.assertEqual(e["oracle_independence"],"UNVERIFIED")
+
+    def test_twenty_discordant_losses_replay_exact_probability(self):
+        cases=[{"id":f"case{i:02d}","expected":str(i),"baseline":str(i),
+                "candidate":"wrong"} for i in range(20)]
+        d=self.set_evaluation(copy.deepcopy(self.doc),cases,outcome="FALSIFIED")
+        e=self.audit(d)["evaluation_replay"]
+        self.assertEqual(e["statistical_signal"],"NEGATIVE_PAIRED_SIGNAL")
+        self.assertEqual(e["candidate_regressions"],20)
+
+    def test_large_sample_small_gain_is_not_significant(self):
+        cases=[]
+        for i in range(30):
+            expected=str(i)
+            baseline="wrong" if i < 11 else expected if i < 20 else "wrong"
+            candidate=expected if i < 11 else "wrong" if i < 20 else "wrong"
+            cases.append({"id":f"case{i:02d}","expected":expected,
+                          "baseline":baseline,"candidate":candidate})
+        d=self.set_evaluation(copy.deepcopy(self.doc),cases)
+        e=self.audit(d)["evaluation_replay"]
+        self.assertEqual((e["candidate_improvements"],e["candidate_regressions"]),(11,9))
+        self.assertEqual(e["statistical_signal"],"NO_SIGNIFICANT_DIFFERENCE")
+        self.assertGreater(e["paired_p_value"],0.05)
+
+    def test_all_ties_have_p_value_one(self):
+        cases=[{"id":f"case{i:02d}","expected":str(i),"baseline":str(i),
+                "candidate":str(i)} for i in range(20)]
+        d=self.set_evaluation(copy.deepcopy(self.doc),cases,outcome="INCONCLUSIVE")
+        e=self.audit(d)["evaluation_replay"]
+        self.assertEqual(e["paired_p_value"],1.0)
+        self.assertEqual(e["discordant_pairs"],0)
+        self.assertEqual(e["statistical_signal"],"NO_SIGNIFICANT_DIFFERENCE")
+
     def test_falsified_self_report_of_supported_denied(self):
         d=self.set_evaluation(copy.deepcopy(self.doc),outcome="FALSIFIED")
         self.fails(d,"EVALUATION_OUTCOME_DISAGREES_WITH_REPLAY")
