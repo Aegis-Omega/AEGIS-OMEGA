@@ -237,6 +237,21 @@ class GateTests(unittest.TestCase):
             run, job, {"type": "file", "sha": "c" * 40}, {"type": "file", "sha": "c" * 40}]):
             self.assertTrue(_trusted_check_origin(x["repo"], x["pr"], c, ""))
 
+    def test_running_workflow_can_verify_completed_job_without_deadlock(self):
+        import unittest.mock
+        from agent_issue_gate import _trusted_check_origin
+        x = good(); x["pr"]["base"]["sha"] = "b" * 40
+        check = x["check_runs"][0]
+        check["details_url"] = "https://github.com/Aegis-Omega/AEGIS-OMEGA/actions/runs/333/job/999"
+        run = {"path": ".github/workflows/agent-issue-gate.yml", "head_sha": HEAD,
+               "status": "in_progress", "conclusion": None, "event": "pull_request", "workflow_id": 22}
+        job = {"id": 999, "run_id": 333, "head_sha": HEAD, "status": "completed",
+               "conclusion": "success", "steps": [{"name": "Run stdlib falsifiers",
+                                               "status": "completed", "conclusion": "success"}]}
+        with unittest.mock.patch("agent_issue_gate._api", side_effect=[
+            run, job, {"type": "file", "sha": "c" * 40}, {"type": "file", "sha": "c" * 40}]):
+            self.assertTrue(_trusted_check_origin(x["repo"], x["pr"], check, ""))
+
     def test_origin_checker_requires_real_executed_step(self):
         import unittest.mock
         from agent_issue_gate import _trusted_check_origin
