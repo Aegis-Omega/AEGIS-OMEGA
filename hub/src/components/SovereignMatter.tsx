@@ -119,11 +119,12 @@ function compile(gl: WebGL2RenderingContext, type: number, source: string) {
   return shader
 }
 
-export function SovereignMatter({ sourceId, limitCount }: {
-  sourceId: string; limitCount: number
+export function SovereignMatter({ sourceId, limitCount, motionOverride, conceptArt = false }: {
+  sourceId: string; limitCount: number; motionOverride?: boolean; conceptArt?: boolean
 }) {
   const canvas = useRef<HTMLCanvasElement>(null)
   const [motion, setMotion] = useState(false)
+  const activeMotion = motionOverride ?? motion
   const [reduced, setReduced] = useState(false)
   const [available, setAvailable] = useState(false)
   const [visible, setVisible] = useState(true)
@@ -187,14 +188,14 @@ export function SovereignMatter({ sourceId, limitCount }: {
       gl.uniform1f(gl.getUniformLocation(program, 'u_domain'), DOMAIN[sourceId] ?? 4)
       gl.uniform1f(gl.getUniformLocation(program, 'u_limits'), Math.min(6, Math.max(0, limitCount)))
       const start = performance.now()
-      onReturn = () => { if (!document.hidden && motion && !reduced && visible) frame = window.requestAnimationFrame(draw) }
+      onReturn = () => { if (!document.hidden && activeMotion && !reduced && visible) frame = window.requestAnimationFrame(draw) }
       document.addEventListener('visibilitychange', onReturn)
       const draw = (now: number) => {
         if (!gl || lost || pause) return
         if (now - last >= 1000 / 24) {
           last = now
           const rect = target.getBoundingClientRect()
-          const scale = Math.min(motion ? 1 : 1.25, window.devicePixelRatio || 1)
+          const scale = Math.min(activeMotion ? 1 : 1.25, window.devicePixelRatio || 1)
           const w = Math.max(1, Math.round(rect.width * scale))
           const h = Math.max(1, Math.round(rect.height * scale))
           if (target.width !== w || target.height !== h) {
@@ -202,10 +203,10 @@ export function SovereignMatter({ sourceId, limitCount }: {
           }
           gl.viewport(0, 0, w, h)
           gl.uniform2f(resolution, w, h)
-          gl.uniform1f(time, motion && !reduced ? (now - start) * .001 : 0)
+          gl.uniform1f(time, activeMotion && !reduced ? (now - start) * .001 : 0)
           gl.drawArrays(gl.TRIANGLES, 0, 6)
         }
-        if (motion && !reduced && visible && !document.hidden) frame = window.requestAnimationFrame(draw)
+        if (activeMotion && !reduced && visible && !document.hidden) frame = window.requestAnimationFrame(draw)
       }
       setAvailable(true)
       draw(performance.now())
@@ -225,7 +226,7 @@ export function SovereignMatter({ sourceId, limitCount }: {
         if (fs) gl.deleteShader(fs)
       }
     }
-  }, [sourceId, limitCount, motion, reduced, visible, contextEpoch])
+  }, [sourceId, limitCount, activeMotion, reduced, visible, contextEpoch])
 
   return <div className="sm-stage">
     <div className="sm-fallback" aria-hidden="true">
@@ -236,15 +237,15 @@ export function SovereignMatter({ sourceId, limitCount }: {
     </div>
     <canvas ref={canvas} className={'sm-canvas' + (available ? ' sm-canvas-ready' : '')}
       aria-hidden="true" />
-    <div className="sm-north" aria-hidden="true">AEGIS Ω / MATTER STUDY 001</div>
-    <div className="sm-south" aria-hidden="true">SIGNED DISTANCE · FRESNEL · DOMAIN-BOUND</div>
-    <div className="sm-command">
+    <div className="sm-north" aria-hidden="true">{conceptArt ? 'AEGIS Ω / MATERIAL CONCEPT' : 'AEGIS Ω / MATTER STUDY 001'}</div>
+    <div className="sm-south" aria-hidden="true">{conceptArt ? 'PROCEDURAL ART · NOT TELEMETRY' : 'SIGNED DISTANCE · FRESNEL · DOMAIN-BOUND'}</div>
+    {motionOverride === undefined && <div className="sm-command">
       <span>{available ? 'GPU MATERIAL' : 'VECTOR FALLBACK'}</span>
       <button type="button" aria-label={motion ? 'Pause material motion' : 'Play material motion'}
         aria-pressed={motion && !reduced} disabled={reduced}
         onClick={() => setMotion(v => !v)}>
         {reduced ? 'Motion reduced' : motion ? 'Pause motion' : 'Explore motion'}
       </button>
-    </div>
+    </div>}
   </div>
 }
