@@ -363,6 +363,9 @@ def _record_revenue_cycle(result: RevenueCycleResult) -> tuple[str, bool]:
         from agents.evolution import AdaptiveLineage, EvolutionEngine
 
         lineage = AdaptiveLineage.load()
+        valid_before, _ = lineage.verify_chain()
+        if not valid_before:
+            return "", False  # existing corruption must never be persisted
         for art in result.artifacts:
             lineage.append(
                 "REVENUE_CYCLE",
@@ -375,13 +378,16 @@ def _record_revenue_cycle(result: RevenueCycleResult) -> tuple[str, bool]:
                     f"proj_tier={result.projection.tier if result.projection else '?'}"
                 ),
             )
+        valid_after, _ = lineage.verify_chain()
+        if not valid_after:
+            return "", False
+        # Informational candidate eligibility only: never mutate skill tiers
+        # from self-reported revenue counters.
+        EvolutionEngine(lineage=lineage).tick(apply_changes=False)
         lineage.save()
-        # Participating departments earn an evolution tick.
-        EvolutionEngine(lineage=lineage).tick(apply_changes=True)
-        valid, _ = lineage.verify_chain()
-        return lineage.terminal_hash(), valid
-    except Exception:  # noqa: BLE001 — evolution is non-load-bearing
-        return "", True
+        return lineage.terminal_hash(), True
+    except Exception:  # noqa: BLE001 — reporting must fail closed
+        return "", False
 
 
 # ── Presentation ────────────────────────────────────────────────────────────────
