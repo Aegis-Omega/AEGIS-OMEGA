@@ -25,6 +25,7 @@ export interface WorkStep {
   readonly authority: WorkAuthority
   readonly risk: WorkRisk
   readonly scope: readonly string[]
+  readonly effects: readonly string[]
   readonly acceptance: readonly AcceptanceRequirement[]
 }
 
@@ -150,15 +151,19 @@ function validate(raw: unknown): WorkContract {
   if (forbidden.length === 0) throw new WorkContractError('MISSING_FORBIDDEN_EFFECTS')
   if (!Array.isArray(o.steps) || !isPlainArray(o.steps) || o.steps.length < 1 || o.steps.length > 200) throw new WorkContractError('INVALID_STEPS')
   const steps: WorkStep[] = o.steps.map((step: unknown) => {
-    const s = object(step, ['id', 'objective', 'kind', 'depends_on', 'authority', 'risk', 'scope', 'acceptance'],
-      ['id', 'objective', 'kind', 'depends_on', 'authority', 'risk', 'scope', 'acceptance'])
+    const s = object(step, ['id', 'objective', 'kind', 'depends_on', 'authority', 'risk', 'scope', 'effects', 'acceptance'],
+      ['id', 'objective', 'kind', 'depends_on', 'authority', 'risk', 'scope', 'effects', 'acceptance'])
     const permitted = authority(s.authority)
     const r = risk(s.risk)
     if (CEILINGS[permitted] > CEILINGS[ceiling]) throw new WorkContractError('AUTHORITY_EXCEEDS_CEILING')
     if (RISKS[r] >= RISKS.high && permitted !== 'operator_approved') throw new WorkContractError('HIGH_RISK_REQUIRES_OPERATOR')
+    const effects = uniqueStrings(s.effects, 'INVALID_EFFECTS', /^[a-z][a-z0-9._-]{0,63}$/)
     const scope = uniqueStrings(s.scope, 'INVALID_SCOPE', /^[^\x00-\x1F\x7F]{1,300}$/)
     if (permitted !== 'read_only' && scope.length === 0) throw new WorkContractError('MUTATION_REQUIRES_SCOPE')
     if (scope.some(s => !scopeEntry(s))) throw new WorkContractError('INVALID_SCOPE')
+    if (permitted === 'read_only' && effects.length > 0) throw new WorkContractError('READ_ONLY_EFFECT')
+    if (permitted !== 'read_only' && effects.length === 0) throw new WorkContractError('MUTATION_REQUIRES_EFFECT')
+    if (effects.some(effect => forbidden.includes(effect))) throw new WorkContractError('FORBIDDEN_EFFECT')
     return {
       id: string(s.id, 'INVALID_STEP_ID', ID),
       objective: string(s.objective, 'INVALID_STEP_OBJECTIVE'),
@@ -167,6 +172,7 @@ function validate(raw: unknown): WorkContract {
       authority: permitted,
       risk: r,
       scope,
+      effects,
       acceptance: acceptance(s.acceptance),
     }
   })
@@ -227,6 +233,7 @@ export async function compileWorkContract(raw: unknown): Promise<CompiledWorkPla
   for (const step of orderedSteps) {
     Object.freeze(step.depends_on)
     Object.freeze(step.scope)
+    Object.freeze(step.effects)
     for (const a of step.acceptance) Object.freeze(a)
     Object.freeze(step.acceptance)
     Object.freeze(step)
