@@ -1,0 +1,1 @@
+AEGIS WorkPack is intended for inclusion under the parent AEGIS-OMEGA repository's GNU Affero General Public License v3.0. See the repository's LICENSE for the complete license terms.
