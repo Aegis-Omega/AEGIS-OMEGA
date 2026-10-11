@@ -38,10 +38,10 @@ function db(){
     }
   })}
 }
-function agent(data,config=env){
+function agent(data,config=env,overrideFetch=null){
   let handler
   const Deno={env:{get:n=>config[n]??''},serve:f=>handler=f}
-  const fetch=async()=>{data.stats.paid++;return Response.json({stop_reason:'end_turn',content:[{type:'text',text:'private result'}]})}
+  const fetch=overrideFetch??(async()=>{data.stats.paid++;return Response.json({stop_reason:'end_turn',content:[{type:'text',text:'private result'}]})})
   new Function('Deno','fetch','crypto','createClient','CORS','console','atob','btoa',a)(Deno,fetch,webcrypto,data.createClient,{}, {error(){}},atob,btoa)
   return handler
 }
@@ -234,4 +234,23 @@ test('agent rejects missing actor and workspace before a paid call',async()=>{
  assert.equal((await send(h,'dispatch',{actor_id:undefined}))[0],400)
  assert.equal((await send(h,'dispatch',{team_id:undefined}))[0],400)
  assert.equal(d.stats.paid,0)
+})
+
+test('model-invented notification tool cannot send outside encrypted outbox',async()=>{
+ const d=db(),urls=[]
+ let turns=0
+ const h=agent(d,env,async(url)=>{
+   urls.push(String(url))
+   if(!String(url).includes('api.anthropic.com')) throw Error('UNGOVERNED_SIDE_EFFECT')
+   d.stats.paid++
+   return Response.json(turns++===0
+     ? {stop_reason:'tool_use',content:[{type:'tool_use',id:'t1',
+         name:'send_notification',input:{channel:'both',text:'private customer data'}}]}
+     : {stop_reason:'end_turn',content:[{type:'text',text:'refused the notification'}]})
+ })
+ const [status,body]=await send(h)
+ assert.equal(status,200)
+ assert.equal(body.status,'RESULT_STORED')
+ assert.equal(urls.length,2)
+ assert.ok(urls.every(url=>url.includes('api.anthropic.com')))
 })
