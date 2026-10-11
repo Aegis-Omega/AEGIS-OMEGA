@@ -152,7 +152,10 @@ def assess(snapshot):
                             and "pull_request" not in issue, "ISSUE_NOT_OPEN_OR_IS_PR"))
         scope = c["scope"]
         filenames = snapshot.get("changed_files")
-        scope_ok = snapshot.get("files_complete") is True and isinstance(filenames, list) and len(filenames) > 0 and all(
+        scope_ok = (snapshot.get("files_complete") is True
+                    and type(pr.get("changed_files")) is int and pr["changed_files"] > 0
+                    and snapshot.get("file_records_count") == pr["changed_files"]
+                    and isinstance(filenames, list) and len(filenames) > 0) and all(
             isinstance(f, str) and any(scope_path_matches(f, pattern) for pattern in scope)
             for f in filenames)
         gates.append(_check("declared_scope", scope_ok, "INCOMPLETE_OR_OUT_OF_SCOPE_DIFF"))
@@ -179,7 +182,8 @@ def assess(snapshot):
                                 "CHECK_FAILED_OR_NOT_TRUSTED_BASE_WORKFLOW"))
         commits = snapshot.get("commits")
         commits_ok = isinstance(commits, list) and len(commits) > 0 and \
-            snapshot.get("commits_complete") is True and commits[-1].get("sha") == sha and all(
+            snapshot.get("commits_complete") is True and type(pr.get("commits")) is int and \
+            pr["commits"] == len(commits) and commits[-1].get("sha") == sha and all(
                 isinstance(x, dict) and isinstance(x.get("sha"), str) and SHA.fullmatch(x["sha"])
                 and x.get("commit", {}).get("verification", {}).get("verified") is True
                 for x in commits)
@@ -311,6 +315,30 @@ def live_snapshot(repo, number, token):
     reviews = _api(repo, f"pulls/{number}/reviews?per_page=100", token)
     commits = _api(repo, f"pulls/{number}/commits?per_page=100", token)
     files = _api(repo, f"pulls/{number}/files?per_page=100", token)
+    # A short page (even <100 items) is NOT proof of a complete API result.
+    # Bind both list lengths to the full PR counts returned by GitHub.
+    commits_complete = (isinstance(commits, list) and len(commits) < 100
+                        and type(pr.get("commits")) is int
+                        and len(commits) == pr["commits"])
+    files_complete = (isinstance(files, list) and len(files) < 100
+                      and type(pr.get("changed_files")) is int
+                      and len(files) == pr["changed_files"])
+    changed_paths = []
+    if files_complete:
+        for record in files:
+            if not isinstance(record, dict) or not isinstance(record.get("filename"), str):
+                files_complete = False
+                break
+            changed_paths.append(record["filename"])
+            old_path = record.get("previous_filename")
+            if record.get("status") == "renamed" and old_path is None:
+                files_complete = False
+                break
+            if old_path is not None:
+                if not isinstance(old_path, str) or not old_path.strip():
+                    files_complete = False
+                    break
+                changed_paths.append(old_path)
     # Provenance is checked for each candidate matching declared acceptance.
     # A successful self-authored Actions YAML cannot serve as trusted evidence.
     contract = contract_from_body(issue.get("body"))
@@ -333,12 +361,15 @@ def live_snapshot(repo, number, token):
             "REVIEWS_CHANGED_DURING_SNAPSHOT")
     require(isinstance(latest_checks, dict) and latest_checks == data,
             "CHECKS_CHANGED_DURING_SNAPSHOT")
-    pr_fields = (("head", "sha"), ("base", "ref"))
+    pr_fields = (("head", "sha"), ("base", "ref"), ("base", "sha"))
     require(all(pr.get(outer, {}).get(inner) == latest_pr.get(outer, {}).get(inner)
                 for outer, inner in pr_fields)
             and pr.get("body") == latest_pr.get("body")
             and pr.get("draft") == latest_pr.get("draft")
-            and pr.get("state") == latest_pr.get("state"), "PR_CHANGED_DURING_SNAPSHOT")
+            and pr.get("state") == latest_pr.get("state")
+            and pr.get("commits") == latest_pr.get("commits")
+            and pr.get("changed_files") == latest_pr.get("changed_files"),
+            "PR_CHANGED_DURING_SNAPSHOT")
     require(issue.get("body") == latest_issue.get("body")
             and issue.get("state") == latest_issue.get("state")
             and issue.get("updated_at") == latest_issue.get("updated_at"),
@@ -347,9 +378,9 @@ def live_snapshot(repo, number, token):
             "check_runs": data.get("check_runs", []), "check_origins": origins,
             "checks_complete": data.get("total_count") == len(data.get("check_runs", [])),
             "reviews": reviews, "reviews_complete": isinstance(reviews, list) and len(reviews) < 100,
-            "commits": commits, "commits_complete": isinstance(commits, list) and len(commits) < 100,
-            "changed_files": [f.get("filename") for f in files] if isinstance(files, list) and len(files) < 100 else [],
-            "files_complete": isinstance(files, list) and len(files) < 100}
+            "commits": commits, "commits_complete": commits_complete,
+            "changed_files": changed_paths, "file_records_count": len(files) if isinstance(files, list) else None,
+            "files_complete": files_complete}
 
 
 def main(argv=None):
