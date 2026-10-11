@@ -22,6 +22,8 @@ MARKER = re.compile(r"<!--\s*AEGIS_WORK_V1\s*(.*?)\s*-->", re.S)
 ISSUE_LINK = re.compile(r"(?mi)^AEGIS-WORK-ISSUE:\s*#([1-9][0-9]*)\s*$")
 CONTRACT_LINK = re.compile(r"(?mi)^AEGIS-WORK-CONTRACT-SHA256:\s*([0-9a-f]{64})\s*$")
 REPO = re.compile(r"[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+\Z")
+ACTION_URL = re.compile(r"https://github\.com/([^/]+)/([^/]+)/actions/runs/([1-9][0-9]*)/job/([1-9][0-9]*)\Z")
+WORKFLOW_FILE = re.compile(r"\.github/workflows/[A-Za-z0-9_.-]+\.ya?ml\Z")
 APPROVAL_STATES = {"APPROVED", "CHANGES_REQUESTED", "COMMENTED", "DISMISSED"}
 
 
@@ -163,10 +165,13 @@ def assess(snapshot):
             matching = [r for r in checks or [] if isinstance(r, dict)
                         and r.get("name") == name and r.get("head_sha") == sha
                         and (r.get("app") or {}).get("id") == a["app_id"]]
+            origin = snapshot.get("check_origins") or {}
             ok = complete and len(matching) == 1 and matching[0].get("status") == "completed" \
-                 and matching[0].get("conclusion") == "success"
+                 and matching[0].get("conclusion") == "success" and \
+                 type(matching[0].get("id")) is int and \
+                 origin.get(str(matching[0]["id"])) is True
             gates.append(_check("acceptance:" + a["id"], ok,
-                                "NO_SINGLE_SUCCESSFUL_EXACT_HEAD_CHECK"))
+                                "CHECK_FAILED_OR_NOT_TRUSTED_BASE_WORKFLOW"))
         commits = snapshot.get("commits")
         commits_ok = isinstance(commits, list) and len(commits) > 0 and \
             snapshot.get("commits_complete") is True and commits[-1].get("sha") == sha and all(
@@ -237,6 +242,41 @@ def _api(repo, route, token):
         return json.load(response)
 
 
+def _trusted_check_origin(repo, pr, check, token):
+    """Bound an Actions check to a successful run and unchanged trusted-base YAML.
+
+    Check-run app IDs alone are insufficient: a PR-authored workflow can publish
+    any check name while executing `true`. This read-only preflight insists the
+    producing workflow's source is byte-identical to the protected base tree.
+    """
+    details = check.get("details_url")
+    m = ACTION_URL.fullmatch(details) if isinstance(details, str) else None
+    if not m or f"{m[1]}/{m[2]}".casefold() != repo.casefold():
+        return False
+    run_id, job_id = int(m[3]), int(m[4])
+    if check.get("id") != job_id:
+        return False
+    sha = pr["head"]["sha"]
+    base_sha = (pr.get("base") or {}).get("sha")
+    if not isinstance(base_sha, str) or not SHA.fullmatch(base_sha):
+        return False
+    try:
+        run = _api(repo, f"actions/runs/{run_id}", token)
+        path = run.get("path")
+        if not (isinstance(path, str) and WORKFLOW_FILE.fullmatch(path)
+                and run.get("head_sha") == sha and run.get("event") == "pull_request"
+                and run.get("status") == "completed" and run.get("conclusion") == "success"
+                and type(run.get("workflow_id")) is int and run["workflow_id"] > 0):
+            return False
+        base = _api(repo, f"contents/{path}?ref={base_sha}", token)
+        head = _api(repo, f"contents/{path}?ref={sha}", token)
+        return (base.get("type") == "file" and head.get("type") == "file"
+                and base.get("sha") == head.get("sha")
+                and isinstance(base.get("sha"), str) and SHA.fullmatch(base["sha"]) is not None)
+    except (HTTPError, URLError, ValueError, KeyError, TypeError, OSError):
+        return False
+
+
 def live_snapshot(repo, number, token):
     require(REPO.fullmatch(repo) is not None and type(number) is int and number > 0,
             "REPO_OR_PR_INVALID")
@@ -252,6 +292,15 @@ def live_snapshot(repo, number, token):
     reviews = _api(repo, f"pulls/{number}/reviews?per_page=100", token)
     commits = _api(repo, f"pulls/{number}/commits?per_page=100", token)
     files = _api(repo, f"pulls/{number}/files?per_page=100", token)
+    # Provenance is checked for each candidate matching declared acceptance.
+    # A successful self-authored Actions YAML cannot serve as trusted evidence.
+    contract = contract_from_body(issue.get("body"))
+    accepted_names = {item["check"] for item in contract["acceptance"]
+                      if item["method"] == "github_check"}
+    origins = {}
+    for check in data.get("check_runs", []):
+        if isinstance(check, dict) and check.get("name") in accepted_names:
+            origins[str(check.get("id"))] = _trusted_check_origin(repo, pr, check, token)
     # Detect a moving PR head, altered acceptance contract or changed approval surface.
     # A read-only API sequence is not an atomic snapshot; fail closed on observable drift.
     latest_pr = _api(repo, f"pulls/{number}", token)
@@ -267,7 +316,7 @@ def live_snapshot(repo, number, token):
             and issue.get("updated_at") == latest_issue.get("updated_at"),
             "ISSUE_CHANGED_DURING_SNAPSHOT")
     return {"source": "github_api_live_read_only", "repo": repo, "pr": latest_pr, "issue": latest_issue,
-            "check_runs": data.get("check_runs", []),
+            "check_runs": data.get("check_runs", []), "check_origins": origins,
             "checks_complete": data.get("total_count") == len(data.get("check_runs", [])),
             "reviews": reviews, "reviews_complete": isinstance(reviews, list) and len(reviews) < 100,
             "commits": commits, "commits_complete": isinstance(commits, list) and len(commits) < 100,
