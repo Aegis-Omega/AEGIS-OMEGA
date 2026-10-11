@@ -7,6 +7,7 @@ are satisfied; it is NOT branch protection, provenance signing or merge authorit
 """
 import argparse
 import fnmatch
+import hashlib
 import json
 import os
 import re
@@ -18,6 +19,7 @@ SCHEMA = "aegis.issue-work.v1"
 SHA = re.compile(r"[0-9a-f]{40}\Z")
 MARKER = re.compile(r"<!--\s*AEGIS_WORK_V1\s*(.*?)\s*-->", re.S)
 ISSUE_LINK = re.compile(r"(?mi)^AEGIS-WORK-ISSUE:\s*#([1-9][0-9]*)\s*$")
+CONTRACT_LINK = re.compile(r"(?mi)^AEGIS-WORK-CONTRACT-SHA256:\s*([0-9a-f]{64})\s*$")
 REPO = re.compile(r"[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+\Z")
 APPROVAL_STATES = {"APPROVED", "CHANGES_REQUESTED", "COMMENTED", "DISMISSED"}
 
@@ -79,6 +81,13 @@ def contract_from_body(body):
     return c
 
 
+def contract_digest(contract):
+    """Stable checksum of the validated contract (integrity, not authorization)."""
+    encoded = json.dumps(contract, sort_keys=True, ensure_ascii=False,
+                         separators=(",", ":"), allow_nan=False).encode("utf-8")
+    return hashlib.sha256(encoded).hexdigest()
+
+
 def _check(name, ok, reason=None):
     return {"gate": name, "result": "PASS" if ok else "FAIL", "reason": "OK" if ok else reason}
 
@@ -95,9 +104,13 @@ def assess(snapshot):
         require(isinstance(sha, str) and SHA.fullmatch(sha), "HEAD_SHA_INVALID")
         require(type(issue["number"]) is int and issue["number"] > 0, "ISSUE_ID_INVALID")
         c = contract_from_body(issue.get("body"))
+        digest = contract_digest(c)
         linked = ISSUE_LINK.findall(pr.get("body") or "")
         gates.append(_check("issue_binding", len(linked) == 1 and int(linked[0]) == issue["number"],
                             "PR_ISSUE_LINK_MISSING_OR_CONFLICTING"))
+        bound_digests = CONTRACT_LINK.findall(pr.get("body") or "")
+        gates.append(_check("contract_binding", bound_digests == [digest],
+                            "PR_CONTRACT_DIGEST_MISSING_OR_STALE"))
         gates.append(_check("base_branch", pr.get("base", {}).get("ref") == "main",
                             "STACKED_OR_NON_MAIN_BASE"))
         gates.append(_check("issue_open", issue.get("state") == "open"
@@ -146,7 +159,9 @@ def assess(snapshot):
                     continue
                 latest[who] = r
         review_ok = any(who != author and r.get("state") == "APPROVED" and
-                        r.get("commit_id") == sha for who, r in latest.items())
+                        r.get("commit_id") == sha and
+                        CONTRACT_LINK.findall(r.get("body") or "") == [digest]
+                        for who, r in latest.items())
         gates.append(_check("independent_identity_review", review_ok,
                             "NO_APPROVAL_FROM_DIFFERENT_GITHUB_LOGIN_AT_EXACT_HEAD"))
         gates.append(_check("human_authority_boundary",
@@ -156,7 +171,7 @@ def assess(snapshot):
         ok = all(x["result"] == "PASS" for x in gates)
         return {"schema": "aegis.issue-gate.report.v1", "repo": repo,
                 "issue": issue["number"], "pr": pr.get("number"), "head_sha": sha,
-                "contract": "VALID", "gates": gates,
+                "contract": "VALID", "contract_sha256": digest, "gates": gates,
                 "disposition": "EVIDENCE_COMPLETE_NOT_ADMITTED" if ok else "NOT_ADMITTED",
                 "authority_effect": "NONE", "source": snapshot.get("source", "caller_supplied_UNTRUSTED")}
     except (Invalid, KeyError, TypeError, ValueError) as exc:
