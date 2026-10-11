@@ -80,6 +80,37 @@ class HolonContextTests(unittest.TestCase):
         self.assertEqual(ctx.holon_disposition("github", "github", [], [(issue, [])]),
                          "ISSUE_ASSIGNMENT_AND_REVIEW_REQUIRED")
 
+    def test_main_preserves_distinct_blocker_vectors_without_duplicate_json_keys(self):
+        issue = {"n": 735, "t": "CI billing lock",
+                 "labels": ["needs-operator", "claimed"]}
+        out = io.StringIO()
+        with patch.object(ctx, "sh", return_value=""), \
+             patch.object(ctx, "verify_main_freshness",
+                          return_value={"state": "FETCH_FAILED", "sha": None}), \
+             patch.object(ctx, "open_prs", return_value=([], "partial")), \
+             patch.object(ctx, "open_issue_board", return_value=([issue], "github")), \
+             patch.object(ctx, "existing_code", return_value=[]), \
+             patch.object(sys, "argv", ["agent_context.py", "--json", "#735"]):
+            with contextlib.redirect_stdout(out):
+                ctx.main()
+
+        def reject_duplicate_pairs(pairs):
+            result = {}
+            for key, value in pairs:
+                if key in result:
+                    raise AssertionError(f"Duplicate JSON key: {key}")
+                result[key] = value
+            return result
+
+        receipt = json.loads(out.getvalue(), object_pairs_hook=reject_duplicate_pairs)
+        self.assertEqual(receipt["holon_blockers"], [
+            "HOLD_UNVERIFIED_MAIN", "HOLD_INCOMPLETE_PR_INVENTORY",
+            "OPERATOR_ACTION_REQUIRED", "HOLD_CLAIMED_WORK_COORDINATE"])
+        self.assertEqual(receipt["coordination_blockers"], [
+            "MAIN_FRESHNESS_UNVERIFIED", "PR_INVENTORY_INCOMPLETE",
+            "OPERATOR_ACTION_REQUIRED", "CLAIMED_ISSUE_COORDINATION"])
+        self.assertEqual(receipt["holon_disposition"], "HOLD_UNVERIFIED_MAIN")
+
     def test_unknown_peers_are_never_empty_board(self):
         self.assertEqual(ctx.holon_disposition("unavailable", "unavailable", [], []),
                          "HOLD_INCOMPLETE_SHARED_STATE")
