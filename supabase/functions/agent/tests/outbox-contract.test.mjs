@@ -118,7 +118,7 @@ test('signing and allowlisted actor gate Slack before inference',async()=>{
  assert.equal(r.status,403);assert.equal(d.stats.paid,0)
 })
 test('allowed Slack channel required before inference',async()=>{
- const d=db(),h=slack(agent(d));const r=await h.handler(await signed(form('U_OK','C999999')))
+ const d=db(),h=slack(agent(d));const r=await h.handler(await signed(form(ACTOR,'C999999')))
  assert.equal(r.status,403);assert.equal(d.stats.paid,0)
 })
 test('Slack denial enables output-only retry on same event',async()=>{
@@ -153,7 +153,7 @@ test('AES-GCM AAD rejects ciphertext substitution between different events',asyn
 test('signed Slack app mention stores and delivers without repeat inference',async()=>{
  const d=db(),h=agent(d),worker=slack(h)
  const body=JSON.stringify({type:'event_callback',team_id:TEAM,event_id:'Ev1234567890',
-   event:{type:'app_mention',user:'U_OK',channel:CID,text:'<@BOT> inspect',ts:'123.1'}})
+   event:{type:'app_mention',user:ACTOR,channel:CID,text:'<@BOT> inspect',ts:'123.1'}})
  assert.equal((await worker.handler(await signed(body,'application/json'))).status,200)
  await Promise.all(worker.pending)
  assert.equal(d.stats.paid,1)
@@ -165,7 +165,7 @@ test('signed Slack app mention stores and delivers without repeat inference',asy
 test('Slack mention with missing stable event ID cannot dispatch',async()=>{
  const d=db(),worker=slack(agent(d))
  const body=JSON.stringify({type:'event_callback',team_id:TEAM,
-   event:{type:'app_mention',user:'U_OK',channel:CID,text:'<@BOT> do work',ts:'123.1'}})
+   event:{type:'app_mention',user:ACTOR,channel:CID,text:'<@BOT> do work',ts:'123.1'}})
  assert.equal((await worker.handler(await signed(body,'application/json'))).status,400)
  assert.equal(d.stats.paid,0)
 })
