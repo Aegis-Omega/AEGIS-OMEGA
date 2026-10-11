@@ -3,7 +3,7 @@ import { compileWorkContract, WorkContractError } from '../../src/event/work-con
 
 const step = (id: string, depends_on: string[] = []) => ({
   id, objective: 'Execute ' + id, kind: 'code', depends_on,
-  authority: 'read_only', risk: 'low', scope: [],
+  authority: 'read_only', risk: 'low', scope: [], effects: [],
   acceptance: [{ id: id + '.a1', criterion: 'Check ' + id, method: 'deterministic', evidence_kind: 'test' }]
 })
 const spec = () => ({
@@ -73,7 +73,7 @@ describe('UWP-01 work compiler: bounded exact contract', () => {
   it('still returns NOT_GRANTED when operator approval is required', async () => {
     const s = invalid(s => {
       s.authority_ceiling = 'operator_approved'; s.steps[0].authority = 'operator_approved'
-      s.steps[0].risk = 'critical'; s.steps[0].scope = ['repo:branch']
+      s.steps[0].risk = 'critical'; s.steps[0].scope = ['repo:branch']; s.steps[0].effects = ['branch_write']
     })
     expect((await compileWorkContract(s)).authorization).toBe('NOT_GRANTED')
   })
@@ -134,6 +134,30 @@ describe('UWP-01 work compiler: bounded exact contract', () => {
     expect(Object.isFrozen(plan.ordered_steps)).toBe(true)
     expect(Object.isFrozen(plan.ordered_steps[0])).toBe(true)
     expect(Object.isFrozen(plan.ordered_steps[0].acceptance[0])).toBe(true)
+  })
+
+
+  it('rejects a forbidden effect even with operator authority', async () => {
+    await expect(compileWorkContract(invalid(s => {
+      s.authority_ceiling = 'operator_approved'; s.steps[0].authority = 'operator_approved'
+      s.steps[0].scope = ['repo:branch']; s.steps[0].effects = ['production_writes']
+    }))).rejects.toThrow('FORBIDDEN_EFFECT')
+  })
+  it('rejects undeclared mutation effect even with a bounded scope', async () => {
+    await expect(compileWorkContract(invalid(s => {
+      s.authority_ceiling = 'branch_only'; s.steps[0].authority = 'branch_only'
+      s.steps[0].scope = ['repo:branch']
+    }))).rejects.toThrow('MUTATION_REQUIRES_EFFECT')
+  })
+  it('rejects a side effect in a read-only step', async () => {
+    await expect(compileWorkContract(invalid(s => { s.steps[0].effects = ['branch_write'] }))).rejects.toThrow('READ_ONLY_EFFECT')
+  })
+  it('binds declared effects into the contract digest', async () => {
+    const a = spec(), b = spec() as any
+    b.authority_ceiling = 'branch_only'; b.steps[0].authority = 'branch_only'
+    b.steps[0].scope = ['repo:branch']; b.steps[0].effects = ['branch_write']
+    expect((await compileWorkContract(a)).contract_sha256).not.toBe((await compileWorkContract(b)).contract_sha256)
+    expect((await compileWorkContract(b)).authorization).toBe('NOT_GRANTED')
   })
 
 })
