@@ -184,3 +184,31 @@
   .ef-map-material .ef-station{border-color:#d1e5fa;background:#06101c}
 
 }
+
+
+/* Comparative research instrument: semantic evidence, never invented lineage. */
+.rw-compare{margin:32px 0;padding:clamp(20px,3vw,38px);background:linear-gradient(150deg,#0b203e,#061429);border:1px solid #477bb078;border-radius:10px;color:#e9f4ff}
+.rw-compare-head{display:flex;justify-content:space-between;align-items:flex-end;gap:24px;flex-wrap:wrap;margin-bottom:24px}
+.rw-compare-head h2{font-size:clamp(28px,3vw,46px);letter-spacing:-.055em;line-height:1.1;margin:8px 0;color:#eff7ff}
+.rw-compare-head h2 em{font-style:normal;color:#a5c8ff}
+.rw-compare-head p{font-size:13px;line-height:1.7;color:#bfd1e8;max-width:62ch}
+.rw-compare-head label{display:flex;flex-direction:column;gap:9px;min-width:min(100%,275px);font:10px 'JetBrains Mono',monospace;letter-spacing:.08em;color:#a7c9ef}
+.rw-compare-head select{width:100%;min-height:44px;background:#07162e;color:#eaf3ff;border:1px solid #6b9bda;border-radius:7px;padding:9px 12px;font:13px Inter,system-ui,sans-serif;letter-spacing:0}
+.rw-compare-head select:focus-visible,.rw-compare a:focus-visible{outline:2px solid #c1e9ff;outline-offset:3px}
+.rw-compare-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:13px}
+.rw-compare-record{min-width:0;display:flex;flex-direction:column;gap:16px;padding:clamp(17px,2.5vw,28px);border:1px solid #5078a9;background:#08192f;border-radius:8px}
+.rw-compare-record>span,.rw-compare-verdict small,.rw-compare-question small,.rw-compare-limits small{font:10px 'JetBrains Mono',monospace;letter-spacing:.09em;color:#a5c6f0}
+.rw-compare-record h3{font-size:clamp(20px,2vw,29px);letter-spacing:-.035em;line-height:1.2;color:#f0f6ff;margin:0}
+.rw-compare-verdict{display:flex;flex-direction:column;gap:8px;border:1px solid #557ba6;border-radius:6px;background:#102647;padding:14px}
+.rw-compare-verdict strong{font-size:13px;font-weight:600;color:#d4e7ff}
+.rw-compare-question p{font-size:15px;line-height:1.6;color:#eff6ff;margin:9px 0 0}
+.rw-compare-limits{flex:1}
+.rw-compare-limits ol{margin:12px 0 0;padding-left:21px}
+.rw-compare-limits li{color:#c1d4ed;line-height:1.65;font-size:13px;margin:0 0 8px}
+.rw-compare-record>a{color:#d8eeff;text-decoration:none;border-top:1px solid #5474a6;padding-top:14px;font-size:13px;font-weight:600}
+.rw-compare-record>a:hover{text-decoration:underline}
+.rw-compare-private{color:#aac4e5;font:11px 'JetBrains Mono',monospace}
+.rw-compare-empty{padding:25px;border:1px dashed #5279a7;color:#c7d9ef;font-size:14px;border-radius:7px}
+.rw-compare-disclosure{margin:19px 0 0;font-size:11px;line-height:1.7;color:#abc5e4}
+@media(max-width:720px){.rw-compare-grid{grid-template-columns:1fr}.rw-compare-head label{width:100%}.rw-compare{margin:24px 0}}
+@media(prefers-contrast:more){.rw-compare-record,.rw-compare-verdict{border-color:#d3e8ff}.rw-compare-disclosure{color:#eff6ff}}
