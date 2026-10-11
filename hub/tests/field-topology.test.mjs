@@ -1,5 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
+import { readFileSync } from 'node:fs'
 import { fieldProjection, sourceSnapshot } from '../src/lib/fieldTopology.ts'
 
 const sources = Object.freeze([
@@ -36,3 +37,12 @@ test('snapshot is unsigned and contains source limits, no synthetic verification
  const s=sourceSnapshot(sources[1]);assert(s.includes('UNSIGNED'));assert(s.includes('Dataset private'));assert(s.includes('NOT PUBLIC'));assert(s.includes('NOT A VERIFIED RUN'))
 })
 test('input arrays stay unchanged',()=>{fieldProjection(sources,'a',.3);assert.equal(sources[0].id,'a')})
+
+test('orbit gesture starts on inert descendants but not source buttons',()=>{
+ const component=readFileSync(new URL('../src/components/SovereignField.tsx',import.meta.url),'utf8')
+ assert.doesNotMatch(component,/event\.target !== event\.currentTarget/)
+ assert.match(component,/event\.target instanceof Element/)
+ assert.match(component,/\.closest\('button, a, input, select, textarea'/)
+ assert.match(component,/event\.currentTarget\.setPointerCapture\(event\.pointerId\)/)
+ assert.match(component,/onPointerCancel=\{onPointerEnd\}/)
+})
