@@ -35,8 +35,10 @@ def sh(*argv, timeout=30):
         return ""
 
 
-def git_dir():
-    return sh("git", "rev-parse", "--absolute-git-dir", timeout=2).strip() or ".git"
+def git_dir(quick=False):
+    # Bound per-prompt hooks without penalizing slow full preflight machines.
+    return sh("git", "rev-parse", "--absolute-git-dir",
+              timeout=2 if quick else 30).strip() or ".git"
 
 
 def verify_main_freshness(quick=False):
@@ -90,7 +92,7 @@ def _valid_pr_record(p):
 
 def open_prs(quick=False):
     """Fresh GitHub snapshot for writes; versioned cache for advisory quick views."""
-    cache = os.path.join(git_dir(), "aegis-open-prs.json")
+    cache = os.path.join(git_dir(quick=quick), "aegis-open-prs.json")
     try:
         if quick and time.time() - os.path.getmtime(cache) < CACHE_TTL:
             with open(cache) as f:
