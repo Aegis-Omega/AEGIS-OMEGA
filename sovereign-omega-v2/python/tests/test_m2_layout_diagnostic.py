@@ -428,6 +428,7 @@ class TestM2LayoutDiagnosticGate(unittest.TestCase):
             ({"lcb": float("nan")}, "INVALID_LCB"),
             ({"lcb": float("inf")}, "INVALID_LCB"),
             ({"lcb": float("-inf")}, "INVALID_LCB"),
+            ({"lcb": 10 ** 1000}, "INVALID_LCB"),
             ({"lcb": "0.7"}, "INVALID_LCB"),
             ({"lcb": None}, "INVALID_LCB"),
             ({"lcb": True}, "INVALID_LCB"),
