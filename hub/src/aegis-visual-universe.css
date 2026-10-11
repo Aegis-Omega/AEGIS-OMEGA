@@ -498,3 +498,47 @@
     padding:20px;border-left:0;border-right:0;
   }
 }
+
+
+/* Precision pass — optical microcopy stays distinguishable on real hardware.
+   Essential source labels are at least 11px; decorative coordinates may
+   disappear before squeezing the usable mobile atlas. */
+.hg-route .sf-root .sf-lens{border-radius:3px;background:#192225}
+.hg-route .sf-root .sf-lens button{
+  min-height:44px;min-width:74px;border-radius:2px;
+  font-size:12px;line-height:1.25;padding:11px 14px;
+}
+.hg-route .sf-root .sf-space-top,
+.hg-route .sf-root .sf-space-bottom,
+.hg-route .sf-root .sf-edition,
+.hg-route .sf-root .sf-detail-label,
+.hg-route .sf-root .sf-verdict span,
+.hg-route .sf-root .sf-inquiry>span,
+.hg-route .sf-root .sf-constraints>span,
+.hg-route .sf-root .sf-footer,
+.hg-route .sf-root .sf-footer p {
+  font-size:11px;line-height:1.55;letter-spacing:.065em;
+}
+.hg-route .sf-root .sf-node-mark,
+.hg-route .sf-root .sf-coordinate,
+.hg-route .sf-root .sf-limit-node span{
+  font-size:11px;line-height:1.3;letter-spacing:.04em;
+}
+.hg-route .sf-root .sf-detail p,
+.hg-route .sf-root .sf-constraints li{
+  line-height:1.62;
+}
+.hg-route .op-console .op-topline,
+.hg-route .op-console .op-bottomline,
+.hg-route .op-console .op-overline,
+.hg-route .rw-shell .rw-ruler,
+.hg-route .rw-shell .rw-footer,
+.hg-route .rw-shell .rw-eyebrow{
+  font-size:11px;letter-spacing:.08em;line-height:1.6;
+}
+.hg-route .sf-root .sf-camera button{min-width:44px;min-height:44px}
+@media(max-width:600px){
+  .hg-route .sf-root .sf-coordinate{display:none}
+  .hg-route .sf-root .sf-footer{align-items:flex-start;gap:9px}
+  .hg-route .sf-root .sf-lens button{min-width:65px;padding-inline:10px}
+}
