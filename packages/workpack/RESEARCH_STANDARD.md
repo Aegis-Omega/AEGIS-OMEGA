@@ -64,3 +64,9 @@ Reproduced failure: attacker-controlled FIFO paths could stall work receipt pars
 ## v0.7 — reject ambiguous JSON, including evaluation-oracle packets
 
 Python's permissive `json.loads` accepts non-standard `NaN`/`Infinity` tokens unless `parse_constant` is supplied, while extremely large legal JSON exponent tokens (such as `1e400`) are converted to infinity by Python binary64. These non-finite representations must **never be treated as valid structural evidence**. WorkPack now centralizes all relevant JSON input parsing and refuses both cases consistently for manifests, `json_keys` artefacts, local helper and research evaluation datasets. The reference source is [RFC 8259 §6](https://www.rfc-editor.org/rfc/rfc8259#section-6), with Python decoder caveats in [Python documentation](https://docs.python.org/3/library/json.html). Seven bounded negative and positive tests verify the change. This does **not** validate source authenticity, prove model superiority or grant permissions.
+
+## v0.8 — public-helper root anchor and component lineage
+
+A verified safety bug existed in the formerly "no-follow" public `read_json()` helper: selecting a parent directory as the internal root, then resolving it, silently followed attacker-supplied directory symlinks. The resulting file content could come from a path outside the apparent selected directory. A successful hash/parse result does not remedy crossing that boundary.
+
+In the POSIX helper, use `Path.absolute()` (not `resolve()`), forbid `..` and walk the resulting path **from `/`** using `dir_fd`+`O_NOFOLLOW`, which prevents symlink following at each parent. Require an ordinary regular-file leaf. Preserve a clearly named non-POSIX limitation rather than promising TOCTOU resistance. Negative tests cover parent and leaf symlinks; positive test covers a nested regular JSON file. Neither artifact integrity nor this fix establishes source authenticity or permits production admission.

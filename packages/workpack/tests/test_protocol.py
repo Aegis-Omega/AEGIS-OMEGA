@@ -192,6 +192,39 @@ class WorkpackTests(unittest.TestCase):
         value=b'a,a\n1,2\n';(self.root/'data.csv').write_bytes(value)
         d=manifest('data.csv',value);d['checks'].append({'id':'A2','kind':'csv_columns','artifact':'data.csv','columns':['a'],'min_rows':1})
         self.assertEqual(self.status(d)['checks'][1]['result'],'FAIL')
+    @unittest.skipUnless(os.name == "posix" and hasattr(os, "O_NOFOLLOW"),
+                         "POSIX no-follow directory traversal required")
+    def test_read_json_parent_symlink_is_rejected(self):
+        # Previous helper resolved source.parent before applying O_NOFOLLOW.
+        # This fixture proves it can read data outside the requested parent.
+        (self.root/'sensitive').mkdir()
+        (self.root/'sensitive'/'private.json').write_text('{"secret":"outside"}')
+        (self.root/'safe').mkdir()
+        (self.root/'safe'/'link').symlink_to(self.root/'sensitive', target_is_directory=True)
+        with self.assertRaisesRegex(Invalid, "UNSAFE_OR_MISSING_ARTIFACT"):
+            read_json(self.root/'safe'/'link'/'private.json')
+
+    @unittest.skipUnless(os.name == "posix" and hasattr(os, "O_NOFOLLOW"),
+                         "POSIX no-follow directory traversal required")
+    def test_read_json_leaf_symlink_is_rejected(self):
+        (self.root/'private.json').write_text('{"secret":"outside"}')
+        (self.root/'alias.json').symlink_to(self.root/'private.json')
+        with self.assertRaisesRegex(Invalid, "UNSAFE_OR_MISSING_ARTIFACT"):
+            read_json(self.root/'alias.json')
+
+    @unittest.skipUnless(os.name == "posix" and hasattr(os, "O_NOFOLLOW"),
+                         "POSIX no-follow directory traversal required")
+    def test_read_json_rejects_dotdot_without_normalizing(self):
+        (self.root/'valid.json').write_text('{"ok":true}')
+        with self.assertRaisesRegex(Invalid, "JSON_PATH_TRAVERSAL"):
+            read_json(self.root/'safe'/'..'/'valid.json')
+
+    def test_read_json_allows_regular_nested_file(self):
+        nested=self.root/'ordinary'
+        nested.mkdir()
+        (nested/'report.json').write_text('{"ok":true,"n":123}')
+        self.assertEqual(read_json(nested/'report.json'), {'ok':True,'n':123})
+
     def test_strict_duplicate_manifest_keys(self):
         p=self.root/'bad.json';p.write_text('{"schema":"x","schema":"y"}')
         with self.assertRaises(Invalid):read_json(p)

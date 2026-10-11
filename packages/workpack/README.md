@@ -109,3 +109,11 @@ The v0.5 verifier called blocking POSIX `open(O_RDONLY)` on an untrusted artifac
 **Falsification:** baseline exact SHA `f5c01cfece6abf3fba64c56b5f1de378591794ba` reported `PASS` for `json_keys` on `NaN`, `Infinity`, `-Infinity` and binary64-overflow `1e400`. The new source rejects all, while normal finite decimal JSON succeeds. Seven new adversarial/positive regressions extend the Python stdlib suite from 83 to **90**. Existing CLI work-admission remains `NOT_ADMITTED`, including in `--integrity-only` mode. This is a narrowly evidenced improvement in parser correctness; cross-runtime canonicalization, JSON Schema conformance and a production AEGIS admission are **not** claimed.
 
 Reference: [RFC 8259 §6](https://www.rfc-editor.org/rfc/rfc8259#section-6) and [Python json decoder documentation](https://docs.python.org/3/library/json.html#json.loads).
+
+## v0.8 — no symlink traversal in the public `read_json()` helper
+
+**Reproduced on the previous helper:** `read_json(workspace/alias/secret.json)` followed a symbolic link in `alias` because the helper passed `source.parent` to `_artifact_bytes()`, which called `Path.resolve(strict=True)` on that parent **before** running any `O_NOFOLLOW` checks. The helper returned valid JSON from outside the apparent directory. It was not enough that the leaf was checked.
+
+**Exact fix:** On POSIX, the public helper walks the absolute path lexically from the trusted filesystem anchor `/` using the existing component-wise `open(dir_fd=..., O_DIRECTORY|O_NOFOLLOW)` and guarded nonblocking leaf reader. It does not resolve link-bearing parents and rejects explicit `..` components before traversal. CLI/workspace artifact reads retain their separate trusted-root contract. Non-POSIX behavior remains a documented immutable/trusted-workspace fallback; no universal cross-platform race-freedom is claimed.
+
+The new tests require that parent symlinks and leaf symlinks fail, explicit `..` is rejected, and ordinary nested regular JSON still passes. Together with the v0.7 RFC-8259 parser hardening, this is a narrowly demonstrated local security improvement, not an independently validated agent benchmark. Default `NOT_ADMITTED` behavior is unchanged.

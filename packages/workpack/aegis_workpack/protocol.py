@@ -65,9 +65,21 @@ def _strict_json_loads(raw):
 def read_json(path, cap=MAX_MANIFEST_BYTES):
     require(type(cap) is int and 0 < cap <= MAX_ARTIFACT_BYTES, "JSON_CAP_INVALID")
     source = Path(path)
-    # Use the same non-blocking, no-follow regular-file reader as the CLI.
-    # A FIFO or device must never stall the caller before type validation.
-    raw = _artifact_bytes(source.parent, source.name, cap)
+    # The public helper has no separately supplied trusted workspace root.
+    # Walking from source.parent is UNSAFE: _artifact_bytes() resolves that
+    # parent, thereby following a symlink before its O_NOFOLLOW checks start.
+    # On POSIX walk from the filesystem anchor through EVERY path component,
+    # with O_DIRECTORY|O_NOFOLLOW for parents and O_NONBLOCK for the leaf.
+    # source.absolute() preserves symlinks; source.resolve() does NOT.
+    if os.name == "posix" and hasattr(os, "O_NOFOLLOW"):
+        require(".." not in source.parts, "JSON_PATH_TRAVERSAL")
+        absolute = source.absolute()
+        require(absolute.anchor == "/", "JSON_PATH_INVALID")
+        relative = "/".join(absolute.parts[1:])
+        raw = _artifact_bytes("/", relative, cap)
+    else:
+        # Non-POSIX fallback is only safe for immutable, trusted directories.
+        raw = _artifact_bytes(source.parent, source.name, cap)
     require(len(raw) <= cap, "JSON_TOO_LARGE")
     try:
         return _strict_json_loads(raw.decode("utf-8"))
