@@ -366,9 +366,18 @@ def main():
     p0 = [issue for issue in issues if "p0" in issue["labels"]]
     code = existing_code(query) if query and not quick else []
 
+    main_verified = main_receipt["state"] == "FRESH"
     if "--json" in sys.argv:
-        print(json.dumps({"main": sha, "main_date": date, "main_age_days": age_days,
-                          "branch": branch, "behind_main": behind,
+        print(json.dumps({"main": sha if main_verified else None,
+                          "main_exact_sha": main_receipt["sha"] if main_verified else None,
+                          "main_date": date if main_verified else None,
+                          "main_age_days": age_days if main_verified else None,
+                          "local_main": sha or None,
+                          "local_main_date": date or None,
+                          "local_main_age_days": age_days,
+                          "branch": branch,
+                          "behind_main": behind if main_verified else None,
+                          "local_behind_main": behind,
                           "main_freshness": main_receipt,
                           "open": len(prs) if source in ("github", "cache") else None,
                           "stacked": len(stacked) if source in ("github", "cache") else None,
@@ -389,8 +398,11 @@ def main():
         return
 
     kind = "open PRs" if source in ("github", "cache") else "remote branches (not a complete PR list)"
-    lines = [f"AEGIS REPO STATE (measured now, not from docs)",
-             f"- main = {sha} from {date} ({age_days} days old). You are on '{branch}', {behind} behind main."]
+    location = "verified remote main" if main_verified else "LOCAL unverified origin/main"
+    lines = [f"AEGIS REPO STATE (checked now; remote state explicitly qualified)",
+             f"- {location} = {sha or '?'} from {date or '?'} "
+             f"({age_days if age_days is not None else '?'} days old). "
+             f"You are on '{branch}', local behind-main count {behind}."]
     lines.append(f"- Fetched main: {main_receipt['state']} "
                  f"({main_receipt['sha'] or 'SHA UNVERIFIED'}). Local origin/main is not a trusted remote fact otherwise.")
     if quick:
@@ -417,7 +429,8 @@ def main():
         lines.append("- CI IS NOT RUNNING: GitHub Actions jobs fail with 'account is locked due to a "
                      "billing issue'. This is evidence for that check only, not all red checks. "
                      "Inspect other failures separately; do not infer a code error or a global PASS.")
-    if age_days is not None and age_days > 7 and source in ("github", "cache") and len(prs) > 20:
+    if (main_verified and age_days is not None and age_days > 7
+            and source in ("github", "cache") and len(prs) > 20):
         lines.append("- main is stale and the queue is huge: the work you are about to do may "
                      "already exist in an open PR. Check the list below before writing code.")
     if hits:
