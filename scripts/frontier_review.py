@@ -19,7 +19,7 @@ from pathlib import Path
 import re
 from urllib.parse import urlsplit
 
-from holon_gate import unique_json_object, reject_json_constant, verify_local_file
+from holon_gate import unique_json_object, reject_json_constant, read_verified_local_file
 from holon_eval import compare, InvalidEvaluation
 
 SCHEMA = 'aegis.holon.frontier/1'
@@ -141,13 +141,11 @@ def assess(review: dict, root: Path, as_of: date | None = None) -> dict:
         require(isinstance(paired['file'], str) and isinstance(paired['sha256'], str)
                 and DIGEST.fullmatch(paired['sha256']) is not None,
                 'paired evaluation file/hash missing')
-        status = verify_local_file(root, paired['file'], paired['sha256'])
+        status, verified_bytes = read_verified_local_file(root, paired['file'], paired['sha256'], max_bytes=MAX_INPUT)
         require(status == 'HASH_MATCH', f'paired evaluation integrity: {status}')
         # The local hash is an integrity check, not a signature or proof of truth.
         try:
-            raw = (root / paired['file']).read_bytes()
-            require(len(raw) <= MAX_INPUT, 'paired evaluation too large')
-            evaluation = json.loads(raw.decode('utf-8'), object_pairs_hook=unique_json_object,
+            evaluation = json.loads(verified_bytes.decode('utf-8'), object_pairs_hook=unique_json_object,
                                     parse_constant=reject_json_constant)
             require(isinstance(evaluation, dict), 'paired outcome is not a JSON object')
             require(evaluation.get('baseline_sha') == base
