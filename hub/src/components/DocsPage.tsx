@@ -203,14 +203,13 @@ aegis collaborate "Enter EU fintech market Q4 2026" --mode gtm`} />
             </div>
             <p className="text-xs text-gray-600 mt-3">
               One run = one successful <code className="text-gray-500">POST /platform/collaborate</code>.
-              Runs are never charged for failed or rejected requests.
+              Quota behavior depends on the deployed backend. The candidate Worker reserves one quota unit before invoking a provider; downstream failures may still count, while pre-admission denials do not. Verify terms before use.
             </p>
           </Section>
 
           <Section id="collaborate" title="POST /platform/collaborate">
             <p className="text-gray-400 mb-2">
-              Run a full 39-agent collaboration cycle synchronously. Returns the complete result when all departments have
-              contributed. Typical response time: 2–8 seconds in demo mode.
+              Submit a collaboration request. Returned department artifacts and runtime depend on the deployed backend; a configured list of 39 departments does not prove 39 completed outputs. The candidate Worker does not implement demo calls (live:false returns 501 without provider spend).
             </p>
             <Endpoint
               method="POST"
@@ -249,7 +248,7 @@ aegis collaborate "Enter EU fintech market Q4 2026" --mode gtm`} />
     "execution_id": "018f4a2c-..."
   }
 }`}
-              notes="Available modes: revenue (monetisation vectors), analysis (market research), gtm (go-to-market phases), retention (churn reduction). All responses include audit_chain_hash — cryptographic proof of the run."
+              notes="Available modes: revenue (monetisation vectors), analysis (market research), gtm (go-to-market phases), retention (churn reduction). Do not treat a response digest, a model-reported verdict, or a server-provided audit hash as independent cryptographic replay proof. Verify exact response bytes and the authoritative ledger separately."
             />
           </Section>
 
