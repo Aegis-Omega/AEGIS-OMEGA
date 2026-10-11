@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, type ReactNode, type ChangeEvent } from 'react'
 import './holon-glass.css'
+import './aegis-visual-universe.css'
 import { SovereignMatter } from './components/SovereignMatter.js'
 import { MAX_ARTIFACT_SIZE, verifyArtifactBytes, copyDigestIfCurrent } from './lib/artifactIntegrity.js'
 import { FIRST_VALUE_ACTION } from './lib/navigationContract.js'
