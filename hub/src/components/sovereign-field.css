@@ -119,3 +119,6 @@
  .sf-detail h3{font-size:22px;letter-spacing:-.04em;overflow-wrap:normal}.sf-actions a,.sf-actions button{overflow-wrap:anywhere}
  .sf-footer{padding:12px}.sf-footer p{font-size:10px}
 }
+
+/* Full-sized target geometry for every interactive orbit and lens control. */
+.sf-lens button,.sf-camera button{min-height:44px}
