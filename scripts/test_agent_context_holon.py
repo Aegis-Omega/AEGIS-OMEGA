@@ -546,7 +546,7 @@ class HolonContextTests(unittest.TestCase):
         ok = subprocess.CompletedProcess(args=["git"], returncode=0,
                                          stdout="", stderr="")
         with patch.object(ctx.subprocess, "run", return_value=ok), \
-             patch.object(ctx, "sh", side_effect=["https://github.com/Aegis-Omega/AEGIS-OMEGA.git", "a" * 40, "a" * 40]):
+             patch.object(ctx, "sh", side_effect=["https://github.com/Aegis-Omega/AEGIS-OMEGA.git", "a" * 40, "a" * 40, "a" * 40]):
             receipt = ctx.verify_main_freshness()
         self.assertEqual(receipt, {"state": "FRESH", "sha": "a" * 40})
 
@@ -560,6 +560,31 @@ class HolonContextTests(unittest.TestCase):
         with patch.object(ctx.subprocess, "run", return_value=ok), \
              patch.object(ctx, "sh", side_effect=["https://github.com/Aegis-Omega/AEGIS-OMEGA.git", "a" * 40, ""]):
             self.assertEqual(ctx.verify_main_freshness()["state"], "REF_UNVERIFIED")
+
+    def test_local_git_refs_matching_but_github_main_different_is_hold(self):
+        import subprocess
+        ok = subprocess.CompletedProcess(args=["git"], returncode=0,
+                                         stdout="", stderr="")
+        with patch.object(ctx.subprocess, "run", return_value=ok), \
+             patch.object(ctx, "sh", side_effect=[
+                 "https://github.com/Aegis-Omega/AEGIS-OMEGA.git",
+                 "a" * 40, "a" * 40, "b" * 40
+             ]) as calls:
+            self.assertEqual(ctx.verify_main_freshness(),
+                             {"state": "GITHUB_HEAD_DIVERGED", "sha": None})
+        self.assertIn("git/ref/heads/main", calls.call_args_list[-1].args[2])
+
+    def test_github_main_lookup_unavailable_cannot_certify_local_main(self):
+        import subprocess
+        ok = subprocess.CompletedProcess(args=["git"], returncode=0,
+                                         stdout="", stderr="")
+        with patch.object(ctx.subprocess, "run", return_value=ok), \
+             patch.object(ctx, "sh", side_effect=[
+                 "https://github.com/Aegis-Omega/AEGIS-OMEGA.git",
+                 "a" * 40, "a" * 40, ""
+             ]):
+            self.assertEqual(ctx.verify_main_freshness(),
+                             {"state": "GITHUB_HEAD_UNVERIFIED", "sha": None})
 
     def test_wrong_repo_origin_does_not_fetch_or_certify_main(self):
         for remote in (
@@ -585,7 +610,7 @@ class HolonContextTests(unittest.TestCase):
         with patch.object(ctx.subprocess, "run", return_value=ok), \
              patch.object(ctx, "sh", side_effect=[
                  "git@github.com:Aegis-Omega/AEGIS-OMEGA.git",
-                 "b" * 40, "b" * 40
+                 "b" * 40, "b" * 40, "b" * 40
              ]):
             self.assertEqual(ctx.verify_main_freshness(),
                              {"state": "FRESH", "sha": "b" * 40})
