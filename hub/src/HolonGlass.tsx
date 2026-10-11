@@ -43,23 +43,29 @@ function Glyph({ kind }: { kind: string }) {
 
 function Nav({ path = '/' }: { path?: string }) {
   const [open, setOpen] = useState(false)
+  const menuToggleRef = useRef<HTMLButtonElement>(null)
+  const menuRef = useRef<HTMLElement>(null)
   useEffect(() => { setOpen(false) }, [path])
+  useEffect(() => { if (open) menuRef.current?.querySelector('a')?.focus() }, [open])
   useEffect(() => {
     if (!open) return
     const escape = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') setOpen(false)
+      if (event.key === 'Escape') {
+        setOpen(false)
+        menuToggleRef.current?.focus()
+      }
     }
     document.addEventListener('keydown', escape)
     return () => document.removeEventListener('keydown', escape)
   }, [open])
   return <><a className="hg-skip-link" href="#hg-main">Skip to content</a><header className="hg-nav-wrap"><div className="hg-nav">
     <a className="hg-brand" href="/" aria-label="AEGIS Ω — home"><Sigil/><span className="hg-brand-word"><strong>AEGIS <em>Ω</em></strong><small>SOVEREIGN INTELLIGENCE</small></span></a>
-    <nav id="hg-primary-nav" className={'hg-links'+(open ? ' hg-links-open' : '')} aria-label="Primary navigation">
+    <nav ref={menuRef} id="hg-primary-nav" className={'hg-links'+(open ? ' hg-links-open' : '')} aria-label="Primary navigation">
       {MAIN.map(item => <a key={item.href} href={item.href} aria-current={path===item.href?'page':undefined}>{item.label}</a>)}
       <a className="hg-links-mobile-extra" href="/compliance">Governance</a>
       <a className="hg-links-mobile-extra" href="/tools">Tools</a>
     </nav>
-    <div className="hg-nav-actions"><span className="hg-nav-status">EVIDENCE-BOUND</span><a href="/pricing" className="hg-nav-cta">Enter AEGIS <Arrow diagonal/></a><button className="hg-menu-toggle" type="button" onClick={()=>setOpen(!open)} aria-controls="hg-primary-nav" aria-expanded={open} aria-label={open?'Close navigation':'Open navigation'}>{open?'✕':'☰'}</button></div>
+    <div className="hg-nav-actions"><span className="hg-nav-status">EVIDENCE-BOUND</span><a href="/pricing" className="hg-nav-cta">Enter AEGIS <Arrow diagonal/></a><button ref={menuToggleRef} className="hg-menu-toggle" type="button" onClick={()=>setOpen(!open)} aria-controls="hg-primary-nav" aria-expanded={open} aria-label={open?'Close navigation':'Open navigation'}>{open?'✕':'☰'}</button></div>
   </div></header></>
 }
 
@@ -152,14 +158,16 @@ function SiteFooter() {
 }
 
 export function HolonHome() {
+  // Decorative motion is opt-in; the device reduced-motion preference always wins in CSS.
+  const [motionEnabled,setMotionEnabled] = useState(false)
   const [focus,setFocus] = useState<'research'|'runtime'|'trust'>('research')
   const focusData = {
     research: { label:'RESEARCH OS', title:'Explore the unknown. Preserve the proof.', detail:'Unify mathematics, genomics, scientific simulation and independent evaluation without mixing hypothesis with established result.', bullets:['Evidence-native experiments','Cross-domain research atlas','Reproducible scientific artifacts'],href:QUANTUM_URL,button:'Open Quantum Integrity Lab' },
     runtime: { label:'SOVEREIGN RUNTIME', title:'Capability without uncontrolled authority.', detail:'Coordinate model-assisted work with constitutional gates and explicit limits on actions, identity, provenance and deployment.',bullets:['Agentic execution envelopes','Separation of capability and authority','Inspectable runtime boundaries'],href:'/console',button:'Inspect command console' },
     trust: { label:'PROOF SYSTEM', title:'Trust is an executable condition.',detail:'Treat artifacts, independent checks, negative controls and exact-head verification as the record—not polished claims of autonomous success.',bullets:['Tamper-evident records','Epistemic tier separation','Fail-closed admission'],href:'/runtime',button:'Explore the runtime' },
   }[focus]
-  return <div className="hg-home">
-    <section className="hg-hero hg-section hg-content" id="top"><div className="hg-hero-copy"><span className="hg-eyebrow"><span className="hg-dot"/> AEGIS OMEGA LABS &nbsp; / &nbsp; SOVEREIGN RESEARCH INFRASTRUCTURE</span><h1>Sovereign<br/><span>research.</span><br/>Evidence-bound.</h1><p className="hg-hero-desc">Research, execution and scientific discovery connected by one principle: claims must be traceable to source, computation and independent checks.</p><div className="hg-hero-actions"><a className="hg-btn hg-btn-primary" href="/platform">Explore the platform <Arrow/></a><a className="hg-btn hg-btn-secondary" href="/runtime">Inspect verification <Arrow diagonal/></a></div><div className="hg-hero-note"><span className="hg-cross">✧</span> SOVEREIGN INTELLIGENCE &nbsp; / &nbsp; EVIDENCE BEFORE AUTHORITY</div></div><Orbit/></section>
+  return <div className={'hg-home'+(motionEnabled?'':' hg-motion-paused')}>
+    <section className="hg-hero hg-section hg-content" id="top"><div className="hg-hero-copy"><span className="hg-eyebrow"><span className="hg-dot"/> AEGIS OMEGA LABS &nbsp; / &nbsp; SOVEREIGN RESEARCH INFRASTRUCTURE</span><h1>Sovereign<br/><span>research.</span><br/>Evidence-bound.</h1><p className="hg-hero-desc">Research, execution and scientific discovery connected by one principle: claims must be traceable to source, computation and independent checks.</p><div className="hg-hero-actions"><a className="hg-btn hg-btn-primary" href="/platform">Explore the platform <Arrow/></a><a className="hg-btn hg-btn-secondary" href="/runtime">Inspect verification <Arrow diagonal/></a></div><div className="hg-hero-note"><span className="hg-cross">✧</span> SOVEREIGN INTELLIGENCE &nbsp; / &nbsp; EVIDENCE BEFORE AUTHORITY</div></div><div className="hg-orbit-stage"><Orbit/><button type="button" className="hg-motion-control" aria-label="Ambient animation" aria-pressed={motionEnabled} onClick={()=>setMotionEnabled(enabled=>!enabled)}>{motionEnabled?'Pause animation':'Play animation'}</button></div></section>
     <section className="hg-facts hg-content" aria-label="Principles"><div><small>THE PRINCIPLE</small><b>Capability ≤ verifiability</b></div><div><small>THE SYSTEM</small><b>Research · Compute · Challenge · Admit</b></div><div><small>THE BOUNDARY</small><b>Unknown stays unknown</b></div></section>
     <section className="hg-section hg-content hg-intro" id="vision"><div className="hg-section-tag">01 — INTELLIGENCE ARCHITECTURE</div><div className="hg-intro-body"><h2>One collective intelligence.<br/><span>Multiple horizons of inquiry.</span></h2><p>Not another collection of disconnected copilots. AEGIS is organized around shared context, evidence-bearing computation and constrained operations. Its claims must survive review before they become authority.</p></div></section>
     <section className="hg-domains hg-content" id="domains">{DOMAINS.map(d=><a className="hg-domain hg-glass" href={d.href} key={d.id}><div className="hg-domain-top"><span className="hg-mono">{d.id} / 04</span><span className="hg-domain-arrow"><Arrow diagonal/></span></div><div className="hg-domain-icon"><Glyph kind={d.glyph}/></div><h3>{d.title}</h3><p>{d.detail}</p><div className="hg-domain-tag">{d.tag}</div></a>)}</section>
