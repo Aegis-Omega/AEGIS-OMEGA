@@ -117,6 +117,31 @@ class IssueEvolutionTests(unittest.TestCase):
         self.assertEqual(len(r["routing"]["events"]), 5)
         self.assertTrue(all("engineering" in e["delivered_roles"] for e in r["routing"]["events"]))
 
+    def test_formal_issues_route_to_formal_dendrite(self):
+        x=compile_graph(snapshot([issue(337,"QForm/Weil theorem", "Parent #734")]))
+        r=spread_issue_graph(x,source_head=HEAD)
+        self.assertIn("applied_science",r["routing"]["events"][0]["delivered_roles"])
+
+    def test_research_issues_route_to_corpus(self):
+        x=compile_graph(snapshot([issue(765,"Research intelligence")]))
+        r=spread_issue_graph(x,source_head=HEAD)
+        self.assertIn("corpus_ingestor",r["routing"]["events"][0]["delivered_roles"])
+
+    def test_finance_issues_route_to_commerce(self):
+        x=compile_graph(snapshot([issue(736,"Paid product revenue")]))
+        r=spread_issue_graph(x,source_head=HEAD)
+        self.assertIn("strategy",r["routing"]["events"][0]["delivered_roles"])
+
+    def test_needs_operator_issues_are_quarantined(self):
+        x=compile_graph(snapshot([issue(735,"Lift Actions billing lock",
+                                       labels=["task","needs-operator","p0"])]))
+        r=spread_issue_graph(x,source_head=HEAD)
+        roles=r["routing"]["events"][0]["delivered_roles"]
+        self.assertNotIn("finance",roles)
+        self.assertNotIn("engineering",roles)
+        self.assertIn("cybersecurity",roles)
+        self.assertEqual(r["authority_effect"],"NONE")
+
     def test_graph_slice_restricted(self):
         x = compile_graph(snapshot())
         with self.assertRaisesRegex(ValueError, "ISSUE_GRAPH_SLICE_INVALID"):
