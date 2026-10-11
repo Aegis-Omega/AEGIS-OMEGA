@@ -32,7 +32,9 @@ class WorkpackTests(unittest.TestCase):
 
     def test_integrity_pass_not_admitted(self):
         r=self.status()
-        self.assertEqual(r['disposition'],'LOCAL_INTEGRITY_AND_STRUCTURE_VERIFIED')
+        self.assertEqual(r['disposition'],'NOT_ADMITTED')
+        self.assertEqual(r['local_result'],'LOCAL_INTEGRITY_AND_STRUCTURE_VERIFIED')
+        self.assertIs(r['work_complete'],False)
         self.assertEqual(r['authority_effect'],'NONE')
         self.assertEqual(r['domain_quality'],'UNVERIFIED')
     def test_tampering_fail(self):

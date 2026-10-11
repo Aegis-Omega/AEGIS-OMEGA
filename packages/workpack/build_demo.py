@@ -33,8 +33,9 @@ for domain,(name,content,kind,properties) in CASES.items():
         receipt=verify(dest,manifest)
         (dest/'receipt.json').write_text(json.dumps(receipt,indent=2,ensure_ascii=False)+'\n')
         result=receipt['disposition']
-        assert result == ('NOT_ADMITTED' if tampered else 'LOCAL_INTEGRITY_AND_STRUCTURE_VERIFIED')
-        summary.append({'id':label,'domain':domain,'result':result,'artifact_integrity':receipt['artifact_integrity'],
+        assert result == 'NOT_ADMITTED'  # all examples: no independent admission
+        assert receipt['local_result'] == ('LOCAL_CHECKS_FAILED' if tampered else 'LOCAL_INTEGRITY_AND_STRUCTURE_VERIFIED')
+        summary.append({'id':label,'domain':domain,'result':result,'local_result':receipt['local_result'],'artifact_integrity':receipt['artifact_integrity'],
                         'quality':receipt['domain_quality'],'synthetic':True})
 (OUT/'synthetic_benchmark.json').write_text(json.dumps({'schema':'aegis.workpack.synthetic-benchmark.v1',
  'warning':'Fixture-generated, not a cross-model or real-world success benchmark.',

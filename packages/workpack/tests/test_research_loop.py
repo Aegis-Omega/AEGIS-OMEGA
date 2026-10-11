@@ -172,16 +172,80 @@ class ResearchCycleTests(unittest.TestCase):
             self.assertEqual(cli([str(self.root)]),1)
         self.set_evaluation(basic["research"])
         measured=verify(self.root,basic)
-        self.assertEqual(measured["delivery_readiness"],"RESEARCH_AND_FALSIFICATION_REPORTED_UNATTESTED")
+        self.assertEqual(measured["delivery_readiness"],"BLOCKED_UNATTESTED_RESEARCH_AND_ORACLE")
+        self.assertEqual(measured["local_result"],"LOCAL_INTEGRITY_AND_STRUCTURE_VERIFIED")
+        self.assertEqual(measured["disposition"],"NOT_ADMITTED")
+        self.assertIs(measured["work_complete"],False)
         (self.root/"manifest.json").write_text(json.dumps(basic))
-        with contextlib.redirect_stdout(io.StringIO()):
-            self.assertEqual(cli([str(self.root)]),0)
+        with contextlib.redirect_stdout(io.StringIO()) as captured:
+            self.assertEqual(cli([str(self.root)]),1)
+        self.assertEqual(json.loads(captured.getvalue())["disposition"],"NOT_ADMITTED")
+        with contextlib.redirect_stdout(io.StringIO()) as diagnostic:
+            self.assertEqual(cli([str(self.root),"--integrity-only"]),0)
+        self.assertEqual(json.loads(diagnostic.getvalue())["disposition"],"NOT_ADMITTED")
         self.assertEqual(measured["domain_quality"],"UNVERIFIED")
         self.assertEqual(measured["authority_effect"],"NONE")
 
     def test_forged_outcome_without_evidence_denied(self):
         d=copy.deepcopy(self.doc);d["evaluation"]["outcome"]="SUPPORTED"
         self.fails(d,"EVALUATOR_KIND_UNSUPPORTED")
+
+    def test_self_authored_oracle_never_completes_work(self):
+        import contextlib, io
+        d = self.set_evaluation(copy.deepcopy(self.doc), cases=[
+            {"id": f"forge{i}", "expected": "claimed_answer",
+             "baseline": "different_answer", "candidate": "claimed_answer"}
+            for i in range(1, 7)
+        ])
+        raw = b"result"; (self.root / "result.txt").write_bytes(raw)
+        manifest = {"schema":"aegis.workpack.v1", "task_id":"forge-oracle-001",
+                    "domain":"science", "authority":"read_only",
+                    "objective":"Attempt to pass self-authored benchmark answers",
+                    "producer":{"agent":"untrusted-agent"},
+                    "artifacts":[{"path":"result.txt","sha256":hashlib.sha256(raw).hexdigest()}],
+                    "checks":[{"id":"A1","kind":"sha256","artifact":"result.txt"}],
+                    "research":d}
+        receipt = verify(self.root,manifest)
+        self.assertEqual(receipt["local_result"],"LOCAL_INTEGRITY_AND_STRUCTURE_VERIFIED")
+        self.assertEqual(receipt["research"]["evaluation_replay"]["candidate_matches"],6)
+        self.assertEqual(receipt["research"]["source_authenticity"],"UNVERIFIED")
+        self.assertEqual(receipt["research"]["improvement"],"UNPROVEN")
+        self.assertEqual(receipt["disposition"],"NOT_ADMITTED")
+        self.assertFalse(receipt["work_complete"])
+        self.assertEqual(receipt["delivery_readiness"],"BLOCKED_UNATTESTED_RESEARCH_AND_ORACLE")
+        (self.root/"manifest.json").write_text(json.dumps(manifest))
+        with contextlib.redirect_stdout(io.StringIO()) as captured:
+            status = cli([str(self.root)])
+        self.assertEqual(status,1)
+        self.assertEqual(json.loads(captured.getvalue())["disposition"],"NOT_ADMITTED")
+
+    def test_explicit_local_diagnostic_never_promotes_work(self):
+        import contextlib, io
+        raw=b"data";(self.root/"result.txt").write_bytes(raw)
+        manifest={"schema":"aegis.workpack.v1", "task_id":"local-only-001",
+                  "domain":"data", "authority":"read_only", "objective":"Test explicit local-only diagnostic output",
+                  "producer":{"agent":"fixture"},
+                  "artifacts":[{"path":"result.txt","sha256":hashlib.sha256(raw).hexdigest()}],
+                  "checks":[{"id":"A1","kind":"sha256","artifact":"result.txt"}]}
+        (self.root/"manifest.json").write_text(json.dumps(manifest))
+        with contextlib.redirect_stdout(io.StringIO()) as c:
+            status=cli([str(self.root),"--integrity-only"])
+        receipt=json.loads(c.getvalue())
+        self.assertEqual(status,0)
+        self.assertEqual(receipt["disposition"],"NOT_ADMITTED")
+        self.assertFalse(receipt["work_complete"])
+        self.assertEqual(receipt["local_result"],"LOCAL_INTEGRITY_AND_STRUCTURE_VERIFIED")
+
+    def test_invalid_contract_still_fails_replay(self):
+        raw=b"data";(self.root/"result.txt").write_bytes(raw)
+        manifest={"schema":"aegis.workpack.v1", "task_id":"bad-001", "domain":"code",
+                  "authority":"root", "objective":"Do not permit unknown authority", "producer":{"agent":"fixture"},
+                  "artifacts":[{"path":"result.txt","sha256":hashlib.sha256(raw).hexdigest()}],
+                  "checks":[{"id":"A1","kind":"sha256","artifact":"result.txt"}]}
+        receipt=verify(self.root,manifest)
+        self.assertEqual(receipt["disposition"],"NOT_ADMITTED")
+        self.assertEqual(receipt["local_result"],"UNVERIFIED")
+        self.assertFalse(receipt["work_complete"])
 
     def test_computed_improvement_replays(self):
         d=self.set_evaluation(copy.deepcopy(self.doc))

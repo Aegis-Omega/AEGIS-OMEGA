@@ -188,7 +188,10 @@ def verify(root, manifest):
     """No writes. A PASS never means independent quality or permission to deploy."""
     report = {"schema": "aegis.workpack.receipt.v1", "authority_effect": "NONE",
               "disposition": "NOT_ADMITTED", "artifact_integrity": "UNVERIFIED",
-              "domain_quality": "UNVERIFIED", "checks": [], "artifacts": []}
+              "domain_quality": "UNVERIFIED", "checks": [], "artifacts": [],
+              "local_result": "UNVERIFIED", "work_complete": False,
+              "independent_source_verification": "UNVERIFIED",
+              "independent_oracle_verification": "UNVERIFIED"}
     try:
         task = validate_contract(manifest)
         report.update({"task_id": task["task_id"], "domain": task["domain"],
@@ -217,7 +220,7 @@ def verify(root, manifest):
         research = audit_research(root, task.get("research"))
         report["research"] = research
         report["delivery_readiness"] = (
-            "RESEARCH_AND_FALSIFICATION_REPORTED_UNATTESTED"
+            "BLOCKED_UNATTESTED_RESEARCH_AND_ORACLE"
             if research["status"] == "LOCAL_PACKET_COMPLETE_UNATTESTED"
             and research.get("falsification_outcome_reported") != "NOT_RUN"
             else "BLOCKED_UNRUN_FALSIFICATION" if
@@ -232,9 +235,14 @@ def verify(root, manifest):
             report["checks"].append({"id": check["id"], "kind": check["kind"],
                                      "artifact": check["artifact"], "result": status, "reason": reason})
         results = [c["result"] for c in report["checks"]]
-        report["disposition"] = ("LOCAL_INTEGRITY_AND_STRUCTURE_VERIFIED" if
-                                 all_match and all(x == "PASS" for x in results)
-                                 else "NOT_ADMITTED")
+        report["local_result"] = ("LOCAL_INTEGRITY_AND_STRUCTURE_VERIFIED" if
+                                  all_match and all(x == "PASS" for x in results)
+                                  else "LOCAL_CHECKS_FAILED")
+        # A self-authored manifest can forge every source, oracle and transcript.
+        # Only a future *trusted* harness may authorize completion. This library
+        # has no trusted web/browser retrieval or independent quality grader.
+        report["disposition"] = "NOT_ADMITTED"
+        report["work_complete"] = False
         report["replayable"] = True
     except (Invalid, OSError, TypeError, ValueError) as e:
         report["reason"] = str(e)
@@ -266,9 +274,10 @@ def cli(argv=None):
     if ns.output:
         Path(ns.output).write_text(rendered, encoding="utf-8")
     print(rendered, end="")
-    return 0 if (result["disposition"] == "LOCAL_INTEGRITY_AND_STRUCTURE_VERIFIED"
-                 and (ns.integrity_only or result.get("delivery_readiness") ==
-                      "RESEARCH_AND_FALSIFICATION_REPORTED_UNATTESTED")) else 1
+    # Exit 0 is reserved for the explicit local artifact-diagnostic mode.
+    # Never grant a default success using a self-authored source or oracle.
+    return 0 if (ns.integrity_only and result.get("local_result") ==
+                 "LOCAL_INTEGRITY_AND_STRUCTURE_VERIFIED") else 1
 
 
 if __name__ == "__main__":

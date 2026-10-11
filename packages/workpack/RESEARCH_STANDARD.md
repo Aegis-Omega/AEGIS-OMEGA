@@ -14,7 +14,7 @@
 
 `packages/workpack/aegis_workpack/research_loop.py` audits a **local research evidence packet**. By default `python3 -m aegis_workpack.protocol WORKSPACE` does not return success for a manifest without a complete packet; `--integrity-only` remains available solely for explicit artifact-level diagnostics. Neither mode authorizes deployment.
 
-A structurally positive research packet is `LOCAL_PACKET_COMPLETE_UNATTESTED` but if its experiment outcome is `NOT_RUN`, the delivery CLI **refuses to pass**. Even a reported executed experiment carries no external authenticity.
+A structurally positive research packet is `LOCAL_PACKET_COMPLETE_UNATTESTED` but if its experiment outcome is `NOT_RUN`, the delivery CLI **refuses to pass**. Even a reported executed experiment carries no external authenticity. In v0.4, a fully self-authored source + oracle no longer produces a default CLI exit 0: `work_complete=false`, `disposition=NOT_ADMITTED` and `delivery_readiness=BLOCKED_UNATTESTED_RESEARCH_AND_ORACLE`. Only `--integrity-only` returns 0 for successful local bytes/structure; this is explicitly non-authoritative.
 
 A locally positive research packet remains unauthenticated:
 - The included source URLs and timestamps are *claims by the agent*.
