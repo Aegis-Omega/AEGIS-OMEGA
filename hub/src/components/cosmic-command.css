@@ -47,8 +47,8 @@
   border:1px solid #8acbff;box-shadow:inset 0 1px 0 #c9eeff74,0 0 17px #2676f463;
   border-radius:8px;font-size:12px;
 }
-.hg-nav-cta:hover{background:linear-gradient(135deg,#258af7,#5260e4)}
-.hg-site :is(.hg-btn-primary,.cc-cta-primary){color:#fff;background:linear-gradient(130deg,#1988ed,#3c4ad9);border:1px solid #85cfff;box-shadow:0 0 22px #1678f78a,inset 0 1px 0 #fff8}
+.hg-nav-cta:hover{background:linear-gradient(135deg,#126bd1,#3848cf)}
+.hg-site :is(.hg-btn-primary,.cc-cta-primary){color:#fff;background:linear-gradient(130deg,#126bd1,#3c4ad9);border:1px solid #85cfff;box-shadow:0 0 22px #1678f78a,inset 0 1px 0 #fff8}
 .hg-site :is(.hg-btn-secondary,.cc-cta-secondary){color:#e4f1ff;background:#07172c;border:1px solid #517cae;box-shadow:inset 0 1px 0 #bfddff28}
 .hg-site .hg-glass{background:linear-gradient(145deg,#0b203d,#071529 65%,#091127);border-color:var(--cc-line);box-shadow:inset 0 1px 0 #b9d7ff1a,0 13px 34px #0006}
 .hg-site .hg-domain:hover{border-color:#64b8ff}
