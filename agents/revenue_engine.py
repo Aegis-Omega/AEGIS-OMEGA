@@ -420,11 +420,15 @@ def main() -> None:
     run_p.add_argument("--dendrite", action="store_true", help="Produce read-only knowledge routing receipts")
     run_p.add_argument("--source-head", help="Exact Git commit used for source attribution")
     run_p.add_argument("--spool-dir", help="Opt-in private local mailbox directory (requires --dendrite)")
+    run_p.add_argument("--relay-key-file", help="Private local relay key file (requires --spool-dir)")
+    run_p.add_argument("--relay-key-id", help="Relay key identifier (requires --relay-key-file)")
 
     demo_p = sub.add_parser("demo", help="Run the deterministic revenue collaboration demo")
     demo_p.add_argument("--dendrite", action="store_true", help="Produce read-only knowledge routing receipts")
     demo_p.add_argument("--source-head", help="Exact Git commit used for source attribution")
     demo_p.add_argument("--spool-dir", help="Opt-in private local mailbox directory (requires --dendrite)")
+    demo_p.add_argument("--relay-key-file", help="Private local relay key file (requires --spool-dir)")
+    demo_p.add_argument("--relay-key-id", help="Relay key identifier (requires --relay-key-file)")
     sub.add_parser("verify", help="Verify the revenue lineage hash chain")
 
     args = parser.parse_args()
@@ -432,6 +436,9 @@ def main() -> None:
         parser.error("--source-head is required with --dendrite")
     if args.command in ("run", "demo") and args.spool_dir and not args.dendrite:
         parser.error("--spool-dir requires --dendrite")
+    if args.command in ("run", "demo") and (args.relay_key_file or args.relay_key_id):
+        if not args.spool_dir or not args.relay_key_file or not args.relay_key_id:
+            parser.error("--relay-key-file and --relay-key-id require --spool-dir")
 
     if args.command == "run":
         r = asyncio.run(run_revenue_cycle(args.objective, live=args.live))
@@ -441,8 +448,9 @@ def main() -> None:
             receipt = from_revenue_cycle(r, source_head=args.source_head)
             print(json.dumps(receipt, indent=2))
             if args.spool_dir:
-                from agents.dendrite_mailbox import publish_local
-                print(json.dumps(publish_local(receipt, args.spool_dir), indent=2))
+                from agents.dendrite_attestation import publish_for_pipeline
+                print(json.dumps(publish_for_pipeline(receipt, args.spool_dir,
+                    key_file=args.relay_key_file, key_id=args.relay_key_id), indent=2))
     elif args.command == "demo":
         r = asyncio.run(run_revenue_cycle(
             "Sell AEGIS constitutional governance to AI labs needing EU AI Act compliance"))
@@ -452,8 +460,9 @@ def main() -> None:
             receipt = from_revenue_cycle(r, source_head=args.source_head)
             print(json.dumps(receipt, indent=2))
             if args.spool_dir:
-                from agents.dendrite_mailbox import publish_local
-                print(json.dumps(publish_local(receipt, args.spool_dir), indent=2))
+                from agents.dendrite_attestation import publish_for_pipeline
+                print(json.dumps(publish_for_pipeline(receipt, args.spool_dir,
+                    key_file=args.relay_key_file, key_id=args.relay_key_id), indent=2))
     elif args.command == "verify":
         from agents.evolution import AdaptiveLineage
         lineage = AdaptiveLineage.load()
