@@ -46,8 +46,8 @@ async function handler(req) {
     if (!upstream.ok) return response({error:'UPSTREAM_UNAVAILABLE',upstream_status:upstream.status,attestation:'NOT_VERIFIED'},503);
     const declared = Number(upstream.headers.get('content-length') || '0');
     if (declared > MAX_BYTES) return response({error:'UPSTREAM_TOO_LARGE'},502);
-    // Read no more than MAX_BYTES of UTF-8 bytes. An unbounded text() call
-    // can buffer arbitrarily large upstream responses before validating size.
+    // Read at most MAX_BYTES of the actual UTF-8 wire payload. `response.text()`
+    // without a streaming limit can allocate arbitrarily large upstream bodies.
     if (!upstream.body) return response({error:'UPSTREAM_EMPTY_BODY'},502);
     const reader = upstream.body.getReader();
     const chunks = [];
