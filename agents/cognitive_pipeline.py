@@ -449,17 +449,26 @@ def main() -> None:
     run_p = sub.add_parser("run", help="Run the four-stage pipeline over a topic")
     run_p.add_argument("--topic", required=True)
     run_p.add_argument("--live", action="store_true", help="Dispatch stages to live Mythos agents")
+    run_p.add_argument("--dendrite", action="store_true", help="Route output read-only through dendrite mesh")
+    run_p.add_argument("--source-head", help="Exact source Git SHA for dendrite provenance")
 
     score_p = sub.add_parser("score", help="Score a single claim through the ARBITRATION gate")
     score_p.add_argument("--claim", required=True)
 
-    sub.add_parser("demo", help="Run the deterministic demo pipeline")
+    demo_p = sub.add_parser("demo", help="Run the deterministic demo pipeline")
+    demo_p.add_argument("--dendrite", action="store_true", help="Route output read-only through dendrite mesh")
+    demo_p.add_argument("--source-head", help="Exact source Git SHA for dendrite provenance")
 
     args = parser.parse_args()
+    if args.command in ("run", "demo") and args.dendrite and not args.source_head:
+        parser.error("--source-head is required with --dendrite")
 
     if args.command == "run":
         r = asyncio.run(run_pipeline(args.topic, live=args.live))
         _print_result(r)
+        if args.dendrite:
+            from agents.dendrite_mesh import propagate_pipeline
+            print(json.dumps(propagate_pipeline(r, source_head=args.source_head), indent=2))
     elif args.command == "score":
         scorer = constitutional_scorer()
         log = KanInferenceLog()
@@ -470,6 +479,9 @@ def main() -> None:
     elif args.command == "demo":
         r = asyncio.run(run_pipeline("INT4 LUT-KAN viability"))
         _print_result(r)
+        if args.dendrite:
+            from agents.dendrite_mesh import propagate_pipeline
+            print(json.dumps(propagate_pipeline(r, source_head=args.source_head), indent=2))
     else:
         parser.print_help()
 
