@@ -101,7 +101,7 @@ def open_prs(quick=False):
             if (isinstance(saved, dict)
                     and saved.get("format") == "AEGIS_PR_SNAPSHOT_V2"
                     and saved.get("complete") is True
-                    and isinstance(records, list) and records
+                    and isinstance(records, list)
                     and all(_valid_pr_record(p) for p in records)):
                 return records, "cache"
     except (OSError, ValueError, TypeError):
