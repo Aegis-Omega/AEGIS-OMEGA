@@ -543,3 +543,52 @@
   .hg-route .sf-root .sf-footer{align-items:flex-start;gap:9px}
   .hg-route .sf-root .sf-lens button{min-width:65px;padding-inline:10px}
 }
+
+
+/* Global route locator: one compact chapter rail; no duplicated hero headings.
+   Docs is the single route with its sole h1 owned by the shared shell. */
+.hg-route .av-route-rail{
+  display:flex;justify-content:space-between;align-items:center;gap:18px;
+  position:relative;z-index:3;min-height:63px;
+  border-bottom:1px solid var(--av-line);
+  color:#bfcac4;background:rgba(17,24,26,.34);
+}
+.hg-route .av-route-rail > div{
+  display:flex;flex-wrap:wrap;gap:12px;align-items:center;min-width:0;
+}
+.hg-route .av-route-rail-index{
+  font:500 11px/1.5 'JetBrains Mono',ui-monospace,monospace;
+  letter-spacing:.065em;color:var(--av-route-accent);
+  white-space:nowrap;
+}
+.hg-route .av-route-rail-title{
+  display:inline-block;max-width:45ch;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+  color:#d0d6ca;font-size:12px;
+}
+.hg-route .av-route-rail-right{
+  justify-content:flex-end;text-align:right;
+}
+.hg-route .av-route-rail-right > span{
+  color:#aebfb6;font:10px/1.5 'JetBrains Mono',ui-monospace,monospace;
+  letter-spacing:.055em;white-space:nowrap;
+}
+.hg-route .av-route-rail-right a{
+  display:inline-flex;align-items:center;gap:6px;
+  color:#e5d5b8;font-size:12px;min-height:44px;
+  border-bottom:1px solid transparent;
+}
+.hg-route .av-route-rail-right a:hover{border-bottom-color:#e5d5b8}
+.hg-route:not(.hg-route-docs) > .hg-route-header{display:none}
+.hg-route-docs > .hg-route-header{
+  min-height:220px;padding-top:49px;padding-bottom:36px;
+}
+@media(max-width:1050px){
+  .hg-route .av-route-rail-right > span{display:none}
+}
+@media(max-width:600px){
+  .hg-route .av-route-rail{min-height:58px;padding-inline:16px;gap:10px}
+  .hg-route .av-route-rail-title{display:none}
+  .hg-route .av-route-rail-index{font-size:10px}
+  .hg-route .av-route-rail-right a{font-size:11px}
+  .hg-route-docs > .hg-route-header{padding-top:38px}
+}
