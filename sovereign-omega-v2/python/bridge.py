@@ -487,6 +487,12 @@ class BridgeHandler(BaseHTTPRequestHandler):
             if not _gate_peer_is_loopback(self.client_address):
                 self._respond(403, {'status': 'REJECTED', 'reason': 'GATE_PEER_UNTRUSTED'})
                 return
+            # Browser traffic must not acquire gate authority through wildcard
+            # CORS or a loopback proxy. No claim this authenticates local apps.
+            if (self.headers.get('Origin') is not None
+                    or self.headers.get('Sec-Fetch-Site') is not None):
+                self._respond(403, {'status': 'REJECTED', 'reason': 'GATE_BROWSER_FORBIDDEN'})
+                return
 
             # Bounded JSON-only ingress also prevents text/plain browser CSRF
             # and unbounded/ambiguous request bodies at this authority edge.
@@ -1876,11 +1882,19 @@ class BridgeHandler(BaseHTTPRequestHandler):
             self._respond(404, {'error': 'NOT_FOUND'})
 
     def _cors_headers(self):
+        # All browser origins are denied at the governance endpoint. Other
+        # endpoints retain their previous CORS policy in this bounded patch.
+        if self.path == '/gate_signal':
+            return
         self.send_header('Access-Control-Allow-Origin', '*')
         self.send_header('Access-Control-Allow-Methods', 'GET, POST, DELETE, OPTIONS')
         self.send_header('Access-Control-Allow-Headers', 'Content-Type, x-api-key')
 
     def do_OPTIONS(self):
+        if self.path == '/gate_signal':
+            self.send_response(403)
+            self.end_headers()
+            return
         self.send_response(204)
         self._cors_headers()
         self.end_headers()
