@@ -29,7 +29,10 @@ export function SovereignField({ sources, selectedId, onSelect }: Props) {
   const boundaries = selected?.boundaries ?? []
   currentId.current = selected?.id ?? null
   const onPointerDown = (event: PointerEvent<HTMLDivElement>) => {
-    if (event.pointerType !== 'mouse' || event.target !== event.currentTarget) return
+    // Inert SVG/core descendants are part of the orbit surface; controls are not.
+    // Keep touch vertical scrolling native; orbit buttons remain keyboard/touch operable.
+    if (event.pointerType === 'touch') return
+    if (event.target instanceof Element && event.target.closest('button, a, input, select, textarea')) return
     drag.current = { x: event.clientX, yaw }
     event.currentTarget.setPointerCapture(event.pointerId)
   }
