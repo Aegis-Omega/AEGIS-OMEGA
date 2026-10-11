@@ -7,6 +7,7 @@ are satisfied; it is NOT branch protection, provenance signing or merge authorit
 """
 import argparse
 import fnmatch
+from functools import lru_cache
 import hashlib
 import json
 import os
@@ -96,6 +97,25 @@ def contract_digest(contract):
     return hashlib.sha256(encoded).hexdigest()
 
 
+def scope_path_matches(path, pattern):
+    """Component-aware glob: `*` never crosses `/`; only `**` is recursive."""
+    if not (isinstance(path, str) and isinstance(pattern, str)):
+        return False
+    parts, globs = path.split("/"), pattern.split("/")
+    if not parts or any(part in ("", ".", "..") for part in parts):
+        return False
+
+    @lru_cache(maxsize=None)
+    def match(i, j):
+        if j == len(globs):
+            return i == len(parts)
+        if globs[j] == "**":
+            return match(i, j + 1) or (i < len(parts) and match(i + 1, j))
+        return i < len(parts) and fnmatch.fnmatchcase(parts[i], globs[j]) and match(i + 1, j + 1)
+
+    return match(0, 0)
+
+
 def _check(name, ok, reason=None):
     return {"gate": name, "result": "PASS" if ok else "FAIL", "reason": "OK" if ok else reason}
 
@@ -126,7 +146,7 @@ def assess(snapshot):
         scope = c["scope"]
         filenames = snapshot.get("changed_files")
         scope_ok = snapshot.get("files_complete") is True and isinstance(filenames, list) and len(filenames) > 0 and all(
-            isinstance(f, str) and any(fnmatch.fnmatchcase(f, pattern) for pattern in scope)
+            isinstance(f, str) and any(scope_path_matches(f, pattern) for pattern in scope)
             for f in filenames)
         gates.append(_check("declared_scope", scope_ok, "INCOMPLETE_OR_OUT_OF_SCOPE_DIFF"))
         gates.append(_check("pr_open", pr.get("state") == "open", "PR_NOT_OPEN"))
@@ -155,21 +175,39 @@ def assess(snapshot):
                 for x in commits)
         gates.append(_check("signed_commits", commits_ok,
                             "UNSIGNED_OR_INCOMPLETE_COMMIT_CHAIN"))
-        author = pr.get("user", {}).get("login")
+        author_obj = pr.get("user") or {}
+        author_login = author_obj.get("login")
+        author_id = author_obj.get("id")
+        valid_author = (isinstance(author_login, str) and bool(author_login.strip())
+                        and type(author_id) is int and author_id > 0)
         reviews = snapshot.get("reviews")
         latest = {}
-        if isinstance(reviews, list) and snapshot.get("reviews_complete") is True:
+        valid_reviews = isinstance(reviews, list) and snapshot.get("reviews_complete") is True
+        if valid_reviews:
             for r in reviews:
-                if not isinstance(r, dict) or not isinstance(r.get("user"), dict):
-                    continue
-                who = r["user"].get("login")
-                if not isinstance(who, str) or not who or r.get("state") not in APPROVAL_STATES:
-                    continue
-                latest[who] = r
-        review_ok = any(who != author and r.get("state") == "APPROVED" and
-                        r.get("commit_id") == sha and
-                        CONTRACT_LINK.findall(r.get("body") or "") == [digest]
-                        for who, r in latest.items())
+                if not isinstance(r, dict):
+                    valid_reviews = False
+                    break
+                user = r.get("user") or {}
+                reviewer_id = user.get("id")
+                login = user.get("login")
+                review_id = r.get("id")
+                if (type(reviewer_id) is not int or reviewer_id < 1 or
+                        not isinstance(login, str) or not login.strip() or
+                        type(review_id) is not int or review_id < 1):
+                    valid_reviews = False
+                    break
+                if r.get("state") not in APPROVAL_STATES:
+                    continue  # GitHub PENDING reviews do not represent a decision.
+                previous = latest.get(reviewer_id)
+                if previous is None or review_id > previous["id"]:
+                    latest[reviewer_id] = r
+        review_ok = valid_author and valid_reviews and any(
+            reviewer_id != author_id
+            and r["user"]["login"].casefold() != author_login.casefold()
+            and r.get("state") == "APPROVED" and r.get("commit_id") == sha
+            and CONTRACT_LINK.findall(r.get("body") or "") == [digest]
+            for reviewer_id, r in latest.items())
         gates.append(_check("independent_identity_review", review_ok,
                             "NO_APPROVAL_FROM_DIFFERENT_GITHUB_LOGIN_AT_EXACT_HEAD"))
         gates.append(_check("human_authority_boundary",
