@@ -39,7 +39,7 @@ export function EvidenceFilament({ sources, selectedId, onSelect }: Props) {
           <g fill="none" stroke="url(#ef-beam)" strokeWidth="1.5">
             <path d="M195 194 C305 194 290 194 408 194" />
             <path d="M195 194 260 118 410 194 260 271Z" strokeOpacity=".35" />
-            {flow && flow.source.boundaries.map((limit, index) => {
+            {flow && flow.source.boundaries.map((_, index) => {
               const count = flow.source.boundaries.length
               const y = count === 1 ? 194 : 80 + index * 228 / (count - 1)
               return <g key={index}>
