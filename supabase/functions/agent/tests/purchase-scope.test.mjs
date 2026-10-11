@@ -88,10 +88,14 @@ test('invalid model filter cannot be promoted to verified answer',async()=>{
   assert.equal(a.stats().modelCalls,1)
   assert.equal(a.stats().dbCalls,0)
 })
-test('successful tool read permits a response without validating its factual claims',async()=>{
+test('successful purchase read returns bounded machine-observed rows, not invented prose',async()=>{
   const a=runModelWithPurchaseToolOutcome({filter:'full'},
     {data:[{customer_email:'mock@example.test',plan:'full'}],error:null})
-  assert.equal((await a.run()).result,'Tool query completed; review the records')
-  assert.equal(a.stats().modelCalls,2)
+  const result=JSON.parse((await a.run()).result)
+  assert.equal(result.status,'OBSERVED_DB_ROWS')
+  assert.equal(result.returned_row_count,1)
+  assert.equal(result.is_global_total,false)
+  assert.deepEqual(result.rows,[{customer_email:'mock@example.test',plan:'full'}])
+  assert.equal(a.stats().modelCalls,1)
   assert.equal(a.stats().dbCalls,1)
 })
