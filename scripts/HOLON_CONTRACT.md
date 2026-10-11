@@ -15,9 +15,13 @@ For `contribute` or `release`, the coordinator context must explicitly report
 independently evaluated source/main/issue/CI fields. Any upstream `HOLD_*`,
 `OPERATOR_ACTION_REQUIRED`, `HOLD_CLAIMED_WORK_COORDINATE`,
 `REVIEW_EXISTING_PR_FIRST`, missing or unknown disposition produces
-`UPSTREAM_COORDINATION_NOT_CLEAR` and exit 2. **A second module must never
-silently upgrade the first module's HOLD to READY**, even if unrelated JSON
-fields appear healthy. This remains *advisory* task assignment, not authorization.
+`UPSTREAM_COORDINATION_NOT_CLEAR` and exit 2. Both
+`holon_blockers` and `coordination_blockers` must also be present as valid,
+empty string arrays for a `contribute` or `release` review. Nonempty,
+missing or malformed channels independently block readiness; the singular
+`holon_disposition` can conceal simultaneous constraints. **A second module
+must never silently upgrade the first module's HOLD to READY.**
+This remains *advisory* task assignment, not authorization.
 
 
 ## Task JSON
