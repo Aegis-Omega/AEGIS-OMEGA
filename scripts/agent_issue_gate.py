@@ -33,12 +33,20 @@ def require(test, reason):
         raise Invalid(reason)
 
 
+def _unique_object_pairs(pairs):
+    obj = {}
+    for key, value in pairs:
+        require(key not in obj, "CONTRACT_DUPLICATE_JSON_KEY")
+        obj[key] = value
+    return obj
+
+
 def contract_from_body(body):
     require(isinstance(body, str), "ISSUE_BODY_MISSING")
     blocks = MARKER.findall(body)
     require(len(blocks) == 1, "CONTRACT_MARKER_MISSING_OR_DUPLICATED")
     try:
-        c = json.loads(blocks[0])
+        c = json.loads(blocks[0], object_pairs_hook=_unique_object_pairs)
     except (TypeError, ValueError) as exc:
         raise Invalid("CONTRACT_JSON_INVALID") from exc
     require(isinstance(c, dict) and c.get("schema") == SCHEMA, "CONTRACT_SCHEMA_INVALID")
