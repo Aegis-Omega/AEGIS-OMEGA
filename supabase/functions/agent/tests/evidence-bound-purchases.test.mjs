@@ -57,6 +57,7 @@ test('adapter must reject malformed non-nullable timestamp',async()=>{
  const h=harness(one,[{customer_email:null,plan:'starter',ls_order_id:'ord_1',updated_at:'not-a-time'}])
  await assert.rejects(h.run(),/TOOL_VERIFICATION_FAILED/)
 })
+
 test('actual nullable customer_email with the full four-column projection remains valid',async()=>{
  const h=harness(one,[{customer_email:null,plan:'full',ls_order_id:'ord_nullable',updated_at:'2026-10-11T05:00:00+00:00'}])
  const value=JSON.parse((await h.run()).result)
