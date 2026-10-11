@@ -1,7 +1,7 @@
 // AEGIS Ω — runtime observation is not attestation.
 // Public console never treats a fallback, a reported hash, or a claimed verdict
 // as proof of independent replay. Nothing here authorizes execution.
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 
 export type HomeostasisZone = 'slack' | 'optimal' | 'stressed' | 'critical'
 export type CalibrationRecommendation = 'EASE' | 'MAINTAIN' | 'TIGHTEN'
@@ -116,14 +116,26 @@ export async function fetchConsoleSnapshot(): Promise<ConsoleSnapshot> {
 export function useConsoleController(): {snap: ConsoleSnapshot; busy: boolean; refresh: ()=>Promise<void>} {
   const [snap, setSnap] = useState<ConsoleSnapshot>(UNAVAILABLE_SNAPSHOT)
   const [busy, setBusy] = useState(true)
-  const refresh = useCallback(async () => { setBusy(true); try {setSnap(await fetchConsoleSnapshot())} finally {setBusy(false)}}, [])
-  useEffect(() => {
-    let active = true
-    async function poll() {const next = await fetchConsoleSnapshot(); if(active){setSnap(next);setBusy(false)}}
-    void poll()
-    const timer = setInterval(()=>{void poll()}, 30000)
-    return ()=>{active=false;clearInterval(timer)}
+  // All async results are bound to the latest request and current mount.
+  const revision = useRef(0)
+  const active = useRef(false)
+  const refresh = useCallback(async () => {
+    const request = ++revision.current
+    if (!active.current) return
+    setBusy(true)
+    try {
+      const next = await fetchConsoleSnapshot()
+      if (active.current && request === revision.current) setSnap(next)
+    } finally {
+      if (active.current && request === revision.current) setBusy(false)
+    }
   }, [])
+  useEffect(() => {
+    active.current = true
+    void refresh()
+    const timer = setInterval(() => { void refresh() }, 30000)
+    return () => { active.current = false; revision.current++; clearInterval(timer) }
+  }, [refresh])
   return {snap,busy,refresh}
 }
 // Compat for legacy consumers; new console uses controller with explicit reload.
