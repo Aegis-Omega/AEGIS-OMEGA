@@ -128,6 +128,48 @@ class WorkpackTests(unittest.TestCase):
         (self.root/'good.json').write_bytes(value)
         d=manifest('good.json',value);d['checks'].append({'id':'A2','kind':'json_keys','artifact':'good.json','keys':['result','source']})
         self.assertEqual(self.status(d)['checks'][1]['result'],'PASS')
+    def test_json_nonfinite_extensions_fail_structural_check(self):
+        for literal in (b'NaN', b'Infinity', b'-Infinity'):
+            with self.subTest(literal=literal):
+                raw = b'{"value":' + literal + b'}'
+                (self.root / 'bad.json').write_bytes(raw)
+                data = manifest('bad.json', raw)
+                data['checks'].append({'id':'A2','kind':'json_keys',
+                                       'artifact':'bad.json','keys':['value']})
+                out = self.status(data)
+                self.assertEqual(out['checks'][1]['result'], 'FAIL')
+                self.assertEqual(out['checks'][1]['reason'], 'NONFINITE_JSON')
+                self.assertEqual(out['local_result'], 'LOCAL_CHECKS_FAILED')
+
+    def test_json_float_overflow_fail_structural_check(self):
+        raw = b'{"value":1e400}'
+        (self.root / 'bad.json').write_bytes(raw)
+        data = manifest('bad.json', raw)
+        data['checks'].append({'id':'A2','kind':'json_keys',
+                               'artifact':'bad.json','keys':['value']})
+        self.assertEqual(self.status(data)['checks'][1]['reason'], 'NONFINITE_JSON')
+
+    def test_json_finite_float_still_valid(self):
+        raw = b'{"value":1.25e-3,"negative":-5.5}'
+        (self.root / 'good.json').write_bytes(raw)
+        data = manifest('good.json', raw)
+        data['checks'].append({'id':'A2','kind':'json_keys',
+                               'artifact':'good.json','keys':['value','negative']})
+        self.assertEqual(self.status(data)['checks'][1]['result'], 'PASS')
+
+    def test_json_helper_rejects_exponent_overflow(self):
+        (self.root / 'bad.json').write_bytes(b'{"value":1e400}')
+        with self.assertRaisesRegex(Invalid, 'NONFINITE_JSON'):
+            read_json(self.root / 'bad.json')
+
+    def test_cli_rejects_exponent_overflow_in_manifest(self):
+        import contextlib, io
+        (self.root / 'manifest.json').write_bytes(b'{"schema":"aegis.workpack.v1","x":1e400}')
+        with contextlib.redirect_stdout(io.StringIO()) as output:
+            status = cli([str(self.root), '--integrity-only'])
+        self.assertEqual(status, 1)
+        self.assertEqual(json.loads(output.getvalue())['reason'], 'NONFINITE_JSON')
+
     def test_json_duplicate_payload_fails(self):
         value=b'{"result":3,"result":4}'
         (self.root/'good.json').write_bytes(value)

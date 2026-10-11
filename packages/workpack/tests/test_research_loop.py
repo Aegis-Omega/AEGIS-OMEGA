@@ -335,6 +335,20 @@ class ResearchCycleTests(unittest.TestCase):
         d["evaluation"]["evidence_artifact"]="../../secrets.txt"
         self.fails(d,"ARTIFACT_PATH_INVALID")
 
+    def test_evaluation_nan_extension_denied(self):
+        d=self.set_evaluation(copy.deepcopy(self.doc))
+        raw=b'{"schema":"aegis.exact-match-eval.v1","cases":[],"extra":NaN}'
+        (self.root / 'evidence' / 'eval-cases.json').write_bytes(raw)
+        d['evaluation']['evidence_sha256']=hashlib.sha256(raw).hexdigest()
+        self.fails(d, 'NONFINITE_JSON')
+
+    def test_evaluation_float_overflow_denied(self):
+        d=self.set_evaluation(copy.deepcopy(self.doc))
+        raw=b'{"schema":"aegis.exact-match-eval.v1","cases":[],"extra":1e400}'
+        (self.root / 'evidence' / 'eval-cases.json').write_bytes(raw)
+        d['evaluation']['evidence_sha256']=hashlib.sha256(raw).hexdigest()
+        self.fails(d, 'NONFINITE_JSON')
+
     def test_invalid_json_dataset_denied(self):
         d=self.set_evaluation(copy.deepcopy(self.doc))
         raw=b'{invalid'

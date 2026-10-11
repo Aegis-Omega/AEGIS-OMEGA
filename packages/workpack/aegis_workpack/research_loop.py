@@ -12,7 +12,7 @@ import ipaddress
 import re
 from urllib.parse import urlsplit
 
-from .protocol import _artifact_bytes, Invalid, require, SHA256, _strict_pairs
+from .protocol import _artifact_bytes, Invalid, require, SHA256, _strict_json_loads
 
 SCHEMA = "aegis.research-cycle.v1"
 IDENT = re.compile(r"[A-Za-z][A-Za-z0-9_-]{1,39}\Z")
@@ -81,8 +81,7 @@ def _evidence_exact_match(workspace, evaluation):
     raw = _artifact_bytes(workspace, path, cap=256 * 1024)
     require(hashlib.sha256(raw).hexdigest() == digest, "EVALUATION_ARTIFACT_TAMPERED")
     try:
-        dataset = json.loads(raw.decode("utf-8"), object_pairs_hook=_strict_pairs,
-                             parse_constant=lambda _: (_ for _ in ()).throw(Invalid("EVALUATION_NONFINITE")))
+        dataset = _strict_json_loads(raw.decode("utf-8"))
     except (UnicodeError, json.JSONDecodeError) as exc:
         raise Invalid("EVALUATION_ARTIFACT_INVALID_JSON") from exc
     require(isinstance(dataset, dict) and dataset.get("schema") == "aegis.exact-match-eval.v1",

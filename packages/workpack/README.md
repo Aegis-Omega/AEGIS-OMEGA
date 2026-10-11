@@ -99,3 +99,13 @@ The evaluator neither learns nor validates the reference oracle, and no outcome 
 ## v0.6 — bounded filesystem reads, no named-pipe stalls
 
 The v0.5 verifier called blocking POSIX `open(O_RDONLY)` on an untrusted artifact, manifest or source-note path **before** `fstat` could prove it was a regular file. A FIFO with no writer could therefore hang the verifier indefinitely. This was reproduced with a subprocess timeout. The final-leaf POSIX open now includes `O_NONBLOCK` and is immediately followed by a regular-file check. `read_json()` uses this exact safe path rather than a separate unchecked `open()`. Four sandboxed negative tests cover FIFO in an artifact, CLI manifest, public helper, and research evidence. The default delivery verdict remains `NOT_ADMITTED`, independent quality `UNVERIFIED`, and this remains a local hardening patch, not a cross-platform security proof.
+
+## v0.7 — strict bounded JSON decoding across the entire pipeline
+
+**Before fix:** `json_keys` accepted `{"value":NaN}` and `{"value":Infinity}` as structurally valid JSON. This is a Python decoder extension and **violates RFC 8259**. `1e400` is a legal JSON numeric token but overflows Python binary64 to non-finite infinity, making interpretation implementation-dependent. The manifest helper previously caught special tokens but not this exponent-overflow case, while research evaluation had a separate parser.
+
+**Fix:** one shared `_strict_json_loads` decoder for CLI manifests, the public `read_json` helper, data `json_keys` checks and evaluation-case JSON. It rejects NaN/±Infinity extensions via `parse_constant`, and parsed floating-point values that become non-finite via a bounded `parse_float` guard. Duplicate JSON keys remain rejected. The output remains **structural evidence only**, not authenticated scientific correctness.
+
+**Falsification:** baseline exact SHA `f5c01cfece6abf3fba64c56b5f1de378591794ba` reported `PASS` for `json_keys` on `NaN`, `Infinity`, `-Infinity` and binary64-overflow `1e400`. The new source rejects all, while normal finite decimal JSON succeeds. Seven new adversarial/positive regressions extend the Python stdlib suite from 83 to **90**. Existing CLI work-admission remains `NOT_ADMITTED`, including in `--integrity-only` mode. This is a narrowly evidenced improvement in parser correctness; cross-runtime canonicalization, JSON Schema conformance and a production AEGIS admission are **not** claimed.
+
+Reference: [RFC 8259 §6](https://www.rfc-editor.org/rfc/rfc8259#section-6) and [Python json decoder documentation](https://docs.python.org/3/library/json.html#json.loads).

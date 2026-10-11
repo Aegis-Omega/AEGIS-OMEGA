@@ -9,6 +9,7 @@ import csv
 import hashlib
 import io
 import json
+import math
 import os
 from pathlib import Path
 import re
@@ -42,6 +43,25 @@ def _strict_pairs(pairs):
     return result
 
 
+def _reject_nonfinite_constant(value):
+    # Python accepts NaN and Infinity extensions that RFC 8259 forbids.
+    raise Invalid("NONFINITE_JSON")
+
+
+def _finite_json_float(value):
+    # 1e400 is legal JSON syntax but overflows binary64 to infinity. Do not
+    # let Python's implementation-specific float semantics leak into receipts.
+    number = float(value)
+    require(math.isfinite(number), "NONFINITE_JSON")
+    return number
+
+
+def _strict_json_loads(raw):
+    return json.loads(raw, object_pairs_hook=_strict_pairs,
+                      parse_constant=_reject_nonfinite_constant,
+                      parse_float=_finite_json_float)
+
+
 def read_json(path, cap=MAX_MANIFEST_BYTES):
     require(type(cap) is int and 0 < cap <= MAX_ARTIFACT_BYTES, "JSON_CAP_INVALID")
     source = Path(path)
@@ -50,8 +70,7 @@ def read_json(path, cap=MAX_MANIFEST_BYTES):
     raw = _artifact_bytes(source.parent, source.name, cap)
     require(len(raw) <= cap, "JSON_TOO_LARGE")
     try:
-        return json.loads(raw.decode("utf-8"), object_pairs_hook=_strict_pairs,
-                          parse_constant=lambda _: (_ for _ in ()).throw(Invalid("NONFINITE_JSON")))
+        return _strict_json_loads(raw.decode("utf-8"))
     except (UnicodeDecodeError, json.JSONDecodeError) as e:
         raise Invalid("INVALID_JSON") from e
 
@@ -173,7 +192,7 @@ def _evaluate(check, raw):
         if kind == "text_contains":
             return ("PASS", "STRUCTURE_ONLY") if check["value"] in text else ("FAIL", "TEXT_NOT_PRESENT")
         if kind == "json_keys":
-            data = json.loads(text, object_pairs_hook=_strict_pairs)
+            data = _strict_json_loads(text)
             valid = isinstance(data, dict) and all(k in data for k in check["keys"])
             return ("PASS", "STRUCTURE_ONLY") if valid else ("FAIL", "JSON_KEYS_NOT_PRESENT")
         if kind == "csv_columns":
@@ -270,8 +289,7 @@ def cli(argv=None):
         require(valid_path(ns.manifest), "MANIFEST_PATH_INVALID")
         raw = _artifact_bytes(ns.workspace, ns.manifest, MAX_MANIFEST_BYTES)
         try:
-            data = json.loads(raw.decode("utf-8"), object_pairs_hook=_strict_pairs,
-                              parse_constant=lambda _: (_ for _ in ()).throw(Invalid("NONFINITE_JSON")))
+            data = _strict_json_loads(raw.decode("utf-8"))
         except (UnicodeDecodeError, json.JSONDecodeError) as e:
             raise Invalid("INVALID_JSON") from e
         result = verify(ns.workspace, data)
