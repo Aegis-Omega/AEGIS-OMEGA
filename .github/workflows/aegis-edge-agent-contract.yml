@@ -1,0 +1,98 @@
+# Narrow, dependency-free Edge admission regression. Separate from BFT ceremony.
+# No provider credentials, Supabase tokens or paid inference are used.
+name: AEGIS Edge Agent Contract
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'supabase/functions/agent/**'
+      - 'supabase/functions/slack-events/**'
+      - 'supabase/functions/bridge/**'
+      - 'hub/src/lib/telemetry.ts'
+      - 'supabase/migrations/*agent_dispatch_claims_v1.sql'
+      - 'supabase/migrations/*agent_result_outbox*.sql'
+      - 'scripts/test_edge_outbox_postgres.sh'
+      - '.github/workflows/aegis-edge-agent-contract.yml'
+  merge_group:
+    branches: [main]
+  push:
+    branches: [main]
+    paths:
+      - 'supabase/functions/agent/**'
+      - 'supabase/functions/slack-events/**'
+      - 'supabase/functions/bridge/**'
+      - 'hub/src/lib/telemetry.ts'
+      - 'supabase/migrations/*agent_dispatch_claims_v1.sql'
+      - 'supabase/migrations/*agent_result_outbox*.sql'
+      - 'scripts/test_edge_outbox_postgres.sh'
+      - '.github/workflows/aegis-edge-agent-contract.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  edge-agent-contract:
+    name: aegis / edge-agent-contract
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout candidate source
+        uses: actions/checkout@v4
+      - name: Use exact tested Node runtime
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22.16.0'
+      - name: Run all nine distinct native Edge contract suites
+        shell: bash
+        run: |
+          set -euo pipefail
+          # admission-chain imports outbox-contract; do not run both separately.
+          node --test \
+            supabase/functions/agent/tests/admission-chain.test.mjs \
+            supabase/functions/agent/tests/sql-retention.test.mjs \
+            supabase/functions/agent/tests/tool-bounds.test.mjs \
+            supabase/functions/agent/tests/purchase-scope.test.mjs \
+            supabase/functions/agent/tests/evidence-bound-purchases.test.mjs \
+            supabase/functions/agent/tests/strict-limit.test.mjs \
+            supabase/functions/slack-events/tests/plain-text.test.mjs \
+            supabase/functions/slack-events/tests/ack-evidence.test.mjs \
+            supabase/functions/slack-events/tests/body-limit.test.mjs
+
+  postgres-outbox-integration:
+    name: aegis / postgres-outbox-integration
+    runs-on: ubuntu-latest
+    timeout-minutes: 7
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: aegis_test
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: disposable-only-test-password
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d aegis_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      PGHOST: 127.0.0.1
+      PGPORT: '5432'
+      PGDATABASE: aegis_test
+      PGUSER: postgres
+      PGPASSWORD: disposable-only-test-password
+    steps:
+      - name: Checkout exact candidate
+        uses: actions/checkout@v4
+      - name: Install PostgreSQL client only if absent
+        shell: bash
+        run: |
+          if ! command -v psql >/dev/null; then
+            sudo apt-get update -qq
+            sudo apt-get install -y -qq postgresql-client
+          fi
+      - name: Replay migrations, ACL, expiry and cross-session lease
+        shell: bash
+        run: bash scripts/test_edge_outbox_postgres.sh
