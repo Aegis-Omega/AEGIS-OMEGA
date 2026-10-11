@@ -1,0 +1,39 @@
+name: Paid Invocation Admission
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'worker-src/**'
+      - 'tests/paid-*.test.mjs'
+      - 'tests/invocation-gate.test.mjs'
+      - 'package.json'
+      - '.github/workflows/edge-paid-invocation.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'worker-src/**'
+      - 'tests/paid-*.test.mjs'
+      - 'tests/invocation-gate.test.mjs'
+      - 'package.json'
+      - '.github/workflows/edge-paid-invocation.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  paid-invocation-regression:
+    name: Paid invocation rejects malformed requests before spend
+    runs-on: ubuntu-24.04
+    timeout-minutes: 6
+    steps:
+      - name: Checkout exact PR head
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - name: Use Node 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Fail-closed, dependency-free admission tests
+        run: npm run test:edge-invocation
