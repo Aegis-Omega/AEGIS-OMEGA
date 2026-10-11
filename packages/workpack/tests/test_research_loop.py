@@ -1,0 +1,161 @@
+"""Adversarial proof that a cited link or local snapshot is NOT web authentication."""
+import copy
+from datetime import datetime, timezone, timedelta
+import hashlib
+import json
+from pathlib import Path
+import sys
+import tempfile
+import unittest
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from aegis_workpack.research_loop import audit_research
+from aegis_workpack.protocol import verify, cli
+
+T = datetime.now(timezone.utc).replace(microsecond=0)
+def packet():
+    return {
+      "schema":"aegis.research-cycle.v1",
+      "question":"Which verification workflow improves AEGIS agent reliability?",
+      "searches":[{"query":"OpenAI agent traces and independent evaluation","status":"completed","tool":"web"},
+                  {"query":"Anthropic evaluator optimizer agent evaluation pattern","status":"completed","tool":"browser"}],
+      "sources":[
+       {"id":"openai","url":"https://developers.openai.com/api/docs/guides/agent-evals",
+        "retrieved_at":T.isoformat(),"artifact":"evidence/openai.txt",
+        "sha256":"","excerpt":"Use trace grading and datasets to evaluate agent workflows."},
+       {"id":"anthropic","url":"https://www.anthropic.com/engineering/demystifying-evals-for-ai-agents",
+        "retrieved_at":T.isoformat(),"artifact":"evidence/anthropic.txt",
+        "sha256":"","excerpt":"Agent evaluations need clear criteria and feedback loops."}
+      ],
+      "comparison":{
+        "baseline":"AEGIS currently checks artifact hashes, not the research trail.",
+        "alternatives":[
+         {"name":"Trace grading first","source_ids":["openai"],
+          "advantage":"Can identify concrete step-level problems and tool misuse.",
+          "tradeoff":"Requires instrumentation, traces and evaluator maintenance."},
+         {"name":"Evaluator optimizer first","source_ids":["anthropic"],
+          "advantage":"Independent review can identify gaps before shipping artifacts.",
+          "tradeoff":"Costs more inference and depends on reliable assessment criteria."}
+        ],"choice":"Trace grading first",
+        "reason":"Begin with inspectable runtime facts before subjective evaluator conclusions."
+      },
+      "evaluation":{
+        "metric":"Grounded research packet success rate on independent tasks.",
+        "baseline_measure":"No verified grounded research packet rate is available.",
+        "target_measure":"Reject all tampered research fixtures across six domains.",
+        "falsification_test":"Try forged quote, stale sources, private URLs and one-publisher evidence.",
+        "outcome":"NOT_RUN"
+      },
+      "learning":{
+        "observed":"This packet is synthetic and has not proven source authenticity.",
+        "next_experiment":"Run independent live source refresh and compare results to archived excerpts.",
+        "change_proposed":"Block completion when source hashes or comparison fields are absent."
+      }
+    }
+
+class ResearchCycleTests(unittest.TestCase):
+    def setUp(self):
+        self.temp=tempfile.TemporaryDirectory()
+        self.addCleanup(self.temp.cleanup)
+        self.root=Path(self.temp.name)
+        (self.root/"evidence").mkdir()
+        self.doc=packet()
+        for source in self.doc["sources"]:
+            text="NOTE: model-authored summary, not an authenticated page snapshot.\n"+source["excerpt"]+"\n"
+            raw=text.encode()
+            (self.root/source["artifact"]).write_bytes(raw)
+            source["sha256"]=hashlib.sha256(raw).hexdigest()
+    def audit(self, doc=None):
+        return audit_research(self.root,doc if doc is not None else self.doc,now=T)
+    def fails(self,doc,expected=None):
+        r=self.audit(doc)
+        self.assertEqual(r["status"],"BLOCKED",r)
+        if expected:self.assertEqual(r["reason"],expected)
+    def test_complete_packet_never_attests_web_or_improvement(self):
+        r=self.audit()
+        self.assertEqual(r["status"],"LOCAL_PACKET_COMPLETE_UNATTESTED")
+        self.assertEqual(r["source_authenticity"],"UNVERIFIED")
+        self.assertEqual(r["live_web_retrieval"],"NOT_PERFORMED")
+        self.assertEqual(r["improvement"],"UNPROVEN")
+        self.assertEqual(r["publisher_count"],2)
+    def test_no_research(self):
+        r=audit_research(self.root,None,now=T)
+        self.assertEqual(r["status"],"BLOCKED")
+        self.assertEqual(r["reason"],"RESEARCH_SCHEMA_INVALID")
+    def test_single_source(self):
+        d=copy.deepcopy(self.doc);d["sources"].pop();self.fails(d,"RESEARCH_SOURCES_INSUFFICIENT")
+    def test_same_organization_different_subdomain(self):
+        d=copy.deepcopy(self.doc)
+        d["sources"][1]["url"]="https://docs.openai.com/example"
+        d["sources"][0]["url"]="https://developers.openai.com/example"
+        self.fails(d,"SOURCE_PUBLISHERS_NOT_INDEPENDENT")
+    def test_source_tampering(self):
+        (self.root/self.doc["sources"][0]["artifact"]).write_text("fake")
+        self.fails(self.doc,"SOURCE_SNAPSHOT_TAMPERED")
+    def test_fake_excerpt(self):
+        d=copy.deepcopy(self.doc);d["sources"][0]["excerpt"]="What is not in any document is forged";self.fails(d,"SOURCE_EXCERPT_NOT_ANCHORED")
+    def test_reject_http(self):
+        d=copy.deepcopy(self.doc);d["sources"][0]["url"]="http://example.org";self.fails(d,"SOURCE_URL_UNSAFE")
+    def test_reject_local_net_ip(self):
+        d=copy.deepcopy(self.doc);d["sources"][0]["url"]="https://127.0.0.1/secret";self.fails(d)
+    def test_reject_userinfo(self):
+        d=copy.deepcopy(self.doc);d["sources"][0]["url"]="https://evil@site.example.org/path";self.fails(d,"SOURCE_URL_UNSAFE")
+    def test_reject_port(self):
+        d=copy.deepcopy(self.doc);d["sources"][0]["url"]="https://example.org:12345/path";self.fails(d,"SOURCE_URL_UNSAFE")
+    def test_reject_stale_source(self):
+        d=copy.deepcopy(self.doc);d["sources"][0]["retrieved_at"]="2026-09-22T00:00:00Z";self.fails(d,"SOURCE_STALE_OR_FUTURE")
+    def test_reject_future_source(self):
+        d=copy.deepcopy(self.doc);d["sources"][0]["retrieved_at"]="2030-01-01T00:00:00Z";self.fails(d,"SOURCE_STALE_OR_FUTURE")
+    def test_reject_naive_source_time(self):
+        d=copy.deepcopy(self.doc);d["sources"][0]["retrieved_at"]="2026-10-11T05:00:00";self.fails(d,"RESEARCH_TIME_NAIVE")
+    def test_reject_missing_search(self):
+        d=copy.deepcopy(self.doc);d["searches"]=[];self.fails(d,"SEARCH_LOG_INVALID")
+    def test_reject_unavailable_search(self):
+        d=copy.deepcopy(self.doc);d["searches"][0]["status"]="unavailable";self.fails(d,"LIVE_SEARCH_UNRECORDED")
+    def test_reject_ungrounded_alternative(self):
+        d=copy.deepcopy(self.doc);d["comparison"]["alternatives"][0]["source_ids"]=["fake"];self.fails(d,"ALTERNATIVE_UNGROUNDED")
+    def test_reject_one_comparison(self):
+        d=copy.deepcopy(self.doc);d["comparison"]["alternatives"].pop();self.fails(d,"COMPARISON_MISSING")
+    def test_reject_unselected_choice(self):
+        d=copy.deepcopy(self.doc);d["comparison"]["choice"]="Imaginary approach";self.fails(d,"DECISION_NOT_GROUNDED")
+    def test_reject_missing_metric(self):
+        d=copy.deepcopy(self.doc);d["evaluation"].pop("metric");self.fails(d,"EVALUATION_MISSING")
+    def test_reject_missing_falsification(self):
+        d=copy.deepcopy(self.doc);d["evaluation"]["falsification_test"]="";self.fails(d,"EVALUATION_MISSING")
+    def test_reject_missing_learning(self):
+        d=copy.deepcopy(self.doc);d["learning"]["next_experiment"]="";self.fails(d,"LEARNING_MISSING")
+    def test_reject_duplicate_source_id(self):
+        d=copy.deepcopy(self.doc);d["sources"][1]["id"]="openai";self.fails(d,"SOURCE_ID_DUPLICATE_OR_INVALID")
+    def test_path_traversal_source_fails(self):
+        d=copy.deepcopy(self.doc);d["sources"][0]["artifact"]="../outside.txt";self.fails(d,"ARTIFACT_PATH_INVALID")
+    def test_manifest_research_status_gates_delivery(self):
+        raw=b"result";(self.root/"result.txt").write_bytes(raw)
+        basic={"schema":"aegis.workpack.v1","task_id":"agent-789","domain":"code","authority":"read_only",
+               "objective":"Create a result with source-backed claims","producer":{"agent":"unit"},
+               "artifacts":[{"path":"result.txt","sha256":hashlib.sha256(raw).hexdigest()}],
+               "checks":[{"id":"A1","kind":"sha256","artifact":"result.txt"}]}
+        basic_receipt=verify(self.root,basic)
+        self.assertEqual(basic_receipt["artifact_integrity"],"PASS")
+        self.assertEqual(basic_receipt["delivery_readiness"],"BLOCKED_RESEARCH_OR_COMPARISON")
+        import contextlib,io
+        (self.root/"manifest.json").write_text(json.dumps(basic))
+        with contextlib.redirect_stdout(io.StringIO()):
+            self.assertEqual(cli([str(self.root)]),1)
+            self.assertEqual(cli([str(self.root),"--integrity-only"]),0)
+        basic["research"]=copy.deepcopy(self.doc)
+        checked=verify(self.root,basic)
+        self.assertEqual(checked["delivery_readiness"],"BLOCKED_UNRUN_FALSIFICATION")
+        self.assertEqual(checked["domain_quality"],"UNVERIFIED")
+        (self.root/"manifest.json").write_text(json.dumps(basic))
+        with contextlib.redirect_stdout(io.StringIO()):
+            self.assertEqual(cli([str(self.root)]),1)
+        basic["research"]["evaluation"]["outcome"]="FALSIFIED"  # still untrusted self-report
+        measured=verify(self.root,basic)
+        self.assertEqual(measured["delivery_readiness"],"RESEARCH_AND_FALSIFICATION_REPORTED_UNATTESTED")
+        (self.root/"manifest.json").write_text(json.dumps(basic))
+        with contextlib.redirect_stdout(io.StringIO()):
+            self.assertEqual(cli([str(self.root)]),0)
+        self.assertEqual(measured["domain_quality"],"UNVERIFIED")
+        self.assertEqual(measured["authority_effect"],"NONE")
+
+if __name__=="__main__": unittest.main()
