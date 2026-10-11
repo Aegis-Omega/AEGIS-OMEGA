@@ -6,7 +6,6 @@ not a permissive browser, so ambiguous completion is denied.
 """
 import unittest
 
-from research_attestation import verify_capture
 from research_collector import CaptureDenied
 from test_research_collector import FakeReply, capture
 
