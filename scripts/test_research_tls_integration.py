@@ -117,6 +117,15 @@ class RealLocalTLS(unittest.TestCase):
         self.assertEqual(receipt['excerpt'],'Hello')
         self.assertEqual(receipt['full_bytes'],5)
 
+    def test_unframed_close_cannot_prove_body_completion_real_tls(self):
+        # Legitimate TLS hostname/certificate but no HTTP length or terminal
+        # chunk: RFC 9112 6.3 cannot distinguish success from truncation.
+        data=(b'HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\n'
+              b'Connection: close\r\n\r\npartial')
+        with self.assertRaisesRegex(module.CaptureDenied,
+                                    'UNVERIFIABLE_BODY_COMPLETION'):
+            self.exchange('docs.example.org', server_payload=data)
+
     def test_wrong_hostname_certificate_rejected(self):
         with self.assertRaisesRegex(module.CaptureDenied, 'NETWORK_OR_TLS_FAILED'):
             self.exchange('wrong.example.org')
