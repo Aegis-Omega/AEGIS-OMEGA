@@ -175,7 +175,9 @@ def evaluate(packet: dict, *, trusted_keys: dict[str, bytes] | None = None,
         receipt = s.get("capture_receipt")
         valid_attestation = (
             s["acquisition"] == "connector_capture" and
-            verify_capture(receipt, trusted_keys) and
+            verify_capture(receipt, trusted_keys, expected_binding={
+                'task_id': task_id, 'repo_head': o['repo_head'], 'source_id': sid
+            }) and
             receipt["url"] == s["url"] and
             receipt["captured_at"] == s["captured_at"] and
             receipt["excerpt"] == content and
@@ -214,8 +216,8 @@ def evaluate(packet: dict, *, trusted_keys: dict[str, bytes] | None = None,
         fresh = [i for i in ids if sources[i]["fresh"]]
         groups = sorted({sources[i]["publisher_group"] for i in fresh})
         # A manually entered note is not evidence of a performed source capture.
-        # Connector capture is caller-asserted, NOT cryptographically attested:
-        # readiness means independent testing may begin, not source truth/authority.
+        # Bound local key MAC verifies snapshot+task+repo+source identity,
+        # but cannot prove an honest collector or truthful website content.
         collected = [i for i in fresh if sources[i]["attested"]]
         eligible = {sources[i]["publisher_group"] for i in collected
                     if not sources[i]["publisher_group"].startswith("unattributed:")
