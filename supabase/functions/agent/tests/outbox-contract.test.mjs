@@ -136,3 +136,16 @@ test('Slack uncertain delivery never retries inference or result',async()=>{
  const retry=slack(h);assert.equal((await retry.handler(await signed(form()))).status,200)
  await Promise.all(retry.pending);assert.equal(d.stats.paid,1);assert.equal([...d.rows.values()][0].state,'SENDING')
 })
+
+test('AES-GCM AAD rejects ciphertext substitution between different events',async()=>{
+ const d=db(),h=agent(d)
+ assert.equal((await send(h))[0],200)
+ assert.equal((await send(h,'dispatch',{dispatch_id:'slack:event:Ev9999999999'}))[0],200)
+ const rows=[...d.rows.values()]
+ assert.equal(rows.length,2)
+ rows[0].ciphertext_b64=rows[1].ciphertext_b64
+ rows[0].iv_b64=rows[1].iv_b64
+ assert.equal((await send(h,'claim_delivery',{attempt_id:crypto.randomUUID()}))[0],503)
+ assert.equal(rows[0].state,'SENDING')
+ assert.equal(d.stats.paid,2)
+})
