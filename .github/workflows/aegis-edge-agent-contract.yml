@@ -43,8 +43,17 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '22.16.0'
-      - name: Run fail-closed Edge admission tests
-        run: node --test supabase/functions/agent/tests/admission-chain.test.mjs supabase/functions/agent/tests/sql-retention.test.mjs supabase/functions/agent/tests/tool-bounds.test.mjs supabase/functions/agent/tests/purchase-scope.test.mjs
+      - name: Run all five distinct native Edge contract suites
+        shell: bash
+        run: |
+          set -euo pipefail
+          # admission-chain imports outbox-contract; do not run both separately.
+          node --test \
+            supabase/functions/agent/tests/admission-chain.test.mjs \
+            supabase/functions/agent/tests/sql-retention.test.mjs \
+            supabase/functions/agent/tests/tool-bounds.test.mjs \
+            supabase/functions/agent/tests/purchase-scope.test.mjs \
+            supabase/functions/agent/tests/evidence-bound-purchases.test.mjs
 
   postgres-outbox-integration:
     name: aegis / postgres-outbox-integration
