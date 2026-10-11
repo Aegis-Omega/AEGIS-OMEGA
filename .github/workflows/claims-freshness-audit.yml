@@ -1,0 +1,50 @@
+# Independent candidate-only evidence-freshness gate.
+# This check does not prove any claim, grant authority, or alter existing admission.
+name: AEGIS Claims Freshness Audit
+
+on:
+  workflow_dispatch:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'scripts/check-claims-freshness.mjs'
+      - 'tests/check-claims-freshness.test.mjs'
+      - '.github/workflows/claims-freshness-audit.yml'
+      - 'docs/claims.json'
+
+permissions:
+  contents: read
+
+jobs:
+  claims-freshness:
+    name: claims / exact-head freshness (not proof)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      CANDIDATE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+    steps:
+      - name: Checkout exact candidate with full ancestry
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.CANDIDATE_SHA }}
+          fetch-depth: 0
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Run guard regressions
+        run: node --test tests/check-claims-freshness.test.mjs
+      - name: Check HEAD-bound verified evidence (expected red on stale claims)
+        shell: bash
+        run: |
+          set -euo pipefail
+          node scripts/check-claims-freshness.mjs --expected-head "$CANDIDATE_SHA" > "$RUNNER_TEMP/CLAIMS_FRESHNESS_RECEIPT.json"
+          cat "$RUNNER_TEMP/CLAIMS_FRESHNESS_RECEIPT.json"
+      - name: Upload receipt even when freshness check denies
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: claims-freshness-${{ env.CANDIDATE_SHA }}
+          path: ${{ runner.temp }}/CLAIMS_FRESHNESS_RECEIPT.json
+          if-no-files-found: warn
+          retention-days: 30
