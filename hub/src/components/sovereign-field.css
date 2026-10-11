@@ -101,4 +101,21 @@
 
 /* Purposeful short codes reduce collision without sacrificing full accessible names. */
 .sf-node{min-width:77px;max-width:102px;padding:10px 12px}.sf-node-label{font:600 10px 'JetBrains Mono',monospace;white-space:nowrap;letter-spacing:.035em}.sf-node-mark{font-size:9px}
-@media(max-width:520px){.sf-node{min-width:63px;max-width:74px;padding:7px 8px;min-height:40px}.sf-node-label{max-width:72px;font-size:8px;letter-spacing:0}.sf-node-mark{font-size:8px}}
+@media(max-width:520px){.sf-node{min-width:63px;max-width:74px;padding:7px 8px;min-height:44px}.sf-node-label{max-width:72px;font-size:8px;letter-spacing:0}.sf-node-mark{font-size:8px}}
+
+/* 200% browser zoom at narrow mobile widths: preserve a real, keyboard-operable list. */
+.sf-compact-list{display:none}
+@media(max-width:239px){
+ .sf-head{padding:12px 9px}.sf-wordmark small{display:none}.sf-symbol{display:none}
+ .sf-titlebar{display:block;padding:20px 10px}.sf-titlebar h2{font-size:33px;overflow-wrap:anywhere}
+ .sf-count{display:none}.sf-space-top,.sf-space-bottom{flex-wrap:wrap;gap:8px}
+ .sf-space{display:block}.sf-universe{min-height:0;padding:12px}.sf-universe .sm-stage,.sf-orbit-region,.sf-coordinate{display:none}
+ .sf-compact-list{display:grid;gap:8px;position:relative;z-index:3}
+ .sf-compact-list button{border:1px solid #53616a;background:#172329;color:#f0ede6;min-height:44px;padding:9px 8px;display:grid;grid-template-columns:22px minmax(0,1fr) 12px;gap:6px;align-items:center;text-align:left;font-size:11px;cursor:pointer}
+ .sf-compact-list button[aria-pressed=true]{border-color:#d5b983;background:#302b24}
+ .sf-compact-list button span{font:9px 'JetBrains Mono',monospace;color:#c7a875}
+ .sf-compact-list button strong{font-size:11px;font-weight:540;overflow-wrap:anywhere}
+ .sf-camera button{min-height:44px}.sf-detail{padding:16px 10px}.sf-detail-label{font-size:8px;flex-wrap:wrap}
+ .sf-detail h3{font-size:22px;letter-spacing:-.04em;overflow-wrap:normal}.sf-actions a,.sf-actions button{overflow-wrap:anywhere}
+ .sf-footer{padding:12px}.sf-footer p{font-size:10px}
+}
