@@ -64,3 +64,13 @@ test('actual nullable customer_email with the full four-column projection remain
  assert.equal(value.status,'OBSERVED_DB_ROWS')
  assert.equal(value.rows[0].customer_email,null)
 })
+
+test('impossible Gregorian date cannot be called an observed database timestamp',async()=>{
+ const h=harness(one,[{customer_email:'user@example.test',plan:'starter',ls_order_id:'ord_1',updated_at:'2026-02-31T05:00:00Z'}])
+ await assert.rejects(h.run(),/TOOL_VERIFICATION_FAILED/)
+})
+
+test('valid leap day remains eligible as database evidence',async()=>{
+ const h=harness(one,[{customer_email:null,plan:'full',ls_order_id:'ord_leap',updated_at:'2024-02-29T23:30:00+00:00'}])
+ assert.equal(JSON.parse((await h.run()).result).rows[0].ls_order_id,'ord_leap')
+})
