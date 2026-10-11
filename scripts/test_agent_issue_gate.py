@@ -25,14 +25,14 @@ def good():
     proof = "AEGIS-WORK-CONTRACT-SHA256: " + digest
     return {"repo": "Aegis-Omega/AEGIS-OMEGA",
             "pr": {"number": 999, "body": "AEGIS-WORK-ISSUE: #888\n" + proof, "base": {"ref": "main"},
-                   "head": {"sha": HEAD}, "user": {"login": "builder"}, "draft": False, "state": "open"},
+                   "head": {"sha": HEAD}, "user": {"login": "builder", "id": 10}, "draft": False, "state": "open"},
             "issue": {"number": 888, "state": "open", "body": BODY},
             "changed_files": ["scripts/agent_issue_gate.py"], "files_complete": True,
             "check_runs": [{"name": "aegis / issue-gate-tests", "head_sha": HEAD,
                             "status": "completed", "conclusion": "success", "app": {"id": 15368}}],
             "checks_complete": True, "commits": [{"sha": HEAD, "commit": {"verification": {"verified": True}}}],
             "commits_complete": True,
-            "reviews": [{"user": {"login": "independent"}, "state": "APPROVED", "commit_id": HEAD, "body": proof}],
+            "reviews": [{"id": 100, "user": {"login": "independent", "id": 20}, "state": "APPROVED", "commit_id": HEAD, "body": proof}],
             "reviews_complete": True}
 
 
@@ -105,7 +105,7 @@ class GateTests(unittest.TestCase):
         self.fail_gate(x, "independent_identity_review")
 
     def test_revoked_approval(self):
-        x = good(); x["reviews"].append({"user": {"login": "independent"},
+        x = good(); x["reviews"].append({"id": 200, "user": {"login": "independent", "id": 20},
                                          "state": "CHANGES_REQUESTED", "commit_id": HEAD})
         self.fail_gate(x, "independent_identity_review")
 
@@ -134,8 +134,51 @@ class GateTests(unittest.TestCase):
         self.fail_gate(x, "signed_commits")
 
     def test_dismissed_review(self):
-        x = good(); x["reviews"].append({"user": {"login": "independent"},
+        x = good(); x["reviews"].append({"id": 200, "user": {"login": "independent", "id": 20},
                                            "state": "DISMISSED", "commit_id": HEAD})
+        self.fail_gate(x, "independent_identity_review")
+
+    def test_single_segment_wildcard_does_not_escape_subfolder(self):
+        x = good()
+        x["issue"]["body"] = BODY.replace('"docs/**"', '"scripts/*"')
+        x["changed_files"] = ["scripts/private/credentials.py"]
+        self.fail_gate(x, "declared_scope")
+
+    def test_recursive_double_star_still_matches(self):
+        from agent_issue_gate import scope_path_matches
+        self.assertTrue(scope_path_matches("scripts/private/deep/file.py", "scripts/**"))
+        self.assertTrue(scope_path_matches("scripts/file.py", "scripts/**"))
+        self.assertFalse(scope_path_matches("scripts/../secrets", "scripts/**"))
+
+    def test_review_user_id_is_not_independent(self):
+        x = good(); x["reviews"][0]["user"].update({"login": "OtherCase", "id": 10})
+        self.fail_gate(x, "independent_identity_review")
+
+    def test_review_account_case_is_not_independent(self):
+        x = good(); x["reviews"][0]["user"]["login"] = "BUILDER"
+        self.fail_gate(x, "independent_identity_review")
+
+    def test_missing_author_identity_cannot_be_approved(self):
+        x = good(); x["pr"]["user"] = {}
+        self.fail_gate(x, "independent_identity_review")
+
+    def test_missing_reviewer_identity_cannot_be_approved(self):
+        x = good(); x["reviews"][0]["user"].pop("id")
+        self.fail_gate(x, "independent_identity_review")
+
+    def test_review_array_reordered_cannot_resurrect_approval(self):
+        x = good()
+        x["reviews"].insert(0, {"id": 200, "user": {"login": "independent", "id": 20},
+                                  "state": "DISMISSED", "commit_id": HEAD})
+        self.fail_gate(x, "independent_identity_review")
+
+    def test_malformed_additional_review_blocks(self):
+        x = good(); x["reviews"].append({"state": "DISMISSED"})
+        self.fail_gate(x, "independent_identity_review")
+
+    def test_comment_only_does_not_revoke_approval(self):
+        x = good(); x["reviews"].append({"id": 200, "user": {"login": "independent", "id": 20},
+                                          "state": "COMMENTED", "commit_id": HEAD})
         self.fail_gate(x, "independent_identity_review")
 
     def test_stacked_branch(self):
