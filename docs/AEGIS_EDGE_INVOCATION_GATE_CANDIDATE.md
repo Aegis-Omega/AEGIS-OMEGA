@@ -12,10 +12,14 @@ Closes the unauthenticated provider-spend path in `worker-src/index.ts` before `
 - Quota reservation occurs **before the provider call**. Reserved quota is conservatively consumed even if the provider subsequently fails. No automatic refund in v1; pricing/docs must disclose this before launch.
 - SQL update uses a row-locking atomic `UPDATE ... RETURNING` to prevent concurrent overdraw of a finite remaining quota.
 - RPC malformed result, outage or missing secret → 503; invalid/revoked/depleted key → 403. Unknown origin → 403. Never return secrets/upstream exception bodies.
-- `/platform/executions` fake-pending stub should return `501 NOT_IMPLEMENTED` rather than fabricating an execution.
+- `/platform/executions` fake-pending stub now returns `501 NOT_IMPLEMENTED` rather than fabricating an execution.
 
 ## Verification
-Run `node --experimental-strip-types --test tests/invocation-gate.test.mjs` using Node 22+, then `tsc --noEmit ...` for the integration. Re-run exact-head build and check the SQL on isolated staging DB before merge.
+Run `npm run test:edge-invocation` (18 tests: admission plus injected paid-request handler) using Node 22+, then `tsc --noEmit ...` for the integration. Re-run exact-head build and check the SQL on isolated staging DB before merge.
+
+- `worker-src/paidInvocation.ts` isolates the HTTP path for mock replay; model invocation is dependency-injected, and tests verify auth/validation happens before the provider. An explicit `live:false` responds 501 rather than charging.
+- `runSwarm` counts actually returned artifacts, not a hard-coded 39 completions.
+- Local isolated TypeScript checks PASS, 18/18 test cases PASS; full Worker and SQL staging replay remain unverified.
 
 ## Still open
 - Staging integration with actual Supabase service role and schema is **NOT TESTED**.
