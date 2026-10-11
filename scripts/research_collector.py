@@ -18,6 +18,8 @@ import socket
 import ssl
 from urllib.parse import urlsplit
 
+from research_attestation import sign_capture, read_protected_key, AttestationError
+
 MAX_RESPONSE = 131072
 MAX_EXCERPT = 16000
 TIMEOUT = 8
@@ -99,7 +101,8 @@ class PinnedTLS(http.client.HTTPSConnection):
 
 
 def acquire(url: str, allow_hosts: tuple[str, ...], *, resolver=socket.getaddrinfo,
-            connection_factory=PinnedTLS, clock=None) -> dict:
+            connection_factory=PinnedTLS, clock=None,
+            signing_key: bytes | None = None, signing_key_id: str | None = None) -> dict:
     host, path = target(url, allow_hosts)
     addresses = public_ip_set(host, resolver)
     # Every DNS answer is checked; a single validated public IP is selected.
@@ -144,7 +147,7 @@ def acquire(url: str, allow_hosts: tuple[str, ...], *, resolver=socket.getaddrin
         now = clock() if clock else dt.datetime.now(dt.timezone.utc)
         if now.tzinfo is None:
             raise CaptureDenied('NAIVE_CLOCK')
-        return {
+        snapshot = {
             'schema': 'aegis.research.capture.v1', 'url': url,
             'hostname': host, 'resolved_ip': ip,
             'captured_at': now.astimezone(dt.timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ'),
@@ -157,6 +160,11 @@ def acquire(url: str, allow_hosts: tuple[str, ...], *, resolver=socket.getaddrin
             'publisher_identity': 'NOT_INDEPENDENTLY_AUTHENTICATED',
             'claim_truth': 'NOT_VERIFIED', 'authority_effect': 'NONE',
         }
+        if signing_key is not None:
+            return sign_capture(snapshot, signing_key, signing_key_id)
+        if signing_key_id is not None:
+            raise CaptureDenied('SIGNING_KEY_REQUIRED')
+        return snapshot
     except (OSError, ssl.SSLError, http.client.HTTPException) as e:
         raise CaptureDenied('NETWORK_OR_TLS_FAILED') from e
     finally:
@@ -214,7 +222,8 @@ def packet_source(snapshot: dict, source_id: str) -> dict:
     return {'id': source_id, 'url': snapshot['url'],
             'captured_at': snapshot['captured_at'],
             'content': value, 'sha256': snapshot['excerpt_sha256'],
-            'acquisition': 'connector_capture'}
+            'acquisition': 'connector_capture',
+            **({'capture_receipt': snapshot} if 'attestation' in snapshot else {})}
 
 
 def main(argv=None):
@@ -223,6 +232,8 @@ def main(argv=None):
     a.add_argument('--allow-host', action='append', required=True)
     a.add_argument('--allow-network', action='store_true', help='explicit opt-in required')
     a.add_argument('--output', help='explicit local output path (else stdout)')
+    a.add_argument('--signing-key-file', help='32 raw secret bytes in owner-only file; trusted runner ONLY')
+    a.add_argument('--signing-key-id', help='externally configured trusted runner key ID')
     args = a.parse_args(argv)
     if not args.allow_network:
         a.error('NETWORK_DISABLED: pass --allow-network for explicitly authorized public capture')
@@ -230,8 +241,11 @@ def main(argv=None):
     if len(hosts) > 8 or any(not isinstance(h, str) or not HOST.fullmatch(h) for h in hosts):
         a.error('INVALID_HOST_ALLOWLIST')
     try:
-        result = acquire(args.url, hosts)
-    except CaptureDenied as exc:
+        if bool(args.signing_key_file) != bool(args.signing_key_id):
+            raise CaptureDenied('KEY_AND_ID_REQUIRED')
+        key = read_protected_key(args.signing_key_file) if args.signing_key_file else None
+        result = acquire(args.url, hosts, signing_key=key, signing_key_id=args.signing_key_id)
+    except (CaptureDenied, AttestationError, OSError) as exc:
         a.exit(2, 'DENIED: ' + str(exc) + '\n')
     encoded = json.dumps(result, sort_keys=True, indent=2, ensure_ascii=False) + '\n'
     if args.output:
