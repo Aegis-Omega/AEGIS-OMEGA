@@ -69,6 +69,71 @@ class HolonContextTests(unittest.TestCase):
         with patch.object(ctx, "sh", return_value='{"total":1,"items":[{"n":"bad"}]}'):
             self.assertEqual(ctx.open_issue_board(), ([], "unavailable"))
 
+    def test_duplicate_across_pages_is_not_a_complete_shared_snapshot(self):
+        import re
+        import tempfile
+        def rec(n):
+            return {"n": n, "t": f"PR {n}", "h": f"feature/{n}",
+                    "b": "main", "s": "a" * 40}
+        first = [rec(i) for i in range(200, 100, -1)]
+        def response(*args, **_kwargs):
+            if args[:2] != ("gh", "api"):
+                return ""
+            page = int(re.search(r"&page=(\\d+)", args[2]).group(1))
+            return json.dumps(first if page == 1 else [rec(101)])
+        with tempfile.TemporaryDirectory() as directory, \
+             patch.object(ctx, "git_dir", return_value=directory), \
+             patch.object(ctx, "sh", side_effect=response):
+            records, state = ctx.open_prs()
+        self.assertEqual(state, "partial")
+        self.assertEqual(len(records), 100)
+
+    def test_first_page_changes_during_pagination_is_not_complete(self):
+        import re
+        import tempfile
+        def rec(n):
+            return {"n": n, "t": f"PR {n}", "h": f"feature/{n}",
+                    "b": "main", "s": "a" * 40}
+        first = [rec(i) for i in range(200, 100, -1)]
+        shifted = [rec(201)] + first[:-1]
+        first_reads = [0]
+        def response(*args, **_kwargs):
+            if args[:2] != ("gh", "api"):
+                return ""
+            page = int(re.search(r"&page=(\\d+)", args[2]).group(1))
+            if page == 2:
+                return json.dumps([rec(100)])
+            first_reads[0] += 1
+            return json.dumps(first if first_reads[0] == 1 else shifted)
+        with tempfile.TemporaryDirectory() as directory, \
+             patch.object(ctx, "git_dir", return_value=directory), \
+             patch.object(ctx, "sh", side_effect=response):
+            records, state = ctx.open_prs()
+        self.assertEqual(state, "partial")
+        self.assertEqual(len(records), 101)
+        self.assertEqual(first_reads[0], 2)
+
+    def test_stable_multipage_snapshot_rechecks_first_page(self):
+        import re
+        import tempfile
+        def rec(n):
+            return {"n": n, "t": f"PR {n}", "h": f"feature/{n}",
+                    "b": "main", "s": "a" * 40}
+        first = [rec(i) for i in range(200, 100, -1)]
+        first_reads = [0]
+        def response(*args, **_kwargs):
+            if args[:2] != ("gh", "api"):
+                return ""
+            page = int(re.search(r"&page=(\\d+)", args[2]).group(1))
+            if page == 1:
+                first_reads[0] += 1
+            return json.dumps(first if page == 1 else [rec(100)])
+        with tempfile.TemporaryDirectory() as directory, \
+             patch.object(ctx, "git_dir", return_value=directory), \
+             patch.object(ctx, "sh", side_effect=response):
+            records, state = ctx.open_prs()
+        self.assertEqual((len(records), state, first_reads[0]), (101, "github", 2))
+
     def test_pr_second_page_outage_is_partial_not_complete(self):
         """One good page followed by network failure must not clear collisions."""
         import tempfile
