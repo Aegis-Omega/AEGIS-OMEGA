@@ -118,26 +118,40 @@ async function runAgent(task: string, context?: string, actorId?: string, teamId
     }
 
     if (msg.stop_reason === 'tool_use') {
-      const toolResults = []
-      for (const block of msg.content) {
-        if (block.type !== 'tool_use') continue
-        // Do not let malformed/provider-invented tool requests consume more
-        // paid turns or create a fake successful answer.
-        if (block.name !== 'query_purchases' || !hasPurchaseReaderScope(actorId, teamId) ||
-            typeof block.id !== 'string' || !block.id.trim()) {
-          throw new Error('MODEL_INCOMPLETE')
-        }
-        actions.push(`${block.name}(${JSON.stringify(block.input)})`)
-        const output = await runTool(block.name, block.input, actorId, teamId)
-        // A tool failure is not evidence. Never ask the model to turn a failed
-        // query into a confident factual answer, nor spend extra model turns.
-        if (output === 'INVALID_INPUT' || output === 'INVALID_FILTER' ||
-            output === 'TOOL_NOT_AUTHORIZED' || output.startsWith('DB error:')) {
-          throw new Error('TOOL_VERIFICATION_FAILED')
-        }
-        toolResults.push({ type: 'tool_result', tool_use_id: block.id, content: output })
+      // Never allow a single model response to fan out into multiple privileged
+      // data reads, or launder a database sample into a fabricated aggregate.
+      if (!Array.isArray(msg.content)) throw new Error('MODEL_INCOMPLETE')
+      const toolRequests = msg.content.filter((b: { type?: string }) => b?.type === 'tool_use')
+      if (toolRequests.length !== 1) throw new Error('MODEL_INCOMPLETE')
+      const block = toolRequests[0]
+      if (block.name !== 'query_purchases' || !hasPurchaseReaderScope(actorId, teamId) ||
+          typeof block.id !== 'string' || !block.id.trim()) {
+        throw new Error('MODEL_INCOMPLETE')
       }
-      messages.push({ role: 'user', content: toolResults })
+      const output = await runTool(block.name, block.input, actorId, teamId)
+      // A tool failure, malformed result or fabricated model continuation is
+      // never evidence. Return *only* machine-observed rows, never a second
+      // model-generated assertion about their total/meaning.
+      if (output === 'INVALID_INPUT' || output === 'INVALID_FILTER' ||
+          output === 'TOOL_NOT_AUTHORIZED' || output.startsWith('DB error:')) {
+        throw new Error('TOOL_VERIFICATION_FAILED')
+      }
+      let rows: unknown
+      try { rows = JSON.parse(output) } catch { throw new Error('TOOL_VERIFICATION_FAILED') }
+      if (!Array.isArray(rows) || rows.length > 25 ||
+          rows.some(r => !r || typeof r !== 'object' || Array.isArray(r))) {
+        throw new Error('TOOL_VERIFICATION_FAILED')
+      }
+      actions.push('query_purchases(OBSERVED_DB_ROWS)')
+      return {result: JSON.stringify({
+        schema: 'aegis.purchase_rows.v1',
+        status: 'OBSERVED_DB_ROWS',
+        source: 'supabase.public.purchases',
+        rows,
+        returned_row_count: rows.length,
+        // Bounded read is never evidence of the table's global row count.
+        is_global_total: false,
+      }), actions}
     } else {
       // max_tokens/refusal/unknown stop reasons are not completed tasks.
       // Do not issue four additional paid requests for the same partial output.
