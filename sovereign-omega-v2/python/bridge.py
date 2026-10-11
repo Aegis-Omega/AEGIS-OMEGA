@@ -9,6 +9,8 @@ are wired in at startup. gate receives every /gate_signal; router dispatches
 every /event to the appropriate core_matrix handler.
 """
 import json
+from ipaddress import ip_address
+from math import isfinite
 import os
 import threading
 from http.server import HTTPServer, BaseHTTPRequestHandler
@@ -461,34 +463,266 @@ def _build_live_state_context() -> str:
         )
 
 
+def _gate_unique_json_members(pairs):
+    """I-JSON: reject ambiguous duplicate object names at any nesting depth."""
+    result = {}
+    for key, value in pairs:
+        if key in result:
+            raise ValueError("duplicate JSON member")
+        result[key] = value
+    return result
+
+
+def _gate_reject_non_json_constant(value):
+    # Python json accepts NaN/Infinity extensions, but RFC 8259 does not.
+    raise ValueError("non-JSON numeric literal")
+
+
+def _gate_json_depth_is_bounded(raw: bytes, max_depth: int = 32) -> bool:
+    """Bound array/object nesting before parsing; ignore delimiters in strings.
+
+    This is a structural depth guard, not an independent JSON validator.
+    json.loads still performs syntax validation and duplicate-key rejection.
+    """
+    depth = 0
+    quoted = False
+    escaped = False
+    for char in raw:
+        if quoted:
+            if escaped:
+                escaped = False
+            elif char == 92:  # backslash
+                escaped = True
+            elif char == 34:  # double quote
+                quoted = False
+        elif char == 34:
+            quoted = True
+        elif char in (91, 123):  # opening bracket / brace
+            depth += 1
+            if depth > max_depth:
+                return False
+        elif char in (93, 125):  # closing bracket / brace
+            depth -= 1
+            if depth < 0:
+                return False
+    return not quoted and depth == 0
+
+
+def _gate_has_unicode_noncharacter(root) -> bool:
+    """Reject RFC 7493 noncharacters in decoded JSON keys and strings."""
+    pending = [root]
+    while pending:
+        item = pending.pop()
+        if isinstance(item, str):
+            for char in item:
+                codepoint = ord(char)
+                if (0xFDD0 <= codepoint <= 0xFDEF
+                        or (codepoint & 0xFFFE) == 0xFFFE):
+                    return True
+        elif isinstance(item, dict):
+            pending.extend(item.keys())
+            pending.extend(item.values())
+        elif isinstance(item, list):
+            pending.extend(item)
+    return False
+
+
+def _gate_peer_is_loopback(client_address) -> bool:
+    """Fail closed for unauthenticated gate ingress, ignoring forwarded headers.
+
+    This only limits network reachability. Loopback is NOT an identity or
+    authorization proof; authenticated remote ingress needs a separate adapter.
+    """
+    try:
+        address = ip_address(client_address[0])
+        # CPython considers ::ffff:127.0.0.1 loopback. Do not allow
+        # IPv4-mapped IPv6 addresses to inherit trusted-peer status.
+        if address.version == 6 and address.ipv4_mapped is not None:
+            return False
+        return address.is_loopback
+    except (ValueError, TypeError, IndexError, KeyError):
+        return False
+
+
 class BridgeHandler(BaseHTTPRequestHandler):
     def log_message(self, format, *args): pass  # suppress access log
 
     def do_POST(self):
         global last_ack_sequence
-        length = int(self.headers.get('Content-Length', 0))
-        data = json.loads(self.rfile.read(length)) if length else {}
+        if self.path == '/gate_signal':
+            # The bridge currently binds 0.0.0.0. Without a verified signed
+            # caller identity, remote peers must NEVER reach mutation authority.
+            # Do this before reading request bytes or accepting proxy headers.
+            if not _gate_peer_is_loopback(self.client_address):
+                self._respond(403, {'status': 'REJECTED', 'reason': 'GATE_PEER_UNTRUSTED'})
+                return
+            # Browser traffic must not acquire gate authority through wildcard
+            # CORS or a loopback proxy. No claim this authenticates local apps.
+            if (self.headers.get('Origin') is not None
+                    or self.headers.get('Sec-Fetch-Site') is not None):
+                self._respond(403, {'status': 'REJECTED', 'reason': 'GATE_BROWSER_FORBIDDEN'})
+                return
+
+            # Bounded JSON-only ingress also prevents text/plain browser CSRF
+            # and unbounded/ambiguous request bodies at this authority edge.
+            media_type = self.headers.get('Content-Type', '').split(';', 1)[0].strip().lower()
+            raw_length = self.headers.get('Content-Length', '')
+            if media_type != 'application/json':
+                self._respond(415, {'status': 'REJECTED', 'reason': 'GATE_JSON_REQUIRED'})
+                return
+            if self.headers.get('Transfer-Encoding') is not None:
+                self._respond(400, {'status': 'REJECTED', 'reason': 'GATE_FRAMING_INVALID'})
+                return
+            if (not 1 <= len(raw_length) <= 4 or not raw_length.isascii()
+                    or not raw_length.isdecimal()
+                    or not 0 < int(raw_length) <= 4096):
+                self._respond(413, {'status': 'REJECTED', 'reason': 'GATE_BODY_BOUNDS'})
+                return
+            try:
+                raw_body = self.rfile.read(int(raw_length))
+                if not _gate_json_depth_is_bounded(raw_body):
+                    raise ValueError("gate JSON depth exceeds limit")
+                # RFC 8259 section 8.1: network JSON is UTF-8.
+                # Decoding bytes directly with json.loads also accepts
+                # UTF-16/UTF-32 with a BOM; do not allow alternate encodings
+                # at this authority boundary.
+                data = json.loads(
+                    raw_body.decode('utf-8', errors='strict'),
+                    object_pairs_hook=_gate_unique_json_members,
+                    parse_constant=_gate_reject_non_json_constant,
+                )
+                # Python accepts isolated Unicode surrogate escape sequences,
+                # and exponent overflow can produce nonfinite floats. An
+                # unescaped UTF-8 round-trip with allow_nan=False rejects
+                # both at any nesting depth, including object member names.
+                json.dumps(data, ensure_ascii=False, allow_nan=False).encode('utf-8')
+                if _gate_has_unicode_noncharacter(data):
+                    raise ValueError("gate JSON has a Unicode noncharacter")
+            except (ValueError, UnicodeError, RecursionError):
+                self._respond(400, {'status': 'REJECTED', 'reason': 'GATE_JSON_INVALID'})
+                return
+            if type(data) is not dict:
+                self._respond(400, {'status': 'REJECTED', 'reason': 'GATE_OBJECT_REQUIRED'})
+                return
+        else:
+            length = int(self.headers.get('Content-Length', 0))
+            data = json.loads(self.rfile.read(length)) if length else {}
 
         if self.path == '/gate_signal':
             seq = data.get('sequence', -1)
-            accepted = data.get('accepted', False)
+            accepted = data.get('accepted')
             proposal_id = data.get('proposal_id', '')
-            lcb = float(data.get('lcb', 0.0))
+            raw_lcb = data.get('lcb')
 
+            # Guard ALL externally supplied gate fields before M2, the gate,
+            # and ACK. A JSON array used as proposal_id is unhashable, and
+            # record_signal mutates its window *before* indexing that id.
+            # The frozen MutationGate only records a proposal verdict when
+            # proposal_id is truthy. ACKing an empty/whitespace identifier
+            # would consume the sequence with no addressable decision.
+            if type(proposal_id) is not str or not proposal_id.strip():
+                self._respond(400, {'status': 'REJECTED', 'reason': 'INVALID_PROPOSAL_ID'})
+                return
+
+            # JSON strings such as "false" are truthy in Python. Require an
+            # explicit JSON boolean, not a default from an absent field.
+            if type(accepted) is not bool:
+                self._respond(400, {'status': 'REJECTED', 'reason': 'INVALID_ACCEPTED'})
+                return
+
+            # Non-finite values are legal in Python's non-strict JSON decoder.
+            # They are never valid measurements, even when lcb is informational.
+            if type(raw_lcb) not in (int, float):
+                self._respond(400, {'status': 'REJECTED', 'reason': 'INVALID_LCB'})
+                return
+            try:
+                lcb = float(raw_lcb)
+            except (ValueError, OverflowError):
+                # Huge JSON integers cannot be represented as finite floats.
+                self._respond(400, {'status': 'REJECTED', 'reason': 'INVALID_LCB'})
+                return
+            if not isfinite(lcb):
+                self._respond(400, {'status': 'REJECTED', 'reason': 'INVALID_LCB'})
+                return
+
+            # The TypeScript RiskGate computes accepted = (lcb > 0).
+            # Treat contradictory fields as data tampering, not approval.
+            # Consistency is necessary but is NOT sender authentication.
+            if accepted != (lcb > 0):
+                self._respond(400, {
+                    'status': 'REJECTED', 'reason': 'INCONSISTENT_GATE_DECISION',
+                })
+                return
+
+            # M2 is strict uint64. Reject invalid sequence before advancing
+            # last_ack_sequence or recording a gate mutation (issue #763).
+            if type(seq) is not int or not 0 <= seq < (1 << 64):
+                self._respond(400, {'status': 'REJECTED', 'reason': 'INVALID_SEQUENCE'})
+                return
+
+            # Serialize sequence admission and both writes. Advance ACK only
+            # after both return successfully; an exception is not an ACK.
+            # This is not a cross-subsystem transaction or rollback guarantee.
             with _lock:
-                if seq <= last_ack_sequence:
+                if seq == last_ack_sequence:
+                    # An ACK may have been lost after this sequence was
+                    # applied. Without a per-request identity/receipt we
+                    # cannot prove whether this is the same request.
+                    # Do not reapply M2 or gate, and never claim rollback.
+                    self._respond(409, {
+                        'status': 'UNCONFIRMED',
+                        'reason': 'DUPLICATE_SEQUENCE_UNCONFIRMED',
+                        'retry_safe': False,
+                    })
+                    return
+                if seq < last_ack_sequence:
                     self._respond(400, {'status': 'REJECTED', 'reason': 'SEQUENCE_DESYNC'})
                     return
-                last_ack_sequence = seq
 
-            # Record signal in both gate (mutation authority) and matrix
-            gate.record_signal(GateSignal(
-                proposal_id=proposal_id,
-                sequence=seq,
-                accepted=accepted,
-                lcb=lcb,
-            ))
-            matrix.receive_gate_signal(proposal_id, accepted, seq)
+                # record_signal() deliberately returns None and may silently
+                # ignore a sealed gate or an old sequence. Never ACK a
+                # decision the governance gate has not actually accepted.
+                # Take the count before checking the gate sequence. The
+                # constitutional gate counts *all* record_signal attempts,
+                # including duplicate and out-of-order signals. We can use
+                # that counter to detect concurrent competing producers
+                # without touching or changing the frozen gate implementation.
+                prior_gate_attempts = gate.total_signals()
+                if gate.is_sealed:
+                    self._respond(409, {'status': 'REJECTED', 'reason': 'GATE_SEALED'})
+                    return
+                if seq <= gate.last_sequence():
+                    self._respond(409, {'status': 'REJECTED', 'reason': 'GATE_SEQUENCE_DESYNC'})
+                    return
+
+                # Write non-authoritative M2 telemetry first. If that fails,
+                # do not apply a governance gate decision or acknowledge seq.
+                matrix.receive_gate_signal(proposal_id, accepted, seq)
+                gate.record_signal(GateSignal(
+                    proposal_id=proposal_id,
+                    sequence=seq,
+                    accepted=accepted,
+                    lcb=lcb,
+                ))
+                if (gate.is_sealed
+                        or gate.last_sequence() != seq
+                        or gate.total_signals() != prior_gate_attempts + 1):
+                    # Sealing can discard this signal; an independent producer
+                    # could commit the same sequence just ahead of us. Sequence
+                    # equality alone would incorrectly ACK that discarded
+                    # duplicate. The attempt-count delta rejects both cases.
+                    # Counter/sequence snapshots are NOT an atomic admission
+                    # receipt: another producer (or seal) may race *after*
+                    # this request was applied. A 409 is not proof of rollback.
+                    # Require reconciliation; an automatic retry could replay
+                    # a signal that already affected gate state and M2.
+                    self._respond(409, {
+                        'status': 'UNCONFIRMED',
+                        'reason': 'GATE_ADMISSION_UNCONFIRMED',
+                        'retry_safe': False,
+                    })
+                    return
+                last_ack_sequence = seq
             self._respond(200, {'status': 'ACK', 'sequence': seq})
 
         elif self.path == '/event':
@@ -1783,11 +2017,19 @@ class BridgeHandler(BaseHTTPRequestHandler):
             self._respond(404, {'error': 'NOT_FOUND'})
 
     def _cors_headers(self):
+        # All browser origins are denied at the governance endpoint. Other
+        # endpoints retain their previous CORS policy in this bounded patch.
+        if self.path == '/gate_signal':
+            return
         self.send_header('Access-Control-Allow-Origin', '*')
         self.send_header('Access-Control-Allow-Methods', 'GET, POST, DELETE, OPTIONS')
         self.send_header('Access-Control-Allow-Headers', 'Content-Type, x-api-key')
 
     def do_OPTIONS(self):
+        if self.path == '/gate_signal':
+            self.send_response(403)
+            self.end_headers()
+            return
         self.send_response(204)
         self._cors_headers()
         self.end_headers()

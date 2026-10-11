@@ -5,17 +5,25 @@ on:
     paths:
       - "sovereign-omega-v2/python/core_matrix.py"
       - "sovereign-omega-v2/python/bridge.py"
+      - "sovereign-omega-v2/python/gate.py"
       - "sovereign-omega-v2/python/tests/test_m2_layout_diagnostic.py"
       - "sovereign-omega-v2/python/tests/test_m2_runtime_replay.py"
+      - "sovereign-omega-v2/python/tests/test_m2_mutation_guard.py"
+      - "sovereign-omega-v2/python/tests/run_m2_exact_head_replay.py"
       - "sovereign-omega-v2/python/tests/fixtures/m2_sequence_domain_contract.json"
+      - "sovereign-omega-v2/python/tests/fixtures/M2_Ring_Design_Review_2026-10-11.md"
       - ".github/workflows/m2-layout-diagnostic.yml"
   push:
     paths:
       - "sovereign-omega-v2/python/core_matrix.py"
       - "sovereign-omega-v2/python/bridge.py"
+      - "sovereign-omega-v2/python/gate.py"
       - "sovereign-omega-v2/python/tests/test_m2_layout_diagnostic.py"
       - "sovereign-omega-v2/python/tests/test_m2_runtime_replay.py"
+      - "sovereign-omega-v2/python/tests/test_m2_mutation_guard.py"
+      - "sovereign-omega-v2/python/tests/run_m2_exact_head_replay.py"
       - "sovereign-omega-v2/python/tests/fixtures/m2_sequence_domain_contract.json"
+      - "sovereign-omega-v2/python/tests/fixtures/M2_Ring_Design_Review_2026-10-11.md"
       - ".github/workflows/m2-layout-diagnostic.yml"
 
 permissions:
@@ -45,4 +53,4 @@ jobs:
 
       - name: Run M2 layout diagnostic gate
         working-directory: sovereign-omega-v2/python
-        run: python -m unittest tests.test_m2_layout_diagnostic tests.test_m2_runtime_replay -v
+        run: python tests/run_m2_exact_head_replay.py
