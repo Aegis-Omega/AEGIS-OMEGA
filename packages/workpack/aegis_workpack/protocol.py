@@ -239,8 +239,11 @@ def cli(argv=None):
     try:
         require(valid_path(ns.manifest), "MANIFEST_PATH_INVALID")
         raw = _artifact_bytes(ns.workspace, ns.manifest, MAX_MANIFEST_BYTES)
-        data = json.loads(raw.decode("utf-8"), object_pairs_hook=_strict_pairs,
-                          parse_constant=lambda _: (_ for _ in ()).throw(Invalid("NONFINITE_JSON")))
+        try:
+            data = json.loads(raw.decode("utf-8"), object_pairs_hook=_strict_pairs,
+                              parse_constant=lambda _: (_ for _ in ()).throw(Invalid("NONFINITE_JSON")))
+        except (UnicodeDecodeError, json.JSONDecodeError) as e:
+            raise Invalid("INVALID_JSON") from e
         result = verify(ns.workspace, data)
     except (Invalid, OSError) as e:
         result = {"schema": "aegis.workpack.receipt.v1", "disposition": "NOT_ADMITTED",
