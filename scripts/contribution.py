@@ -79,14 +79,14 @@ def main():
         who = agent_of(body, branches.get(sha, []))
         stats[who]["landed" if sha in on_main else "branch_only"] += 1
 
-    total = sum(s["landed"] + s["branch_only"] for s in stats.values()) or 1
+    total = sum(s["landed"] + s["branch_only"] for s in stats.values())
     print(f"AEGIS contribution — last {days} days (landed commits, attribution UNVERIFIED)\n")
     print(f"{'claimed agent':28} {'on main':>8} {'branch-only':>12} {'landed %':>9}")
     for who, s in sorted(stats.items(), key=lambda kv: (-kv[1]["landed"], -kv[1]["branch_only"])):
         n = s["landed"] + s["branch_only"]
         print(f"{who[:28]:28} {s['landed']:>8} {s['branch_only']:>12} {100 * s['landed'] / n:>8.1f}%")
     un = stats.get("unattributed", {"landed": 0, "branch_only": 0})
-    print(f"\nunattributed: {100 * (un['landed'] + un['branch_only']) / total:.0f}% of {total} commits "
+    print(f"\nunattributed: {100 * (un['landed'] + un['branch_only']) / total if total else 0:.0f}% of {total} commits "
           "— trailer claims are unverified identity; validate independently (AGENTS.md).")
 
 
