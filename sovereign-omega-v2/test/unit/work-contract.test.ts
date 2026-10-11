@@ -160,4 +160,15 @@ describe('UWP-01 work compiler: bounded exact contract', () => {
     expect((await compileWorkContract(b)).authorization).toBe('NOT_GRANTED')
   })
 
+
+  it('preserves immutable global policy for downstream verification', async () => {
+    const p = await compileWorkContract(spec())
+    expect(p.policy.authority_ceiling).toBe('read_only')
+    expect(p.policy.max_cost_cents).toBe(0)
+    expect(p.policy.failure_policy).toBe('halt')
+    expect(p.policy.forbidden_effects).toEqual(['production_writes'])
+    expect(Object.isFrozen(p.policy)).toBe(true)
+    expect(Object.isFrozen(p.policy.forbidden_effects)).toBe(true)
+  })
+
 })
