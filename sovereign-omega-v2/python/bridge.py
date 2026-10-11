@@ -473,6 +473,13 @@ class BridgeHandler(BaseHTTPRequestHandler):
             seq = data.get('sequence', -1)
             accepted = data.get('accepted', False)
             proposal_id = data.get('proposal_id', '')
+
+            # JSON strings such as "false" are truthy in Python. Never
+            # coerce untrusted acceptance text into gate authority (#763).
+            if type(accepted) is not bool:
+                self._respond(400, {'status': 'REJECTED', 'reason': 'INVALID_ACCEPTED'})
+                return
+
             lcb = float(data.get('lcb', 0.0))
 
             # M2 is strict uint64. Reject invalid sequence before advancing
