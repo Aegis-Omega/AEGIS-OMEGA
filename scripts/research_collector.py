@@ -23,7 +23,7 @@ import socket
 import ssl
 from urllib.parse import urlsplit
 
-from research_attestation import sign_capture, read_protected_key, AttestationError, _validate_key, _binding
+from research_attestation import sign_capture, verify_capture, read_protected_key, AttestationError, _validate_key, _binding
 
 MAX_RESPONSE = 131072
 MAX_EXCERPT = 16000
@@ -378,9 +378,20 @@ def _capture_bounded(args, hosts: tuple[str, ...]) -> dict:
     packet_source(result, args.source_id or 'bounded_capture')
     if result['url'] != args.url or result['hostname'] != target(args.url, hosts)[0]:
         raise CaptureDenied('WORKER_ORIGIN_MISMATCH')
-    if args.signing_key_file and 'attestation' not in result:
-        raise CaptureDenied('WORKER_UNSIGNED_RESULT')
-    if not args.signing_key_file and 'attestation' in result:
+    if args.signing_key_file:
+        if 'attestation' not in result:
+            raise CaptureDenied('WORKER_UNSIGNED_RESULT')
+        # The child reports a signature; it does not get to certify its own
+        # signature as valid. Re-verify the complete record in the parent before
+        # publishing any supposedly signed evidence. Fail if the shared key
+        # rotated or changed between worker acquisition and verification.
+        expected_binding = {'task_id': args.task_id, 'repo_head': args.repo_head,
+                            'source_id': args.source_id}
+        verification_key = read_protected_key(args.signing_key_file)
+        if not verify_capture(result, {args.signing_key_id: verification_key},
+                              expected_binding=expected_binding):
+            raise CaptureDenied('WORKER_CAPTURE_ATTESTATION_INVALID')
+    elif 'attestation' in result:
         raise CaptureDenied('WORKER_UNEXPECTED_ATTESTATION')
     return result
 
