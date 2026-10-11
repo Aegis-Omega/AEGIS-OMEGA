@@ -46,3 +46,23 @@ Each source ring wraps; therefore it can overwrite an older slot after `capacity
 6. Keep `main` protected and the PR in Draft until independent replay and human review.
 
 Decision: **minimal disjoint aligned storage is a justified candidate correction**, but world-leading reliability requires evidence for the full storage and consumer contract, not optimistic labels.
+
+
+## Security ingress dependency (2026-10-11; issue #763 scope extension)
+
+**Source witness:** `bridge.py` binds `HTTPServer(('0.0.0.0', port), BridgeHandler)` and previously accepted arbitrary `/gate_signal` JSON with wildcard CORS and preflight. A loopback-only gate guard is **not** a principal/authorization proof; in particular, a local reverse proxy may relay remote requests using a loopback peer address.
+
+**Candidate changes and falsifiers:**
+- `/gate_signal` rejects non-loopback TCP peers before reading request bytes or mutating M2/gate. `X-Forwarded-For` is ignored; IPv4-mapped IPv6 (`::ffff:127.0.0.1`) is explicitly denied (Python `ip_address(...).is_loopback` alone reports true).
+- Browser-origin gate POSTs and CORS OPTIONS preflights are rejected. Wildcard Access-Control-Allow-Origin is not emitted for the gate route; unrelated endpoints retain their old CORS behavior, **which remains a separate audit obligation**.
+- Gate payload requires JSON object, Content-Type application/json, unambiguous Content-Length 1..4096 and no Transfer-Encoding. Large/malformed/non-object requests are rejected before any gate mutation. Fixed maximum is a safety bound, not a measured application optimum.
+- Valid local non-browser JSON producer remains supported. The current Cloud Run deployment contract expects `0.0.0.0`; this candidate will **deny legitimate remote gate writers** until a separately reviewed caller-authentication/authority envelope is implemented. No production or deployment configuration has changed.
+- Local mirror transport mutation regression initially **FAILED** for mapped IPv6 loopback; the corrected guard then passed **7/7 unittest methods**. Mirror != hosted exact-head PASS; the source-bound AST tests are committed and must run on a fresh checkout.
+
+**Residual blockers:** anyone who can submit raw HTTP from a local process (or from a loopback-address proxy) may still send gate signals. Application-level authenticated principal, scoped action approval, replay protections beyond monotonic sequence, provider trust boundary, all other mutating routes and rate/time limits remain unverified. Do not promote `/gate_signal` to a publicly usable governance API.
+
+**Primary external references:**
+- Python standard library security warning: https://docs.python.org/3.12/library/http.server.html
+- OWASP API Top 10 API2:2023 authentication / API4:2023 resource consumption / API5:2023 function authorization: https://api-security.owasp.org/editions/2023/en/0x11-t10/
+- OWASP API4 mitigations: https://api-security.owasp.org/editions/2023/en/0xa4-unrestricted-resource-consumption/
+
