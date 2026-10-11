@@ -673,6 +673,61 @@ class HolonContextTests(unittest.TestCase):
         self.assertEqual(receipt["behind_main"], "2")
         self.assertEqual(receipt["local_main"], "aaaaaaa")
 
+    def test_unverified_remote_main_skips_existing_code_lookup(self):
+        """Stale local grep results cannot masquerade as verified main code."""
+        output = io.StringIO()
+        with patch.object(ctx, "verify_main_freshness",
+                          return_value={"state": "FETCH_FAILED", "sha": None}), \
+             patch.object(ctx, "sh", return_value=""), \
+             patch.object(ctx, "open_prs", return_value=([], "github")), \
+             patch.object(ctx, "open_issue_board", return_value=([], "github")), \
+             patch.object(ctx, "billing_locked", return_value=None), \
+             patch.object(ctx, "existing_code",
+                          side_effect=AssertionError("untrusted local source scanned")), \
+             patch.object(sys, "argv", ["agent_context.py", "--json", "holon"]), \
+             contextlib.redirect_stdout(output):
+            ctx.main()
+        report = json.loads(output.getvalue())
+        self.assertEqual(report["existing_code_status"], "SKIPPED_UNVERIFIED_MAIN")
+        self.assertEqual(report["existing_code"], [])
+        self.assertEqual(report["holon_disposition"], "HOLD_UNVERIFIED_MAIN")
+
+    def test_verified_remote_main_may_report_existing_code(self):
+        output = io.StringIO()
+        with patch.object(ctx, "verify_main_freshness",
+                          return_value={"state": "FRESH", "sha": "a" * 40}), \
+             patch.object(ctx, "sh", return_value=""), \
+             patch.object(ctx, "open_prs", return_value=([], "github")), \
+             patch.object(ctx, "open_issue_board", return_value=([], "github")), \
+             patch.object(ctx, "billing_locked", return_value=None), \
+             patch.object(ctx, "existing_code",
+                          return_value=[("agents/holon.py", ["holon"])]) as lookup, \
+             patch.object(sys, "argv", ["agent_context.py", "--json", "holon"]), \
+             contextlib.redirect_stdout(output):
+            ctx.main()
+        report = json.loads(output.getvalue())
+        lookup.assert_called_once_with("holon")
+        self.assertEqual(report["existing_code_status"], "VERIFIED_REMOTE_MAIN")
+        self.assertEqual(report["existing_code"],
+                         [{"path": "agents/holon.py", "match": ["holon"]}])
+
+    def test_quick_mode_never_scans_main_code_even_when_cache_exists(self):
+        output = io.StringIO()
+        with patch.object(ctx, "verify_main_freshness",
+                          return_value={"state": "UNVERIFIED_QUICK", "sha": None}), \
+             patch.object(ctx, "sh", return_value=""), \
+             patch.object(ctx, "open_prs", return_value=([], "cache")), \
+             patch.object(ctx, "open_issue_board", return_value=([], "github")), \
+             patch.object(ctx, "existing_code",
+                          side_effect=AssertionError("quick mode scanned code")), \
+             patch.object(sys, "argv",
+                          ["agent_context.py", "--json", "--quick", "holon"]), \
+             contextlib.redirect_stdout(output):
+            ctx.main()
+        report = json.loads(output.getvalue())
+        self.assertEqual(report["existing_code_status"], "SKIPPED_QUICK")
+        self.assertEqual(report["existing_code"], [])
+
     def test_json_does_not_claim_zero_on_disconnected_github(self):
         buf = io.StringIO()
         with patch.object(ctx, "sh", return_value=""), \
