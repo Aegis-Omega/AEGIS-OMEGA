@@ -8,7 +8,7 @@ import {webcrypto} from 'node:crypto'
 const a=stripTypeScriptTypes(readFileSync(new URL('../index.ts',import.meta.url),'utf8').replace(/^import .*$/gm,''),{mode:'strip'})
 const s=stripTypeScriptTypes(readFileSync(new URL('../../slack-events/index.ts',import.meta.url),'utf8'),{mode:'strip'})
 const CAP='K'.repeat(48), SIGN='Q'.repeat(40), KEY=Buffer.alloc(32,7).toString('base64')
-const CID='C123456', ID='slack:event:Ev1234567890'
+const CID='C123456', ID='slack:event:Ev1234567890', ACTOR='UOPERATOR', TEAM='T12345'
 const env={AEGIS_AGENT_INVOKE_SECRET:CAP,ANTHROPIC_API_KEY:'fake',SUPABASE_URL:'https://mock.invalid',SUPABASE_SERVICE_ROLE_KEY:'fake',AEGIS_RESULT_ENCRYPTION_KEY_B64:KEY}
 function db(){
   const claimed=new Set(),rows=new Map(), stats={paid:0,claim:0,lease:0}
@@ -47,13 +47,13 @@ function agent(data,config=env){
 }
 async function send(h,op='dispatch',fields={},token=CAP){
   const res=await h(new Request('https://mock.invalid/agent',{method:'POST',headers:{'x-aegis-agent-secret':token},body:JSON.stringify({
-    operation:op,task:'check',dispatch_id:ID,channel_id:CID,...fields,
+    operation:op,task:'check',dispatch_id:ID,channel_id:CID,actor_id:ACTOR,team_id:TEAM,...fields,
   })}))
   return [res.status,await res.json()]
 }
 function slack(h, mode='accepted'){
   let handler;const pending=[],network=[]
-  const Deno={env:{get:n=>({...env,SLACK_SIGNING_SECRET:SIGN,SLACK_BOT_TOKEN:'fake',AEGIS_SLACK_ALLOWED_USER_IDS:'U_OK',AEGIS_SLACK_ALLOWED_CHANNEL_IDS:CID})[n]??''},serve:f=>handler=f}
+  const Deno={env:{get:n=>({...env,SLACK_SIGNING_SECRET:SIGN,SLACK_BOT_TOKEN:'fake',AEGIS_SLACK_ALLOWED_USER_IDS:ACTOR,AEGIS_SLACK_ALLOWED_CHANNEL_IDS:CID,AEGIS_SLACK_ALLOWED_TEAM_IDS:TEAM})[n]??''},serve:f=>handler=f}
   const fetch=async(url,opts)=>{
     network.push(String(url))
     if(String(url).endsWith('/functions/v1/agent'))return h(new Request(String(url),{method:'POST',headers:opts.headers,body:opts.body}))
@@ -71,7 +71,7 @@ async function signed(body,ctype='application/x-www-form-urlencoded'){
   const mac=await webcrypto.subtle.sign('HMAC',key,new TextEncoder().encode('v0:'+time+':'+body))
   return new Request('https://mock.invalid/slack',{method:'POST',headers:{'content-type':ctype,'x-slack-request-timestamp':time,'x-slack-signature':'v0='+Buffer.from(mac).toString('hex')},body})
 }
-const form=(user='U_OK',channel=CID)=>new URLSearchParams({user_id:user,channel_id:channel,user_name:'operator',text:'check',trigger_id:'13345224609.738474920.8088930838d88f008e0'}).toString()
+const form=(user=ACTOR,channel=CID)=>new URLSearchParams({user_id:user,team_id:TEAM,channel_id:channel,user_name:'operator',text:'check',trigger_id:'13345224609.738474920.8088930838d88f008e0'}).toString()
 test('bearer token rejection precedes paid work',async()=>{const d=db();assert.equal((await send(agent(d),'dispatch',{},'invalid'))[0],401);assert.equal(d.stats.paid,0)})
 test('encryption key required before paid work',async()=>{const d=db();assert.equal((await send(agent(d,{...env,AEGIS_RESULT_ENCRYPTION_KEY_B64:''}))[0],503);assert.equal(d.stats.paid,0)})
 test('result stored encrypted, no plaintext response',async()=>{
@@ -152,7 +152,7 @@ test('AES-GCM AAD rejects ciphertext substitution between different events',asyn
 
 test('signed Slack app mention stores and delivers without repeat inference',async()=>{
  const d=db(),h=agent(d),worker=slack(h)
- const body=JSON.stringify({type:'event_callback',event_id:'Ev1234567890',
+ const body=JSON.stringify({type:'event_callback',team_id:TEAM,event_id:'Ev1234567890',
    event:{type:'app_mention',user:'U_OK',channel:CID,text:'<@BOT> inspect',ts:'123.1'}})
  assert.equal((await worker.handler(await signed(body,'application/json'))).status,200)
  await Promise.all(worker.pending)
@@ -164,7 +164,7 @@ test('signed Slack app mention stores and delivers without repeat inference',asy
 })
 test('Slack mention with missing stable event ID cannot dispatch',async()=>{
  const d=db(),worker=slack(agent(d))
- const body=JSON.stringify({type:'event_callback',
+ const body=JSON.stringify({type:'event_callback',team_id:TEAM,
    event:{type:'app_mention',user:'U_OK',channel:CID,text:'<@BOT> do work',ts:'123.1'}})
  assert.equal((await worker.handler(await signed(body,'application/json'))).status,400)
  assert.equal(d.stats.paid,0)
@@ -189,7 +189,7 @@ test('operator can request output-only recovery from Slack without new model spe
  assert.equal([...d.rows.values()][0].state,'READY')
  const recovered=slack(h)
  const recoveryForm=new URLSearchParams({
-   user_id:'U_OK',channel_id:CID,text:'recover slack:slash:13345224609.738474920.8088930838d88f008e0',
+   user_id:ACTOR,team_id:TEAM,channel_id:CID,text:'recover slack:slash:13345224609.738474920.8088930838d88f008e0',
    trigger_id:'13345224609.738474920.NEWRECOVERID',
  }).toString()
  const reply=await recovered.handler(await signed(recoveryForm))
@@ -201,9 +201,37 @@ test('operator can request output-only recovery from Slack without new model spe
 })
 test('operator recovery rejects arbitrary references before provider call',async()=>{
  const d=db(),worker=slack(agent(d))
- const recoveryForm=new URLSearchParams({user_id:'U_OK',channel_id:CID,
+ const recoveryForm=new URLSearchParams({user_id:ACTOR,team_id:TEAM,channel_id:CID,
    text:'recover INVALID_REFERENCE',trigger_id:'13345224609.738474920.NEWRECOVERID',
  }).toString()
  assert.equal((await worker.handler(await signed(recoveryForm))).status,400)
+ assert.equal(d.stats.paid,0)
+})
+
+test('encrypted result cannot be recovered by another allowed user in same channel',async()=>{
+ const d=db(),h=agent(d)
+ assert.equal((await send(h))[0],200)
+ const [status,body]=await send(h,'claim_delivery',{actor_id:'UCOLLEAGUE',team_id:TEAM,attempt_id:crypto.randomUUID()})
+ assert.equal(status,409)
+ assert.equal(body.error,'OUTBOX_NOT_AVAILABLE')
+ assert.equal(d.stats.paid,1)
+})
+test('result cannot be recovered from another Slack workspace',async()=>{
+ const d=db(),h=agent(d)
+ assert.equal((await send(h))[0],200)
+ assert.equal((await send(h,'claim_delivery',{team_id:'T99999',attempt_id:crypto.randomUUID()}))[0],409)
+ assert.equal(d.stats.paid,1)
+})
+test('signed Slack event with unapproved workspace never calls model',async()=>{
+ const d=db(),worker=slack(agent(d))
+ const bad=new URLSearchParams({user_id:ACTOR,team_id:'T99999',channel_id:CID,text:'check',
+   trigger_id:'13345224609.738474920.8088930838d88f008e0'}).toString()
+ assert.equal((await worker.handler(await signed(bad))).status,403)
+ assert.equal(d.stats.paid,0)
+})
+test('agent rejects missing actor and workspace before a paid call',async()=>{
+ const d=db(),h=agent(d)
+ assert.equal((await send(h,'dispatch',{actor_id:undefined}))[0],400)
+ assert.equal((await send(h,'dispatch',{team_id:undefined}))[0],400)
  assert.equal(d.stats.paid,0)
 })
