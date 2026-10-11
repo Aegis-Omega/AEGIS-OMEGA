@@ -1,3 +1,4 @@
+import { handlePaidInvocation } from './paidInvocation.js'
 import { paidCors, paidOriginAllowed, reservePaidInvocation } from './invocationGate.js'
 
 /**
@@ -274,77 +275,14 @@ export default {
     }
 
     if (pathname === '/platform/collaborate' && method === 'POST') {
-      const origin = request.headers.get('origin')
-      const reply = (message: string, code: string, status: number) =>
-        new Response(JSON.stringify({ error: message, code }), {
-          status,
-          headers: { 'Content-Type': 'application/json', ...paidCors(origin) },
-        })
-
-      if (!paidOriginAllowed(origin)) {
-        return reply('Browser origin is not authorized for paid calls', 'ORIGIN_FORBIDDEN', 403)
-      }
-      if (!env.ANTHROPIC_API_KEY) {
-        return reply('Provider execution is not configured', 'PROVIDER_UNAVAILABLE', 503)
-      }
-      if (!(request.headers.get('content-type') ?? '').toLowerCase().includes('application/json')) {
-        return reply('JSON body required', 'INVALID_CONTENT_TYPE', 415)
-      }
-      const declared = Number(request.headers.get('content-length') ?? 0)
-      if (!Number.isFinite(declared) || declared > 4096) {
-        return reply('Request body exceeds limit', 'BODY_TOO_LARGE', 413)
-      }
-      // Read a bounded stream; never reserve quota for malformed input.
-      const reader = request.body?.getReader()
-      const chunks: Uint8Array[] = []
-      let size = 0
-      if (reader) {
-        for (;;) {
-          const chunk = await reader.read()
-          if (chunk.done) break
-          size += chunk.value.byteLength
-          if (size > 4096) {
-            await reader.cancel()
-            return reply('Request body exceeds limit', 'BODY_TOO_LARGE', 413)
-          }
-          chunks.push(chunk.value)
-        }
-      }
-      const bytes = new Uint8Array(size)
-      let offset = 0
-      for (const part of chunks) { bytes.set(part, offset); offset += part.byteLength }
-      let body: unknown
-      try {
-        body = JSON.parse(new TextDecoder('utf-8', { fatal: true }).decode(bytes))
-      } catch {
-        return reply('Malformed JSON payload', 'INVALID_JSON', 400)
-      }
-      if (!body || typeof body !== 'object' || Array.isArray(body)) {
-        return reply('JSON object required', 'INVALID_REQUEST', 400)
-      }
-      const input = body as Record<string, unknown>
-      const objective = typeof input.objective === 'string' ? input.objective.trim() : ''
-      const modes = ['analysis', 'revenue', 'gtm', 'retention']
-      if (!objective || objective.length > 700 || !modes.includes(String(input.mode))) {
-        return reply('Objective and supported mode required', 'INVALID_REQUEST', 400)
-      }
-      if (input.live !== true) {
-        // This Worker has NO demo executor; never spend provider tokens for live:false.
-        return reply('Worker demo execution is not implemented; no provider call was made', 'DEMO_NOT_IMPLEMENTED', 501)
-      }
-      const admission = await reservePaidInvocation(request, env)
-      if (!admission.admitted) {
-        return reply('Invocation denied by authorization or quota gate', admission.code, admission.status)
-      }
-      // A successful atomic reservation is consumed even if downstream fails.
-      try {
-        const result = await runSwarm(objective, input.mode as string, env.ANTHROPIC_API_KEY)
-        return new Response(JSON.stringify(envelope(execId('collab'), result)), {
-          headers: { 'Content-Type': 'application/json', ...paidCors(origin) },
-        })
-      } catch {
-        return reply('Provider call failed after quota reservation; investigate receipt', 'PROVIDER_FAILED', 502)
-      }
+      return handlePaidInvocation(request, env, {
+        originAllowed: paidOriginAllowed,
+        cors: paidCors,
+        reserve: reservePaidInvocation,
+        provider: runSwarm,
+        envelope,
+        id: execId,
+      })
     }
 
     // ── Holon validation endpoint — external AI nodes submit constitutional verdicts ──
