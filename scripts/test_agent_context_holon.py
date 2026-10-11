@@ -340,6 +340,48 @@ class HolonContextTests(unittest.TestCase):
                  patch.object(ctx, "sh", side_effect=AssertionError("network called")):
                 self.assertEqual(ctx.open_prs(quick=True), ([], "unavailable"))
 
+    def test_git_dir_lookup_is_bounded(self):
+        with patch.object(ctx, "sh", return_value="/tmp/.git") as sh:
+            self.assertEqual(ctx.git_dir(), "/tmp/.git")
+        sh.assert_called_once_with("git", "rev-parse",
+                                   "--absolute-git-dir", timeout=2)
+
+    def test_quick_uses_bounded_local_git_timeout(self):
+        output = io.StringIO()
+        with patch.object(ctx, "sh", return_value="") as git, \
+             patch.object(ctx, "verify_main_freshness",
+                          return_value={"state": "UNVERIFIED_QUICK", "sha": None}), \
+             patch.object(ctx, "open_prs", return_value=([], "unavailable")), \
+             patch.object(ctx, "open_issue_board", return_value=([], "unavailable")), \
+             patch.object(ctx, "existing_code", return_value=[]), \
+             patch.object(sys, "argv", ["agent_context.py", "--json", "--quick", "#734"]), \
+             contextlib.redirect_stdout(output):
+            ctx.main()
+        requests = [call for call in git.call_args_list
+                    if call.args and call.args[0] == "git"]
+        self.assertEqual(len(requests), 4)
+        self.assertTrue(all(call.kwargs.get("timeout") == 2 for call in requests))
+        self.assertEqual(json.loads(output.getvalue())["holon_disposition"],
+                         "HOLD_UNVERIFIED_MAIN")
+
+    def test_corrupt_local_git_epoch_is_unknown_not_crash(self):
+        def local_git(*args, **kwargs):
+            return "invalid-epoch" if "--format=%ct" in args else ""
+        output = io.StringIO()
+        with patch.object(ctx, "sh", side_effect=local_git), \
+             patch.object(ctx, "verify_main_freshness",
+                          return_value={"state": "FETCH_FAILED", "sha": None}), \
+             patch.object(ctx, "open_prs", return_value=([], "unavailable")), \
+             patch.object(ctx, "open_issue_board", return_value=([], "unavailable")), \
+             patch.object(ctx, "existing_code", return_value=[]), \
+             patch.object(sys, "argv", ["agent_context.py", "--json", "#734"]), \
+             contextlib.redirect_stdout(output):
+            ctx.main()
+        report = json.loads(output.getvalue())
+        self.assertIsNone(report["local_main_age_days"])
+        self.assertIsNone(report["main_age_days"])
+        self.assertEqual(report["holon_disposition"], "HOLD_UNVERIFIED_MAIN")
+
     def test_quick_main_skips_fetch_scanning_and_billing_calls(self):
         buf = io.StringIO()
         with patch.object(ctx, "sh", return_value="") as sh, \
