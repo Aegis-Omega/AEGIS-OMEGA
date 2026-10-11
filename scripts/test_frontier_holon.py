@@ -102,6 +102,29 @@ class FrontierReviewTests(unittest.TestCase):
         self.paired()
         self.assertIn('STALE_EXTERNAL_RESEARCH', self.audit()['blockers'])
 
+    def test_official_github_docs_are_not_a_second_publisher(self):
+        self.data['sources'][0]['url'] = 'https://github.com/github/docs'
+        self.data['sources'][1]['url'] = 'https://docs.github.com/en/get-started'
+        self.paired()
+        with self.assertRaisesRegex(f.InvalidFrontier, 'publisher groups'):
+            self.audit()
+
+    def test_github_blog_is_not_independent_of_github_org(self):
+        self.data['sources'][0]['url'] = 'https://github.com/github/docs'
+        self.data['sources'][1]['url'] = 'https://github.blog/changelog/'
+        self.paired()
+        with self.assertRaisesRegex(f.InvalidFrontier, 'publisher groups'):
+            self.audit()
+
+    def test_github_docs_and_temporal_remain_structurally_distinct(self):
+        self.data['sources'][0]['url'] = 'https://docs.github.com/en'
+        self.data['sources'][1]['url'] = 'https://docs.temporal.io/workflow-execution'
+        self.paired()
+        receipt = self.audit()
+        self.assertEqual(receipt['source_publisher_groups'],
+                         ['github-owner:github', 'hostname:docs.temporal.io'])
+        self.assertIs(receipt['source_publisher_ownership_authenticated'], False)
+
     def test_github_raw_alias_same_publisher_cannot_count_twice(self):
         self.data['sources'][0]['url'] = 'https://github.com/openai/openai-agents-python'
         self.data['sources'][1]['url'] = (
