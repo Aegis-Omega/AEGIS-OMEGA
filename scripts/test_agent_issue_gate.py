@@ -28,9 +28,9 @@ def good():
                    "head": {"sha": HEAD}, "user": {"login": "builder", "id": 10}, "draft": False, "state": "open"},
             "issue": {"number": 888, "state": "open", "body": BODY},
             "changed_files": ["scripts/agent_issue_gate.py"], "files_complete": True,
-            "check_runs": [{"name": "aegis / issue-gate-tests", "head_sha": HEAD,
+            "check_runs": [{"id": 999, "name": "aegis / issue-gate-tests", "head_sha": HEAD,
                             "status": "completed", "conclusion": "success", "app": {"id": 15368}}],
-            "checks_complete": True, "commits": [{"sha": HEAD, "commit": {"verification": {"verified": True}}}],
+            "checks_complete": True, "check_origins": {"999": True}, "commits": [{"sha": HEAD, "commit": {"verification": {"verified": True}}}],
             "commits_complete": True,
             "reviews": [{"id": 100, "user": {"login": "independent", "id": 20}, "state": "APPROVED", "commit_id": HEAD, "body": proof}],
             "reviews_complete": True}
@@ -181,6 +181,44 @@ class GateTests(unittest.TestCase):
                                           "state": "COMMENTED", "commit_id": HEAD})
         self.fail_gate(x, "independent_identity_review")
 
+    def test_same_app_green_check_without_workflow_origin_fails(self):
+        x = good(); x["check_origins"] = {}
+        self.fail_gate(x, "acceptance:A1")
+
+    def test_explicit_untrusted_workflow_fails(self):
+        x = good(); x["check_origins"]["999"] = False
+        self.fail_gate(x, "acceptance:A1")
+
+    def test_origin_verifier_rejects_candidate_modified_workflow(self):
+        import unittest.mock
+        from agent_issue_gate import _trusted_check_origin
+        x = good()
+        x["pr"]["base"]["sha"] = "b" * 40
+        check = x["check_runs"][0]
+        check["details_url"] = "https://github.com/Aegis-Omega/AEGIS-OMEGA/actions/runs/333/job/999"
+        run = {"path": ".github/workflows/agent-issue-gate.yml", "head_sha": HEAD,
+               "status": "completed", "conclusion": "success", "event": "pull_request", "workflow_id": 22}
+        replies = [run, {"type": "file", "sha": "c" * 40}, {"type": "file", "sha": "d" * 40}]
+        with unittest.mock.patch("agent_issue_gate._api", side_effect=replies):
+            self.assertFalse(_trusted_check_origin(x["repo"], x["pr"], check, ""))
+
+    def test_origin_verifier_accepts_unchanged_workflow(self):
+        import unittest.mock
+        from agent_issue_gate import _trusted_check_origin
+        x = good(); x["pr"]["base"]["sha"] = "b" * 40
+        check = x["check_runs"][0]
+        check["details_url"] = "https://github.com/Aegis-Omega/AEGIS-OMEGA/actions/runs/333/job/999"
+        run = {"path": ".github/workflows/agent-issue-gate.yml", "head_sha": HEAD,
+               "status": "completed", "conclusion": "success", "event": "pull_request", "workflow_id": 22}
+        replies = [run, {"type": "file", "sha": "c" * 40}, {"type": "file", "sha": "c" * 40}]
+        with unittest.mock.patch("agent_issue_gate._api", side_effect=replies):
+            self.assertTrue(_trusted_check_origin(x["repo"], x["pr"], check, ""))
+
+    def test_origin_verifier_rejects_fake_job_details_url(self):
+        from agent_issue_gate import _trusted_check_origin
+        x = good(); x["check_runs"][0]["details_url"] = "https://evil.invalid/check/999"
+        self.assertFalse(_trusted_check_origin(x["repo"], x["pr"], x["check_runs"][0], ""))
+
     def test_stacked_branch(self):
         x = good(); x["pr"]["base"]["ref"] = "feat/old"
         self.fail_gate(x, "base_branch")
@@ -235,7 +273,8 @@ class GateTests(unittest.TestCase):
         replies = [x["pr"], x["issue"], {"total_count": 1, "check_runs": x["check_runs"]},
                    x["reviews"], x["commits"], [{"filename": x["changed_files"][0]}],
                    {**x["pr"], "head": {"sha": "f" * 40}}, x["issue"]]
-        with unittest.mock.patch("agent_issue_gate._api", side_effect=replies):
+        with unittest.mock.patch("agent_issue_gate._api", side_effect=replies), \
+             unittest.mock.patch("agent_issue_gate._trusted_check_origin", return_value=True):
             with self.assertRaisesRegex(Invalid, "PR_CHANGED_DURING_SNAPSHOT"):
                 live_snapshot(x["repo"], 999, "")
 
@@ -247,7 +286,8 @@ class GateTests(unittest.TestCase):
         replies = [x["pr"], x["issue"], {"total_count": 1, "check_runs": x["check_runs"]},
                    x["reviews"], x["commits"], [{"filename": x["changed_files"][0]}],
                    x["pr"], x["issue"]]
-        with unittest.mock.patch("agent_issue_gate._api", side_effect=replies):
+        with unittest.mock.patch("agent_issue_gate._api", side_effect=replies), \
+             unittest.mock.patch("agent_issue_gate._trusted_check_origin", return_value=True):
             snap = live_snapshot(x["repo"], 999, "")
         self.assertTrue(snap["files_complete"])
         self.assertEqual(assess(snap)["disposition"], "EVIDENCE_COMPLETE_NOT_ADMITTED")
@@ -260,7 +300,8 @@ class GateTests(unittest.TestCase):
         replies = [x["pr"], x["issue"], {"total_count": 1, "check_runs": x["check_runs"]},
                    x["reviews"], x["commits"], [{"filename": x["changed_files"][0]}],
                    x["pr"], {**x["issue"], "body": x["issue"]["body"] + "tamper"}]
-        with unittest.mock.patch("agent_issue_gate._api", side_effect=replies):
+        with unittest.mock.patch("agent_issue_gate._api", side_effect=replies), \
+             unittest.mock.patch("agent_issue_gate._trusted_check_origin", return_value=True):
             with self.assertRaisesRegex(Invalid, "ISSUE_CHANGED_DURING_SNAPSHOT"):
                 live_snapshot(x["repo"], 999, "")
 
