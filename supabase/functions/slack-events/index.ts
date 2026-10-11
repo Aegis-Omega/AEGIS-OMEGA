@@ -181,10 +181,27 @@ Deno.serve(async (req) => {
       }), { headers: { 'Content-Type': 'application/json' } })
     }
 
+    // Explicit operator-driven output recovery from Slack/mobile.
+    // It never calls runAgent(), and therefore never replays paid inference.
+    if (task.startsWith('recover ')) {
+      const originalId = task.slice('recover '.length).trim()
+      if (!/^slack:(slash|event):[a-zA-Z0-9_.:-]{5,180}$/.test(originalId)) {
+        return new Response('Invalid recovery reference', { status: 400 })
+      }
+      const accepted = dispatchBackground(async () => {
+        try { await deliverStoredResult(originalId,channel,ts) }
+        catch { console.error('AEGIS_MANUAL_RECOVERY_UNCONFIRMED') }
+      })
+      if (!accepted) return new Response('Recovery unavailable', { status: 503 })
+      return new Response(JSON.stringify({response_type:'ephemeral',
+        text:'Output-only recovery requested. No new model call was made.'}),
+        {headers:{'Content-Type':'application/json'}})
+    }
+
     // Acknowledge immediately (Slack requires <3s response)
     const ackResponse = new Response(JSON.stringify({
       response_type: 'ephemeral',
-      text: 'Task accepted for execution in an approved channel.',
+      text: `Task accepted. Recovery reference: ${dispatchId}. Use /aegis recover ${dispatchId} if result delivery is rejected.`,
     }), { headers: { 'Content-Type': 'application/json' } })
 
     // Explicitly bind background lifetime to Supabase EdgeRuntime.
