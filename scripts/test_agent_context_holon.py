@@ -351,6 +351,60 @@ class HolonContextTests(unittest.TestCase):
                  patch.object(ctx, "sh", side_effect=answer):
                 self.assertEqual(ctx.open_prs(), ([], "github"))
 
+    def test_empty_snapshot_refetch_detects_new_peer_pr(self):
+        """A valid [] must not certify a zero-work holon without a second read."""
+        import tempfile
+        record = {"n": 732, "t": "holon", "h": "feature/holon",
+                  "b": "main", "s": "a" * 40}
+        replies = iter(["[]", json.dumps([record])])
+        def sh(*args, **_kwargs):
+            return next(replies) if args[:2] == ("gh", "api") else ""
+        with tempfile.TemporaryDirectory() as directory, \
+             patch.object(ctx, "git_dir", return_value=directory), \
+             patch.object(ctx, "sh", side_effect=sh):
+            prs, status = ctx.open_prs()
+        self.assertEqual((prs, status), ([], "unavailable"))
+
+    def test_short_page_refetch_detects_midread_change(self):
+        """Changes below 100 PRs must not be certified as a complete view."""
+        import tempfile
+        rec = lambda n: {"n": n, "t": "task", "h": f"feature/{n}",
+                         "b": "main", "s": "a" * 40}
+        first = [rec(i) for i in range(1, 4)]
+        replies = iter([json.dumps(first), json.dumps(first + [rec(4)])])
+        def sh(*args, **_kwargs):
+            return next(replies) if args[:2] == ("gh", "api") else ""
+        with tempfile.TemporaryDirectory() as directory, \
+             patch.object(ctx, "git_dir", return_value=directory), \
+             patch.object(ctx, "sh", side_effect=sh):
+            prs, status = ctx.open_prs()
+        self.assertEqual((len(prs), status), (3, "partial"))
+
+    def test_short_page_stable_returns_complete_after_refetch(self):
+        import tempfile
+        rec = {"n": 734, "t": "stable", "h": "feature/x",
+               "b": "main", "s": "a" * 40}
+        outputs = iter([json.dumps([rec]), json.dumps([rec])])
+        def sh(*args, **_kwargs):
+            return next(outputs) if args[:2] == ("gh", "api") else ""
+        with tempfile.TemporaryDirectory() as directory, \
+             patch.object(ctx, "git_dir", return_value=directory), \
+             patch.object(ctx, "sh", side_effect=sh):
+            self.assertEqual(ctx.open_prs(), ([rec], "github"))
+
+    def test_short_page_refetch_transport_failure_is_incomplete(self):
+        import tempfile
+        rec = {"n": 734, "t": "stable", "h": "feature/x",
+               "b": "main", "s": "a" * 40}
+        outputs = iter([json.dumps([rec]), ""])
+        def sh(*args, **_kwargs):
+            return next(outputs) if args[:2] == ("gh", "api") else ""
+        with tempfile.TemporaryDirectory() as directory, \
+             patch.object(ctx, "git_dir", return_value=directory), \
+             patch.object(ctx, "sh", side_effect=sh):
+            prs, state = ctx.open_prs()
+        self.assertEqual((len(prs), state), (1, "partial"))
+
     def test_pretty_json_is_parsed_as_one_github_page(self):
         import tempfile
         record = {"n": 732, "t": "holon", "h": "claude/agent-ground-truth",
