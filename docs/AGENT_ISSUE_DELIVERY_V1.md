@@ -89,3 +89,7 @@ Compare duplicate-PR creation, false-positive completion, exact-head proof cover
 **Verified:** source-bound offline unittest suite 51/51 PASS (not hosted CI), with negative checks covering scope traversal, swapped reviewer identities, reordered reviews and forged trusted-app success.
 
 **Admission debt:** the trusted-base workflow does not exist on current main, latest candidate commits were unsigned, and hosted jobs failed without executed step evidence. Keep DRAFT / NOT_ADMITTED. No production, billing, signing, protection, merge, or authorization changes.
+
+### Offline simulation cannot certify live evidence
+
+`--snapshot` is deliberately **simulation-only**, even when its caller-provided JSON describes every gate as PASS. The CLI sets `disposition=OFFLINE_SIMULATION_ONLY`, preserves the reducer's hypothetical finding separately as `simulated_reducer_disposition`, and exits with code `2`. Only a fresh authenticated `--live-pr` observation can return CLI status `0` (still `EVIDENCE_COMPLETE_NOT_ADMITTED`, never merge authority). This boundary is regression-tested so no agent may launder synthetic receipts into verified GitHub checks.
