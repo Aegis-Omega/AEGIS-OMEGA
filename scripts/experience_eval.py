@@ -58,9 +58,13 @@ def evaluate(doc):
             (type(doc['reviewer']['evidence']) is str and HEX64.fullmatch(doc['reviewer']['evidence'])),
             'review evidence digest invalid')
     arr = doc['axes']
-    _assert(type(arr) is list and len(arr) == len(AXES), 'all axes required exactly once')
+    _assert(type(arr) is list and len(arr) >= len(AXES), 'all baseline axes required')
     ids = [x.get('id') if type(x) is dict else None for x in arr]
-    _assert(len(ids) == len(set(ids)) and set(ids) == set(AXES), 'axes missing, unknown or duplicate')
+    _assert(all(type(i) is str for i in ids), 'axis identifier must be string')
+    _assert(len(ids) == len(set(ids)) and set(AXES).issubset(ids),
+            'axes missing or duplicate')
+    _assert(all(i in AXES or (i.startswith('ext.') and IDENT.fullmatch(i)) for i in ids),
+            'unrecognized or unnamespaced axis')
     results = []
     for axis in sorted(arr, key=lambda v: v['id']):
         name = axis['id']
