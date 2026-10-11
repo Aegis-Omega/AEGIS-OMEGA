@@ -97,6 +97,8 @@ def compose(snapshot: Mapping[str, Any], *, source_head: str,
     if sum(len(x["events"]) for x in main_routes) != graph["node_count"]:
         raise ValueError("WORKPLANE_INCOMPLETE_PROPAGATION")
     lesson_routes = _route_lessons(graph, evolution_round, source_head)
+    from agents.dendrite_route_evolution import search_routes
+    route_search = search_routes(head=source_head)
     observed = (observe_evolution(skill_tree, lineage)
                 if skill_tree is not None else {"status": "NOT_REQUESTED",
                                                    "promotion_applied": False})
@@ -113,6 +115,7 @@ def compose(snapshot: Mapping[str, Any], *, source_head: str,
         "issue_evolution": evolution_round,
         "issue_route_shards": main_routes,
         "lesson_route_shards": lesson_routes,
+        "candidate_route_search": route_search,
         "existing_skill_evolution": observed,
         "transport": "IN_MEMORY_BY_DEFAULT",
         "source_authenticity": "NOT_VERIFIED",
