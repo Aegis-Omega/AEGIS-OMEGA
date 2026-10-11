@@ -24,6 +24,22 @@ obligation may coexist. The absence of blockers is never permission to merge,
 spend money, deploy or change authority.
 "No title match" does **not** prove that paths or semantics cannot conflict.
 
+## 1a. Portable holon task contract (v1 candidate)
+
+For cross-model or cross-domain work, express the Operator's objective,
+acceptance criteria and issue reference as a versioned, machine-readable
+contract. See [scripts/HOLON_CONTRACT.md](scripts/HOLON_CONTRACT.md).
+Generate real context from `scripts/agent_context.py --json '#ISSUE task'`,
+then execute `python3 scripts/holon_contract.py task.json context.json --json`.
+
+This is an **advisory allocation preflight**, not agent authentication or an
+authority token. `READY_FOR_ASSIGNMENT_REVIEW` means only that the provided
+context passed structural checks. No version of the contract can authorize a
+merge, payment, release, deployment, secret access or scientific proof.
+The first release is DRAFT and must pass independent exact-head replay before
+being treated as mandatory by non-AEGIS installations. Existing A2A/MCP task
+transports and #743 receipt/provenance verification are reused, not replaced.
+
 ## 2. The task board is GitHub Issues
 
 - One task = one issue. No issue → open one first (search for duplicates before).
