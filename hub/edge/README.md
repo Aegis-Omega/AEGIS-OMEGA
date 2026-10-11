@@ -12,6 +12,6 @@ Worker endpoint: `https://aegis-public-observation.tarikskalic33.workers.dev/api
 - No inference of a verified chain: gateway labels remote data `UNSIGNED_REMOTE_REPORT_NOT_INDEPENDENTLY_VERIFIED`.
 - No cache; every client request makes a bounded upstream GET (3.8-second deadline). Traffic/rate cost and Cloudflare's free-tier limits need monitoring before high-volume public promotion.
 
-Run tests: `node --test test.mjs`.
+Run tests: `node --test public-observation.test.mjs`.
 
 **No DNS move or production replacement.** The worker is a bounded public read-only telemetry projection; AEGIS production `aegisomega.com` remains unchanged.
