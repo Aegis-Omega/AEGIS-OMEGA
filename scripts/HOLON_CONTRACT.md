@@ -51,3 +51,36 @@ No accepted assignment claim becomes a runtime write permission. `Agent:` commit
 ## Future verified integration work
 
 Actual distributed claim leasing, concurrent atomic assignment, independently authenticated agent identity, signed provenance, universal capability discovery, provider interoperability stress, and real cross-agent end-to-end tasks remain outside v1 scope. Do not claim world-leading performance, production readiness, or global adoption without comparative benchmarks and signed receipts.
+## Stage 2 — shared work/evidence arbitration (GPT-6 contribution)
+
+After `holon_contract.py` evaluates **one** proposed task against fresh repository
+context, `scripts/holon_gate.py` evaluates the **whole task graph** across models.
+These are complementary checks, **not competing protocols**:
+
+```bash
+# No network, keys, external writes, paid model calls or package installs.
+python3 scripts/holon_gate.py --input snapshot.json --root . --actor GPT-6 > audit.json
+python3 -m unittest discover -s scripts -p 'test_holon_gate.py' -v
+```
+
+Input `snapshot.json` is a provider-neutral object containing `tasks` and
+optional `submissions`. Every task requires `id`, `objective`, `done_when`,
+`priority` (p0–p3), `state` (OPEN/CLAIMED/IN_PROGRESS/REVIEW/BLOCKED/
+REPORTED_LANDED), `paths`, and `depends_on`. A claim may include
+`claimed_by` and `source`. A submission may include `task_id`, `author`,
+40-hex `source_sha`, `artifact_file`, `artifact_sha256`, `tests` (each
+bound to source SHA), and `review` (reviewer, verdict, source SHA).
+
+The second-stage audit detects active-path collisions (including a newly
+OPEN task conflicting with claimed work), graph cycles, unverifiable dependent
+tasks, SHA/source mismatch, unsafe local file references, unverified review,
+and attempts to mark work landed without signed protected-main evidence.
+Local artifact SHA replay proves **file integrity only**, not mathematical truth
+or model identity. All results have `authority_effect=NONE` and the offline
+tool can **never** emit DONE. Release admission belongs to a separate
+authenticated verifier connected to actual CI, reviewer identity and main.
+
+The kernel is portable to research, genomics, code, marketing, design and any
+other task domain; it is **not** a claim of production deployment, verified
+learning between models or SOTA superiority. JSON documents are untrusted;
+duplicate keys, NaN, unsafe paths and >1 MiB snapshots are rejected.
