@@ -69,26 +69,46 @@ def valid_path(path):
             and not any(ord(c) < 32 for c in path))
 
 
-def _artifact_bytes(root, name):
-    """Open under an existing workspace, reject symlinks at every component."""
+def _artifact_bytes(root, name, cap=MAX_ARTIFACT_BYTES):
+    """Read a bounded file under workspace without following symlinks.
+
+    POSIX: dirfd + O_NOFOLLOW closes parent-component symlink races.
+    Other OS: precheck + read; not race-proof against concurrent writers.
+    """
     require(valid_path(name), "ARTIFACT_PATH_INVALID")
     root = Path(root).resolve(strict=True)
     require(root.is_dir(), "ROOT_NOT_DIRECTORY")
-    current = root
     parts = name.split("/")
-    for i, part in enumerate(parts):
-        current = current / part
-        mode = os.lstat(current).st_mode
-        require(not stat.S_ISLNK(mode), "SYMLINK_FORBIDDEN")
-        if i < len(parts) - 1:
-            require(stat.S_ISDIR(mode), "PATH_PARENT_NOT_DIRECTORY")
-        else:
-            require(stat.S_ISREG(mode), "ARTIFACT_NOT_REGULAR_FILE")
-    # No OS-independent guarantee against hostile concurrent filesystem mutation;
-    # never run this verifier on an attacker-writable live workspace.
-    with open(current, "rb") as f:
-        raw = f.read(MAX_ARTIFACT_BYTES + 1)
-    require(len(raw) <= MAX_ARTIFACT_BYTES, "ARTIFACT_TOO_LARGE")
+    if os.name == "posix" and hasattr(os, "O_NOFOLLOW"):
+        flags = os.O_RDONLY | os.O_NOFOLLOW
+        directory = os.open(root, os.O_RDONLY | os.O_DIRECTORY)
+        try:
+            for part in parts[:-1]:
+                next_fd = os.open(part, flags | os.O_DIRECTORY, dir_fd=directory)
+                os.close(directory)
+                directory = next_fd
+            fd = os.open(parts[-1], flags, dir_fd=directory)
+            try:
+                require(stat.S_ISREG(os.fstat(fd).st_mode), "ARTIFACT_NOT_REGULAR_FILE")
+                with os.fdopen(fd, "rb", closefd=False) as f:
+                    raw = f.read(cap + 1)
+            finally:
+                os.close(fd)
+        except OSError as e:
+            raise Invalid("UNSAFE_OR_MISSING_ARTIFACT") from e
+        finally:
+            os.close(directory)
+    else:
+        current = root
+        for i, part in enumerate(parts):
+            current = current / part
+            mode = os.lstat(current).st_mode
+            require(not stat.S_ISLNK(mode), "SYMLINK_FORBIDDEN")
+            require(stat.S_ISDIR(mode) if i < len(parts) - 1 else stat.S_ISREG(mode),
+                    "ARTIFACT_NOT_REGULAR_FILE")
+        with open(current, "rb") as f:
+            raw = f.read(cap + 1)
+    require(len(raw) <= cap, "ARTIFACT_TOO_LARGE")
     return raw
 
 
@@ -217,10 +237,10 @@ def cli(argv=None):
     parser.add_argument("--output", help="Optional receipt output path (otherwise stdout)")
     ns = parser.parse_args(argv)
     try:
-        manifest_path = Path(ns.workspace) / ns.manifest
         require(valid_path(ns.manifest), "MANIFEST_PATH_INVALID")
-        require(not manifest_path.is_symlink(), "MANIFEST_SYMLINK_FORBIDDEN")
-        data = read_json(manifest_path)
+        raw = _artifact_bytes(ns.workspace, ns.manifest, MAX_MANIFEST_BYTES)
+        data = json.loads(raw.decode("utf-8"), object_pairs_hook=_strict_pairs,
+                          parse_constant=lambda _: (_ for _ in ()).throw(Invalid("NONFINITE_JSON")))
         result = verify(ns.workspace, data)
     except (Invalid, OSError) as e:
         result = {"schema": "aegis.workpack.receipt.v1", "disposition": "NOT_ADMITTED",
