@@ -157,6 +157,12 @@ def acquire(url: str, allow_hosts: tuple[str, ...], *, resolver=socket.getaddrin
             raise CaptureDenied('AMBIGUOUS_TRANSFER_FRAMING')
         if transfer and transfer != 'chunked':
             raise CaptureDenied('UNSUPPORTED_TRANSFER_ENCODING')
+        # RFC 9112 §6.3: when neither Content-Length nor chunked framing is
+        # present, EOF alone cannot distinguish a complete document from a
+        # prematurely interrupted HTTP response. This is an evidence-producing
+        # collector: fail closed instead of signing a potentially partial body.
+        if length is None and not transfer:
+            raise CaptureDenied('UNVERIFIABLE_BODY_COMPLETION')
         # http.client parses/dechunks framing; don't accept a claimed chunked
         # body through a transport that has not actually enabled decoding.
         if bool(getattr(response, 'chunked', False)) != (transfer == 'chunked'):
