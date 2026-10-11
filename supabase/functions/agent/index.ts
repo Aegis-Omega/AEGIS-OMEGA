@@ -10,6 +10,14 @@ const ANTHROPIC_API_KEY = Deno.env.get('ANTHROPIC_API_KEY') ?? ''
 const NOTIFY_SECRET     = Deno.env.get('NOTIFY_SECRET') ?? ''
 const SUPABASE_URL      = Deno.env.get('SUPABASE_URL') ?? ''
 const SERVICE_KEY       = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+// Explicit team:user pairs; a generic Slack dispatch allowance does not grant
+// read access to service-role purchase records. No wildcard or empty default.
+const PURCHASE_READERS = new Set((Deno.env.get('AEGIS_PURCHASE_READERS') ?? '')
+  .split(',').map(x => x.trim()).filter(x => /^T[A-Za-z0-9]{2,48}:U[A-Za-z0-9]{2,48}$/.test(x)))
+function hasPurchaseReaderScope(actorId?: string, teamId?: string): boolean {
+  return typeof actorId === 'string' && typeof teamId === 'string' &&
+    PURCHASE_READERS.has(teamId + ':' + actorId)
+}
 
 const SYSTEM = `You are the AEGIS-Ω autonomous agent. You run tasks for Tarik (aegisomega.com founder).
 You have only the read-only purchase-query tool. Never attempt to send email, Slack, or other external notifications as a model tool; results must be delivered through the encrypted operator-authorized outbox.
@@ -34,8 +42,11 @@ const TOOLS = [
 ]
 
 // ── Tool execution ────────────────────────────────────────────────────────────
-async function runTool(name: string, input: Record<string, unknown>): Promise<string> {
+async function runTool(name: string, input: Record<string, unknown>,
+                       actorId?: string, teamId?: string): Promise<string> {
   if (name === 'query_purchases') {
+    if (!hasPurchaseReaderScope(actorId, teamId)) return 'TOOL_NOT_AUTHORIZED'
+    if (!input || typeof input !== 'object' || Array.isArray(input)) return 'INVALID_INPUT'
     // A model-provided argument is untrusted. Never let it expand a
     // service-role query or make an unknown filter silently return all rows.
     const requested = input.limit
@@ -68,7 +79,7 @@ async function runTool(name: string, input: Record<string, unknown>): Promise<st
 }
 
 // ── Agentic loop (max 5 turns) ────────────────────────────────────────────────
-async function runAgent(task: string, context?: string): Promise<{ result: string; actions: string[] }> {
+async function runAgent(task: string, context?: string, actorId?: string, teamId?: string): Promise<{ result: string; actions: string[] }> {
   const messages: { role: string; content: unknown }[] = [
     { role: 'user', content: context ? `Context:\n${context}\n\nTask: ${task}` : task },
   ]
@@ -87,7 +98,7 @@ async function runAgent(task: string, context?: string): Promise<{ result: strin
         model: 'claude-haiku-4-5',
         max_tokens: 1024,
         system: [{ type: 'text', text: SYSTEM, cache_control: { type: 'ephemeral' } }],
-        tools: TOOLS,
+        tools: hasPurchaseReaderScope(actorId, teamId) ? TOOLS : [],
         messages,
       }),
     })
@@ -111,7 +122,7 @@ async function runAgent(task: string, context?: string): Promise<{ result: strin
       for (const block of msg.content) {
         if (block.type !== 'tool_use') continue
         actions.push(`${block.name}(${JSON.stringify(block.input)})`)
-        const output = await runTool(block.name, block.input)
+        const output = await runTool(block.name, block.input, actorId, teamId)
         toolResults.push({ type: 'tool_result', tool_use_id: block.id, content: output })
       }
       messages.push({ role: 'user', content: toolResults })
@@ -302,7 +313,7 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const {result} = await runAgent(task,context)
+    const {result} = await runAgent(task,context,actor_id,team_id)
     if (typeof result !== 'string' || result.length > 20000) {
       return response(503,{error:'RESULT_EXCEEDS_OUTBOX_LIMIT'})
     }
