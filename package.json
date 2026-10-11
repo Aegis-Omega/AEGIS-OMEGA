@@ -6,7 +6,7 @@
   "scripts": {
     "dev-backend": "npm run dev --prefix backend",
     "dev": "npm run dev-backend",
-    "test:edge-invocation": "node --experimental-strip-types --test tests/invocation-gate.test.mjs tests/paid-invocation.test.mjs"
+    "test:edge-invocation": "node --experimental-strip-types --test tests/invocation-gate.test.mjs tests/paid-invocation.test.mjs tests/paid-mode-type.test.mjs"
   },
   "devDependencies": {
     "concurrently": "latest"
