@@ -267,7 +267,8 @@ class GateTests(unittest.TestCase):
             with contextlib.redirect_stdout(io.StringIO()) as capture:
                 exit_code = main(["--snapshot", str(path)])
             result = json.loads(capture.getvalue())
-            self.assertEqual(result["disposition"], "EVIDENCE_COMPLETE_NOT_ADMITTED")
+            self.assertEqual(result["disposition"], "OFFLINE_SIMULATION_ONLY")
+            self.assertEqual(result["simulated_reducer_disposition"], "EVIDENCE_COMPLETE_NOT_ADMITTED")
             self.assertEqual(result["source"], "caller_supplied_UNTRUSTED")
             self.assertEqual(exit_code, 2)
 
