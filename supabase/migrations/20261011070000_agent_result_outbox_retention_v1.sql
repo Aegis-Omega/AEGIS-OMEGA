@@ -5,9 +5,11 @@
 -- purge stored encrypted payloads without deleting the once-only dispatch
 -- claim and accidentally permitting a second paid inference.
 --
--- SECURITY INVOKER requires the service role's actual SQL DELETE privilege.
--- This does not grant browser/anonymous users any table access.
-grant delete on public.aegis_agent_result_outbox_v1 to service_role;
+-- SECURITY DEFINER limits service_role to this function's expired-only,
+-- bounded DELETE rather than granting the role arbitrary table DELETE.
+-- Function ownership must be verified as a trusted migration role before
+-- admission. All referenced relations are schema-qualified and search_path
+-- is empty to prevent untrusted name resolution.
 
 -- Expired SENDING rows are also deleted: privacy retention supersedes
 -- availability after expiry. The unresolved count is returned for audit.
@@ -15,7 +17,7 @@ grant delete on public.aegis_agent_result_outbox_v1 to service_role;
 create or replace function public.aegis_outbox_purge_expired_v1(
   p_batch_limit integer
 ) returns table(deleted_count bigint, unresolved_count bigint)
-language sql security invoker set search_path = '' as $func$
+language sql security definer set search_path = '' as $func$
   with expired as (
     select o.ctid
       from public.aegis_agent_result_outbox_v1 as o
@@ -41,6 +43,6 @@ grant execute on function public.aegis_outbox_purge_expired_v1(integer)
   to service_role;
 
 comment on function public.aegis_outbox_purge_expired_v1(integer) is
-  'Privileged bounded deletion of expired encrypted outbox payloads only. '
+  'Privileged bounded deletion of expired encrypted outbox payloads only; '
   'Preserves once-only dispatch evidence. Not automatically scheduled; '
   'actual Postgres and backup-retention validation required before admission.';
