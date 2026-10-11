@@ -46,10 +46,32 @@ async function handler(req) {
     if (!upstream.ok) return response({error:'UPSTREAM_UNAVAILABLE',upstream_status:upstream.status,attestation:'NOT_VERIFIED'},503);
     const declared = Number(upstream.headers.get('content-length') || '0');
     if (declared > MAX_BYTES) return response({error:'UPSTREAM_TOO_LARGE'},502);
-    const raw = await upstream.text();
-    if (raw.length > MAX_BYTES) return response({error:'UPSTREAM_TOO_LARGE'},502);
+    // Read no more than MAX_BYTES of UTF-8 bytes. An unbounded text() call
+    // can buffer arbitrarily large upstream responses before validating size.
+    if (!upstream.body) return response({error:'UPSTREAM_EMPTY_BODY'},502);
+    const reader = upstream.body.getReader();
+    const chunks = [];
+    let total = 0;
+    let oversized = false;
+    try {
+      for (;;) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        if (!value) continue;
+        total += value.byteLength;
+        if (total > MAX_BYTES) { oversized = true; break; }
+        chunks.push(value);
+      }
+    } finally {
+      if (oversized) await reader.cancel().catch(() => {});
+    }
+    if (oversized) return response({error:'UPSTREAM_TOO_LARGE'},502);
+    const bytes = new Uint8Array(total);
+    let offset = 0;
+    for (const chunk of chunks) { bytes.set(chunk, offset); offset += chunk.byteLength; }
     let env;
-    try { env = JSON.parse(raw); } catch { return response({error:'UPSTREAM_INVALID_JSON'},502); }
+    try { env = JSON.parse(new TextDecoder('utf-8', { fatal:true }).decode(bytes)); }
+    catch { return response({error:'UPSTREAM_INVALID_JSON'},502); }
     if (!env || typeof env !== 'object' || Array.isArray(env) || !statusIsValid(env.data)) {
       return response({error:'UPSTREAM_INVALID_CONTRACT'},502);
     }
