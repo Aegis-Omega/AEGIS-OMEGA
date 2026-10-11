@@ -128,6 +128,52 @@ async function runAgent(task: string, context?: string): Promise<{ result: strin
   return { result: 'Agent reached max turns without completing task.', actions }
 }
 
+// ── Encrypted, fail-closed result outbox ───────────────────────────────────────
+// No key material, raw customer data or model output is logged. The symmetric
+// key is an operator-provisioned base64-encoded 256-bit AES key, separate from
+// AEGIS_AGENT_INVOKE_SECRET. Losing/rotating it without re-encryption means
+// existing results cannot be recovered. This is deliberate fail-closed behavior.
+function configuredResultKey(): string | null {
+  const base64 = Deno.env.get('AEGIS_RESULT_ENCRYPTION_KEY_B64') ?? ''
+  try {
+    const bytes = Uint8Array.from(atob(base64), c => c.charCodeAt(0))
+    return bytes.length === 32 ? base64 : null
+  } catch { return null }
+}
+
+async function aesResultKey(key: string): Promise<CryptoKey> {
+  return crypto.subtle.importKey('raw', Uint8Array.from(atob(key), c => c.charCodeAt(0)),
+    'AES-GCM', false, ['encrypt', 'decrypt'])
+}
+
+function b64(bytes: Uint8Array): string {
+  return btoa(String.fromCharCode(...bytes))
+}
+function unb64(text: string): Uint8Array {
+  return Uint8Array.from(atob(text), c => c.charCodeAt(0))
+}
+async function sealResult(plain: string, key: string): Promise<{ciphertext_b64:string, iv_b64:string}> {
+  const iv = crypto.getRandomValues(new Uint8Array(12))
+  const encrypted = await crypto.subtle.encrypt({name:'AES-GCM',iv}, await aesResultKey(key),
+    new TextEncoder().encode(plain))
+  return {ciphertext_b64:b64(new Uint8Array(encrypted)), iv_b64:b64(iv)}
+}
+async function openResult(ciphertext_b64: string, iv_b64: string, key: string): Promise<string> {
+  const iv = unb64(iv_b64)
+  if (iv.length !== 12) throw new Error('BAD_RESULT_IV')
+  const plain = await crypto.subtle.decrypt({name:'AES-GCM',iv}, await aesResultKey(key),
+    unb64(ciphertext_b64))
+  return new TextDecoder().decode(plain)
+}
+async function taggedDigest(tag: string, value: string): Promise<string> {
+  const input = new TextEncoder().encode(tag + '\0' + value)
+  const hash = new Uint8Array(await crypto.subtle.digest('SHA-256',input))
+  return Array.from(hash).map(b=>b.toString(16).padStart(2,'0')).join('')
+}
+const REPLAY_ID = /^slack:(slash|event):[a-zA-Z0-9_.:-]{5,180}$/
+const CHANNEL_ID = /^[CDG][A-Za-z0-9]{2,48}$/
+const ATTEMPT_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
+
 // ── HTTP handler ──────────────────────────────────────────────────────────────
 // Server-to-server invocation capability. Never infer access from endpoint reachability.
 async function secureEquals(a: string, b: string): Promise<boolean> {
@@ -162,10 +208,6 @@ Deno.serve(async (req) => {
     })
   }
 
-  if (!ANTHROPIC_API_KEY) {
-    return new Response(JSON.stringify({ error: 'ANTHROPIC_API_KEY not configured' }), { status: 503, headers: CORS })
-  }
-
   // This is a privileged and paid tool surface. A stable, signed-Slack-sourced
   // event ID is mandatory; a caller may not invent a retryable execution.
   let payload: unknown
@@ -177,66 +219,100 @@ Deno.serve(async (req) => {
   if (!payload || typeof payload !== 'object' || Array.isArray(payload)) {
     return new Response(JSON.stringify({ error: 'INVALID_INPUT' }), { status: 400, headers: CORS })
   }
-  const { task, context, notify, dispatch_id } = payload as {
+  const { task, context, notify, dispatch_id, channel_id, operation, attempt_id,
+          delivery_accepted } = payload as {
     task?: unknown; context?: unknown; notify?: unknown; dispatch_id?: unknown
+    channel_id?: unknown; operation?: unknown; attempt_id?: unknown
+    delivery_accepted?: unknown
   }
-  if (typeof task !== 'string' || !task.trim() || task.length > 4000 ||
-      (context !== undefined && (typeof context !== 'string' || context.length > 6000)) ||
-      typeof dispatch_id !== 'string' ||
-      !/^slack:(slash|event):[a-zA-Z0-9_.:-]{5,180}$/.test(dispatch_id)) {
-    return new Response(JSON.stringify({ error: 'INVALID_DISPATCH' }), { status: 400, headers: CORS })
+  if (typeof dispatch_id !== 'string' || !REPLAY_ID.test(dispatch_id) ||
+      typeof channel_id !== 'string' || !CHANNEL_ID.test(channel_id)) {
+    return new Response(JSON.stringify({error:'INVALID_DISPATCH'}),{status:400,headers:CORS})
   }
   if (!SUPABASE_URL || !SERVICE_KEY) {
-    return new Response(JSON.stringify({ error: 'DISPATCH_STORE_NOT_CONFIGURED' }), {
-      status: 503, headers: CORS,
+    return new Response(JSON.stringify({error:'DISPATCH_STORE_NOT_CONFIGURED'}),
+      {status:503,headers:CORS})
+  }
+  const encryptionKey = configuredResultKey()
+  if (!encryptionKey) {
+    return new Response(JSON.stringify({error:'RESULT_ENCRYPTION_NOT_CONFIGURED'}),
+      {status:503,headers:CORS})
+  }
+  const event_digest = await taggedDigest('AEGIS_AGENT_DISPATCH_V1',dispatch_id)
+  const destination_digest = await taggedDigest('AEGIS_SLACK_DESTINATION_V1',channel_id)
+  const store = createClient(SUPABASE_URL,SERVICE_KEY)
+  const action = operation ?? 'dispatch'
+  const response = (code: number,data: Record<string,unknown>) => new Response(
+    JSON.stringify(data),{status:code,headers:{...CORS,'Content-Type':'application/json'}})
+
+  if (action === 'claim_delivery') {
+    if (typeof attempt_id !== 'string' || !ATTEMPT_ID.test(attempt_id)) {
+      return response(400,{error:'INVALID_DELIVERY_ATTEMPT'})
+    }
+    const {data,error} = await store.rpc('aegis_outbox_claim_delivery_v1',{
+      p_event_digest:event_digest,p_destination_digest:destination_digest,p_attempt_id:attempt_id,
     })
+    if (error) return response(503,{error:'OUTBOX_CLAIM_UNAVAILABLE'})
+    const row = Array.isArray(data) ? data[0] : null
+    if (!row) return response(409,{error:'OUTBOX_NOT_AVAILABLE'})
+    try {
+      const result = await openResult(row.ciphertext_b64,row.iv_b64,encryptionKey)
+      return response(200,{ok:true,result,status:'DELIVERY_LEASED'})
+    } catch {
+      // Never unlock ambiguous claimed output automatically.
+      return response(503,{error:'OUTBOX_DECRYPT_FAILED'})
+    }
   }
 
-  // A UNIQUE insert is an atomic, durable cross-isolate claim. A verified
-  // signature and allowed Slack user alone do not prevent replay within 300s.
-  // Rotate the invocation token without changing the idempotency digest.
-  // Reserve BEFORE any model/API call; failures are denied (not assumed safe).
-  const encoder = new TextEncoder()
-  const bytes = await crypto.subtle.digest(
-    'SHA-256', encoder.encode('AEGIS_AGENT_DISPATCH_V1\0' + dispatch_id),
-  )
-  const event_digest = Array.from(new Uint8Array(bytes))
-    .map(b => b.toString(16).padStart(2, '0')).join('')
-  const store = createClient(SUPABASE_URL, SERVICE_KEY)
-  const { error: claimError } = await store.from('aegis_agent_dispatch_claims_v1')
-    .insert({ event_digest })
-  if (claimError) {
-    if (claimError.code === '23505') {
-      return new Response(JSON.stringify({ error: 'DUPLICATE_DISPATCH' }), {
-        status: 409, headers: CORS,
-      })
+  if (action === 'complete_delivery') {
+    if (typeof attempt_id !== 'string' || !ATTEMPT_ID.test(attempt_id) ||
+        typeof delivery_accepted !== 'boolean') {
+      return response(400,{error:'INVALID_DELIVERY_ACK'})
     }
-    return new Response(JSON.stringify({ error: 'DISPATCH_CLAIM_UNAVAILABLE' }), {
-      status: 503, headers: CORS,
+    const {data,error} = await store.rpc('aegis_outbox_complete_delivery_v1',{
+      p_event_digest:event_digest,p_destination_digest:destination_digest,
+      p_attempt_id:attempt_id,p_delivered:delivery_accepted,
     })
+    if (error) return response(503,{error:'OUTBOX_ACK_UNAVAILABLE'})
+    if (data !== true) return response(409,{error:'STALE_DELIVERY_ATTEMPT'})
+    return response(200,{ok:true,status:delivery_accepted?'DELIVERED':'READY_FOR_RETRY'})
+  }
+
+  if (action !== 'dispatch') return response(400,{error:'UNKNOWN_OPERATION'})
+  if (!ANTHROPIC_API_KEY) return response(503,{error:'MODEL_NOT_CONFIGURED'})
+  if (typeof task !== 'string' || !task.trim() || task.length > 4000 ||
+      (context !== undefined && (typeof context !== 'string' || context.length > 6000)) ||
+      notify === true) {
+    return response(400,{error:'INVALID_TASK'})
+  }
+
+  // UNIQUE claim is the paid-inference concurrency gate. Never re-execute on
+  // duplicate, including when the previous model call timed out ambiguously.
+  const {error:claimError} = await store.from('aegis_agent_dispatch_claims_v1')
+    .insert({event_digest})
+  if (claimError) {
+    return claimError.code === '23505'
+      ? response(409,{error:'DUPLICATE_DISPATCH'})
+      : response(503,{error:'DISPATCH_CLAIM_UNAVAILABLE'})
   }
 
   try {
-    const { result, actions } = await runAgent(task, context)
-
-    // Optionally notify owner with the result
-    if (notify) {
-      const notifyUrl = `${SUPABASE_URL}/functions/v1/notify`
-      await fetch(notifyUrl, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'x-notify-secret': NOTIFY_SECRET },
-        body: JSON.stringify({ channel: 'both', subject: `Agent result: ${task.slice(0, 60)}`, text: result }),
-      }).catch(console.error)
+    const {result} = await runAgent(task,context)
+    if (typeof result !== 'string' || result.length > 20000) {
+      return response(503,{error:'RESULT_EXCEEDS_OUTBOX_LIMIT'})
     }
-
-    return new Response(JSON.stringify({ ok: true, result, actions }), {
-      headers: { ...CORS, 'Content-Type': 'application/json' },
-    })
-  } catch (e) {
-    console.error('Agent error:', e)
-    return new Response(JSON.stringify({ error: (e as Error).message }), {
-      status: 500,
-      headers: { ...CORS, 'Content-Type': 'application/json' },
-    })
+    const sealed = await sealResult(result,encryptionKey)
+    const {error:writeError} = await store.from('aegis_agent_result_outbox_v1')
+      .insert({event_digest,destination_digest,...sealed})
+    if (writeError) {
+      // Paid work may have completed, but it was not safely persisted.
+      console.error('AEGIS_RESULT_PERSIST_FAILED')
+      return response(503,{error:'RESULT_PERSIST_FAILED'})
+    }
+    return response(200,{ok:true,status:'RESULT_STORED'})
+  } catch {
+    console.error('AEGIS_MODEL_EXECUTION_FAILED')
+    return response(503,{error:'MODEL_EXECUTION_UNCONFIRMED'})
   }
+
 })
