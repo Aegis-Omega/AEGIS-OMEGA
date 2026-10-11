@@ -176,6 +176,21 @@ class EconomicReservationLedger:
             db.execute("BEGIN")
             return self._summary(db, scope)
 
+    def get_attempt(self, *, scope: str, attempt_id: str) -> ReservationReceipt:
+        """Read one persisted reservation without changing its generation or state."""
+        _id("scope", scope)
+        _id("attempt_id", attempt_id)
+        with self._connection() as db:
+            db.execute("BEGIN")
+            snap = self._summary(db, scope)
+            row = db.execute(
+                "SELECT attempt_id,intent_root,boundary_root,amount,state,observation_root,generation "
+                "FROM attempts WHERE scope=? AND attempt_id=?", (scope, attempt_id)
+            ).fetchone()
+            if row is None:
+                raise ReservationDenied("UNKNOWN_ATTEMPT")
+            return self._receipt(scope, row, snap.policy_root, "READ_ONLY")
+
     def reserve(self, *, scope: str, policy_root: str, attempt_id: str,
                 intent_root: str, boundary_root: str, amount_microunits: int,
                 expected_generation: int) -> ReservationReceipt:
