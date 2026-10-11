@@ -138,6 +138,26 @@ class FrontierReviewTests(unittest.TestCase):
         self.outcome = {'disposition': 'REGRESSION_OBSERVED', 'paired_cases': 1}
         self.assertIn('MEASURED_OUTCOME_NOT_IMPROVED_OR_NOT_COMPLETE', self.audit()['blockers'])
 
+    def test_reject_with_observed_regression_still_records_falsification(self):
+        self.paired()
+        self.data['decision']['kind'] = 'REJECT'
+        self.outcome = {'disposition': 'REGRESSION_OBSERVED', 'paired_cases': 1}
+        result = self.audit()
+        self.assertEqual(result['disposition'], 'RESEARCH_ONLY_NO_ADOPTION')
+        self.assertEqual(result['paired_evaluation_disposition'], 'REGRESSION_OBSERVED')
+        self.assertEqual(result['admission'], 'NOT_ADMITTED')
+
+    def test_cli_successful_rejection_is_not_authorization(self):
+        self.data['decision']['kind'] = 'REJECT'
+        path = self.root / 'reject.json'
+        path.write_text(json.dumps(self.data), encoding='utf-8')
+        buf = io.StringIO()
+        with contextlib.redirect_stdout(buf), patch.object(f, 'datetime') as clock:
+            clock.now.return_value.date.return_value = self.today
+            status = f.main(['--input', str(path), '--root', str(self.root)])
+        self.assertEqual(status, 0)
+        self.assertEqual(json.loads(buf.getvalue())['admission'], 'NOT_ADMITTED')
+
     def test_partial_benchmark_never_promoted(self):
         self.paired()
         self.outcome = {'disposition': 'PARTIAL_BENCHMARK_NO_PROMOTION', 'paired_cases': 1}
