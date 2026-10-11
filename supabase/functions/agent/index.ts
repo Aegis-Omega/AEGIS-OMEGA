@@ -219,14 +219,17 @@ Deno.serve(async (req) => {
   if (!payload || typeof payload !== 'object' || Array.isArray(payload)) {
     return new Response(JSON.stringify({ error: 'INVALID_INPUT' }), { status: 400, headers: CORS })
   }
-  const { task, context, notify, dispatch_id, channel_id, operation, attempt_id,
+  const { task, context, notify, dispatch_id, channel_id, actor_id, team_id, operation, attempt_id,
           delivery_accepted } = payload as {
     task?: unknown; context?: unknown; notify?: unknown; dispatch_id?: unknown
-    channel_id?: unknown; operation?: unknown; attempt_id?: unknown
+    channel_id?: unknown; actor_id?: unknown; team_id?: unknown
+    operation?: unknown; attempt_id?: unknown
     delivery_accepted?: unknown
   }
   if (typeof dispatch_id !== 'string' || !REPLAY_ID.test(dispatch_id) ||
-      typeof channel_id !== 'string' || !CHANNEL_ID.test(channel_id)) {
+      typeof channel_id !== 'string' || !CHANNEL_ID.test(channel_id) ||
+      typeof actor_id !== 'string' || !/^U[A-Za-z0-9]{2,48}$/.test(actor_id) ||
+      typeof team_id !== 'string' || !/^T[A-Za-z0-9]{2,48}$/.test(team_id)) {
     return new Response(JSON.stringify({error:'INVALID_DISPATCH'}),{status:400,headers:CORS})
   }
   if (!SUPABASE_URL || !SERVICE_KEY) {
@@ -239,7 +242,10 @@ Deno.serve(async (req) => {
       {status:503,headers:CORS})
   }
   const event_digest = await taggedDigest('AEGIS_AGENT_DISPATCH_V1',dispatch_id)
-  const destination_digest = await taggedDigest('AEGIS_SLACK_DESTINATION_V1',channel_id)
+  // Bind each encrypted result to workspace + initiating user + channel.
+  // An allowed colleague in the same channel must not recover another actor's result.
+  const destination_digest = await taggedDigest('AEGIS_SLACK_DESTINATION_V2',
+    team_id + '\0' + channel_id + '\0' + actor_id)
   const result_aad = new TextEncoder().encode('AEGIS_OUTBOX_V1\0' + event_digest + '\0' + destination_digest)
   const store = createClient(SUPABASE_URL,SERVICE_KEY)
   const action = operation ?? 'dispatch'
