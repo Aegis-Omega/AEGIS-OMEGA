@@ -176,6 +176,7 @@ export function SovereignMatter({ sourceId, limitCount, motionOverride, conceptA
     let pause = false
     let lost = false
     let onReturn: (() => void) | null = null
+    let resizeObserver: ResizeObserver | null = null
     const onLoss = (event: Event) => { event.preventDefault(); lost = true; setAvailable(false) }
     const onRestore = () => { lost = false; setAvailable(false); setContextEpoch(value => value + 1) }
     target.addEventListener('webglcontextlost', onLoss)
@@ -228,12 +229,19 @@ export function SovereignMatter({ sourceId, limitCount, motionOverride, conceptA
       }
       setAvailable(true)
       draw(performance.now())
+      if (typeof ResizeObserver !== 'undefined') {
+        resizeObserver = new ResizeObserver(() => {
+          if (!activeMotion || reduced) frame = window.requestAnimationFrame(draw)
+        })
+        resizeObserver.observe(target)
+      }
     } catch {
       setAvailable(false)
     }
     return () => {
       pause = true
       window.cancelAnimationFrame(frame)
+      resizeObserver?.disconnect()
       target.removeEventListener('webglcontextlost', onLoss)
       target.removeEventListener('webglcontextrestored', onRestore)
       if (onReturn) document.removeEventListener('visibilitychange', onReturn)
