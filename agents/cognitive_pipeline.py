@@ -451,6 +451,7 @@ def main() -> None:
     run_p.add_argument("--live", action="store_true", help="Dispatch stages to live Mythos agents")
     run_p.add_argument("--dendrite", action="store_true", help="Route output read-only through dendrite mesh")
     run_p.add_argument("--source-head", help="Exact source Git SHA for dendrite provenance")
+    run_p.add_argument("--spool-dir", help="Opt-in private local spool directory (requires --dendrite)")
 
     score_p = sub.add_parser("score", help="Score a single claim through the ARBITRATION gate")
     score_p.add_argument("--claim", required=True)
@@ -458,17 +459,24 @@ def main() -> None:
     demo_p = sub.add_parser("demo", help="Run the deterministic demo pipeline")
     demo_p.add_argument("--dendrite", action="store_true", help="Route output read-only through dendrite mesh")
     demo_p.add_argument("--source-head", help="Exact source Git SHA for dendrite provenance")
+    demo_p.add_argument("--spool-dir", help="Opt-in private local spool directory (requires --dendrite)")
 
     args = parser.parse_args()
     if args.command in ("run", "demo") and args.dendrite and not args.source_head:
         parser.error("--source-head is required with --dendrite")
+    if args.command in ("run", "demo") and args.spool_dir and not args.dendrite:
+        parser.error("--spool-dir requires --dendrite")
 
     if args.command == "run":
         r = asyncio.run(run_pipeline(args.topic, live=args.live))
         _print_result(r)
         if args.dendrite:
             from agents.dendrite_system import from_cognitive_pipeline
-            print(json.dumps(from_cognitive_pipeline(r, source_head=args.source_head), indent=2))
+            receipt = from_cognitive_pipeline(r, source_head=args.source_head)
+            print(json.dumps(receipt, indent=2))
+            if args.spool_dir:
+                from agents.dendrite_mailbox import publish_local
+                print(json.dumps(publish_local(receipt, args.spool_dir), indent=2))
     elif args.command == "score":
         scorer = constitutional_scorer()
         log = KanInferenceLog()
@@ -481,7 +489,11 @@ def main() -> None:
         _print_result(r)
         if args.dendrite:
             from agents.dendrite_system import from_cognitive_pipeline
-            print(json.dumps(from_cognitive_pipeline(r, source_head=args.source_head), indent=2))
+            receipt = from_cognitive_pipeline(r, source_head=args.source_head)
+            print(json.dumps(receipt, indent=2))
+            if args.spool_dir:
+                from agents.dendrite_mailbox import publish_local
+                print(json.dumps(publish_local(receipt, args.spool_dir), indent=2))
     else:
         parser.print_help()
 
