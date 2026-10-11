@@ -349,6 +349,10 @@ def main(argv=None):
         with open(args.output, "w", encoding="utf-8") as f:
             f.write(out)
     print(out, end="")
+    # Offline JSON is attacker-controlled even if it mimics a successful check.
+    # Keep simulation available for research, but never emit an authoritative CI 0.
+    if args.snapshot:
+        return 2
     return 0 if result["disposition"] == "EVIDENCE_COMPLETE_NOT_ADMITTED" else 1
 
 
