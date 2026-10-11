@@ -176,7 +176,7 @@ jobs:
         run: python python/tests/test_platform.py
 
       - name: Run cross-domain dendrite, ingress and local mailbox tests
-        run: PYTHONPATH=.. python3 -m unittest agents.tests.test_dendrite_mesh agents.tests.test_dendrite_system agents.tests.test_dendrite_mailbox agents.tests.test_dendrite_attestation -v
+        run: PYTHONPATH=.. python3 -m unittest agents.tests.test_dendrite_mesh agents.tests.test_dendrite_system agents.tests.test_dendrite_mailbox agents.tests.test_dendrite_attestation agents.tests.test_dendrite_formal_gate -v
 
       - name: Contract equivalence gate — TS contract <-> Python runtime (no silent drift)
         run: python3 ../scripts/contract_equivalence_check.py
