@@ -128,6 +128,7 @@ class DendriteMesh:
         visited: set[str] = set()
         routes: list[dict[str, Any]] = []
         deliveries: list[str] = []
+        inboxes: dict[str, dict[str, Any]] = {}
         queue = deque([(event.origin, None, 0)])
         while queue:
             at, parent, hops = queue.popleft()
@@ -142,6 +143,8 @@ class DendriteMesh:
                 continue
             visited.add(at)
             deliveries.append(at)
+            inboxes[at] = {**event.payload(), "event_hash": event.event_hash,
+                           "recipient": at, "parent_role": parent, "hop": hops}
             routes.append({"from": parent, "to": at, "hop": hops,
                            "result": "OBSERVED"})
             if hops >= ttl:
@@ -153,7 +156,8 @@ class DendriteMesh:
             "source_head": event.source_head, "source_record": event.source_record,
             "authority_effect": "NONE", "execution_effect": "NONE",
             "epistemic_status": "UNVERIFIED_SOURCE_CLAIM",
-            "ttl": ttl, "delivered_roles": deliveries, "routes": routes,
+            "ttl": ttl, "delivered_roles": deliveries, "inboxes": inboxes,
+            "routes": routes,
         }
         return {**body, "receipt_hash": digest(body)}
 
