@@ -48,6 +48,7 @@ class ResearchBenchmarkTests(unittest.TestCase):
     def test_no_benchmark_superiority_claim(self):
         r=report()
         self.assertEqual(r['dataset']['held_out'],'NO')
+        self.assertIn('NONINDEPENDENT', r['dataset']['wilson_intervals'])
         self.assertEqual(r['dataset']['model_or_agent_competitor'],'NO')
         self.assertEqual(r['benchmark_superiority'],'NOT_ESTABLISHED_OUTSIDE_THIS_SYNTHETIC_CORPUS')
         self.assertEqual(r['authority_effect'],'NONE')
