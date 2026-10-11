@@ -30,3 +30,43 @@ python -m unittest -v sovereign-omega-v2/python/tests/test_tameion_economic_kern
 ```
 
 Run on source where Tameion PR #700 dependency modules are present. Existing Tameion replay workflow should include this file as a separate, no-network step.
+
+## v0.2: SQLite atomic reservation safety lab (PR #772 follow-up)
+
+Added `0harness/sdk/tameion_economic_reservations.py` and
+`0sovereign-omega-v2/python/tests/test_tameion_economic_reservations.py`.
+
+- Single local SQLite database uses `0BEGIN IMMEDIATE` for mutually exclusive
+  reservations, immutable per-scope budget and policy pin, and a monotone
+  generation used for local fencing; no wallets, keys, custody, signer, RPC or
+  broadcast logic is present.
+- The journal retains all `0RESERVED`, `0OUTCOME_UNKNOWN`, and
+  `0OBSERVATION_RECORDED` amounts against the scope budget; it **never**
+  automatically releases an unknown payment. A stored observation root is only
+  a digest of supplied evidence, not a verified claim of settlement or finality.
+- Idempotency is scoped to `0(scope, attempt_id)`, with exact content
+  replay and collision rejection. Each observation root can be used only once
+  in this database. No claim of global cross-database uniqueness is made.
+- `0reserve_tameion_evidence` recomputes existing Tameion boundary checks
+  using **persisted** observed/reserved/unknown totals before attempting atomic
+  reservation. Generation mismatch is denied: the caller must re-read and
+  re-evaluate, never auto-submit or retry a transfer.
+- This remains **local** SQLite evidence infrastructure. Each separately
+  initialized database, filesystem lock failure, forged upstream policy pin or
+  detached source adapter lies outside its guarantee. Real-value spending
+  requires centrally enforced authority, authenticated upstream decisions,
+  persistent provider reconciliation, secure fencing, and independently
+  tested integration of the signer/broadcast boundary (currently absent).
+
+Local tested independently: 24 SQLite reservation tests PASS including 12
+concurrent threads, restart, replay collision, observation-reuse and unknown
+holds. 29 synthetic Tameion compatibility tests PASS, of which two exercise the
+new native OpenMeter/Arc + reservation bridge. **These are local tests, not
+an exact-head GitHub-hosted native replay**. That status must be checked on the
+exact PR commit and cannot be inherited from earlier Tameion evidence.
+
+Run the new native test in a full checkout:
+
+`0`0`0bash
+python -m unittest -v sovereign-omega-v2/python/tests/test_tameion_economic_reservations.py sovereign-omega-v2/python/tests/test_tameion_economic_kernel.py
+`0`0`0
