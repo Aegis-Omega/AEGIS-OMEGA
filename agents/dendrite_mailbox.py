@@ -182,7 +182,11 @@ def read_local(root: str | Path, role: str, *, limit: int = 64) -> list[dict[str
     paths = sorted(folder.glob("*.json"))
     if len(paths) > limit:
         raise ValueError("MAILBOX_READ_LIMIT_EXCEEDED")
-    return [_read_file(p, role) for p in paths]
+    packets = [_read_file(p, role) for p in paths]
+    return sorted(packets, key=lambda p: (p["envelope"]["source_head"],
+                                          p["envelope"]["origin"],
+                                          p["envelope"]["sequence"],
+                                          p["envelope"]["event_hash"]))
 
 
 def main() -> None:
