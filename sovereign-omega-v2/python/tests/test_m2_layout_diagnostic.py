@@ -383,12 +383,20 @@ class TestM2LayoutDiagnosticGate(unittest.TestCase):
             events.append("M2")
             raise RuntimeError("injected M2 failure")
 
+        gate_state = {"sequence": -1}
         scope = {
             "_lock": nullcontext(),
             "isfinite": isfinite,
             "last_ack_sequence": -1,
             "matrix": SimpleNamespace(receive_gate_signal=fail_m2),
-            "gate": SimpleNamespace(record_signal=lambda signal: events.append("GATE")),
+            "gate": SimpleNamespace(
+                is_sealed=False,
+                last_sequence=lambda: gate_state["sequence"],
+                record_signal=lambda signal: (
+                    events.append("GATE"),
+                    gate_state.update(sequence=signal["sequence"]),
+                ),
+            ),
             "GateSignal": lambda **fields: fields,
         }
         exec(compile(unit, str(BRIDGE_PATH), "exec"), scope)
@@ -499,7 +507,8 @@ class TestM2LayoutDiagnosticGate(unittest.TestCase):
             if isinstance(node, ast.ClassDef) and node.name == "MutationGate"
         )
         class_node = copy.deepcopy(original_gate)
-        required = {"__init__", "record_signal", "_acceptance_rate"}
+        required = {"__init__", "record_signal", "_acceptance_rate",
+                    "last_sequence", "is_sealed", "seal"}
         class_node.body = [
             node for node in class_node.body
             if isinstance(node, ast.FunctionDef) and node.name in required
@@ -613,7 +622,64 @@ class TestM2LayoutDiagnosticGate(unittest.TestCase):
             self.assertEqual(guarded_gate._last_sequence, -1)
             self.assertEqual(scope["last_ack_sequence"], -1)
 
+        # Stale pre-existing governance sequence cannot be ACKed by the bridge.
+        stale_gate = gate_class()
+        stale_gate.record_signal(SimpleNamespace(
+            proposal_id="prior", sequence=1, accepted=True, lcb=0.5,
+        ))
+        scope["gate"] = stale_gate
+        events.clear()
+        scope["_gate_branch"](handler_stub, {
+            "sequence": 1, "accepted": True, "lcb": 0.5,
+            "proposal_id": "valid-proposal",
+        })
+        self.assertEqual(events, [("RESPONSE", 409, {
+            "status": "REJECTED", "reason": "GATE_SEQUENCE_DESYNC",
+        })])
+        self.assertEqual(scope["last_ack_sequence"], -1)
+        self.assertEqual(stale_gate._total_signals, 1)
+
+        # A sealed gate silently drops signals, and must never receive ACK.
+        sealed_gate = gate_class()
+        sealed_gate.seal()
+        scope["gate"] = sealed_gate
+        events.clear()
+        scope["_gate_branch"](handler_stub, {
+            "sequence": 1, "accepted": True, "lcb": 0.5,
+            "proposal_id": "valid-proposal",
+        })
+        self.assertEqual(events, [("RESPONSE", 409, {
+            "status": "REJECTED", "reason": "GATE_SEALED",
+        })])
+        self.assertEqual((sealed_gate._last_sequence,
+                          sealed_gate._total_signals,
+                          scope["last_ack_sequence"]), (-1, 0, -1))
+
+        # Seal after precheck but before record_signal: no ACK is allowed.
+        racing_gate = gate_class()
+        scope["gate"] = racing_gate
+        scope["matrix"] = SimpleNamespace(
+            receive_gate_signal=lambda *args: (
+                events.append("M2"), racing_gate.seal()
+            )
+        )
+        events.clear()
+        scope["_gate_branch"](handler_stub, {
+            "sequence": 1, "accepted": True, "lcb": 0.5,
+            "proposal_id": "valid-proposal",
+        })
+        self.assertEqual(events, ["M2", ("RESPONSE", 409, {
+            "status": "REJECTED", "reason": "GATE_NOT_APPLIED",
+        })])
+        self.assertEqual((racing_gate._last_sequence,
+                          racing_gate._total_signals,
+                          scope["last_ack_sequence"]), (-1, 0, -1))
+
         # Valid control must preserve the unchanged frozen gate behavior.
+        scope["gate"] = guarded_gate
+        scope["matrix"] = SimpleNamespace(
+            receive_gate_signal=lambda *args: events.append("M2")
+        )
         events.clear()
         scope["_gate_branch"](handler_stub, {
             "sequence": 1, "accepted": True, "lcb": 0.5,
@@ -663,6 +729,7 @@ class TestM2LayoutDiagnosticGate(unittest.TestCase):
             type_ignores=[],
         ))
         steps = []
+        gate_state = {"sequence": -1}
         namespace = {
             "json": json,
             "ip_address": ipaddress.ip_address,
@@ -671,7 +738,14 @@ class TestM2LayoutDiagnosticGate(unittest.TestCase):
             "_lock": nullcontext(),
             "GateSignal": lambda **fields: SimpleNamespace(**fields),
             "matrix": SimpleNamespace(receive_gate_signal=lambda *a: steps.append("M2")),
-            "gate": SimpleNamespace(record_signal=lambda a: steps.append("GATE")),
+            "gate": SimpleNamespace(
+                is_sealed=False,
+                last_sequence=lambda: gate_state["sequence"],
+                record_signal=lambda signal: (
+                    steps.append("GATE"),
+                    gate_state.update(sequence=signal.sequence),
+                ),
+            ),
         }
         exec(compile(module, str(BRIDGE_PATH), "exec"), namespace)
 
@@ -692,6 +766,7 @@ class TestM2LayoutDiagnosticGate(unittest.TestCase):
         def exercise(peer, headers=None, body=good):
             scope = namespace
             scope["last_ack_sequence"] = -1
+            gate_state["sequence"] = -1
             steps.clear()
             responses = []
             buffer = CountedBody(body)
