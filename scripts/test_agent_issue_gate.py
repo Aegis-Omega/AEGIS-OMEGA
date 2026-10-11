@@ -23,9 +23,9 @@ BODY = '<!-- AEGIS_WORK_V1\n' + json.dumps({
 def good():
     return {"repo": "Aegis-Omega/AEGIS-OMEGA",
             "pr": {"number": 999, "body": "AEGIS-WORK-ISSUE: #888", "base": {"ref": "main"},
-                   "head": {"sha": HEAD}, "user": {"login": "builder"}, "draft": False},
+                   "head": {"sha": HEAD}, "user": {"login": "builder"}, "draft": False, "state": "open"},
             "issue": {"number": 888, "state": "open", "body": BODY},
-            "changed_files": ["scripts/agent_issue_gate.py"],
+            "changed_files": ["scripts/agent_issue_gate.py"], "files_complete": True,
             "check_runs": [{"name": "aegis / issue-gate-tests", "head_sha": HEAD,
                             "status": "completed", "conclusion": "success", "app": {"id": 15368}}],
             "checks_complete": True, "commits": [{"sha": HEAD, "commit": {"verification": {"verified": True}}}],
@@ -94,6 +94,31 @@ class GateTests(unittest.TestCase):
         x = good(); x["changed_files"].append("security/ruleset.json")
         self.fail_gate(x, "declared_scope")
 
+    def test_incomplete_file_pagination(self):
+        x = good(); x["files_complete"] = False
+        self.fail_gate(x, "declared_scope")
+
+    def test_missing_file_completeness(self):
+        x = good(); x.pop("files_complete")
+        self.fail_gate(x, "declared_scope")
+
+    def test_closed_pr(self):
+        x = good(); x["pr"]["state"] = "closed"
+        self.fail_gate(x, "pr_open")
+
+    def test_unsigned_middle_commit(self):
+        x = good(); x["commits"] = [{"sha": "b" * 40, "commit": {"verification": {"verified": False}}}, x["commits"][0]]
+        self.fail_gate(x, "signed_commits")
+
+    def test_incomplete_commit_pagination(self):
+        x = good(); x["commits_complete"] = False
+        self.fail_gate(x, "signed_commits")
+
+    def test_dismissed_review(self):
+        x = good(); x["reviews"].append({"user": {"login": "independent"},
+                                           "state": "DISMISSED", "commit_id": HEAD})
+        self.fail_gate(x, "independent_identity_review")
+
     def test_stacked_branch(self):
         x = good(); x["pr"]["base"]["ref"] = "feat/old"
         self.fail_gate(x, "base_branch")
@@ -119,7 +144,7 @@ class GateTests(unittest.TestCase):
         self.assertEqual(assess(x)["contract"], "INVALID")
 
     def test_unknown_domain_method_fail_closed(self):
-        x = good(); x["issue"]["body"] = BODY.replace('"method": "github_check", "check": "aegis / issue-gate-tests"',
+        x = good(); x["issue"]["body"] = BODY.replace('"method": "github_check", "check": "aegis / issue-gate-tests", "app_id": 15368',
                         '"method": "domain_evidence"')
         self.fail_gate(x, "acceptance:A1")
 
@@ -135,6 +160,43 @@ class GateTests(unittest.TestCase):
         x = good(); x["issue"]["body"] = BODY.replace('"check": "aegis / issue-gate-tests"',
                                                        '"check": "$(touch /tmp/evil)"')
         self.fail_gate(x, "acceptance:A1")
+
+    def test_moving_pr_head_live_api(self):
+        import unittest.mock
+        from agent_issue_gate import live_snapshot
+        x = good()
+        x["pr"]["head"]["repo"] = {"full_name": x["repo"]}
+        replies = [x["pr"], x["issue"], {"total_count": 1, "check_runs": x["check_runs"]},
+                   x["reviews"], x["commits"], [{"filename": x["changed_files"][0]}],
+                   {**x["pr"], "head": {"sha": "f" * 40}}, x["issue"]]
+        with unittest.mock.patch("agent_issue_gate._api", side_effect=replies):
+            with self.assertRaisesRegex(Invalid, "PR_CHANGED_DURING_SNAPSHOT"):
+                live_snapshot(x["repo"], 999, "")
+
+    def test_live_snapshot_is_stable(self):
+        import unittest.mock
+        from agent_issue_gate import live_snapshot
+        x = good()
+        x["pr"]["head"]["repo"] = {"full_name": x["repo"]}
+        replies = [x["pr"], x["issue"], {"total_count": 1, "check_runs": x["check_runs"]},
+                   x["reviews"], x["commits"], [{"filename": x["changed_files"][0]}],
+                   x["pr"], x["issue"]]
+        with unittest.mock.patch("agent_issue_gate._api", side_effect=replies):
+            snap = live_snapshot(x["repo"], 999, "")
+        self.assertTrue(snap["files_complete"])
+        self.assertEqual(assess(snap)["disposition"], "EVIDENCE_COMPLETE_NOT_ADMITTED")
+
+    def test_mutating_issue_contract_live_api(self):
+        import unittest.mock
+        from agent_issue_gate import live_snapshot
+        x = good()
+        x["pr"]["head"]["repo"] = {"full_name": x["repo"]}
+        replies = [x["pr"], x["issue"], {"total_count": 1, "check_runs": x["check_runs"]},
+                   x["reviews"], x["commits"], [{"filename": x["changed_files"][0]}],
+                   x["pr"], {**x["issue"], "body": x["issue"]["body"] + "tamper"}]
+        with unittest.mock.patch("agent_issue_gate._api", side_effect=replies):
+            with self.assertRaisesRegex(Invalid, "ISSUE_CHANGED_DURING_SNAPSHOT"):
+                live_snapshot(x["repo"], 999, "")
 
 
 if __name__ == "__main__":
