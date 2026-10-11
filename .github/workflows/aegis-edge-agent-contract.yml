@@ -12,6 +12,7 @@ on:
       - 'hub/src/lib/telemetry.ts'
       - 'supabase/migrations/*agent_dispatch_claims_v1.sql'
       - 'supabase/migrations/*agent_result_outbox*.sql'
+      - 'scripts/test_edge_outbox_postgres.sh'
       - '.github/workflows/aegis-edge-agent-contract.yml'
   merge_group:
     branches: [main]
@@ -24,6 +25,7 @@ on:
       - 'hub/src/lib/telemetry.ts'
       - 'supabase/migrations/*agent_dispatch_claims_v1.sql'
       - 'supabase/migrations/*agent_result_outbox*.sql'
+      - 'scripts/test_edge_outbox_postgres.sh'
       - '.github/workflows/aegis-edge-agent-contract.yml'
 
 permissions:
@@ -43,3 +45,41 @@ jobs:
           node-version: '22.16.0'
       - name: Run fail-closed Edge admission tests
         run: node --test supabase/functions/agent/tests/admission-chain.test.mjs supabase/functions/agent/tests/sql-retention.test.mjs
+
+  postgres-outbox-integration:
+    name: aegis / postgres-outbox-integration
+    runs-on: ubuntu-latest
+    timeout-minutes: 7
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: aegis_test
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: disposable-only-test-password
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d aegis_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      PGHOST: 127.0.0.1
+      PGPORT: '5432'
+      PGDATABASE: aegis_test
+      PGUSER: postgres
+      PGPASSWORD: disposable-only-test-password
+    steps:
+      - name: Checkout exact candidate
+        uses: actions/checkout@v4
+      - name: Install PostgreSQL client only if absent
+        shell: bash
+        run: |
+          if ! command -v psql >/dev/null; then
+            sudo apt-get update -qq
+            sudo apt-get install -y -qq postgresql-client
+          fi
+      - name: Replay migrations, ACL, expiry and cross-session lease
+        shell: bash
+        run: bash scripts/test_edge_outbox_postgres.sh
