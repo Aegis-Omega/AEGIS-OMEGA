@@ -127,7 +127,7 @@ class UniversalHolonTests(unittest.TestCase):
 
     def test_symlinked_parent_directory_cannot_replay_evidence(self):
         (self.root / 'proofs').mkdir()
-        (self.root / 'proofs' / 'evidence.txt').write_text('CHECKED\\n')
+        (self.root / 'proofs' / 'evidence.txt').write_text('CHECKED\n')
         (self.root / 'redirect').symlink_to('proofs', target_is_directory=True)
         self.base['submissions'] = [self.sub(artifact_file='redirect/evidence.txt')]
         result = self.audit()['tasks'][0]
