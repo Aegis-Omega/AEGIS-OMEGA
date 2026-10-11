@@ -30,7 +30,7 @@ python3 scripts/research_collector.py \
 
 No network without `--allow-network`. One URL per invocation. Result is JSON and can be converted into the existing offline scout source entry via `packet_source(capture, source_id)`. File output is local, explicitly named, and uses exclusive create; no write to production.
 
-Maximum response: 131072 bytes; excerpt: 16000 UTF-8 bytes; socket timeout: 8 seconds per I/O stage. There is **no hard end-to-end deadline**, which must be supplied by the trusted runner before general release. Unsupported redirects, media types, compression, encodings, oversize responses or egress failure remain denied, not retried with unsafe fallbacks.
+Maximum response: 131072 bytes; excerpt: 16000 UTF-8 bytes; socket timeout: 8 seconds per I/O stage. The **public CLI** now supervises DNS/TLS/HTTP acquisition in a killable, isolated Python subprocess under a total **worker runtime deadline** (default 20 seconds; configurable 1–120). Direct programmatic `acquire()` remains *unbounded* and must be invoked only by a separately supervised trusted runner. OS process creation itself is not a strict preemptible deadline, and output publication by the parent occurs after worker completion. Unsupported redirects, media types, compression, encodings, oversize responses or egress failure remain denied, not retried with unsafe fallbacks.
 
 ## Evidence limits
 
@@ -51,3 +51,21 @@ The collector now distinguishes HTTP framing **before any capture is issued or s
 Exact-head local Python 3.13.5 full replay: **177/177 tests PASS**. The eight additional HTTP-framing unit tests first showed **5 distinct failures** on the previous code; after the patch all eight passed, alongside two new real TLS integration tests. Local full logs and source digests are in the standalone replay archive.
 
 **Not resolved by this patch:** DNS resolution, TLS handshake and slowly delivered headers/bodies may still lack a reliable **end-to-end wall-clock deadline** despite socket-level timeouts; use a separate trusted process timeout before production deployment. A digest does not independently authenticate publisher ownership, claim truth or actual collector-runner integrity. Hosted CI, independent security review and protected-main admission remain separate blockers.
+
+## Supervised CLI worker (2026-10-11)
+
+A real defect remained after the HTTP-framing fix: Python `http.client` socket timeouts cover individual blocking operations, **not elapsed time across DNS, handshake, headers and a slow-drip response**. A peer that sends small updates faster than each socket timeout can keep acquisition alive indefinitely (see Python issue [29422](https://bugs.python.org/issue29422) and [http.client documentation](https://docs.python.org/3/library/http.client.html)).
+
+**Implementation**: The normal CLI always validates URL, host allowlist, signing context and deadline **before** launching a subprocess. Only the child executes DNS/TLS/HTTP and reads an externally protected signing key if configured. The parent invokes a fixed Python `-I` bootstrap with no shell, strips untrusted inherited `PYTHONPATH`, `SSL_CERT_FILE` and proxy environment entries, and calls `subprocess.run(..., timeout=...) `. On a timeout Python kills and reaps its direct child; the parent discards all partial stdout and returns `TOTAL_DEADLINE_EXCEEDED`. No `--output` is forwarded to the child: after a successful exit the parent validates the complete worker JSON and source/hostname coherence before writing its own explicitly named output file. A user-facing unbudgeted `--_capture-worker` option was explicitly **not** introduced.
+
+CLI example (one explicitly authorized public host; **not actually fetched in this replay**):
+
+```sh
+python3 scripts/research_collector.py 'https://docs.example.org/public' \
+  --allow-network --allow-host docs.example.org --deadline-seconds 20 \
+  --output /tmp/research-capture.json
+```
+
+**Native local results**: Python 3.13.5, `PYTHONWARNINGS=error::ResourceWarning python3 -m unittest discover -s scripts -p 'test_research*.py' -q`: **193/193 PASS** (177 prior + 16 new). A real OS child sleeping beyond one second was terminated; a second child emitted a partial `stdout` prefix then stalled and was also terminated; both yielded `TOTAL_DEADLINE_EXCEEDED` rather than evidence. Other regressions cover zero output file on deadline, malformed/nonzero child output rejection, correct parent publication after validation, deny-before-spawn on host mismatch, sanitized Python/TLS environment, invalid budget ranges and no direct unbudgeted CLI worker flag.
+
+**Limits**: This is a timeout for the subprocess worker after process creation; it is **not** a mathematically strict deadline for uninterruptible operating-system process creation, parent-side output writes, or clients calling `acquire()` directly. It is not evidence of a live external website request, a protected process supervisor resistant to compromised same-UID code, external publisher authenticity or scientific claim truth. Independent public HTTPS smoke, isolated signer/verifier, hosted CI and review remain open.
