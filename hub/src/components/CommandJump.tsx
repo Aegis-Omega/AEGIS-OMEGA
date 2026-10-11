@@ -1,17 +1,8 @@
 import { useEffect, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from 'react'
+import { COMMAND_ROUTES, filterCommandRoutes, nextPaletteIndex } from '../lib/commandPaletteModel.js'
 
 /** Published-route navigation only; no remote search, indexing or telemetry. */
-const ROUTES = [
-  { href:'/',label:'Overview',detail:'AEGIS command homepage' },
-  { href:'/platform',label:'ResearchOS',detail:'Curated research sources' },
-  { href:'/console',label:'Console',detail:'Observed operator state' },
-  { href:'/runtime',label:'Runtime',detail:'Verification and system boundaries' },
-  { href:'/compliance',label:'Governance',detail:'Control mappings and limits' },
-  { href:'/docs',label:'Developers',detail:'API reference' },
-  { href:'/tools',label:'Tools',detail:'Creator tools and access' },
-  { href:'/pricing',label:'Access',detail:'Plans and provisioning' },
-  { href:'/claim-sponsor',label:'Sponsor claim',detail:'Existing sponsor access process' },
-] as const
+
 
 export function CommandJump() {
   const [open,setOpen] = useState(false)
@@ -19,7 +10,7 @@ export function CommandJump() {
   const root=useRef<HTMLDivElement>(null)
   const trigger=useRef<HTMLButtonElement>(null)
   const input=useRef<HTMLInputElement>(null)
-  const matches=ROUTES.filter(r=>(r.label+' '+r.detail).toLowerCase().includes(query.trim().toLowerCase()))
+  const matches=filterCommandRoutes(query)
 
   useEffect(()=>{
     function onKey(e:KeyboardEvent){
@@ -51,9 +42,10 @@ export function CommandJump() {
   useEffect(()=>{if(open)input.current?.focus()},[open])
 
   const onSearchKeyDown=(event:ReactKeyboardEvent<HTMLInputElement>)=>{
-    if(event.key==='ArrowDown'){
-      const first=root.current?.querySelector<HTMLAnchorElement>('.cc-jump-results a')
-      if(first){event.preventDefault();first.focus()}
+    if(event.key==='ArrowDown'||event.key==='ArrowUp'){
+      const links=Array.from(root.current?.querySelectorAll<HTMLAnchorElement>('.cc-jump-results a')??[])
+      const next=nextPaletteIndex(-1,links.length,event.key)
+      if(next>=0){event.preventDefault();links[next]?.focus()}
     }
     if(event.key==='Enter'&&matches.length>0){
       event.preventDefault()
@@ -66,10 +58,9 @@ export function CommandJump() {
     if(links.length===0)return
     event.preventDefault()
     const index=links.indexOf(document.activeElement as HTMLAnchorElement)
-    if(event.key==='ArrowUp'&&index===0){input.current?.focus();return}
-    const next=event.key==='Home'?0:event.key==='End'?links.length-1:
-      event.key==='ArrowDown'?(index+1)%links.length:Math.max(0,index-1)
-    links[next]?.focus()
+    const next=nextPaletteIndex(index,links.length,event.key as 'ArrowDown'|'ArrowUp'|'Home'|'End')
+    if(next<0)input.current?.focus()
+    else links[next]?.focus()
   }
 
   return <div className="cc-jump" ref={root}>
