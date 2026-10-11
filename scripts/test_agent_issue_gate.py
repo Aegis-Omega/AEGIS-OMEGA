@@ -200,7 +200,7 @@ class GateTests(unittest.TestCase):
                "status": "completed", "conclusion": "success", "event": "pull_request", "workflow_id": 22}
         job = {"id": 999, "run_id": 333, "head_sha": HEAD, "status": "completed",
                "conclusion": "success", "steps": [{"name": "Run stdlib falsifiers",
-                                               "status": "completed", "conclusion": "success"}]
+                                               "status": "completed", "conclusion": "success"}]}
         replies = [run, job, {"type": "file", "sha": "c" * 40}, {"type": "file", "sha": "d" * 40}]
         with unittest.mock.patch("agent_issue_gate._api", side_effect=replies):
             self.assertFalse(_trusted_check_origin(x["repo"], x["pr"], check, ""))
@@ -215,7 +215,7 @@ class GateTests(unittest.TestCase):
                "status": "completed", "conclusion": "success", "event": "pull_request", "workflow_id": 22}
         job = {"id": 999, "run_id": 333, "head_sha": HEAD, "status": "completed",
                "conclusion": "success", "steps": [{"name": "Run stdlib falsifiers",
-                                               "status": "completed", "conclusion": "success"}]
+                                               "status": "completed", "conclusion": "success"}]}
         replies = [run, job, {"type": "file", "sha": "c" * 40}, {"type": "file", "sha": "c" * 40}]
         with unittest.mock.patch("agent_issue_gate._api", side_effect=replies):
             self.assertTrue(_trusted_check_origin(x["repo"], x["pr"], check, ""))
