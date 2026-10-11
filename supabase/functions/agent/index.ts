@@ -56,6 +56,12 @@ async function runTool(name: string, input: Record<string, unknown>,
         (typeof requested !== 'number' || !Number.isSafeInteger(requested) || requested < 1)) {
       return 'INVALID_LIMIT'
     }
+    // A present-but-empty/null filter is not equivalent to an omitted filter.
+    // Reject it before constructing any privileged database client.
+    if (input.filter !== undefined &&
+        (typeof input.filter !== 'string' || !input.filter.trim())) {
+      return 'INVALID_FILTER'
+    }
     const limit = Math.min(25, requested === undefined ? 10 : requested)
     const supabase = createClient(SUPABASE_URL, SERVICE_KEY)
     let q = supabase.from('purchases').select('customer_email,plan,ls_order_id,updated_at')
