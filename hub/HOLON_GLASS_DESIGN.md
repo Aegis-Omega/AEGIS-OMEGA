@@ -30,3 +30,31 @@ Design-only work on isolated branch. No authority elevation, no secrets added, n
 
 ## Known limits
 The homepage style is freshly authored based on user Library references, not a literal reproduction or a claim of ownership of existing artwork. Assets are procedural SVG and CSS, so no external image loading or library private-file leakage is required. Full-site compilation / preview is required before production promotion. No claim to having completed all route QA until those checks actually run.
+
+## 2026-10-11 second-pass anti-slop repair
+
+- **Credibility:** /platform no longer states blanket 100% replay or a 10-second latency guarantee; unknown exact-head test status is explicit.
+- **Legal claims:** /compliance control mapping is not an EU AI Act certification; formerly green COMPLIANT badges are now review-required CONTROL MAPPED labels.
+- **Information architecture:** scientific cards link to relevant source repositories, not unrelated pricing/creator tools. Homepage has a public evidence register and unrecognized routes get a distinct 404 view.
+- **Accessibility:** explicit skip link, keyboard-operable tab selection, Escape-close on mobile navigation, aria-controls and programmatically named result status.
+- **Actual utility:** the simulated SHA-256 chain was removed from the main research home; the new artifact verifier computes SHA-256 of **local browser files** (up to 32 MiB) and compares with a supplied reference. No transfer or signatures. A match asserts byte identity relative to that reference, not scientific validity or admission.
+- **Concurrency:** revision guard prevents an old async hash from being shown as verification of a newly selected file or expected digest.
+
+### Reproducible test
+
+From `hub/` under Node.js 22+:
+
+```bash
+npm run test:integrity
+npm run build
+```
+
+Independent isolated TypeScript declaration check and 7 pure verifier tests passed locally. **Do not infer an exact-head full hub build from this.**
+
+### Outstanding (not a production admission)
+
+- The latest GitHub head is subject to Vercel's build-rate limit; only an earlier head had a completed TypeScript/Vite deployment.
+- SSO-protected Vercel previews prevent unauthenticated route-by-route browser QA. The public Cloudflare page is a **homepage-only static design preview** with a separately implemented local verifier, not a release preview of all React routes.
+- Browser upload interactions on the public preview are not certified; a remote QA run timed out.
+- The dependency audit previously reported 13 npm vulnerabilities (1 low, 2 moderate, 10 high) which still require dependency-level triage.
+- Pricing, sponsor provisioning, runtime, console, documentation navigation and all responsive breakpoints require authorized regression testing before merge/deploy.
