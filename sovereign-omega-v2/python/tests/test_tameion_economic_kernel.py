@@ -211,5 +211,38 @@ class EconomicKernelSafetyLab(unittest.TestCase):
             self.audit(bundle={'fake': 1})
 
 
+    def test_durable_reservation_uses_native_tameion_chain(self):
+        from harness.sdk.tameion_economic_reservations import EconomicReservationLedger, reserve_tameion_evidence
+        import tempfile
+        from pathlib import Path
+        with tempfile.TemporaryDirectory() as directory:
+            ledger = EconomicReservationLedger(Path(directory) / 'reservation.sqlite3')
+            f = self.fixture()
+            ledger.open_scope(scope='treasury.testnet.demo', policy_root=f['policy'].root,
+                              budget_microunits=f['policy'].budget_microunits)
+            receipt = reserve_tameion_evidence(ledger, scope='treasury.testnet.demo',
+                expected_generation=0, **f)
+            self.assertEqual(receipt.state, 'RESERVED')
+            self.assertFalse(receipt.settlement_asserted)
+            self.assertEqual(ledger.snapshot('treasury.testnet.demo').used_microunits, 100)
+
+    def test_durable_reservation_rejects_capability_escalation(self):
+        from harness.sdk.tameion_economic_reservations import (
+            EconomicReservationLedger, ReservationDenied, reserve_tameion_evidence,
+        )
+        import tempfile
+        from pathlib import Path
+        from dataclasses import replace
+        with tempfile.TemporaryDirectory() as directory:
+            ledger = EconomicReservationLedger(Path(directory) / 'reservation.sqlite3')
+            f = self.fixture()
+            ledger.open_scope(scope='treasury.testnet.demo', policy_root=f['policy'].root,
+                              budget_microunits=f['policy'].budget_microunits)
+            f['attempt'] = replace(f['attempt'], requested_capabilities=('admin.write',))
+            with self.assertRaisesRegex(ReservationDenied, 'CAPABILITY_ESCALATION'):
+                reserve_tameion_evidence(ledger, scope='treasury.testnet.demo',
+                    expected_generation=0, **f)
+            self.assertEqual(ledger.snapshot('treasury.testnet.demo').generation, 0)
+
 if __name__ == '__main__':
     unittest.main()
