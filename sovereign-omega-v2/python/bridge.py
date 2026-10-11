@@ -491,10 +491,18 @@ class BridgeHandler(BaseHTTPRequestHandler):
 
             # Non-finite values are legal in Python's non-strict JSON decoder.
             # They are never valid measurements, even when lcb is informational.
-            if type(raw_lcb) not in (int, float) or not isfinite(raw_lcb):
+            if type(raw_lcb) not in (int, float):
                 self._respond(400, {'status': 'REJECTED', 'reason': 'INVALID_LCB'})
                 return
-            lcb = float(raw_lcb)
+            try:
+                lcb = float(raw_lcb)
+            except (ValueError, OverflowError):
+                # Huge JSON integers cannot be represented as finite floats.
+                self._respond(400, {'status': 'REJECTED', 'reason': 'INVALID_LCB'})
+                return
+            if not isfinite(lcb):
+                self._respond(400, {'status': 'REJECTED', 'reason': 'INVALID_LCB'})
+                return
 
             # M2 is strict uint64. Reject invalid sequence before advancing
             # last_ack_sequence or recording a gate mutation (issue #763).
