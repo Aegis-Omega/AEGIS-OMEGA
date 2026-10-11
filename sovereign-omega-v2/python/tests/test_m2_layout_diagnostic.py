@@ -383,7 +383,13 @@ class TestM2LayoutDiagnosticGate(unittest.TestCase):
             events.append("M2")
             raise RuntimeError("injected M2 failure")
 
-        gate_state = {"sequence": -1}
+        gate_state = {"sequence": -1, "count": 0}
+
+        def stub_record_signal(signal):
+            events.append("GATE")
+            gate_state["sequence"] = signal["sequence"]
+            gate_state["count"] += 1
+
         scope = {
             "_lock": nullcontext(),
             "isfinite": isfinite,
@@ -392,10 +398,8 @@ class TestM2LayoutDiagnosticGate(unittest.TestCase):
             "gate": SimpleNamespace(
                 is_sealed=False,
                 last_sequence=lambda: gate_state["sequence"],
-                record_signal=lambda signal: (
-                    events.append("GATE"),
-                    gate_state.update(sequence=signal["sequence"]),
-                ),
+                total_signals=lambda: gate_state["count"],
+                record_signal=stub_record_signal,
             ),
             "GateSignal": lambda **fields: fields,
         }
@@ -508,7 +512,7 @@ class TestM2LayoutDiagnosticGate(unittest.TestCase):
         )
         class_node = copy.deepcopy(original_gate)
         required = {"__init__", "record_signal", "_acceptance_rate",
-                    "last_sequence", "is_sealed", "seal"}
+                    "last_sequence", "total_signals", "is_sealed", "seal"}
         class_node.body = [
             node for node in class_node.body
             if isinstance(node, ast.FunctionDef) and node.name in required
@@ -675,6 +679,34 @@ class TestM2LayoutDiagnosticGate(unittest.TestCase):
                           racing_gate._total_signals,
                           scope["last_ack_sequence"]), (-1, 0, -1))
 
+        # Concurrent same-sequence producer: gate records their decision
+        # before ours, then silently discards ours as a duplicate. Last
+        # sequence alone would be equal and give a FALSE ACK.
+        competing_gate = gate_class()
+        scope["gate"] = competing_gate
+
+        def write_competing_gate(*args):
+            events.append("M2")
+            competing_gate.record_signal(SimpleNamespace(
+                proposal_id="competing-proposal", sequence=1,
+                accepted=True, lcb=0.5,
+            ))
+
+        scope["matrix"] = SimpleNamespace(
+            receive_gate_signal=write_competing_gate
+        )
+        events.clear()
+        scope["_gate_branch"](handler_stub, {
+            "sequence": 1, "accepted": True, "lcb": 0.5,
+            "proposal_id": "valid-proposal",
+        })
+        self.assertEqual(events, ["M2", ("RESPONSE", 409, {
+            "status": "REJECTED", "reason": "GATE_NOT_APPLIED",
+        })])
+        self.assertEqual(competing_gate.last_sequence(), 1)
+        self.assertEqual(competing_gate.total_signals(), 2)
+        self.assertEqual(scope["last_ack_sequence"], -1)
+
         # Valid control must preserve the unchanged frozen gate behavior.
         scope["gate"] = guarded_gate
         scope["matrix"] = SimpleNamespace(
@@ -729,7 +761,13 @@ class TestM2LayoutDiagnosticGate(unittest.TestCase):
             type_ignores=[],
         ))
         steps = []
-        gate_state = {"sequence": -1}
+        gate_state = {"sequence": -1, "count": 0}
+
+        def record_for_http(signal):
+            steps.append("GATE")
+            gate_state["sequence"] = signal.sequence
+            gate_state["count"] += 1
+
         namespace = {
             "json": json,
             "ip_address": ipaddress.ip_address,
@@ -741,10 +779,8 @@ class TestM2LayoutDiagnosticGate(unittest.TestCase):
             "gate": SimpleNamespace(
                 is_sealed=False,
                 last_sequence=lambda: gate_state["sequence"],
-                record_signal=lambda signal: (
-                    steps.append("GATE"),
-                    gate_state.update(sequence=signal.sequence),
-                ),
+                total_signals=lambda: gate_state["count"],
+                record_signal=record_for_http,
             ),
         }
         exec(compile(module, str(BRIDGE_PATH), "exec"), namespace)
@@ -767,6 +803,7 @@ class TestM2LayoutDiagnosticGate(unittest.TestCase):
             scope = namespace
             scope["last_ack_sequence"] = -1
             gate_state["sequence"] = -1
+            gate_state["count"] = 0
             steps.clear()
             responses = []
             buffer = CountedBody(body)
