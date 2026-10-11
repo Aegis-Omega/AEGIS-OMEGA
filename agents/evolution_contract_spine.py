@@ -94,6 +94,7 @@ def compose_spine(*, graph: Mapping[str, Any], trials: list[Mapping[str, Any]],
                   source_head: str, lineage: Any | None = None,
                   registry: Mapping[str, Any] | None = None,
                   counterexamples: list[Mapping[str, Any]] | None = None,
+                  workplane: Mapping[str, Any] | None = None,
                   check_authority: bool = False) -> dict[str, Any]:
     """Content-bound view across existing AEGIS systems; zero operational effects."""
     if not isinstance(source_head, str) or not HEAD_RE.fullmatch(source_head):
@@ -103,6 +104,20 @@ def compose_spine(*, graph: Mapping[str, Any], trials: list[Mapping[str, Any]],
     if graph.get("schema") != ISSUE_SCHEMA or graph.get("receipt_hash") != evolution["graph_receipt_hash"]:
         raise ValueError("ISSUE_GRAPH_BINDING_MISMATCH")
     nodes = graph["nodes"]
+    if workplane is not None:
+        if (not isinstance(workplane, Mapping) or
+                workplane.get("schema") != "AEGIS_UNIFIED_EVOLUTION_WORKPLANE_V1" or
+                workplane.get("receipt_hash") != digest({
+                    k: v for k, v in workplane.items() if k != "receipt_hash"}) or
+                workplane.get("source_head") != source_head or
+                workplane.get("graph_receipt") != graph["receipt_hash"] or
+                workplane.get("evolution_receipt") != evolution["receipt_hash"] or
+                workplane.get("production_admission") != "DENIED" or
+                workplane.get("skill_promotion") != "DENIED" or
+                workplane.get("authority_effect") != "NONE" or
+                workplane.get("execution_effect") != "NONE" or
+                workplane.get("node_count") != evolution["issue_count"]):
+            raise ValueError("WORKPLANE_CONTRACT_BINDING_INVALID")
     if not isinstance(nodes, list) or len(nodes) != evolution["issue_count"]:
         raise ValueError("ISSUE_NODE_COUNT_MISMATCH")
     issue_keys = [x["issue"] for x in evolution["issues"]]
@@ -132,6 +147,7 @@ def compose_spine(*, graph: Mapping[str, Any], trials: list[Mapping[str, Any]],
             "schema": TOKEN_SCHEMA, "issue": issue,
             "graph_receipt_hash": graph["receipt_hash"],
             "evolution_round_hash": evolution["receipt_hash"],
+            "workplane_receipt": workplane["receipt_hash"] if workplane else None,
             "issue_contract_digest": digest(state["evolution_contract"]),
             "proposal_ids": sorted(p["proposal_id"] for p in state["proposals"]),
             "trial_receipts": sorted(r["screen_receipt"] for r in state["history"]),
@@ -170,6 +186,8 @@ def compose_spine(*, graph: Mapping[str, Any], trials: list[Mapping[str, Any]],
         "issue_graph_root": graph["receipt_hash"],
         "evolution_round_root": evolution["receipt_hash"],
         "source_replay": "SNAPSHOT_AND_HASH_CONSISTENCY_ONLY",
+        "workplane_receipt": workplane["receipt_hash"] if workplane else None,
+        "workplane_binding": "LOCAL_CONTENT_CONSISTENCY_ONLY" if workplane else "NOT_PROVIDED",
         "issue_count": len(issue_tokens), "trial_count": evolution["trial_count"],
         "cross_issue_lesson_count": len(links),
         "connected_issue_count": sum(bool(connected[k]) for k in issue_keys),
@@ -199,7 +217,9 @@ def _read_bounded(path: Path, bound: int = MAX_FILE_BYTES) -> Any:
 def main() -> None:
     parser = argparse.ArgumentParser(
         description="AEGIS unified issue evolution observation (non-executing)")
-    parser.add_argument("--graph", type=Path, required=True)
+    sources = parser.add_mutually_exclusive_group(required=True)
+    sources.add_argument("--graph", type=Path)
+    sources.add_argument("--snapshot", type=Path)
     parser.add_argument("--trials", type=Path, required=True)
     parser.add_argument("--source-head", required=True)
     parser.add_argument("--lineage", type=Path)
@@ -210,13 +230,22 @@ def main() -> None:
     args = parser.parse_args()
     try:
         from agents.evolution import AdaptiveLineage
+        trials = _read_bounded(args.trials)
+        plan = None
+        if args.snapshot:
+            from agents.issue_evolution import compile_graph
+            from agents.dendrite_workplane import compose as compose_workplane
+            snapshot = _read_bounded(args.snapshot)
+            graph = compile_graph(snapshot)
+            plan = compose_workplane(snapshot, source_head=args.source_head, trials=trials)
+        else:
+            graph = _read_bounded(args.graph)
         result = compose_spine(
-            graph=_read_bounded(args.graph), trials=_read_bounded(args.trials),
-            source_head=args.source_head,
+            graph=graph, trials=trials, source_head=args.source_head,
             lineage=AdaptiveLineage.load(args.lineage) if args.lineage else None,
             registry=_read_bounded(args.registry) if args.registry else None,
             counterexamples=_read_bounded(args.counterexamples) if args.counterexamples else None,
-            check_authority=args.authority_probe,
+            workplane=plan, check_authority=args.authority_probe,
         )
     except (ValueError, TypeError, OSError, UnicodeError, KeyError) as exc:
         parser.error(f"{type(exc).__name__}: {exc}")
