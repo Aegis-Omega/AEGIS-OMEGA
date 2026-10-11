@@ -1,161 +1,111 @@
-// AEGIS-Ω Console — /console
-// NOUS: the operator console. A single living core you look into (CoreCanvas),
-// with everything else stripped back and spacious. Cinematic hero first; the
-// substance — homeostasis, verification, live stream — revealed below, calm and
-// professional. Live /platform/* data with graceful demo fallback; never
-// ambiguous about which.
+/**
+ * AEGIS Ω Operator Console — evidence-native workbench.
+ * This route no longer emits synthetic agent events or simulated approvals.
+ * It observes public API responses, marks their limits and lets the operator
+ * prepare a documented request; it never sends an execution without a key.
+ */
+import { useState, type ReactNode } from 'react'
+import { PLATFORM_ORIGIN, useConsoleController, type ConsoleSnapshot } from '../../lib/platformConsole.js'
+import '../operator-workbench.css'
 
-import { T, MONO, SANS } from './consoleTokens.js'
-import { CoreCanvas } from './CoreCanvas.js'
-import { VerificationPanel } from './SystemStatusBar.js'
-import { HomeostasisGauge } from './HomeostasisGauge.js'
-import { LiveSwarmRunner } from './LiveSwarmRunner.js'
-import { usePlatformConsole } from '../../lib/platformConsole.js'
+type View = 'overview' | 'interfaces' | 'evidence'
+type Mode = 'analysis' | 'gtm' | 'revenue' | 'retention'
+const links = {
+  api: '/docs#collaborate',
+  runtime: '/runtime',
+  lab: 'https://aegis-quantum-integrity-mobile.tarikskalic33.workers.dev/',
+  repo: 'https://github.com/Aegis-Omega/AEGIS-OMEGA',
+}
 
-function ConsoleNav() {
-  const links: [string, string][] = [['/', 'Home'], ['/platform', 'Platform'], ['/console', 'Console'], ['/docs', 'Docs'], ['/pricing', 'Pricing']]
-  return (
-    <nav style={{
-      position: 'fixed', top: 0, left: 0, right: 0, zIndex: 50,
-      background: 'rgba(6,7,12,0.55)', backdropFilter: 'blur(16px) saturate(150%)',
-      borderBottom: `1px solid rgba(255,255,255,0.06)`,
-    }} className="px-7 py-4 flex items-center justify-between">
-      <a href="/" style={{ color: T.text, fontFamily: MONO, letterSpacing: '0.22em', fontSize: 13, fontWeight: 600 }}>
-        NOUS<span style={{ color: T.phi }}> · Ω</span>
-      </a>
-      <div className="hidden md:flex items-center gap-7">
-        {links.map(([href, label]) => (
-          <a key={href} href={href} style={{
-            color: href === '/console' ? T.text : T.muted, fontSize: 13,
-            fontWeight: href === '/console' ? 600 : 400, textDecoration: 'none',
-          }} className="hover:text-white transition-colors">{label}</a>
-        ))}
-      </div>
-      <a href="/pricing" style={{
-        background: 'rgba(255,255,255,0.06)', border: `1px solid rgba(255,255,255,0.12)`,
-        color: '#fff', fontSize: 12, fontWeight: 600, padding: '7px 16px', borderRadius: 10, textDecoration: 'none',
-      }}>Request Access</a>
+function Label({ children }: { children: ReactNode }) { return <span className="op-overline">{children}</span> }
+function Stamp({kind,children}: {kind: 'observed' | 'unknown' | 'blocked';children: ReactNode}) {
+  return <span className={'op-stamp op-stamp-'+kind}>{children}</span>
+}
+function Copyable({value,label}: {value:string;label:string}) {
+  const [result,setResult]=useState('')
+  return <button type="button" className="op-copy" onClick={()=>{void navigator.clipboard.writeText(value).then(()=>setResult('Copied')).catch(()=>setResult('Clipboard unavailable'))}} aria-label={label}>{result||'Copy'} <span aria-hidden="true">↗</span></button>
+}
+function DataLine({label,value,mono=false}: {label:string;value:string;mono?:boolean}) {
+  return <div className="op-dataline"><span>{label}</span><strong className={mono?'op-monospace':''}>{value}</strong></div>
+}
+function Empty({title,body}: {title:string;body:string}) {return <div className="op-empty"><div className="op-empty-mark" aria-hidden="true">∅</div><strong>{title}</strong><p>{body}</p></div>}
+
+function ExecutionComposer() {
+  const [objective,setObjective]=useState('')
+  const [mode,setMode]=useState<Mode>('analysis')
+  const [infer,setInfer]=useState<'demo'|'live'>('demo')
+  const payload = JSON.stringify({objective:objective.trim(),mode,live:infer==='live'},null,2)
+  const eligible = objective.trim().length > 0 && objective.trim().length <= 700
+  return <section className="op-panel op-composer" aria-labelledby="op-compose-label">
+    <div className="op-panel-head"><div><Label>02 / INVOCATION CONTRACT</Label><h2 id="op-compose-label">Prepare a governed request</h2></div><Stamp kind="unknown">NOT EXECUTED</Stamp></div>
+    <p className="op-muted">Draft the JSON body for the documented <code>POST /platform/collaborate</code> endpoint. This console does not make paid/provider calls or handle API keys.</p>
+    <label className="op-fieldlabel" htmlFor="op-objective">Objective <span>{objective.length}/700</span></label>
+    <textarea id="op-objective" className="op-input op-textarea" value={objective} maxLength={701} onChange={e=>setObjective(e.currentTarget.value)} placeholder="Describe the objective and constraints. No secrets or personal data." rows={3}/>
+    <div className="op-controls">
+      <label className="op-fieldlabel" htmlFor="op-mode">Mode<select id="op-mode" className="op-input" value={mode} onChange={e=>setMode(e.target.value as Mode)}><option value="analysis">Analysis</option><option value="gtm">Go-to-market</option><option value="revenue">Revenue</option><option value="retention">Retention</option></select></label>
+      <label className="op-fieldlabel" htmlFor="op-infer">Request inference<select id="op-infer" className="op-input" value={infer} onChange={e=>setInfer(e.target.value as 'demo'|'live')}><option value="demo">Demo request (live: false)</option><option value="live">Provider request (live: true)</option></select></label>
+    </div>
+    <div className="op-code-header"><span>REQUEST.JSON · LOCAL DRAFT</span>{eligible?<Copyable key={payload} value={payload} label="Copy request JSON"/>:<span className="op-low">Enter an objective</span>}</div>
+    <pre className="op-code" aria-label="Documented request body">{eligible?payload:'{\n  "objective": "…",\n  "mode": "analysis",\n  "live": false\n}'}</pre>
+    <div className="op-cta-row"><a className="op-action" href={links.api}>Read invocation contract <span aria-hidden="true">↗</span></a><span className="op-muted">Preparation ≠ execution · key never requested here</span></div>
+  </section>
+}
+
+function Observation({snap,busy,refresh}: {snap:ConsoleSnapshot;busy:boolean;refresh:()=>Promise<void>}) {
+  const observed=snap.source==='live'
+  const checked = snap.checked_at ? new Date(snap.checked_at).toLocaleString(undefined,{dateStyle:'medium',timeStyle:'short'}) : 'Not yet checked'
+  return <section className="op-panel op-observe" aria-labelledby="op-state-label">
+    <div className="op-panel-head"><div><Label>01 / RUNTIME OBSERVATION</Label><h2 id="op-state-label">Trust is a measured state.</h2></div><Stamp kind={observed?'observed':'unknown'}>{observed?'API RESPONDED':'NO EVIDENCE'}</Stamp></div>
+    <p className="op-muted">{snap.reason}</p>
+    <div className="op-signal"><div className={'op-signal-bar '+(observed?'op-signal-live':'')} aria-hidden="true"/><div><span>Source</span><strong>{observed?'Remote / observed':'Unavailable / unknown'}</strong></div><div><span>Last probe</span><strong>{checked}</strong></div></div>
+    <div className="op-data-rows">
+      <DataLine label="Platform availability" value={observed?(snap.status.available?'REPORTED AVAILABLE':'REPORTED UNAVAILABLE'):'UNKNOWN'}/>
+      <DataLine label="Contract" value={observed?'Reported v'+snap.status.contract_version:'NOT OBSERVED'}/>
+      <DataLine label="Agent registry" value={observed?`${snap.status.total_agents} reported`:'UNKNOWN'}/>
+      <DataLine label="Audit-chain verification" value={observed&&snap.status.chain_valid===false?'REPORTED INVALID':'NOT INDEPENDENTLY VERIFIED'}/>
+    </div>
+    <button className="op-reload" disabled={busy} onClick={()=>{void refresh()}} type="button" aria-busy={busy}>{busy?'Checking…':'Recheck connection'} <span aria-hidden="true">↻</span></button>
+    <p className="op-footnote">A backend-reported chain verdict is not proof of independent cryptographic replay. No green authority state is inferred.</p>
+  </section>
+}
+
+function Verification({snap}: {snap:ConsoleSnapshot}) {
+  const observed=snap.source==='live'
+  const json=JSON.stringify({schema:'AEGIS_OPERATOR_OBSERVATION_V1',generated_at:new Date().toISOString(),authority:'UNSIGNED_OBSERVATION_NOT_ADMISSION',source:snap.source,checked_at:snap.checked_at,reason:snap.reason,status:snap.status,calibration:observed?snap.calibration:null,checks:snap.checks,tools:snap.tools},null,2)
+  function download(){const blob=new Blob([json],{type:'application/json'}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download='aegis-operator-observation.json';a.click();window.setTimeout(()=>URL.revokeObjectURL(url),2000)}
+  return <div className="op-proof-layout">
+    <section className="op-panel"><div className="op-panel-head"><div><Label>VERIFICATION / REASONS</Label><h2>Evidence ledger</h2></div><Stamp kind="unknown">NOT ADMITTED</Stamp></div><div className="op-checks">{snap.checks.map((check,i)=><div className="op-check" key={check.label}><span className="op-check-index">{String(i+1).padStart(2,'0')}</span><div><strong>{check.label}</strong><p>{check.reason}</p></div><span className={'op-check-verdict '+(check.ok?'op-check-observed':'')}>{check.ok?'OBSERVED':'UNKNOWN'}</span></div>)}</div></section>
+    <section className="op-panel"><Label>EXPORT / LOCAL</Label><h2>Observation receipt</h2><p className="op-muted">Export exactly what this browser observed. The JSON is neither signed nor a production-attested evidence bundle.</p><div className="op-data-rows"><DataLine label="Source" value={observed?'remote API':'unavailable'}/><DataLine label="Checked at" value={snap.checked_at||'not checked'} mono/><DataLine label="Provider tools" value={observed?`${snap.tools.length} reported`:'unknown'}/></div><button className="op-action op-download" onClick={download}>Export unsigned observation <span aria-hidden="true">↓</span></button></section>
+  </div>
+}
+
+function Interfaces({snap}: {snap:ConsoleSnapshot}) {
+  const [query,setQuery]=useState('')
+  const tools=snap.source==='live'?snap.tools.filter(t=>(t.api_name+' '+t.capabilities.join(' ')).toLowerCase().includes(query.trim().toLowerCase())):[]
+  return <div className="op-proof-layout">
+    <section className="op-panel"><div className="op-panel-head"><div><Label>REPORTED TOOL REGISTRY</Label><h2>Connected interfaces</h2></div><Stamp kind={snap.source==='live'?'observed':'unknown'}>{snap.source==='live'?'API OBSERVED':'UNKNOWN'}</Stamp></div>
+      {snap.source==='live'?<><label htmlFor="op-filter" className="op-fieldlabel">Filter by provider or capability</label><input id="op-filter" className="op-input" value={query} onChange={e=>setQuery(e.target.value)} placeholder="Find an endpoint…"/><div className="op-tool-list">{tools.length?tools.map((t,i)=><div className="op-tool" key={t.api_name+'-'+i}><span className="op-tool-symbol">↗</span><div><strong>{t.api_name}</strong><small>{t.capabilities.join(' · ')}</small></div><span>{t.tier_required}</span></div>):<Empty title="No matching interfaces" body="No reported tool matches the filter. This is not evidence that the provider is down."/>}</div></>:<Empty title="Registry unavailable" body="No backend-verified tool inventory was received. Provider availability and access are unknown."/>}
+    </section>
+    <section className="op-panel"><Label>OPEN INSTRUMENTS</Label><h2>Go to the source</h2><p className="op-muted">Links are real destinations, not health checks or claims that the service will respond.</p><div className="op-destinations"><a href={links.lab} target="_blank" rel="noopener noreferrer"><span>01 / QUANTUM</span><strong>Quantum Integrity Lab</strong><small>Edge PSD arithmetic · physics replay archive</small><b>↗</b></a><a href={links.repo} target="_blank" rel="noopener noreferrer"><span>02 / CODE</span><strong>AEGIS source</strong><small>Commits · pull requests · build evidence</small><b>↗</b></a><a href={links.runtime}><span>03 / RUNTIME</span><strong>Constitutional mechanism</strong><small>Browser demonstrations · not signed receipts</small><b>→</b></a></div></section>
+  </div>
+}
+
+export function ConsolePage(){
+  const {snap,busy,refresh}=useConsoleController()
+  const [view,setView]=useState<View>('overview')
+  const live=snap.source==='live'
+  return <div className="op-console">
+    <div className="op-topline"><span>AEGIS Ω / OPERATOR SYSTEM</span><span className="op-line-right">CONTROL SURFACE 01 · <b>NO AUTONOMOUS EXECUTION</b></span></div>
+    <header className="op-intro"><div><Label>NOUS / CONTROL ROOM</Label><h1>Operate by <em>evidence.</em></h1><p>Remote state when observed. Unknown when absent. A command surface that refuses to turn demonstrations into authority.</p></div><div className="op-intro-state"><span>PLATFORM TELEMETRY</span><strong className={live?'op-state-live':''}>{live?'OBSERVED':'UNKNOWN'}</strong><small>{live?'Reported data · not independently verified':'No authenticated live execution asserted'}</small></div></header>
+    <nav className="op-tabs" aria-label="Operator workspace">
+      {([['overview','01','Operate'],['interfaces','02','Interfaces'],['evidence','03','Evidence']] as const).map(([id,n,label])=><button key={id} type="button" onClick={()=>setView(id)} aria-current={view===id?'page':undefined} className={view===id?'op-tab-active':''}><span>{n}</span>{label}</button>)}
+      <a href="/docs">Developer contract <span aria-hidden="true">↗</span></a>
     </nav>
-  )
-}
-
-function StatChip({ label, value, color }: { label: string; value: string; color: string }) {
-  return (
-    <div style={{ textAlign: 'center', padding: '0 22px' }}>
-      <div style={{ fontFamily: MONO, fontSize: 17, color, letterSpacing: '0.02em' }}>{value}</div>
-      <div style={{ fontSize: 10, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.16em', marginTop: 5 }}>{label}</div>
+    <div className="op-tab-body">
+      {view==='overview'&&<div className="op-main-layout"><Observation snap={snap} busy={busy} refresh={refresh}/><ExecutionComposer/></div>}
+      {view==='interfaces'&&<Interfaces snap={snap}/>}
+      {view==='evidence'&&<Verification snap={snap}/>}
     </div>
-  )
-}
-
-export function ConsolePage() {
-  const snap = usePlatformConsole()
-  const memoryActive = snap.calibration.window_size > 0
-  const live = snap.source === 'live'
-
-  return (
-    <div style={{ background: '#06070C', color: T.text, minHeight: '100vh', fontFamily: SANS, position: 'relative' }}>
-      <CoreCanvas />
-      {/* edge vignette for depth */}
-      <div aria-hidden style={{
-        position: 'fixed', inset: 0, zIndex: 1, pointerEvents: 'none',
-        background: 'radial-gradient(circle at 50% 74%, transparent 0%, transparent 30%, rgba(6,7,12,0.5) 66%, rgba(6,7,12,0.9) 100%)',
-      }} />
-      {/* top scrim — guarantees the hero text sits on clean black, never on particles */}
-      <div aria-hidden style={{
-        position: 'fixed', inset: 0, zIndex: 1, pointerEvents: 'none',
-        background: 'linear-gradient(180deg, rgba(6,7,12,0.94) 0%, rgba(6,7,12,0.78) 26%, rgba(6,7,12,0.30) 46%, transparent 58%)',
-      }} />
-
-      <div style={{ position: 'relative', zIndex: 10 }}>
-        <ConsoleNav />
-
-        {/* Cinematic hero — text in clean space above, core rising below */}
-        <section style={{
-          minHeight: '100vh', display: 'flex', flexDirection: 'column',
-          alignItems: 'center', justifyContent: 'flex-start', textAlign: 'center',
-          padding: 'clamp(120px, 19vh, 220px) 24px 0',
-        }}>
-          <div style={{
-            display: 'inline-flex', alignItems: 'center', gap: 9, marginBottom: 30,
-            padding: '6px 14px', borderRadius: 100,
-            background: 'rgba(255,255,255,0.04)', border: `1px solid rgba(255,255,255,0.10)`,
-            backdropFilter: 'blur(8px)',
-          }}>
-            <span style={{ width: 7, height: 7, borderRadius: '50%', background: live ? T.green : T.amber, boxShadow: `0 0 10px ${live ? T.green : T.amber}` }} />
-            <span style={{ fontFamily: MONO, fontSize: 11, color: live ? T.green : T.amber, letterSpacing: '0.12em' }}>
-              {live ? 'LIVE' : 'DEMO'}
-            </span>
-            <span style={{ fontSize: 11, color: T.muted }}>· {snap.reason}</span>
-          </div>
-
-          <h1 style={{
-            fontSize: 'clamp(44px, 9vw, 104px)', fontWeight: 700, lineHeight: 0.98,
-            letterSpacing: '-0.04em', margin: 0,
-            background: 'linear-gradient(180deg, #FFFFFF 0%, #C9CBD6 60%, #9A8050 130%)',
-            WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text',
-            filter: 'drop-shadow(0 4px 40px rgba(6,7,12,0.8))',
-          }}>NOUS</h1>
-          <p style={{ fontSize: 'clamp(15px, 2.2vw, 20px)', color: '#CBCDD8', maxWidth: 560, margin: '22px auto 0', lineHeight: 1.6, fontWeight: 400, textShadow: '0 2px 30px rgba(6,7,12,1)' }}>
-            The mind behind the shield. A governed agent swarm that converges
-            <span style={{ color: T.text }}> thirty-nine departments</span> into one
-            constitutionally-audited answer — and shows you every path it took.
-          </p>
-
-          <div style={{
-            display: 'flex', alignItems: 'center', marginTop: 44,
-            padding: '18px 10px', borderRadius: 16,
-            background: 'rgba(9,10,15,0.86)', border: `1px solid rgba(255,255,255,0.10)`,
-            backdropFilter: 'blur(16px) saturate(140%)', boxShadow: '0 24px 70px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.06)',
-          }}>
-            <StatChip label="departments" value={String(snap.status.total_agents)} color={T.text} />
-            <Divider />
-            <StatChip label="homeostasis" value={snap.calibration.homeostasis_zone} color={T.green} />
-            <Divider />
-            <StatChip label="contract" value={`v${snap.status.contract_version}`} color={T.text} />
-            <Divider />
-            <StatChip label="chain" value={snap.status.chain_valid ? 'valid' : 'broken'} color={snap.status.chain_valid ? T.green : T.red} />
-          </div>
-
-          <div style={{ marginTop: 40, fontSize: 11, color: T.muted, fontFamily: MONO, letterSpacing: '0.1em' }}>
-            ↓ scroll to operate
-          </div>
-        </section>
-
-        {/* Substance — calm, spacious, full-width */}
-        <main style={{ maxWidth: 1080, margin: '0 auto', padding: '40px 24px 80px', display: 'flex', flexDirection: 'column', gap: 24 }}>
-          <SectionLabel n="01" title="System state" sub="Homeostasis and self-verification — the system's felt state and its honesty." />
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
-            <HomeostasisGauge cal={snap.calibration} />
-            <VerificationPanel snap={snap} />
-          </div>
-
-          <SectionLabel n="02" title="Live collaboration" sub="Stream a 39-department run — dag_step → agent_event → tool_call → completion." />
-          <LiveSwarmRunner memoryActive={memoryActive} />
-        </main>
-
-        <footer style={{ borderTop: `1px solid rgba(255,255,255,0.06)`, padding: '24px', textAlign: 'center' }}>
-          <span style={{ fontSize: 11, color: T.muted, fontFamily: MONO }}>
-            NOUS · AEGIS-Ω · governed by AdaptivePower(T) ≤ ReplayVerifiability(T)
-          </span>
-        </footer>
-      </div>
-    </div>
-  )
-}
-
-function Divider() {
-  return <div style={{ width: 1, height: 34, background: 'rgba(255,255,255,0.08)' }} />
-}
-
-function SectionLabel({ n, title, sub }: { n: string; title: string; sub: string }) {
-  return (
-    <div style={{ marginTop: 32 }}>
-      <div style={{ display: 'flex', alignItems: 'baseline', gap: 14 }}>
-        <span style={{ fontFamily: MONO, fontSize: 12, color: T.phi }}>{n}</span>
-        <h2 style={{ fontSize: 26, fontWeight: 700, letterSpacing: '-0.02em', margin: 0 }}>{title}</h2>
-      </div>
-      <p style={{ fontSize: 14, color: T.muted, marginTop: 8, marginLeft: 26, lineHeight: 1.6, maxWidth: 620 }}>{sub}</p>
-    </div>
-  )
+    <footer className="op-bottomline"><span>UNSIGNED OPERATOR PROJECTION</span><span>DATA ≠ CLAIM · CLAIM ≠ PROOF · PROOF ≠ AUTHORITY</span></footer>
+  </div>
 }
