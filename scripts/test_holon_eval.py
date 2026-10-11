@@ -45,6 +45,18 @@ class PairedProgressTests(unittest.TestCase):
     def run_eval(self, data=None):
         return e.compare(self.data if data is None else data, self.root)
 
+    def test_manifest_is_parsed_without_second_path_read(self):
+        # Prior implementation verified SHA-256 then independently read_text().
+        # That second path access allowed a mutable-file race.
+        with patch.object(Path, 'read_text', side_effect=AssertionError('TOCTOU reopen')):
+            result = self.run_eval()
+        self.assertEqual(result['disposition'], 'NO_COMPLETED_TASK_COST_ONLY')
+
+    def test_benchmark_digest_mismatch_cannot_enter_comparator(self):
+        (self.root / 'benchmark.json').write_text('{"case_ids":["changed"]}')
+        with self.assertRaises(e.InvalidEvaluation):
+            self.run_eval()
+
     def test_unfinished_both_arms_is_not_quality_gain(self):
         out = self.run_eval()
         self.assertEqual(out['wins'], 0)
