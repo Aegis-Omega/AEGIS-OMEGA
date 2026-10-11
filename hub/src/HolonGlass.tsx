@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type ReactNode, type ChangeEvent } from 'react'
 import './holon-glass.css'
-import { MAX_ARTIFACT_SIZE, verifyArtifactBytes } from './lib/artifactIntegrity.js'
+import { MAX_ARTIFACT_SIZE, verifyArtifactBytes, copyDigestIfCurrent } from './lib/artifactIntegrity.js'
 import { shouldDismissDisclosure } from './lib/disclosure.js'
 
 /**
@@ -147,7 +147,14 @@ function ArtifactVerifier() {
   }
   async function copyHash() {
     if (!computed) return
-    try {await navigator.clipboard.writeText(computed);setCopyStatus('Copied')} catch {setCopyStatus('Copy unavailable — select the hash below')}
+    const copyRevision = revision.current
+    try {
+      const outcome = await copyDigestIfCurrent(computed, copyRevision,
+        () => revision.current, value => navigator.clipboard.writeText(value))
+      if (outcome === 'copied') setCopyStatus('Copied')
+    } catch {
+      if (copyRevision === revision.current) setCopyStatus('Copy unavailable — select the hash below')
+    }
   }
   return <section className="hg-evidence-demo hg-glass hg-artifact-verifier" aria-labelledby="hg-verifier-heading">
     <div className="hg-demo-heading"><div><span className="hg-mono hg-eyebrow">LIVE / DEVICE-LOCAL SHA-256</span><h3 id="hg-verifier-heading">Verify the bytes.</h3></div>
