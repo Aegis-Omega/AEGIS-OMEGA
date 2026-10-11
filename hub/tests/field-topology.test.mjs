@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { fieldProjection, sourceSnapshot } from '../src/fieldTopology.ts'
+import { fieldProjection, sourceSnapshot } from '../src/lib/fieldTopology.ts'
 
 const sources = Object.freeze([
   Object.freeze({id:'a',index:'01',title:'Formal',area:'formal',kind:'CODE',status:'OPEN',description:'Proofs',question:'Is it closed?',boundaries:Object.freeze(['Hypothesis remains']) ,href:'https://example.org/a',action:'Read'}),
