@@ -230,5 +230,51 @@ class UniversalHolonTests(unittest.TestCase):
         self.assertEqual(rc,2)
 
 
+class VerifiedDescriptorReaderTests(unittest.TestCase):
+    """Keep parsed inputs bound to the same bytes that were SHA-256 checked."""
+
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.tmp.cleanup)
+        self.root = Path(self.tmp.name)
+        (self.root / 'evidence').mkdir()
+        self.raw = b'{"case_ids":["c1"]}'
+        (self.root / 'evidence' / 'manifest.json').write_bytes(self.raw)
+        self.digest = hashlib.sha256(self.raw).hexdigest()
+
+    def test_verified_payload_is_returned_from_single_read(self):
+        self.assertEqual(
+            h.read_verified_local_file(self.root, 'evidence/manifest.json', self.digest),
+            ('HASH_MATCH', self.raw))
+
+    def test_mutation_denies_verification(self):
+        (self.root / 'evidence' / 'manifest.json').write_bytes(b'changed')
+        state, data = h.read_verified_local_file(self.root, 'evidence/manifest.json', self.digest)
+        self.assertEqual(state, 'HASH_MISMATCH')
+        self.assertIsNone(data)
+
+    def test_symlinks_cannot_redirect_source(self):
+        (self.root / 'alias').symlink_to('evidence', target_is_directory=True)
+        self.assertNotEqual(
+            h.read_verified_local_file(self.root, 'alias/manifest.json', self.digest)[0],
+            'HASH_MATCH')
+        (self.root / 'evidence' / 'alias.json').symlink_to('manifest.json')
+        self.assertNotEqual(
+            h.read_verified_local_file(self.root, 'evidence/alias.json', self.digest)[0],
+            'HASH_MATCH')
+
+    def test_traversal_and_oversize_denied(self):
+        self.assertNotEqual(h.read_verified_local_file(self.root, '../outside', self.digest)[0],
+                            'HASH_MATCH')
+        self.assertEqual(h.read_verified_local_file(
+            self.root, 'evidence/manifest.json', self.digest, max_bytes=3)[0],
+            'ARTIFACT_TOO_LARGE')
+
+    def test_verified_bytes_do_not_change_after_file_mutation(self):
+        state, data = h.read_verified_local_file(self.root, 'evidence/manifest.json', self.digest)
+        (self.root / 'evidence' / 'manifest.json').write_bytes(b'changed')
+        self.assertEqual((state, data), ('HASH_MATCH', self.raw))
+
+
 if __name__ == '__main__':
     unittest.main(verbosity=2)
