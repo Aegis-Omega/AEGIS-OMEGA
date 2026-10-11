@@ -100,3 +100,14 @@ test('white primary button text clears WCAG AA contrast at both gradient stops',
     assert.ok(contrast>=4.5,'Primary text contrast failed at '+stop+': '+contrast)
   }
 })
+
+
+test('noise-free holon: no synthetic star/particle wallpaper',()=>{
+  assert.doesNotMatch(hero,/const STARS\s*=|STARS\.map\(|Math\.random\(|particle-field/i)
+  assert.match(hero,/const NODES = \[/)
+  assert.match(hero,/NODES\.filter\(/)
+})
+test('constitutional wordmark follows existing canonical Phi token',()=>{
+  assert.match(css,/\.hg-brand-word em\s*\{\s*color\s*:\s*var\(--aegis-phi,/)
+  assert.doesNotMatch(css,/\.hg-brand-word em\s*\{\s*color\s*:\s*#[0-9a-f]{3,8}/i)
+})
