@@ -427,6 +427,56 @@ def verify(root, manifest):
     return report
 
 
+
+def _write_receipt_create_only(path, rendered):
+    """Explicit local receipt export: create-only and no symlink traversal.
+
+    Separate from verify() (which remains read-only). This never overwrites an
+    existing path, including a manifest, artifact or symlink. POSIX uses dirfd
+    for every parent and O_EXCL|O_NOFOLLOW on the final output path. Windows
+    can only offer a best-effort parent precheck; avoid untrusted mutable roots.
+    """
+    require(isinstance(path, str) and path and "\x00" not in path,
+            "OUTPUT_PATH_INVALID")
+    name = Path(path)
+    require(".." not in name.parts, "OUTPUT_TRAVERSAL_FORBIDDEN")
+    absolute = name.absolute()  # intentionally does not resolve symlinks
+    require(absolute.name not in ("", ".", ".."), "OUTPUT_PATH_INVALID")
+    if os.name == "posix" and hasattr(os, "O_NOFOLLOW"):
+        require(absolute.anchor == "/", "OUTPUT_PATH_INVALID")
+        parts = absolute.parts[1:]
+        directory = os.open("/", os.O_RDONLY | os.O_DIRECTORY)
+        try:
+            for part in parts[:-1]:
+                next_fd = os.open(part, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW,
+                                  dir_fd=directory)
+                os.close(directory)
+                directory = next_fd
+            fd = os.open(parts[-1], os.O_WRONLY | os.O_CREAT | os.O_EXCL |
+                         os.O_NOFOLLOW, 0o600, dir_fd=directory)
+            try:
+                with os.fdopen(fd, "w", encoding="utf-8", closefd=False) as out:
+                    out.write(rendered)
+                    out.flush()
+                    os.fsync(out.fileno())
+            finally:
+                os.close(fd)
+        finally:
+            os.close(directory)
+    else:
+        # Best-effort non-POSIX fallback. A concurrently mutated parent path
+        # can race lstat(): no native Windows security guarantee is claimed.
+        current = Path(absolute.anchor)
+        for part in absolute.parts[1:-1]:
+            current = current / part
+            require(not stat.S_ISLNK(os.lstat(current).st_mode),
+                    "OUTPUT_PARENT_SYMLINK_FORBIDDEN")
+            require(stat.S_ISDIR(os.lstat(current).st_mode),
+                    "OUTPUT_PARENT_NOT_DIRECTORY")
+        with open(absolute, "x", encoding="utf-8") as out:
+            out.write(rendered)
+
+
 def cli(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("workspace", help="Directory containing artefacts and manifest.json")
@@ -448,7 +498,16 @@ def cli(argv=None):
                   "authority_effect": "NONE", "reason": str(e)}
     rendered = json.dumps(result, indent=2, sort_keys=True) + "\n"
     if ns.output:
-        Path(ns.output).write_text(rendered, encoding="utf-8")
+        try:
+            _write_receipt_create_only(ns.output, rendered)
+        except (Invalid, OSError, ValueError) as e:
+            # A failed user-requested export is never a silent success, and
+            # failure must not alter the input workspace or external files.
+            result["output_status"] = "NOT_WRITTEN"
+            result["output_error"] = (str(e) if isinstance(e, Invalid)
+                                      else "OUTPUT_UNSAFE_OR_ALREADY_EXISTS")
+            print(json.dumps(result, indent=2, sort_keys=True) + "\n", end="")
+            return 2
     print(rendered, end="")
     # Exit 0 is reserved for the explicit local artifact-diagnostic mode.
     # Never grant a default success using a self-authored source or oracle.

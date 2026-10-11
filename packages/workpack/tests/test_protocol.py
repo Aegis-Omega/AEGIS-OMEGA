@@ -423,4 +423,72 @@ class WorkpackTests(unittest.TestCase):
         self.assertEqual(r['checks'][1]['result'],'PASS')
         self.assertEqual(r['local_result'],'LOCAL_INTEGRITY_AND_STRUCTURE_VERIFIED')
 
+    @unittest.skipUnless(os.name == "posix" and hasattr(os, "O_NOFOLLOW"),
+                         "POSIX dirfd protection only")
+    def test_receipt_export_refuses_leaf_symlink_without_changing_target(self):
+        import contextlib,io
+        outside = self.root / 'outside-secret.txt'
+        outside.write_text('DO_NOT_MODIFY', encoding='utf-8')
+        output = self.root / 'receipt.json'
+        output.symlink_to(outside)
+        (self.root / 'manifest.json').write_text(json.dumps(self.good))
+        with contextlib.redirect_stdout(io.StringIO()) as buf:
+            code = cli([str(self.root), '--output', str(output)])
+        self.assertEqual(code, 2)
+        self.assertEqual(outside.read_text(), 'DO_NOT_MODIFY')
+        self.assertEqual(json.loads(buf.getvalue())['output_status'], 'NOT_WRITTEN')
+        self.assertEqual(json.loads(buf.getvalue())['disposition'], 'NOT_ADMITTED')
+
+    @unittest.skipUnless(os.name == "posix" and hasattr(os, "O_NOFOLLOW"),
+                         "POSIX dirfd protection only")
+    def test_receipt_export_refuses_parent_symlink_without_changing_target(self):
+        import contextlib,io
+        outside_dir = self.root / 'outside';outside_dir.mkdir()
+        sentinel = outside_dir / 'receipt.json'
+        sentinel.write_text('DO_NOT_MODIFY')
+        (self.root / 'redirect').symlink_to(outside_dir, target_is_directory=True)
+        (self.root / 'manifest.json').write_text(json.dumps(self.good))
+        with contextlib.redirect_stdout(io.StringIO()) as buf:
+            code = cli([str(self.root), '--output', str(self.root/'redirect'/'receipt.json')])
+        self.assertEqual(code, 2)
+        self.assertEqual(sentinel.read_text(), 'DO_NOT_MODIFY')
+        self.assertEqual(json.loads(buf.getvalue())['output_status'], 'NOT_WRITTEN')
+
+    def test_receipt_export_refuses_existing_manifest_and_artifact(self):
+        import contextlib,io
+        (self.root / 'manifest.json').write_text(json.dumps(self.good))
+        before_m = (self.root / 'manifest.json').read_bytes()
+        before_a = (self.root / 'work.txt').read_bytes()
+        for name in ('manifest.json','work.txt'):
+            with self.subTest(name=name), contextlib.redirect_stdout(io.StringIO()) as buf:
+                code = cli([str(self.root), '--output', str(self.root/name)])
+            self.assertEqual(code, 2)
+            self.assertEqual(json.loads(buf.getvalue())['output_status'], 'NOT_WRITTEN')
+        self.assertEqual((self.root/'manifest.json').read_bytes(), before_m)
+        self.assertEqual((self.root/'work.txt').read_bytes(), before_a)
+
+    def test_receipt_export_creates_new_private_file_and_refuses_second_write(self):
+        import contextlib,io
+        (self.root / 'manifest.json').write_text(json.dumps(self.good))
+        dest = self.root / 'new-receipt.json'
+        with contextlib.redirect_stdout(io.StringIO()) as buf:
+            code = cli([str(self.root), '--output', str(dest)])
+        self.assertEqual(code, 1)  # NOT_ADMITTED, but receipt export worked
+        self.assertEqual(json.loads(buf.getvalue()), json.loads(dest.read_text()))
+        self.assertEqual(json.loads(dest.read_text())['disposition'], 'NOT_ADMITTED')
+        if os.name == 'posix':
+            self.assertEqual(dest.stat().st_mode & 0o777, 0o600)
+        saved = dest.read_bytes()
+        with contextlib.redirect_stdout(io.StringIO()) as buf:
+            self.assertEqual(cli([str(self.root), '--output', str(dest)]), 2)
+        self.assertEqual(saved, dest.read_bytes())
+
+    def test_receipt_export_rejects_parent_traversal(self):
+        import contextlib,io
+        (self.root / 'manifest.json').write_text(json.dumps(self.good))
+        with contextlib.redirect_stdout(io.StringIO()) as buf:
+            code=cli([str(self.root), '--output', str(self.root/'..'/'escape.json')])
+        self.assertEqual(code, 2)
+        self.assertEqual(json.loads(buf.getvalue())['output_error'], 'OUTPUT_TRAVERSAL_FORBIDDEN')
+
 if __name__=='__main__':unittest.main()

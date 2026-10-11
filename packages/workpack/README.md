@@ -166,3 +166,22 @@ rules, Python `pathlib` path joining and OWASP file-upload/path guidance.
 - https://learn.microsoft.com/en-us/windows/win32/fileio/naming-a-file
 - https://docs.python.org/3/library/pathlib.html
 - https://cheatsheetseries.owasp.org/cheatsheets/File_Upload_Cheat_Sheet.html
+
+## v0.13 — safe receipt export (create-only)
+
+The explicit CLI `--output` is an external **write** surface, unlike read-only
+`verify()`. Previous versions used `Path.write_text()` and would follow a
+symlink in an untrusted work directory, overwriting a file outside that
+directory while still reporting `NOT_ADMITTED`. The exporter now creates
+**new files only** (POSIX `O_CREAT|O_EXCL|O_NOFOLLOW`, component-by-component
+`dir_fd|O_DIRECTORY|O_NOFOLLOW`, mode `0600`). Existing paths — even ordinary
+`receipt.json` files — are never overwritten. On export failure CLI returns
+exit `2` and an explicit `output_status=NOT_WRITTEN` receipt on stdout; normal
+delivery `NOT_ADMITTED` remains exit `1`, with or without a successful export.
+Choose a **new** filename for every attempt to preserve prior evidence.
+
+Non-POSIX fallback uses exclusive creation and a best-effort lstat parent
+check; unlike POSIX `dir_fd`, it does **not** close concurrent symlink races.
+Run on an immutable/trusted parent on Windows; native Windows testing is open.
+No background external write, network, deploy, authority or trusted reviewer
+is implemented. The write path is operator-directed only.

@@ -89,3 +89,13 @@ paths. This is a syntactic guarantee only: it does not attest source origin,
 OS-specific symlink/reparse behavior, trusted root selection or malicious
 concurrent filesystem replacement. Native Windows adversarial replay remains
 an explicit unverified acceptance criterion.
+
+## v0.13 — write path is part of the security boundary
+
+A verifier can be read-safe yet write-unsafe. A pre-existing output symlink
+previously caused `--output` to modify an arbitrary symlink destination.
+Explicit receipt exports must use exclusive creation, no-follow checks on
+POSIX parent components and final name, private mode `0600`, and a controlled
+`NOT_WRITTEN` error on conflicts. Preserve previously issued evidence; never
+conflate local CLI exit status with domain truth or human-approved admission.
+POSIX race confinement is tested, non-POSIX remains unverified.
