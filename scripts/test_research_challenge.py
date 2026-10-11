@@ -17,6 +17,13 @@ from research_challenge import (issue_challenge, endorse_capture, admit_challeng
 
 class ChallengeTests(unittest.TestCase):
     def setUp(self):
+        # Existing tests exercise nonce mechanics with a mocked approved
+        # Automaton-3 decision, not an actual production authorization.
+        authority = patch('research_challenge._central_authority_decision',
+                          return_value={'outcome': 'ADMITTED',
+                                        'decision_root': 'b'*64})
+        authority.start()
+        self.addCleanup(authority.stop)
         self.root = tempfile.TemporaryDirectory()
         self.ledger = str(Path(self.root.name) / 'ledger.sqlite3')
         self.packet = make_packet('valid_openai_langchain', 0)
