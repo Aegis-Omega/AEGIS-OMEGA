@@ -252,6 +252,120 @@ class TestM2LayoutDiagnosticGate(unittest.TestCase):
         self.assertTrue(any(isinstance(child, ast.Return) for child in guard.body))
         self.assertIn("INVALID_SEQUENCE", ast.unparse(guard))
 
+    def test_event_sequence_overflow_guard_precedes_m1_mutation(self) -> None:
+        from contextlib import nullcontext
+        from types import SimpleNamespace
+        from typing import Dict
+
+        core = next(
+            node for node in self.core_tree.body
+            if isinstance(node, ast.ClassDef) and node.name == "CoreMatrix"
+        )
+        method = next(
+            node for node in core.body
+            if isinstance(node, ast.FunctionDef) and node.name == "process_event"
+        )
+        # Resolve the with self._lock body from the checked-in source.
+        with_block = next(
+            node for node in method.body if isinstance(node, ast.With)
+        )
+        candidate_guards = [
+            node for node in with_block.body if isinstance(node, ast.If)
+            and "SEQUENCE_EXHAUSTED" in ast.unparse(node)
+        ]
+        self.assertEqual(len(candidate_guards), 1)
+        event_guard = candidate_guards[0]
+        m1_call = next(
+            node for node in ast.walk(with_block)
+            if isinstance(node, ast.Call)
+            and isinstance(node.func, ast.Name) and node.func.id == "M1"
+        )
+        self.assertLess(event_guard.lineno, m1_call.lineno)
+
+        # Execute the real source method in isolation: no M1/arena setup.
+        module = ast.fix_missing_locations(
+            ast.Module(body=[method], type_ignores=[])
+        )
+        namespace = {"Dict": Dict}
+        exec(compile(module, str(CORE_MATRIX_PATH), "exec"), namespace)
+        process_event = namespace["process_event"]
+        for sequence in (-1, True, (1 << 64) - 1, 1 << 64):
+            fake = SimpleNamespace(_lock=nullcontext(), _sequence=sequence)
+            output = process_event(fake, b"p", b"\\x01", b"c")
+            self.assertEqual(output, {
+                "status": "REJECTED",
+                "reason": "SEQUENCE_EXHAUSTED",
+                "sequence": sequence,
+            })
+
+    def test_bridge_ack_sequence_advances_after_both_signal_writes(self) -> None:
+        handler = next(
+            node for node in ast.walk(self.bridge_tree)
+            if isinstance(node, ast.ClassDef) and node.name == "BridgeHandler"
+        )
+        method = next(
+            node for node in handler.body
+            if isinstance(node, ast.FunctionDef) and node.name == "do_POST"
+        )
+        gate_branch = next(
+            node for node in ast.walk(method)
+            if isinstance(node, ast.If)
+            and isinstance(node.test, ast.Compare)
+            and len(node.test.comparators) == 1
+            and isinstance(node.test.comparators[0], ast.Constant)
+            and node.test.comparators[0].value == "/gate_signal"
+        )
+        ack = next(
+            node for node in ast.walk(gate_branch)
+            if isinstance(node, ast.Assign)
+            and any(_is_name(t, "last_ack_sequence") for t in node.targets)
+        )
+        gate_write = next(
+            node for node in ast.walk(gate_branch)
+            if isinstance(node, ast.Call)
+            and isinstance(node.func, ast.Attribute)
+            and node.func.attr == "record_signal"
+        )
+        m2_write = next(
+            node for node in ast.walk(gate_branch)
+            if _is_matrix_method_call(node, "receive_gate_signal")
+        )
+        self.assertLess(gate_write.lineno, m2_write.lineno)
+        self.assertLess(m2_write.lineno, ack.lineno)
+        locks = [
+            node for node in ast.walk(gate_branch)
+            if isinstance(node, ast.With) and any(
+                isinstance(item.context_expr, ast.Name)
+                and item.context_expr.id == "_lock"
+                for item in node.items
+            )
+        ]
+        self.assertTrue(any(
+            lock.lineno < gate_write.lineno < ack.lineno <= lock.end_lineno
+            for lock in locks
+        ))
+
+    def test_m2_record_constructed_before_single_buffer_write(self) -> None:
+        m2 = _named_function(self.core_tree, "M2")
+        writes = [
+            node for node in ast.walk(m2)
+            if isinstance(node, ast.Assign)
+            and any(
+                isinstance(t, ast.Subscript) and
+                isinstance(t.value, ast.Name) and t.value.id == "state"
+                for t in node.targets
+            )
+        ]
+        self.assertEqual(len(writes), 1)
+        self.assertTrue(_is_name(writes[0].value, "record"))
+        records = [
+            node for node in ast.walk(m2)
+            if isinstance(node, ast.Assign)
+            and any(_is_name(t, "record") for t in node.targets)
+        ]
+        self.assertEqual(len(records), 1)
+        self.assertLess(records[0].lineno, writes[0].lineno)
+
     def test_unadmitted_policy_cannot_be_promoted_by_contract_toggle(self) -> None:
         self.assertEqual(self.contract["schema"], "aegis.m2.sequence-domain-contract.v2")
         self.assertEqual(self.contract["implementation_status"], "CANDIDATE_NOT_ADMITTED")
