@@ -248,6 +248,83 @@ class EvolutionContractSpineTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "WORKPLANE_CONTRACT_BINDING_INVALID"):
             compose_spine(graph=graph, trials=[], source_head=OLD, workplane=plan)
 
+    @staticmethod
+    def _bound_workplane_fixture():
+        from agents.dendrite_workplane import compose as compose_workplane
+        items = [
+            issue(734, "Agents"),
+            issue(757, "Evaluation", "Parent: #734"),
+            issue(758, "Evolution", "Depends on #757"),
+        ]
+        snapshot = {"repository": REPO, "issues": items,
+                    "complete_pages": True, "acquisition": "EXPLICIT_OFFLINE_FIXTURE",
+                    "pages": 1}
+        return compile_graph(snapshot), compose_workplane(snapshot, source_head=OLD)
+
+    @staticmethod
+    def _rehash_workplane(plan):
+        plan["receipt_hash"] = digest({k: v for k, v in plan.items()
+                                       if k != "receipt_hash"})
+
+    def test_rehashed_forbidden_route_rejected(self):
+        graph, plan = self._bound_workplane_fixture()
+        # Prepatch: accepted even with a forged delivered_roles array because
+        # only outer hashes and a few metadata fields were compared.
+        plan["issue_route_shards"][0]["events"][0]["delivered_roles"] = ["finance", "sales"]
+        self._rehash_workplane(plan)
+        with self.assertRaisesRegex(ValueError, "WORKPLANE_DERIVATION_MISMATCH:issue_route_shards"):
+            compose_spine(graph=graph, trials=[], source_head=OLD, workplane=plan)
+
+    def test_rehashed_fake_issue_evolution_rejected(self):
+        graph, plan = self._bound_workplane_fixture()
+        plan["issue_evolution"]["issues"][0]["next_action"] = "AUTO_PROMOTED"
+        self._rehash_workplane(plan)
+        with self.assertRaisesRegex(ValueError, "WORKPLANE_DERIVATION_MISMATCH:issue_evolution"):
+            compose_spine(graph=graph, trials=[], source_head=OLD, workplane=plan)
+
+    def test_rehashed_route_optimizer_promotion_rejected(self):
+        graph, plan = self._bound_workplane_fixture()
+        plan["candidate_route_search"]["promotion"] = "AUTHORIZED"
+        self._rehash_workplane(plan)
+        with self.assertRaisesRegex(ValueError, "WORKPLANE_DERIVATION_MISMATCH:candidate_route_search"):
+            compose_spine(graph=graph, trials=[], source_head=OLD, workplane=plan)
+
+    def test_rehashed_fake_lessons_rejected(self):
+        from agents.dendrite_workplane import compose as compose_workplane
+        items = [
+            issue(734, "Agents"), issue(757, "Evaluation", "Parent: #734"),
+            issue(758, "Evolution", "Depends on #757"),
+        ]
+        snap = {"repository": REPO, "issues": items,
+                "complete_pages": True, "acquisition": "EXPLICIT_OFFLINE_FIXTURE",
+                "pages": 1}
+        graph = compile_graph(snap)
+        trial = positive_trial()
+        plan = compose_workplane(snap, source_head=OLD, trials=[trial])
+        self.assertTrue(plan["lesson_route_shards"])
+        plan["lesson_route_shards"] = []
+        self._rehash_workplane(plan)
+        with self.assertRaisesRegex(ValueError, "WORKPLANE_DERIVATION_MISMATCH:lesson_route_shards"):
+            compose_spine(graph=graph, trials=[trial], source_head=OLD, workplane=plan)
+
+    def test_rehashed_false_skill_promotion_rejected(self):
+        graph, plan = self._bound_workplane_fixture()
+        plan["existing_skill_evolution"] = {
+            "status": "READ_ONLY_OBSERVATION", "promotion_applied": True,
+            "skills_observed": 1, "candidate_tier_changes_not_approved": 0,
+            "lineage_root": "0" * 64, "authority_effect": "NONE",
+        }
+        self._rehash_workplane(plan)
+        with self.assertRaisesRegex(ValueError, "WORKPLANE_EVOLUTION_OBSERVATION_UNVERIFIED"):
+            compose_spine(graph=graph, trials=[], source_head=OLD, workplane=plan)
+
+    def test_rehashed_injected_extra_workplane_field_rejected(self):
+        graph, plan = self._bound_workplane_fixture()
+        plan["authorized_executor"] = "false-verifier"
+        self._rehash_workplane(plan)
+        with self.assertRaisesRegex(ValueError, "WORKPLANE_FIELDS_INVALID"):
+            compose_spine(graph=graph, trials=[], source_head=OLD, workplane=plan)
+
     def test_bounded_json_input(self):
         with tempfile.TemporaryDirectory() as d:
             p = Path(d) / "large.json"
