@@ -21,7 +21,7 @@ const AREAS: Record<string, string> = {
 export function SovereignField({ sources, selectedId, onSelect }: Props) {
   const [yaw, setYaw] = useState(-.18)
   const [lens, setLens] = useState<Lens>('field')
-  const [copied, setCopied] = useState(false)
+  const [copiedId, setCopiedId] = useState<string | null>(null)
   const drag = useRef<{ x: number; yaw: number } | null>(null)
   const currentId = useRef(selectedId)
   const field = useMemo(() => fieldProjection(sources, selectedId, yaw), [sources, selectedId, yaw])
@@ -41,12 +41,12 @@ export function SovereignField({ sources, selectedId, onSelect }: Props) {
   const copyRecord = async () => {
     if (!selected) return
     const key = selected.id
-    setCopied(false)
+    setCopiedId(null)
     try {
       await navigator.clipboard.writeText(sourceSnapshot(selected))
       // Do not attribute completion to a different record following a slow clipboard write.
-      if (currentId.current === key) setCopied(true)
-    } catch { setCopied(false) }
+      if (currentId.current === key) setCopiedId(key)
+    } catch { setCopiedId(null) }
   }
   return <section className="sf-root" aria-labelledby="sf-title" data-area={selected?.area ?? 'none'}>
     <header className="sf-head">
@@ -96,7 +96,7 @@ export function SovereignField({ sources, selectedId, onSelect }: Props) {
               return <button type="button" key={point.id}
                 className={'sf-node' + (point.active ? ' sf-node-active' : '')}
                 style={{left:point.x + '%', top:point.y + '%', '--node-scale':point.scale} as CSSProperties}
-                onClick={() => { onSelect(point.id); setCopied(false) }}
+                onClick={() => { onSelect(point.id); setCopiedId(null) }}
                 aria-label={`Inspect ${record.title}`} aria-pressed={point.active}>
                 <span className="sf-node-mark">{point.index}</span><span className="sf-node-label">{NODE_LABELS[record.id] ?? record.title}</span>
               </button>
@@ -132,7 +132,7 @@ export function SovereignField({ sources, selectedId, onSelect }: Props) {
             {selected.href ? <a href={selected.href} target={selected.href.startsWith('http') ? '_blank' : undefined}
               rel={selected.href.startsWith('http') ? 'noopener noreferrer' : undefined}>Open actual source <span aria-hidden="true">↗</span></a>
               : <span className="sf-private">SOURCE NOT PUBLIC <span aria-hidden="true">↗</span></span>}
-            <button type="button" onClick={copyRecord}>{copied ? 'Copied unsigned record' : 'Copy source record'}</button>
+            <button type="button" onClick={copyRecord}>{copiedId === selected.id ? 'Copied unsigned record' : 'Copy source record'}</button>
           </div>
         </> : <div className="sf-empty" role="status">No matching sources. Adjust the filters above. No record has been inferred.</div>}
       </aside>
