@@ -91,3 +91,43 @@ This changes the **existing** Holon Glass CSS, not the identity, narrative or pr
 **Local verification scope:** locally replayed the exact eight-test Node source (Git blob `57e969957b2dbcd35fb54728c97e55aac4ff3e19`) against a **synthetic fixture containing the same responsive rules**; 8/8 PASS. Browser engine Chromium at 320/390/600 CSS px showed computed labels 10/11px, with the 320px subline hidden and zero horizontal overflow **in the isolated fixture only**. This does not certify a full-page layout, loaded typefaces, device pixel scaling, screen-reader usability or any deployed website. Separately, the six exact-head pure `disclosure.ts` tests passed Node replay (both source and test Git blob SHAs verified); they are not DOM integration QA.
 
 **Open before admission:** trusted Node replay against **full** exact-head React/CSS checkout, `npm run build`, Playwright actual rendered app, physical mobile touch and zoom tests at 200%, horizontal reflow at 320 CSS px, contrast, reduced-motion and feedback from real users. Pre-existing draft/unsigned/protected-main gates still apply.
+
+
+## 2026-10-11 clipboard revision race — source-bound repair
+
+A user can select another file or change the expected hash while the clipboard
+API is still resolving a copy of the *previous* SHA-256. Previously,
+`copyHash()` unconditionally set `Copied` on the old promise's resolution.
+This could attach success feedback to the wrong currently selected artifact.
+
+The existing `revision` counter already invalidates outdated hash-compute
+results. Extend that **same counter** to clipboard feedback instead of adding a
+new state engine: `copyDigestIfCurrent` in
+`hub/src/lib/artifactIntegrity.ts` checks the revision before and after the
+async clipboard write; `HolonGlass.tsx` displays copy success/failure only
+when the original revision is still current. Clipboard writes cannot be
+canceled once started; the promise does **not** prove the clipboard now holds
+the hash of the current file if input changed during the write. No copy
+success is claimed in that state.
+
+**Runnable regression:**
+```bash
+cd hub
+npm run test:integrity  # old SHA-256 tests + new clipboard-revision.test.mjs
+npm run build           # separate TS/Vite requirement
+```
+
+In an isolated Node 22.16 replay of **exact Git blob bytes**, original
+`artifact-integrity.test.mjs` (7) and new `clipboard-revision.test.mjs` (6)
+passed **13/13** using the exact `artifactIntegrity.ts` module. Test cases:
+known SHA-256 vector, digest comparison/mismatch/invalid reference, file size
+limit, missing crypto, raw binary hashing, current revision copy, stale before
+write, stale during unresolved promise, clipboard denial and error behavior.
+This does **not** establish whole-hub React functionality, a Vercel deployment,
+reviewer identity, UI usability or independent scientific evidence.
+
+As checked on 2026-10-11, the linked Vercel hub project had three READY
+deployments for this branch, newest at
+`008926c15fe019c9839435e9913c0d5c0ee202b2`; those are **older**
+than the current PR and cannot verify this patch. Do not deploy, merge,
+alter pricing or infer protected-main admission from those deployments.
