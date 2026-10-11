@@ -70,3 +70,42 @@ Run the new native test in a full checkout:
 `0`0`0bash
 python -m unittest -v sovereign-omega-v2/python/tests/test_tameion_economic_reservations.py sovereign-omega-v2/python/tests/test_tameion_economic_kernel.py
 `0`0`0
+
+## V0.3 — CCTP-v2-to-Reservation Correlation (2026-10-11)
+
+The new `harness/sdk/tameion_circle_reconciliation.py` consumes the *existing*
+`CircleV2MessagesRequest` and `CircleV2MessagesObservation` source classes,
+then correlates the sandbox read-only response with the already persisted
+`EconomicReservationLedger` attempt. It binds exact source domain, burn/source
+transaction hash, request root, observation root, original transfer-plan root,
+economic-boundary root, and explicit caller-pinned correlation root.
+
+A single `pending_confirmations` observation moves the local reservation to
+`OUTCOME_UNKNOWN`, **not** to released. A single `complete` observation records
+its correlated evidence root in `OBSERVATION_RECORDED` without freeing budget,
+asserting destination-chain finality, or authorizing any transfer. Multiple
+messages for one request are rejected as ambiguous in this minimal v0.3 adapter.
+Unknown, stale generation, replay collision, unauthorized endpoint, signer,
+broadcast and mismatched source/plan/pin are denied fail-closed.
+
+Neither the cryptographic hash of Circle-returned bytes nor the appearance of
+`complete` authenticates a CCTP attestation, proves inclusion on either chain,
+or proves transfer-to-obligation equality. The independently supplied binding
+root must originate from a trusted attestation/provenance mechanism **not
+implemented** here. In particular, arbitrary request and observation inputs
+can be constructed in tests; this module must not be treated as settlement
+verification. The receipt's `settlement_asserted=false`,
+`budget_released=false`, `authority_effect=NONE` values are invariant.
+
+Read-only inspection uses `get_attempt`, which leaves SQLite generations and
+state unchanged. Actual journal transitions remain serialized by SQLite
+`BEGIN IMMEDIATE` and existing generation fencing.
+
+New adversarial test:
+`python -m unittest -v sovereign-omega-v2/python/tests/test_tameion_circle_reconciliation.py`
+
+Local isolated run: 20/20 PASS through a **synthetic Circle observer compatibility
+shim**. Existing native SQLite 24/24 PASS. Prior compatibility suite 29/29
+PASS with stubs. Full GitHub repository / true Circle module replay remains
+UNVERIFIED until an exact-head hosted job provides actual executed steps/logs.
+No signer, CCTP burn/mint, settlement, wallet, custody, or production authority.
