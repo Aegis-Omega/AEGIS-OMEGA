@@ -118,3 +118,12 @@ test('valid empty database rows remain a verified bounded empty sample',async()=
   assert.equal(result.is_global_total,false)
   assert.equal(a.stats().modelCalls,1)
 })
+
+test('explicit null purchase filter cannot silently widen to all customers',async()=>{
+ const s=setup(); const result=await s.runTool('query_purchases',{filter:null,limit:25},'UOPERATOR','T12345');
+ assert.equal(result,'INVALID_FILTER'); assert.equal(s.stats.db,0);
+});
+test('explicit empty purchase filter cannot silently widen to all customers',async()=>{
+ const s=setup(); const result=await s.runTool('query_purchases',{filter:'',limit:25},'UOPERATOR','T12345');
+ assert.equal(result,'INVALID_FILTER'); assert.equal(s.stats.db,0);
+});
