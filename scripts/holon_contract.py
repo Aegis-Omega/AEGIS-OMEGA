@@ -112,6 +112,11 @@ def assess(task: dict, state: dict) -> dict:
             blockers.append("PR_INVENTORY_NOT_VERIFIED")
         if state.get("issue_source") != "github":
             blockers.append("ISSUE_BOARD_NOT_VERIFIED")
+        # The upstream coordinator can report HOLD even when individual fields
+        # look plausible (e.g. concurrent claims or local-only main state).
+        # Never downgrade an upstream HOLD to task-allocation readiness.
+        if state.get("holon_disposition") != "ISSUE_ASSIGNMENT_AND_REVIEW_REQUIRED":
+            blockers.append("UPSTREAM_COORDINATION_NOT_CLEAR")
         if state.get("ci_billing_locked") is True:
             blockers.append("CI_BILLING_LOCK_REPORTED")
         if state.get("ci_billing_locked") is None:
