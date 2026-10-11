@@ -157,6 +157,19 @@ class RelayAttestationTests(unittest.TestCase):
         self.assertEqual(json.loads(read.stdout)[0]["packet"]["envelope"]["text"],
                          "separate-process-claim")
 
+    def test_pipeline_helper_uses_attested_transport(self):
+        from agents.dendrite_attestation import publish_for_pipeline
+        result = publish_for_pipeline(receipt(), self.root, key_file=self.keyfile,
+                                      key_id="formal_relay")
+        self.assertGreater(result["attestations_written"], 0)
+        self.assertEqual(len(read_attested(self.root, "engineering", {"formal_relay": KEY})), 1)
+
+    def test_pipeline_helper_rejects_partial_auth_config(self):
+        from agents.dendrite_attestation import publish_for_pipeline
+        with self.assertRaisesRegex(ValueError, "RELAY_KEY_ARGUMENTS_INCOMPLETE"):
+            publish_for_pipeline(receipt(), self.root, key_file=self.keyfile)
+        self.assertFalse(self.root.exists())
+
     def test_no_key_value_in_receipt(self):
         result = publish_attested(receipt(), self.root, key_id="formal_relay", key=KEY)
         self.assertNotIn(KEY.hex(), json.dumps(result))
