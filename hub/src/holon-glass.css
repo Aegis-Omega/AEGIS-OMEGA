@@ -207,3 +207,21 @@
 .hg-missing p{max-width:560px;color:#a9c1d9;line-height:1.7;margin:0 0 25px}
 @media(max-width:900px){.hg-registry-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.hg-route-header{grid-template-columns:1fr;gap:24px}.hg-route-aside{max-width:650px}}
 @media(max-width:600px){.hg-registry-grid{grid-template-columns:1fr}.hg-registry-entry{min-height:195px;padding:21px}.hg-registry-entry strong{margin:19px 0 8px}.hg-route-header{padding-top:28px;padding-bottom:29px}.hg-route-aside{padding-left:14px}.hg-route-header h1{font-size:clamp(32px,10vw,47px)}}
+
+/* Evidence workbench: mobile-first, local cryptographic utility */
+.hg-artifact-verifier{gap:0}
+.hg-verifier-intro{font-size:12px;color:#b8cee3;line-height:1.65;margin:0 0 19px}
+.hg-verifier-label{font-size:11px;font-weight:640;letter-spacing:.02em;color:#bcd4ec;margin:17px 0 8px;display:block}
+.hg-verifier-input{display:block;width:100%;min-height:45px;border:1px solid #51749a8e;border-radius:8px;background:#08152a;padding:10px 13px;color:#e6f4ff;font-size:12px}
+.hg-verifier-input[type=file]{font-size:11px;line-height:1.8}
+.hg-verifier-input[type=file]::file-selector-button{border:1px solid #477ab3;border-radius:5px;background:#123563;color:#e4f0ff;padding:6px 10px;margin-right:12px;cursor:pointer}
+.hg-verifier-filename{font:11px/1.7 'JetBrains Mono',ui-monospace,monospace!important;color:#9ebfdc!important;overflow-wrap:anywhere}
+.hg-hash-input{font-family:'JetBrains Mono',ui-monospace,monospace;letter-spacing:.02em}
+.hg-verifier-actions{display:flex;flex-wrap:wrap;align-items:center;gap:10px;margin:20px 0 15px}
+.hg-verifier-actions .hg-btn{min-height:44px;padding:11px 16px}
+.hg-verifier-result{border:1px solid #365779;background:#06162d;border-radius:8px;padding:15px;margin:5px 0 23px}
+.hg-verifier-result-label{font:10px 'JetBrains Mono',ui-monospace,monospace;letter-spacing:.12em;color:#74a6cf}
+.hg-verifier-result p{font-size:12px;line-height:1.6;color:#bfd6ea;margin:9px 0}
+.hg-verifier-hash{display:block;font:11px/1.8 'JetBrains Mono',ui-monospace,monospace;letter-spacing:.02em;overflow-wrap:anywhere;color:#a6eddd;user-select:all}
+.hg-verifier-copy{font-size:11px;color:#83e6cf}
+@media(max-width:600px){.hg-artifact-verifier{padding:21px 15px}.hg-verifier-actions .hg-btn{width:100%}}
