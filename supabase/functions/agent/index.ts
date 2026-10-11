@@ -12,8 +12,8 @@ const SUPABASE_URL      = Deno.env.get('SUPABASE_URL') ?? ''
 const SERVICE_KEY       = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
 
 const SYSTEM = `You are the AEGIS-Ω autonomous agent. You run tasks for Tarik (aegisomega.com founder).
-You have tools to: query purchases from the database, send notifications via email/Slack.
-Be concise. Report what you did and any findings. If something needs human attention, say so clearly.`
+You have only the read-only purchase-query tool. Never attempt to send email, Slack, or other external notifications as a model tool; results must be delivered through the encrypted operator-authorized outbox.
+Be concise. Report findings and clearly flag anything requiring operator attention.`
 
 // ── Tool definitions ──────────────────────────────────────────────────────────
 // ONLY read-only model tools here. Outbound notifications and result delivery
