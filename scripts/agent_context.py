@@ -122,7 +122,7 @@ def open_prs(quick=False):
         if len(batch) < 100:
             complete = True  # [] is a valid, authenticated end of pagination.
             break
-    if complete and len(prs) > 100:
+    if complete and len(prs) >= 100:
         # Bounded consistency check: a newly opened PR may shift page 1 while
         # we read pages 2+. REST pagination is not an atomic transaction.
         refreshed = sh("gh", "api",
