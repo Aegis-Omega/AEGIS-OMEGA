@@ -96,6 +96,30 @@ def _is_matrix_method_call(node: ast.AST, method: str) -> bool:
     )
 
 
+
+def _gate_effect_branch(method: ast.FunctionDef) -> ast.If:
+    """Select actual M2/governance branch, not the HTTP ingress preflight.
+
+    There are two '/gate_signal' conditions in do_POST. Only the effectful
+    branch includes matrix.receive_gate_signal; fail closed if source drifts.
+    """
+    matched = [
+        node for node in ast.walk(method)
+        if isinstance(node, ast.If)
+        and isinstance(node.test, ast.Compare)
+        and len(node.test.comparators) == 1
+        and isinstance(node.test.comparators[0], ast.Constant)
+        and node.test.comparators[0].value == "/gate_signal"
+        and any(_is_matrix_method_call(child, "receive_gate_signal")
+                for child in ast.walk(node))
+    ]
+    if len(matched) != 1:
+        raise AssertionError(
+            f"Expected one effectful gate branch, found {len(matched)}"
+        )
+    return matched[0]
+
+
 class TestM2LayoutDiagnosticGate(unittest.TestCase):
     @classmethod
     def setUpClass(cls) -> None:
@@ -221,14 +245,7 @@ class TestM2LayoutDiagnosticGate(unittest.TestCase):
             node for node in handler.body
             if isinstance(node, ast.FunctionDef) and node.name == "do_POST"
         )
-        gate_branch = next(
-            node for node in ast.walk(method)
-            if isinstance(node, ast.If)
-            and isinstance(node.test, ast.Compare)
-            and len(node.test.comparators) == 1
-            and isinstance(node.test.comparators[0], ast.Constant)
-            and node.test.comparators[0].value == "/gate_signal"
-        )
+        gate_branch = _gate_effect_branch(method)
         guard = next(
             node for node in gate_branch.body
             if isinstance(node, ast.If)
@@ -308,14 +325,7 @@ class TestM2LayoutDiagnosticGate(unittest.TestCase):
             node for node in handler.body
             if isinstance(node, ast.FunctionDef) and node.name == "do_POST"
         )
-        gate_branch = next(
-            node for node in ast.walk(method)
-            if isinstance(node, ast.If)
-            and isinstance(node.test, ast.Compare)
-            and len(node.test.comparators) == 1
-            and isinstance(node.test.comparators[0], ast.Constant)
-            and node.test.comparators[0].value == "/gate_signal"
-        )
+        gate_branch = _gate_effect_branch(method)
         ack = next(
             node for node in ast.walk(gate_branch)
             if isinstance(node, ast.Assign)
@@ -362,14 +372,7 @@ class TestM2LayoutDiagnosticGate(unittest.TestCase):
             node for node in handler.body
             if isinstance(node, ast.FunctionDef) and node.name == "do_POST"
         )
-        branch = next(
-            node for node in ast.walk(post)
-            if isinstance(node, ast.If)
-            and isinstance(node.test, ast.Compare)
-            and len(node.test.comparators) == 1
-            and isinstance(node.test.comparators[0], ast.Constant)
-            and node.test.comparators[0].value == "/gate_signal"
-        )
+        branch = _gate_effect_branch(post)
         isolated = ast.parse(
             "def _replay_gate(self, data):\n"
             "    global last_ack_sequence\n"
@@ -558,14 +561,7 @@ class TestM2LayoutDiagnosticGate(unittest.TestCase):
             node for node in handler.body
             if isinstance(node, ast.FunctionDef) and node.name == "do_POST"
         )
-        branch = next(
-            node for node in ast.walk(post)
-            if isinstance(node, ast.If)
-            and isinstance(node.test, ast.Compare)
-            and len(node.test.comparators) == 1
-            and isinstance(node.test.comparators[0], ast.Constant)
-            and node.test.comparators[0].value == "/gate_signal"
-        )
+        branch = _gate_effect_branch(post)
         isolated = ast.parse(
             "def _gate_branch(self, data):\n"
             "    global last_ack_sequence\n"
