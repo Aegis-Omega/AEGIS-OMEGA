@@ -111,7 +111,7 @@ export function DocsPage() {
         position: 'sticky', top: 0, zIndex: 50,
         background: 'rgba(6,7,12,0.55)', backdropFilter: 'blur(16px) saturate(150%)',
         borderBottom: `1px solid rgba(255,255,255,0.06)`,
-      }} className="px-7 py-4 flex items-center justify-between">
+      }} className="av-embedded-nav px-7 py-4 flex items-center justify-between">
         <div className="flex items-center gap-8">
           <a href="/" style={{ color: T.text, fontFamily: MONO, letterSpacing: '0.22em', fontSize: 13, fontWeight: 600 }}>
             NOUS<span style={{ color: T.phi }}> · Ω</span>
