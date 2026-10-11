@@ -116,7 +116,11 @@ def validate(snapshot):
         check(isinstance(t.get('paths'), list), 'paths must be list: ' + tid)
         for p in t['paths']:
             path_tokens(p)
-        check(t.get('claimed_by') is None or isinstance(t['claimed_by'], str), 'bad claim: ' + tid)
+        owner = t.get('claimed_by')
+        check(owner is None or (isinstance(owner, str) and bool(owner.strip())
+                               and len(owner) <= 128), 'bad claim: ' + tid)
+        if t['state'] in ('CLAIMED', 'IN_PROGRESS', 'REVIEW'):
+            check(owner is not None, 'active task without claim owner: ' + tid)
         by_id[tid] = t
     for tid, t in by_id.items():
         for d in t['depends_on']:
