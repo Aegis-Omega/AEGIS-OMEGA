@@ -79,7 +79,7 @@ class HolonContextTests(unittest.TestCase):
         def response(*args, **_kwargs):
             if args[:2] != ("gh", "api"):
                 return ""
-            page = int(re.search(r"&page=(\\d+)", args[2]).group(1))
+            page = int(re.search(r"&page=(\d+)", args[2]).group(1))
             return json.dumps(first if page == 1 else [rec(101)])
         with tempfile.TemporaryDirectory() as directory, \
              patch.object(ctx, "git_dir", return_value=directory), \
@@ -100,7 +100,7 @@ class HolonContextTests(unittest.TestCase):
         def response(*args, **_kwargs):
             if args[:2] != ("gh", "api"):
                 return ""
-            page = int(re.search(r"&page=(\\d+)", args[2]).group(1))
+            page = int(re.search(r"&page=(\d+)", args[2]).group(1))
             if page == 2:
                 return json.dumps([rec(100)])
             first_reads[0] += 1
@@ -124,7 +124,7 @@ class HolonContextTests(unittest.TestCase):
         def response(*args, **_kwargs):
             if args[:2] != ("gh", "api"):
                 return ""
-            page = int(re.search(r"&page=(\\d+)", args[2]).group(1))
+            page = int(re.search(r"&page=(\d+)", args[2]).group(1))
             if page == 1:
                 first_reads[0] += 1
             return json.dumps(first if page == 1 else [rec(100)])
