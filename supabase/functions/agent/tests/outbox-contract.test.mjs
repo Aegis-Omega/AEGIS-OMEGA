@@ -281,3 +281,16 @@ test('empty final model reply cannot become a paid success receipt',async()=>{
  assert.equal(d.stats.paid,1)
  assert.equal(d.rows.size,0)
 })
+
+test('max_tokens is rejected after one provider call without storing a result',async()=>{
+ const d=db()
+ const h=agent(d,env,async()=>{
+   d.stats.paid++
+   return Response.json({stop_reason:'max_tokens',content:[{type:'text',text:'partial answer'}]})
+ })
+ const [status,body]=await send(h)
+ assert.equal(status,503)
+ assert.equal(body.error,'MODEL_INCOMPLETE')
+ assert.equal(d.stats.paid,1)
+ assert.equal(d.rows.size,0)
+})
