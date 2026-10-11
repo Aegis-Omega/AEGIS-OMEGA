@@ -92,6 +92,7 @@ async function runAgent(task: string, context?: string): Promise<{ result: strin
 
     if (msg.stop_reason === 'end_turn') {
       const text = msg.content.find((b: { type: string }) => b.type === 'text')?.text ?? ''
+      if (typeof text !== 'string' || !text.trim()) throw new Error('MODEL_INCOMPLETE')
       return { result: text, actions }
     }
 
@@ -107,7 +108,8 @@ async function runAgent(task: string, context?: string): Promise<{ result: strin
     }
   }
 
-  return { result: 'Agent reached max turns without completing task.', actions }
+  // Exhaustion is an incomplete model outcome, never a completed task artifact.
+  throw new Error('MODEL_INCOMPLETE')
 }
 
 // ── Encrypted, fail-closed result outbox ───────────────────────────────────────
@@ -299,9 +301,10 @@ Deno.serve(async (req) => {
       return response(503,{error:'RESULT_PERSIST_FAILED'})
     }
     return response(200,{ok:true,status:'RESULT_STORED'})
-  } catch {
+  } catch (e) {
     console.error('AEGIS_MODEL_EXECUTION_FAILED')
-    return response(503,{error:'MODEL_EXECUTION_UNCONFIRMED'})
+    return response(503,{error: e instanceof Error && e.message === 'MODEL_INCOMPLETE'
+      ? 'MODEL_INCOMPLETE' : 'MODEL_EXECUTION_UNCONFIRMED'})
   }
 
 })
