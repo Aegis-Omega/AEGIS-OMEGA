@@ -15,3 +15,70 @@
 @media(max-width:950px){.rw-body{grid-template-columns:1fr}.rw-inspector{position:static;min-height:0}.rw-hero{grid-template-columns:1fr}.rw-side{max-width:590px}.rw-toolstrip{flex-direction:column;align-items:stretch}.rw-search{flex:auto;width:100%}}
 @media(max-width:610px){.rw-shell{padding:16px 14px 38px}.rw-ruler{font-size:9px;flex-direction:column}.rw-hero{padding:35px 0 28px;gap:23px}.rw-hero h1{font-size:clamp(42px,11vw,61px)}.rw-hero p{font-size:12px}.rw-filters button{padding:10px 8px;font-size:10px}.rw-entry{min-height:119px;padding:18px 12px;gap:9px}.rw-entry strong{font-size:15px}.rw-entry p{font-size:10px}.rw-inspector-top{flex-wrap:wrap}.rw-inspector-main{padding:24px 19px}.rw-gate{grid-template-columns:1fr}.rw-footer{font-size:9px;flex-direction:column}.rw-side strong{font-size:14px}}
 @media(prefers-reduced-motion:reduce){.rw-shell *{animation:none!important;transition:none!important}}
+
+/* Evidence Filament — source-derived topology, no independent token system.
+   Graph lines describe metadata associations; labels convey meaning without color. */
+.ef-observatory{position:relative;isolation:isolate;overflow:hidden;margin:22px 0 29px;
+  background:linear-gradient(135deg,rgba(18,37,60,.96),rgba(4,14,28,.99) 62%);
+  border:1px solid var(--hg-edge,rgba(145,192,252,.18));border-radius:14px;
+  box-shadow:inset 0 1px 0 rgba(217,239,255,.1),0 22px 56px rgba(0,0,0,.23)}
+.ef-observatory:before{content:"";position:absolute;inset:0;pointer-events:none;z-index:-1;
+  background:radial-gradient(ellipse 70% 60% at 40% 13%,rgba(74,123,194,.16),transparent 78%)}
+.ef-heading{display:flex;align-items:end;justify-content:space-between;gap:24px;
+  padding:clamp(23px,3vw,38px) clamp(18px,3vw,36px) 21px;border-bottom:1px solid rgba(145,192,252,.13)}
+.ef-heading h2{font-size:clamp(28px,3.5vw,49px);font-weight:620;line-height:1.05;
+  letter-spacing:-.06em;margin:13px 0 12px;color:var(--hg-text,#f0f7ff)}
+.ef-heading h2 em{font-style:normal;color:var(--hg-ice,#bbebff)}
+.ef-heading p{max-width:620px;font-size:13px;line-height:1.65;color:var(--hg-dim,#9fb6d0);margin:0}
+.ef-mode{font:10px/1.65 'JetBrains Mono',ui-monospace,monospace;letter-spacing:.09em;
+  text-align:right;color:#d9c39a;max-width:220px;flex-shrink:0}
+.ef-map{position:relative;min-height:340px;display:grid;place-items:center;padding:45px clamp(16px,3vw,42px);
+  background:radial-gradient(ellipse 45% 45% at 48% 52%,rgba(35,99,167,.15),transparent)}
+.ef-engraving{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
+.ef-flow{width:100%;position:relative;z-index:1;display:grid;
+  grid-template-columns:minmax(0,.88fr) minmax(0,1.14fr) minmax(0,1.17fr);
+  align-items:center;gap:clamp(13px,3.2vw,45px);animation:ef-arrive .23s ease-out both}
+.ef-station{min-width:0;min-height:155px;border:1px solid rgba(143,190,232,.38);
+  background:rgba(6,18,33,.97);border-radius:11px;padding:clamp(16px,2vw,24px);
+  box-shadow:inset 0 1px 0 rgba(208,237,255,.11),0 14px 28px rgba(0,0,0,.24)}
+.ef-source{border-left:2px solid var(--hg-blue,#7cbaff)}
+.ef-question{border-top:2px solid var(--hg-gold,#c8a96e);
+  background:linear-gradient(135deg,rgba(17,36,57,.98),rgba(8,23,43,.98))}
+.ef-boundaries{border-right:2px solid var(--hg-violet,#aa96ff)}
+.ef-index{display:block;font:10px 'JetBrains Mono',ui-monospace,monospace;
+  letter-spacing:.13em;color:#cdb68b;margin-bottom:17px}
+.ef-station strong{display:block;color:#f0f6ff;font-weight:610;font-size:clamp(15px,1.4vw,19px);line-height:1.43;
+  overflow-wrap:anywhere}
+.ef-station small{display:block;font:10px/1.65 'JetBrains Mono',monospace;color:#9ebbd7;margin-top:14px}
+.ef-boundaries ol{margin:10px 0 0;padding-left:18px;max-height:158px;overflow:auto;color:#adc4dc;
+  font-size:11px;line-height:1.55;overflow-wrap:anywhere}
+.ef-boundaries li+li{margin-top:6px}
+.ef-pick{display:flex;flex-wrap:wrap;gap:7px;padding:20px clamp(18px,3vw,36px);
+  border-top:1px solid rgba(143,188,229,.14);border-bottom:1px solid rgba(143,188,229,.12)}
+.ef-pick button{display:inline-flex;align-items:center;gap:10px;min-height:44px;padding:10px 14px;
+  background:rgba(14,31,49,.94);border:1px solid #405d7a;border-radius:7px;color:#c2d6eb;
+  font-size:12px;line-height:1.4;cursor:pointer;text-align:left;transition:border-color .16s,background-color .16s}
+.ef-pick button span{color:#d3b582;font:10px 'JetBrains Mono',monospace}
+.ef-pick button[aria-pressed=true]{border-color:#ceb27a;background:#39362670;color:#fff1d5}
+.ef-pick button:hover{border-color:#9bc5ea}
+.ef-disclosure{margin:0;padding:15px clamp(18px,3vw,36px) 21px;
+  font-size:11px;line-height:1.7;color:#a8c0d8}
+.ef-disclosure strong{color:#e4c993;font-weight:600}
+.ef-empty{padding:30px;font-size:13px;color:#b8cce0}
+@keyframes ef-arrive{from{opacity:.65;transform:translateY(5px)}to{opacity:1;transform:none}}
+@media(max-width:850px){
+ .ef-heading{flex-direction:column;align-items:start}.ef-mode{text-align:left;max-width:none}
+ .ef-engraving{opacity:.35}
+ .ef-flow{grid-template-columns:1fr;gap:12px}.ef-station{min-height:0}
+ .ef-map{padding:22px 18px}.ef-boundaries ol{max-height:none}
+}
+@media(max-width:470px){
+ .ef-heading{padding:22px 16px}.ef-map{padding:18px 14px}
+ .ef-pick{display:grid;grid-template-columns:1fr 1fr;padding:16px;gap:8px}
+ .ef-pick button{padding:10px;font-size:11px;min-width:0;overflow-wrap:anywhere}
+ .ef-disclosure{padding:14px 16px 20px}
+}
+@media(prefers-reduced-motion:reduce){.ef-flow{animation:none!important}.ef-pick button{transition:none!important}}
+@media(prefers-contrast:more){.ef-station,.ef-pick button{border-color:#d5e7fa;background:#071426}
+ .ef-station strong,.ef-disclosure{color:#f8fcff}}
+@media(prefers-reduced-transparency:reduce){.ef-station{background:#081526}.ef-observatory{background:#071323}}
