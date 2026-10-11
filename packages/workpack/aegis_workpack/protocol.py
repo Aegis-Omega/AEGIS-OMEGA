@@ -1,0 +1,557 @@
+#!/usr/bin/env python3
+"""AEGIS WorkPack v0.1 — offline, read-only, model-neutral work receipt verifier.
+
+Proof boundary: verifies file bytes and narrow structural checks ONLY.
+Does not validate science, creative quality, identities or authorization.
+"""
+import argparse
+import csv
+import hashlib
+import io
+import json
+import math
+import os
+from pathlib import Path
+import re
+import secrets
+import stat
+import sys
+
+SCHEMA = "aegis.workpack.v1"
+DOMAINS = {"code", "science", "data", "operations", "design", "writing"}
+AUTHORITIES = {"read_only", "branch_only", "operator_required"}
+SHA256 = re.compile(r"[0-9a-f]{64}\Z")
+MAX_ARTIFACT_BYTES = 8 * 1024 * 1024
+MAX_MANIFEST_BYTES = 256 * 1024
+MAX_ARTIFACTS = 50
+MAX_CHECKS = 100
+MAX_JSON_DEPTH = 64
+MAX_JSON_NODES = 50000
+MAX_JSON_INTEGER_DIGITS = 100
+
+
+class Invalid(ValueError):
+    pass
+
+
+def require(predicate, reason):
+    if not predicate:
+        raise Invalid(reason)
+
+
+def _strict_pairs(pairs):
+    result = {}
+    for k, v in pairs:
+        require(k not in result, "DUPLICATE_JSON_KEY")
+        result[k] = v
+    return result
+
+
+def _bounded_json_nesting(text):
+    """Reject excessive nesting *before* entering the JSON decoder.
+
+    Quote/escape-aware, including escaped quotes; unmatched delimiters remain
+    the responsibility of the ordinary strict JSON parser.
+    """
+    require(isinstance(text, str), "JSON_INPUT_INVALID")
+    depth = 0
+    # Conservative lexical lower bound for parsed container/value nodes.
+    # It prevents giant flat lists from reaching json.loads at all; the exact
+    # iterative decoded-tree count below handles remaining edge cases.
+    min_nodes = 0
+    inside = False
+    escaped = False
+    for char in text:
+        if inside:
+            if escaped:
+                escaped = False
+            elif char == "\\":
+                escaped = True
+            elif char == '"':
+                inside = False
+        elif char == '"':
+            inside = True
+        elif char in '{[':
+            depth += 1
+            min_nodes += 1
+            require(depth <= MAX_JSON_DEPTH, "JSON_DEPTH_LIMIT")
+            require(min_nodes <= MAX_JSON_NODES, "JSON_NODE_LIMIT")
+        elif char == ',':
+            min_nodes += 1
+            require(min_nodes <= MAX_JSON_NODES, "JSON_NODE_LIMIT")
+        elif char in '}]':
+            depth -= 1
+    # Leave malformed syntax to json.loads for consistent error reporting.
+
+
+def _utf8_size(value):
+    """Require well-formed Unicode before canonical JSON or receipt encoding.
+
+    RFC 8259 allows escaped surrogate code units in its ABNF, but notes their
+    behaviour is unpredictable. We reject unpaired surrogates deterministically
+    rather than surfacing UnicodeEncodeError or converting them silently.
+    """
+    try:
+        return len(value.encode("utf-8"))
+    except UnicodeEncodeError as exc:
+        raise Invalid("JSON_UNPAIRED_SURROGATE") from exc
+
+
+def _bounded_json_tree(value, *, max_text_bytes=MAX_MANIFEST_BYTES):
+    """Guard direct Python API input against deep/cyclic/non-JSON graphs.
+
+    A decoded JSON value is acyclic. Programmatic input may not be. Iterative
+    traversal bounds depth and node count without relying on Python recursion.
+    """
+    stack = [(value, 0)]
+    seen = set()
+    count = 0
+    text_size = 0
+    while stack:
+        node, depth = stack.pop()
+        count += 1
+        require(count <= MAX_JSON_NODES, "JSON_NODE_LIMIT")
+        require(depth <= MAX_JSON_DEPTH, "JSON_DEPTH_LIMIT")
+        if isinstance(node, (dict, list, tuple)):
+            ident = id(node)
+            require(ident not in seen, "JSON_CYCLE_OR_SHARED_CONTAINER")
+            seen.add(ident)
+            if isinstance(node, dict):
+                for key, child in node.items():
+                    require(isinstance(key, str), "JSON_KEY_TYPE_INVALID")
+                    text_size += _utf8_size(key)
+                    stack.append((child, depth + 1))
+            else:
+                require(type(node) is list, "JSON_VALUE_TYPE_INVALID")
+                stack.extend((child, depth + 1) for child in node)
+        elif isinstance(node, str):
+            text_size += _utf8_size(node)
+        elif node is None or type(node) in (bool, int, float):
+            if type(node) is float:
+                require(math.isfinite(node), "NONFINITE_JSON")
+            if type(node) is int:
+                require(node.bit_length() <= 340, "JSON_INTEGER_TOO_LONG")
+        else:
+            raise Invalid("JSON_VALUE_TYPE_INVALID")
+        require(text_size <= max_text_bytes, "JSON_TEXT_SIZE_LIMIT")
+
+
+def _bounded_json_integer(value):
+    require(len(value.lstrip('-')) <= MAX_JSON_INTEGER_DIGITS, "JSON_INTEGER_TOO_LONG")
+    return int(value)
+
+
+def _reject_nonfinite_constant(value):
+    # Python accepts NaN and Infinity extensions that RFC 8259 forbids.
+    raise Invalid("NONFINITE_JSON")
+
+
+def _finite_json_float(value):
+    # 1e400 is legal JSON syntax but overflows binary64 to infinity. Do not
+    # let Python's implementation-specific float semantics leak into receipts.
+    require(len(value) <= 128, "JSON_FLOAT_TOO_LONG")
+    number = float(value)
+    require(math.isfinite(number), "NONFINITE_JSON")
+    return number
+
+
+def _strict_json_loads(raw):
+    _bounded_json_nesting(raw)
+    try:
+        decoded = json.loads(raw, object_pairs_hook=_strict_pairs,
+                             parse_constant=_reject_nonfinite_constant,
+                             parse_int=_bounded_json_integer,
+                             parse_float=_finite_json_float)
+        # The direct-Python canonicalizer enforces MAX_JSON_NODES, but the
+        # parsed-file path previously bypassed it entirely. Apply the same
+        # exact iterative bound to the decoded tree, without imposing the
+        # 256-KiB MANIFEST text cap on legitimate 8-MiB JSON artifacts.
+        _bounded_json_tree(decoded, max_text_bytes=MAX_ARTIFACT_BYTES)
+        return decoded
+    except RecursionError as exc:
+        raise Invalid("JSON_DEPTH_LIMIT") from exc
+
+
+def read_json(path, cap=MAX_MANIFEST_BYTES):
+    require(type(cap) is int and 0 < cap <= MAX_ARTIFACT_BYTES, "JSON_CAP_INVALID")
+    source = Path(path)
+    # The public helper has no separately supplied trusted workspace root.
+    # Walking from source.parent is UNSAFE: _artifact_bytes() resolves that
+    # parent, thereby following a symlink before its O_NOFOLLOW checks start.
+    # On POSIX walk from the filesystem anchor through EVERY path component,
+    # with O_DIRECTORY|O_NOFOLLOW for parents and O_NONBLOCK for the leaf.
+    # source.absolute() preserves symlinks; source.resolve() does NOT.
+    if os.name == "posix" and hasattr(os, "O_NOFOLLOW"):
+        require(".." not in source.parts, "JSON_PATH_TRAVERSAL")
+        absolute = source.absolute()
+        require(absolute.anchor == "/", "JSON_PATH_INVALID")
+        relative = "/".join(absolute.parts[1:])
+        raw = _artifact_bytes("/", relative, cap)
+    else:
+        # Non-POSIX fallback is only safe for immutable, trusted directories.
+        raw = _artifact_bytes(source.parent, source.name, cap)
+    require(len(raw) <= cap, "JSON_TOO_LARGE")
+    try:
+        return _strict_json_loads(raw.decode("utf-8"))
+    except (UnicodeDecodeError, json.JSONDecodeError) as e:
+        raise Invalid("INVALID_JSON") from e
+
+
+def canonical(value):
+    _bounded_json_tree(value)
+    try:
+        raw = json.dumps(value, ensure_ascii=False, sort_keys=True,
+                         separators=(",", ":"), allow_nan=False).encode("utf-8")
+    except RecursionError as exc:
+        raise Invalid("JSON_DEPTH_LIMIT") from exc
+    require(len(raw) <= MAX_MANIFEST_BYTES, "JSON_TOO_LARGE")
+    return raw
+
+
+def sha(value):
+    return hashlib.sha256(value).hexdigest()
+
+
+# A WorkPack manifest must remain portable: on Windows a drive prefix,
+# NTFS alternate stream, or reserved DOS name is not an ordinary file path.
+_WINDOWS_DEVICE_NAMES = frozenset(
+    {"CON", "PRN", "AUX", "NUL", "CONIN$", "CONOUT$"}
+    | {f"COM{i}" for i in "123456789¹²³"}
+    | {f"LPT{i}" for i in "123456789¹²³"}
+)
+_PORTABLE_UNSAFE_CHARS = frozenset('\\:<>"|?*')
+
+
+def valid_path(path):
+    """Require a workspace-relative name safe under Unix and Windows grammars.
+
+    This is syntactic validation, not independent filesystem confinement.
+    """
+    if not isinstance(path, str) or not 1 <= len(path) <= 240:
+        return False
+    if path.startswith("/") or any(c in _PORTABLE_UNSAFE_CHARS or ord(c) < 32
+                                  or ord(c) == 127 for c in path):
+        return False
+    for part in path.split("/"):
+        if part in ("", ".", "..") or part.endswith((".", " ")):
+            return False
+        # Devices remain reserved when followed by extensions (e.g. NUL.txt).
+        stem = part.split(".", 1)[0].rstrip(" ").upper()
+        if stem in _WINDOWS_DEVICE_NAMES:
+            return False
+    return True
+
+
+def _artifact_bytes(root, name, cap=MAX_ARTIFACT_BYTES):
+    """Read a bounded file under workspace without following symlinks.
+
+    POSIX: dirfd + O_NOFOLLOW closes parent-component symlink races.
+    Other OS: precheck + read; not race-proof against concurrent writers.
+    """
+    require(valid_path(name), "ARTIFACT_PATH_INVALID")
+    root = Path(root).resolve(strict=True)
+    require(root.is_dir(), "ROOT_NOT_DIRECTORY")
+    parts = name.split("/")
+    if os.name == "posix" and hasattr(os, "O_NOFOLLOW"):
+        flags = os.O_RDONLY | os.O_NOFOLLOW
+        # A hostile workspace may put a FIFO in place of an artifact or
+        # manifest. Without O_NONBLOCK, open() hangs BEFORE fstat(S_ISREG).
+        # Regular files ignore O_NONBLOCK; special files fail regular-file
+        # verification promptly instead of blocking indefinitely.
+        leaf_flags = flags | os.O_NONBLOCK
+        directory = os.open(root, os.O_RDONLY | os.O_DIRECTORY)
+        try:
+            for part in parts[:-1]:
+                next_fd = os.open(part, flags | os.O_DIRECTORY, dir_fd=directory)
+                os.close(directory)
+                directory = next_fd
+            fd = os.open(parts[-1], leaf_flags, dir_fd=directory)
+            try:
+                require(stat.S_ISREG(os.fstat(fd).st_mode), "ARTIFACT_NOT_REGULAR_FILE")
+                with os.fdopen(fd, "rb", closefd=False) as f:
+                    raw = f.read(cap + 1)
+            finally:
+                os.close(fd)
+        except OSError as e:
+            raise Invalid("UNSAFE_OR_MISSING_ARTIFACT") from e
+        finally:
+            os.close(directory)
+    else:
+        current = root
+        for i, part in enumerate(parts):
+            current = current / part
+            mode = os.lstat(current).st_mode
+            require(not stat.S_ISLNK(mode), "SYMLINK_FORBIDDEN")
+            require(stat.S_ISDIR(mode) if i < len(parts) - 1 else stat.S_ISREG(mode),
+                    "ARTIFACT_NOT_REGULAR_FILE")
+        with open(current, "rb") as f:
+            raw = f.read(cap + 1)
+    require(len(raw) <= cap, "ARTIFACT_TOO_LARGE")
+    return raw
+
+
+def validate_contract(contract):
+    require(isinstance(contract, dict) and contract.get("schema") == SCHEMA, "SCHEMA_INVALID")
+    require(isinstance(contract.get("task_id"), str) and
+            re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_.-]{2,79}", contract["task_id"]), "TASK_ID_INVALID")
+    require(contract.get("domain") in DOMAINS, "DOMAIN_INVALID")
+    require(contract.get("authority") in AUTHORITIES, "AUTHORITY_INVALID")
+    require(isinstance(contract.get("objective"), str) and
+            12 <= len(contract["objective"].strip()) <= 1500, "OBJECTIVE_INVALID")
+    prod = contract.get("producer")
+    require(isinstance(prod, dict) and isinstance(prod.get("agent"), str) and
+            1 <= len(prod["agent"].strip()) <= 128, "PRODUCER_INVALID")
+    artifacts = contract.get("artifacts")
+    require(isinstance(artifacts, list) and 1 <= len(artifacts) <= MAX_ARTIFACTS, "ARTIFACTS_INVALID")
+    paths = set()
+    for a in artifacts:
+        require(isinstance(a, dict) and valid_path(a.get("path")), "ARTIFACT_PATH_INVALID")
+        require(a["path"] not in paths, "DUPLICATE_ARTIFACT")
+        paths.add(a["path"])
+        require(isinstance(a.get("sha256"), str) and SHA256.fullmatch(a["sha256"]), "ARTIFACT_HASH_INVALID")
+    checks = contract.get("checks")
+    require(isinstance(checks, list) and 1 <= len(checks) <= MAX_CHECKS, "CHECKS_INVALID")
+    ids = set()
+    for c in checks:
+        require(isinstance(c, dict) and isinstance(c.get("id"), str) and
+                re.fullmatch(r"A[1-9][0-9]*", c["id"]) and c["id"] not in ids, "CHECK_ID_INVALID")
+        ids.add(c["id"])
+        require(c.get("artifact") in paths, "CHECK_ARTIFACT_UNDECLARED")
+        require(c.get("kind") in {"sha256", "json_keys", "csv_columns", "text_contains", "independent_review"},
+                "CHECK_KIND_UNSUPPORTED")
+        if c["kind"] == "json_keys":
+            require(isinstance(c.get("keys"), list) and 1 <= len(c["keys"]) <= 50
+                    and all(isinstance(x, str) and x for x in c["keys"]), "JSON_KEYS_INVALID")
+        if c["kind"] == "csv_columns":
+            require(isinstance(c.get("columns"), list) and 1 <= len(c["columns"]) <= 50
+                    and all(isinstance(x, str) and x for x in c["columns"])
+                    and type(c.get("min_rows")) is int and 0 <= c["min_rows"] <= 100000, "CSV_COLUMNS_INVALID")
+        if c["kind"] == "text_contains":
+            require(isinstance(c.get("value"), str) and 1 <= len(c["value"]) <= 500,
+                    "TEXT_VALUE_INVALID")
+    return contract
+
+
+def _evaluate(check, raw):
+    kind = check["kind"]
+    if kind == "sha256":
+        return "PASS", "BYTE_INTEGRITY_ONLY"
+    if kind == "independent_review":
+        return "BLOCKED", "AUTHENTICATED_REVIEW_UNAVAILABLE_OFFLINE"
+    try:
+        text = raw.decode("utf-8")
+        if kind == "text_contains":
+            return ("PASS", "STRUCTURE_ONLY") if check["value"] in text else ("FAIL", "TEXT_NOT_PRESENT")
+        if kind == "json_keys":
+            data = _strict_json_loads(text)
+            valid = isinstance(data, dict) and all(k in data for k in check["keys"])
+            return ("PASS", "STRUCTURE_ONLY") if valid else ("FAIL", "JSON_KEYS_NOT_PRESENT")
+        if kind == "csv_columns":
+            reader = csv.reader(io.StringIO(text, newline=""))
+            header = next(reader, None)
+            require(header and len(set(header)) == len(header), "CSV_HEADER_INVALID")
+            count = 0
+            for row in reader:
+                require(len(row) == len(header), "CSV_ROW_WIDTH_INVALID")
+                count += 1
+                require(count <= 100000, "CSV_ROW_LIMIT")
+            valid = all(k in header for k in check["columns"]) and count >= check["min_rows"]
+            return ("PASS", "STRUCTURE_ONLY") if valid else ("FAIL", "CSV_CRITERION_NOT_MET")
+    except (UnicodeDecodeError, json.JSONDecodeError, csv.Error, Invalid) as e:
+        return "FAIL", str(e) if isinstance(e, Invalid) else "ARTIFACT_PARSE_FAILED"
+    return "BLOCKED", "UNSUPPORTED_EVALUATION"
+
+
+def verify(root, manifest):
+    """No writes. A PASS never means independent quality or permission to deploy."""
+    report = {"schema": "aegis.workpack.receipt.v1", "authority_effect": "NONE",
+              "disposition": "NOT_ADMITTED", "artifact_integrity": "UNVERIFIED",
+              "domain_quality": "UNVERIFIED", "checks": [], "artifacts": [],
+              "local_result": "UNVERIFIED", "work_complete": False,
+              "independent_source_verification": "UNVERIFIED",
+              "independent_oracle_verification": "UNVERIFIED"}
+    try:
+        task = validate_contract(manifest)
+        report.update({"task_id": task["task_id"], "domain": task["domain"],
+                       "contract_sha256": sha(canonical(task)), "authority": task["authority"],
+                       "producer_claimed": task["producer"]["agent"]})
+        artifacts = {}
+        all_match = True
+        for entry in task["artifacts"]:
+            path = entry["path"]
+            try:
+                raw = _artifact_bytes(root, path)
+                digest = sha(raw)
+                ok = digest == entry["sha256"]
+                artifacts[path] = raw if ok else None
+                report["artifacts"].append({"path": path, "result": "PASS" if ok else "FAIL",
+                                            "expected_sha256": entry["sha256"], "actual_sha256": digest})
+                all_match &= ok
+            except (Invalid, OSError) as e:
+                all_match = False
+                artifacts[path] = None
+                report["artifacts"].append({"path": path, "result": "FAIL", "reason": str(e)})
+        report["artifact_integrity"] = "PASS" if all_match else "FAIL"
+        # Research is compulsory for delivery readiness. Old v0.1 manifests
+        # remain inspectable for artifact integrity, but are NOT complete work.
+        from .research_loop import audit_research
+        research = audit_research(root, task.get("research"))
+        report["research"] = research
+        report["delivery_readiness"] = (
+            "BLOCKED_UNATTESTED_RESEARCH_AND_ORACLE"
+            if research["status"] == "LOCAL_PACKET_COMPLETE_UNATTESTED"
+            and research.get("falsification_outcome_reported") != "NOT_RUN"
+            else "BLOCKED_UNRUN_FALSIFICATION" if
+            research["status"] == "LOCAL_PACKET_COMPLETE_UNATTESTED"
+            else "BLOCKED_RESEARCH_OR_COMPARISON")
+        for check in task["checks"]:
+            raw = artifacts.get(check["artifact"])
+            if raw is None:
+                status, reason = "FAIL", "ARTIFACT_INTEGRITY_NOT_VERIFIED"
+            else:
+                status, reason = _evaluate(check, raw)
+            report["checks"].append({"id": check["id"], "kind": check["kind"],
+                                     "artifact": check["artifact"], "result": status, "reason": reason})
+        results = [c["result"] for c in report["checks"]]
+        report["local_result"] = ("LOCAL_INTEGRITY_AND_STRUCTURE_VERIFIED" if
+                                  all_match and all(x == "PASS" for x in results)
+                                  else "LOCAL_CHECKS_FAILED")
+        # A self-authored manifest can forge every source, oracle and transcript.
+        # Only a future *trusted* harness may authorize completion. This library
+        # has no trusted web/browser retrieval or independent quality grader.
+        report["disposition"] = "NOT_ADMITTED"
+        report["work_complete"] = False
+        report["replayable"] = True
+    except (Invalid, OSError, TypeError, ValueError) as e:
+        report["reason"] = str(e)
+        report["contract"] = "INVALID"
+    return report
+
+
+
+class ReceiptDurabilityUnverified(OSError):
+    """The output name was published but persistent storage is unconfirmed."""
+
+
+def _write_receipt_create_only(path, rendered):
+    """Create a new local receipt, with atomic visibility on local POSIX FS.
+
+    POSIX: write to a uniquely-created private sibling, fsync it, then publish
+    by atomic hard link (which fails if destination exists). Fsync the parent
+    after unlinking the temporary name. The original contents of existing
+    output names are never modified. No directory symlinks are followed.
+
+    If writing fails before the link, the destination path is NOT created.
+    If post-link cleanup/directory-sync fails, callers get a distinct
+    ReceiptDurabilityUnverified exception: output may already be visible.
+    Network FS durability, crashes leaving orphan temporary names, and the
+    non-POSIX fallback are NOT claimed safe for adversarial usage.
+    """
+    require(isinstance(path, str) and path and "\x00" not in path,
+            "OUTPUT_PATH_INVALID")
+    name = Path(path)
+    require(".." not in name.parts, "OUTPUT_TRAVERSAL_FORBIDDEN")
+    absolute = name.absolute()  # deliberately does not follow symlinks
+    require(absolute.name not in ("", ".", ".."), "OUTPUT_PATH_INVALID")
+    if os.name == "posix" and hasattr(os, "O_NOFOLLOW"):
+        require(absolute.anchor == "/", "OUTPUT_PATH_INVALID")
+        parts = absolute.parts[1:]
+        directory = os.open("/", os.O_RDONLY | os.O_DIRECTORY)
+        try:
+            for part in parts[:-1]:
+                next_fd = os.open(part, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW,
+                                  dir_fd=directory)
+                os.close(directory)
+                directory = next_fd
+            temp_name = "." + parts[-1] + "." + secrets.token_hex(16) + ".workpack-tmp"
+            temp_created = False
+            published = False
+            try:
+                fd = os.open(temp_name, os.O_WRONLY | os.O_CREAT | os.O_EXCL |
+                             os.O_NOFOLLOW, 0o600, dir_fd=directory)
+                temp_created = True
+                try:
+                    with os.fdopen(fd, "w", encoding="utf-8", closefd=False) as out:
+                        out.write(rendered)
+                        out.flush()
+                        os.fsync(out.fileno())
+                finally:
+                    os.close(fd)
+                # Unlike os.rename/os.replace, hard-link publication cannot
+                # overwrite an existing receipt and is atomic on local POSIX.
+                os.link(temp_name, parts[-1], src_dir_fd=directory,
+                        dst_dir_fd=directory, follow_symlinks=False)
+                published = True
+                os.unlink(temp_name, dir_fd=directory)
+                temp_created = False
+                os.fsync(directory)
+            except OSError as exc:
+                if published:
+                    raise ReceiptDurabilityUnverified("OUTPUT_DURABILITY_UNVERIFIED") from exc
+                raise
+            finally:
+                if temp_created:
+                    try:
+                        os.unlink(temp_name, dir_fd=directory)
+                    except OSError:
+                        pass  # orphaned hidden temp may require operator cleanup
+        finally:
+            os.close(directory)
+    else:
+        # Non-POSIX fallback is exclusive-creation only, NOT atomic visibility
+        # or a proven defense against concurrent parent-path replacements.
+        current = Path(absolute.anchor)
+        for part in absolute.parts[1:-1]:
+            current = current / part
+            require(not stat.S_ISLNK(os.lstat(current).st_mode),
+                    "OUTPUT_PARENT_SYMLINK_FORBIDDEN")
+            require(stat.S_ISDIR(os.lstat(current).st_mode),
+                    "OUTPUT_PARENT_NOT_DIRECTORY")
+        with open(absolute, "x", encoding="utf-8") as out:
+            out.write(rendered)
+
+
+def cli(argv=None):
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("workspace", help="Directory containing artefacts and manifest.json")
+    parser.add_argument("--manifest", default="manifest.json", help="Manifest file in workspace")
+    parser.add_argument("--output", help="Optional receipt output path (otherwise stdout)")
+    parser.add_argument("--integrity-only", action="store_true",
+                        help="Diagnostic backward-compatibility mode; bypasses research delivery requirement")
+    ns = parser.parse_args(argv)
+    try:
+        require(valid_path(ns.manifest), "MANIFEST_PATH_INVALID")
+        raw = _artifact_bytes(ns.workspace, ns.manifest, MAX_MANIFEST_BYTES)
+        try:
+            data = _strict_json_loads(raw.decode("utf-8"))
+        except (UnicodeDecodeError, json.JSONDecodeError) as e:
+            raise Invalid("INVALID_JSON") from e
+        result = verify(ns.workspace, data)
+    except (Invalid, OSError) as e:
+        result = {"schema": "aegis.workpack.receipt.v1", "disposition": "NOT_ADMITTED",
+                  "authority_effect": "NONE", "reason": str(e)}
+    rendered = json.dumps(result, indent=2, sort_keys=True) + "\n"
+    if ns.output:
+        try:
+            _write_receipt_create_only(ns.output, rendered)
+        except (Invalid, OSError, ValueError) as e:
+            # The final link may have succeeded even if a later directory
+            # fsync failed. Never falsely assert NOT_WRITTEN in that case.
+            result["output_status"] = ("WRITTEN_DURABILITY_UNVERIFIED"
+                                       if isinstance(e, ReceiptDurabilityUnverified)
+                                       else "NOT_WRITTEN")
+            result["output_error"] = ("OUTPUT_DURABILITY_UNVERIFIED"
+                                      if isinstance(e, ReceiptDurabilityUnverified)
+                                      else str(e) if isinstance(e, Invalid)
+                                      else "OUTPUT_UNSAFE_OR_ALREADY_EXISTS")
+            print(json.dumps(result, indent=2, sort_keys=True) + "\n", end="")
+            return 2
+    print(rendered, end="")
+    # Exit 0 is reserved for the explicit local artifact-diagnostic mode.
+    # Never grant a default success using a self-authored source or oracle.
+    return 0 if (ns.integrity_only and result.get("local_result") ==
+                 "LOCAL_INTEGRITY_AND_STRUCTURE_VERIFIED") else 1
+
+
+if __name__ == "__main__":
+    sys.exit(cli())
