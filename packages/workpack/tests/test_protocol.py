@@ -54,6 +54,44 @@ class WorkpackTests(unittest.TestCase):
         for name in ['../x','a/../../b','/etc/passwd','a//b','a\\b','.','a/./b']:
             with self.subTest(name=name):
                 d=manifest(name);self.assertEqual(self.status(d)['disposition'],'NOT_ADMITTED')
+
+    def test_windows_drive_and_ads_paths_rejected_portably(self):
+        from pathlib import PureWindowsPath
+        self.assertEqual(str(PureWindowsPath('C:/Safe')/'D:/secret.txt'),
+                         'D:\\secret.txt')
+        for name in ('C:/Windows/System32/config/SAM', 'D:secret.txt',
+                     'payload.txt:secret', 'nested/report.json::$DATA'):
+            with self.subTest(name=name):
+                self.assertFalse(valid_path(name))
+                self.assertEqual(self.status(manifest(name)).get('contract'), 'INVALID')
+
+    def test_windows_devices_and_file_aliases_rejected_portably(self):
+        for name in ('CON', 'con.txt', 'folder/PRN.log', 'assets/NUL.json',
+                     'AUX', 'COM1', 'COM9.txt', 'LPT1.log', 'CONIN$',
+                     'CONOUT$', 'COM¹.txt', 'LPT².csv', 'folder/nul .txt'):
+            with self.subTest(name=name):
+                self.assertFalse(valid_path(name))
+
+    def test_windows_invalid_chars_and_trailing_aliases_rejected(self):
+        for name in ('part?.json', 'wild*card.txt', 'a|b', 'note<1>.txt',
+                     'a"b', 'report.', 'report ', 'folder/next. ', 'x\x7f.txt'):
+            with self.subTest(name=name):
+                self.assertFalse(valid_path(name))
+
+    def test_benign_relative_names_remain_supported(self):
+        for name in ('nested/report.json', '.gitignore', 'report v2.txt',
+                     'science/méthode.csv', 'data/output_001.json', 'dir/a.b.txt'):
+            with self.subTest(name=name):
+                self.assertTrue(valid_path(name))
+
+    def test_cli_manifest_alternate_stream_syntax_rejected(self):
+        import contextlib, io
+        with contextlib.redirect_stdout(io.StringIO()) as captured:
+            code = cli([str(self.root), '--manifest', 'data.json:$DATA'])
+        self.assertEqual(code, 1)
+        receipt = json.loads(captured.getvalue())
+        self.assertEqual(receipt['disposition'], 'NOT_ADMITTED')
+        self.assertEqual(receipt['reason'], 'MANIFEST_PATH_INVALID')
     def test_invalid_manifest_cli_returns_receipt_not_exception(self):
         from aegis_workpack.protocol import cli
         import contextlib

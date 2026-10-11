@@ -211,11 +211,34 @@ def sha(value):
     return hashlib.sha256(value).hexdigest()
 
 
+# A WorkPack manifest must remain portable: on Windows a drive prefix,
+# NTFS alternate stream, or reserved DOS name is not an ordinary file path.
+_WINDOWS_DEVICE_NAMES = frozenset(
+    {"CON", "PRN", "AUX", "NUL", "CONIN$", "CONOUT$"}
+    | {f"COM{i}" for i in "123456789¹²³"}
+    | {f"LPT{i}" for i in "123456789¹²³"}
+)
+_PORTABLE_UNSAFE_CHARS = frozenset('\\:<>"|?*')
+
+
 def valid_path(path):
-    return (isinstance(path, str) and 1 <= len(path) <= 240
-            and "\\" not in path and not path.startswith("/")
-            and all(p not in ("", ".", "..") for p in path.split("/"))
-            and not any(ord(c) < 32 for c in path))
+    """Require a workspace-relative name safe under Unix and Windows grammars.
+
+    This is syntactic validation, not independent filesystem confinement.
+    """
+    if not isinstance(path, str) or not 1 <= len(path) <= 240:
+        return False
+    if path.startswith("/") or any(c in _PORTABLE_UNSAFE_CHARS or ord(c) < 32
+                                  or ord(c) == 127 for c in path):
+        return False
+    for part in path.split("/"):
+        if part in ("", ".", "..") or part.endswith((".", " ")):
+            return False
+        # Devices remain reserved when followed by extensions (e.g. NUL.txt).
+        stem = part.split(".", 1)[0].rstrip(" ").upper()
+        if stem in _WINDOWS_DEVICE_NAMES:
+            return False
+    return True
 
 
 def _artifact_bytes(root, name, cap=MAX_ARTIFACT_BYTES):

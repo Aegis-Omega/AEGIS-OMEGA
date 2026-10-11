@@ -146,3 +146,23 @@ Unicode code points, and ordinary UTF-8 remain supported. No Unicode repair,
 source authenticity claim, production admission, or authority expansion is
 implied. RFC 8259 §8.2 explicitly warns that lone UTF-16 surrogates have
 unpredictable interoperability: https://www.rfc-editor.org/rfc/rfc8259#section-8.2
+
+## v0.12 — portable workspace file names
+
+The v0.11 `valid_path()` accepted `C:/Windows/...`, `D:secret.txt`, and
+`report.txt:secret` as workspace-relative names. On Windows those may denote a
+different drive, a drive-relative path or an NTFS alternate data stream.
+Names such as `CON`, `NUL.txt`, `COM1`, or trailing-dot/space aliases are also
+special on Windows. The WorkPack path grammar now rejects those constructs
+on every platform, including Linux, before opening files. Ordinary nested
+file names and Unicode text remain allowed.
+
+The `PureWindowsPath` regression proves the parsing discrepancy on Linux;
+it **does not** claim actual Windows filesystem exfiltration was reproduced.
+A native Windows filesystem and reparse-point audit remains required before
+making a general sandbox security claim. Reference: Microsoft Win32 filename
+rules, Python `pathlib` path joining and OWASP file-upload/path guidance.
+
+- https://learn.microsoft.com/en-us/windows/win32/fileio/naming-a-file
+- https://docs.python.org/3/library/pathlib.html
+- https://cheatsheetseries.owasp.org/cheatsheets/File_Upload_Cheat_Sheet.html

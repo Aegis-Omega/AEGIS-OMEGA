@@ -78,3 +78,14 @@ Before any agent-supplied JSON is parsed, cap nesting; before direct Python obje
 ## v0.10 — false-positive budget audit
 
 A fixed byte limit and a maximum nesting depth do not enforce a maximum JSON **node count**. In v0.9 a flat `payload` array with 50,001 elements occupied only ~100 KB and still earned `json_keys: PASS`. v0.10 enforces both lexical complexity before `json.loads` and an exact iterative decoded-tree count, preserving the declared 8 MiB artifact text limit. Treat those positive parser tests as scope-limited security evidence; do not conflate them with research authenticity, model effectiveness, or product admission.
+
+## v0.12 — portable path security evidence
+
+WorkPack artifact paths are syntactically confined to portable relative names:
+no drive-qualified paths, NTFS alternate data streams, Windows special
+characters, DOS device names, or trailing-space/dot aliases. Enforce this
+regardless of host OS, including for manifest, source-note and evaluation
+paths. This is a syntactic guarantee only: it does not attest source origin,
+OS-specific symlink/reparse behavior, trusted root selection or malicious
+concurrent filesystem replacement. Native Windows adversarial replay remains
+an explicit unverified acceptance criterion.
