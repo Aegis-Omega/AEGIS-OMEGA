@@ -5,6 +5,7 @@ on:
     paths:
       - "sovereign-omega-v2/python/core_matrix.py"
       - "sovereign-omega-v2/python/bridge.py"
+      - "sovereign-omega-v2/python/gate.py"
       - "sovereign-omega-v2/python/tests/test_m2_layout_diagnostic.py"
       - "sovereign-omega-v2/python/tests/test_m2_runtime_replay.py"
       - "sovereign-omega-v2/python/tests/test_m2_mutation_guard.py"
@@ -16,6 +17,7 @@ on:
     paths:
       - "sovereign-omega-v2/python/core_matrix.py"
       - "sovereign-omega-v2/python/bridge.py"
+      - "sovereign-omega-v2/python/gate.py"
       - "sovereign-omega-v2/python/tests/test_m2_layout_diagnostic.py"
       - "sovereign-omega-v2/python/tests/test_m2_runtime_replay.py"
       - "sovereign-omega-v2/python/tests/test_m2_mutation_guard.py"
