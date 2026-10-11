@@ -36,17 +36,27 @@ const TOOLS = [
 // ── Tool execution ────────────────────────────────────────────────────────────
 async function runTool(name: string, input: Record<string, unknown>): Promise<string> {
   if (name === 'query_purchases') {
+    // A model-provided argument is untrusted. Never let it expand a
+    // service-role query or make an unknown filter silently return all rows.
+    const requested = input.limit
+    const requestedLimit = typeof requested === 'number' && Number.isFinite(requested)
+      ? Math.trunc(requested) : 10
+    const limit = Math.max(1, Math.min(25, requestedLimit))
     const supabase = createClient(SUPABASE_URL, SERVICE_KEY)
     let q = supabase.from('purchases').select('customer_email,plan,ls_order_id,updated_at')
-    if (input.filter) {
-      const f = String(input.filter)
+    if (input.filter !== undefined && input.filter !== null && input.filter !== '') {
+      if (typeof input.filter !== 'string') return 'INVALID_FILTER'
+      const f = input.filter.trim()
       if (['single','starter','full'].includes(f)) {
         q = q.eq('plan', f)
-      } else if (f.includes('@')) {
-        q = q.ilike('customer_email', `%${f}%`)
+      } else if (/^[A-Za-z0-9._+-]{1,64}@[A-Za-z0-9.-]{3,253}$/.test(f) && f.includes('.')) {
+        // Exact comparison, not ILIKE + wildcards or substring matching.
+        q = q.eq('customer_email', f)
+      } else {
+        return 'INVALID_FILTER'
       }
     }
-    q = q.order('updated_at', { ascending: false }).limit(Number(input.limit ?? 10))
+    q = q.order('updated_at', { ascending: false }).limit(limit)
     const { data, error } = await q
     if (error) return `DB error: ${error.message}`
     return JSON.stringify(data ?? [])
