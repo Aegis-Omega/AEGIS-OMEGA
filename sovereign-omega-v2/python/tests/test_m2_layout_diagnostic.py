@@ -632,6 +632,121 @@ class TestM2LayoutDiagnosticGate(unittest.TestCase):
         ])
         self.assertEqual(scope["last_ack_sequence"], 1)
 
+    def test_actual_http_gate_handler_rejects_remote_and_unbounded_input(self) -> None:
+        # Execute source-extracted do_POST and peer guard, not a separately
+        # reimplemented request parser. No network listener or CoreMatrix boot.
+        import copy
+        import io
+        import ipaddress
+        from contextlib import nullcontext
+        from math import isfinite
+        from types import SimpleNamespace
+
+        http_handler = next(
+            node for node in self.bridge_tree.body
+            if isinstance(node, ast.ClassDef) and node.name == "BridgeHandler"
+        )
+        post = next(node for node in http_handler.body
+                    if isinstance(node, ast.FunctionDef) and node.name == "do_POST")
+        peer_guard = next(
+            node for node in self.bridge_tree.body
+            if isinstance(node, ast.FunctionDef)
+            and node.name == "_gate_peer_is_loopback"
+        )
+        module = ast.fix_missing_locations(ast.Module(
+            body=[copy.deepcopy(peer_guard), copy.deepcopy(post)],
+            type_ignores=[],
+        ))
+        steps = []
+        namespace = {
+            "json": json,
+            "ip_address": ipaddress.ip_address,
+            "isfinite": isfinite,
+            "last_ack_sequence": -1,
+            "_lock": nullcontext(),
+            "GateSignal": lambda **fields: SimpleNamespace(**fields),
+            "matrix": SimpleNamespace(receive_gate_signal=lambda *a: steps.append("M2")),
+            "gate": SimpleNamespace(record_signal=lambda a: steps.append("GATE")),
+        }
+        exec(compile(module, str(BRIDGE_PATH), "exec"), namespace)
+
+        class CountedBody(io.BytesIO):
+            def __init__(self, body: bytes):
+                super().__init__(body)
+                self.read_count = 0
+
+            def read(self, size: int = -1) -> bytes:
+                self.read_count += 1
+                return super().read(size)
+
+        good = json.dumps({
+            "sequence": 1, "proposal_id": "p", "accepted": True,
+            "lcb": 0.5,
+        }).encode("utf-8")
+
+        def exercise(peer, headers=None, body=good):
+            scope = namespace
+            scope["last_ack_sequence"] = -1
+            steps.clear()
+            responses = []
+            buffer = CountedBody(body)
+            req_headers = {
+                "Content-Type": "application/json",
+                "Content-Length": str(len(body)),
+            }
+            if headers is not None:
+                req_headers.update(headers)
+            http = SimpleNamespace(
+                path="/gate_signal",
+                client_address=(peer, 32123),
+                headers=req_headers,
+                rfile=buffer,
+                _respond=lambda status, payload: responses.append((status, payload)),
+            )
+            scope["do_POST"](http)
+            return responses, list(steps), buffer.read_count, scope["last_ack_sequence"]
+
+        for peer in ("192.0.2.10", "198.51.100.1", "2001:db8::1",
+                     "::ffff:127.0.0.1", "not-an-ip"):
+            for spoof in (None, {"X-Forwarded-For": "127.0.0.1"}):
+                responses, actions, reads, ack = exercise(peer, spoof)
+                self.assertEqual(responses, [(403, {
+                    "status": "REJECTED", "reason": "GATE_PEER_UNTRUSTED",
+                })])
+                self.assertEqual((actions, reads, ack), ([], 0, -1))
+
+        negative_cases = [
+            ({"Content-Type": "text/plain"}, good, 415, "GATE_JSON_REQUIRED", 0),
+            ({"Transfer-Encoding": "chunked"}, good, 400, "GATE_FRAMING_INVALID", 0),
+            ({"Content-Length": "4097"}, good, 413, "GATE_BODY_BOUNDS", 0),
+            ({"Content-Length": "-1"}, good, 413, "GATE_BODY_BOUNDS", 0),
+            ({"Content-Length": "9" * 5000}, good, 413, "GATE_BODY_BOUNDS", 0),
+            ({"Content-Length": ""}, good, 413, "GATE_BODY_BOUNDS", 0),
+            ({}, b"{", 400, "GATE_JSON_INVALID", 1),
+            ({}, b"[]", 400, "GATE_OBJECT_REQUIRED", 1),
+            ({}, b"null", 400, "GATE_OBJECT_REQUIRED", 1),
+            ({}, b"true", 400, "GATE_OBJECT_REQUIRED", 1),
+        ]
+        for headers, body, code, reason, expected_reads in negative_cases:
+            with self.subTest(reason=reason, headers=headers):
+                responses, actions, reads, ack = exercise(
+                    "127.0.0.1", headers, body
+                )
+                self.assertEqual(responses, [(code, {
+                    "status": "REJECTED", "reason": reason,
+                })])
+                self.assertEqual((actions, reads, ack),
+                                 ([], expected_reads, -1))
+
+        # Legitimate loopback signal, including IPv6 loopback, remains usable.
+        for peer in ("127.0.0.1", "::1"):
+            responses, actions, reads, ack = exercise(peer)
+            self.assertEqual(responses, [(200, {
+                "status": "ACK", "sequence": 1,
+            })])
+            self.assertEqual((actions, reads, ack),
+                             (["M2", "GATE"], 1, 1))
+
     def test_m2_record_constructed_before_single_buffer_write(self) -> None:
         m2 = _named_function(self.core_tree, "M2")
         writes = [
