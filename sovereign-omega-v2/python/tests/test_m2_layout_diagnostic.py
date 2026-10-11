@@ -716,6 +716,11 @@ class TestM2LayoutDiagnosticGate(unittest.TestCase):
                 self.assertEqual((actions, reads, ack), ([], 0, -1))
 
         negative_cases = [
+            ({"Origin": "https://evil.example"}, good, 403, "GATE_BROWSER_FORBIDDEN", 0),
+            ({"Origin": "null"}, good, 403, "GATE_BROWSER_FORBIDDEN", 0),
+            ({"Origin": "http://localhost:5173"}, good, 403, "GATE_BROWSER_FORBIDDEN", 0),
+            ({"Sec-Fetch-Site": "cross-site"}, good, 403, "GATE_BROWSER_FORBIDDEN", 0),
+            ({"Sec-Fetch-Site": "same-origin"}, good, 403, "GATE_BROWSER_FORBIDDEN", 0),
             ({"Content-Type": "text/plain"}, good, 415, "GATE_JSON_REQUIRED", 0),
             ({"Transfer-Encoding": "chunked"}, good, 400, "GATE_FRAMING_INVALID", 0),
             ({"Content-Length": "4097"}, good, 413, "GATE_BODY_BOUNDS", 0),
@@ -746,6 +751,49 @@ class TestM2LayoutDiagnosticGate(unittest.TestCase):
             })])
             self.assertEqual((actions, reads, ack),
                              (["M2", "GATE"], 1, 1))
+
+    def test_gate_cors_preflight_rejected_without_changing_other_routes(self) -> None:
+        import copy
+        from types import SimpleNamespace
+
+        handler = next(
+            node for node in self.bridge_tree.body
+            if isinstance(node, ast.ClassDef) and node.name == "BridgeHandler"
+        )
+        methods = {
+            node.name: copy.deepcopy(node) for node in handler.body
+            if isinstance(node, ast.FunctionDef)
+            and node.name in ("_cors_headers", "do_OPTIONS")
+        }
+        self.assertEqual(set(methods), {"_cors_headers", "do_OPTIONS"})
+        module = ast.fix_missing_locations(ast.Module(
+            body=[methods["_cors_headers"], methods["do_OPTIONS"]],
+            type_ignores=[],
+        ))
+        namespace = {}
+        exec(compile(module, str(BRIDGE_PATH), "exec"), namespace)
+
+        def attempt(path):
+            statuses, headers, done = [], [], []
+            fake = SimpleNamespace(
+                path=path,
+                send_response=lambda status: statuses.append(status),
+                send_header=lambda key, value: headers.append((key, value)),
+                end_headers=lambda: done.append(True),
+            )
+            fake._cors_headers = lambda: namespace["_cors_headers"](fake)
+            namespace["do_OPTIONS"](fake)
+            return statuses, headers, done
+
+        response, headers, end = attempt("/gate_signal")
+        self.assertEqual(response, [403])
+        self.assertEqual(headers, [])
+        self.assertEqual(end, [True])
+
+        response, headers, end = attempt("/health")
+        self.assertEqual(response, [204])
+        self.assertEqual(end, [True])
+        self.assertIn(("Access-Control-Allow-Origin", "*"), headers)
 
     def test_m2_record_constructed_before_single_buffer_write(self) -> None:
         m2 = _named_function(self.core_tree, "M2")
