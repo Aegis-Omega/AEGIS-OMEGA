@@ -27,6 +27,7 @@ SOURCES = (
     "sovereign-omega-v2/python/tests/fixtures/M2_Ring_Design_Review_2026-10-11.md",
     "sovereign-omega-v2/python/tests/test_m2_layout_diagnostic.py",
     "sovereign-omega-v2/python/tests/test_m2_runtime_replay.py",
+    "sovereign-omega-v2/python/tests/test_m2_mutation_guard.py",
     "sovereign-omega-v2/python/tests/run_m2_exact_head_replay.py",
     ".github/workflows/m2-layout-diagnostic.yml",
 )
@@ -75,7 +76,8 @@ def main() -> int:
         # Load by exact checkout path; do not depend on a global "tests" package.
         suite = unittest.TestSuite()
         for index, name in enumerate(("test_m2_layout_diagnostic.py",
-                                      "test_m2_runtime_replay.py")):
+                                      "test_m2_runtime_replay.py",
+                                      "test_m2_mutation_guard.py")):
             path = PYTHON / "tests" / name
             spec = importlib.util.spec_from_file_location(
                 "aegis_m2_exact_head_test_" + str(index), str(path))
