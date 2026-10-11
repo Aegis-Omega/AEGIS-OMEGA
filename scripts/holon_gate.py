@@ -156,6 +156,8 @@ def evaluate(snapshot, root, actor):
         reasons = []
         if tid in cycles:
             reasons.append('CYCLIC_DEPENDENCY')
+        if not t['paths']:
+            reasons.append('WORK_SCOPE_UNDECLARED')
         if t['depends_on']:
             # Task status from JSON is a reported claim. Do not treat it as
             # cryptographic admission; depends-on tasks need a trusted external
@@ -198,7 +200,7 @@ def evaluate(snapshot, root, actor):
                          'CYCLIC_DEPENDENCY', 'DEPENDENCIES_NOT_INDEPENDENTLY_ADMITTED', 'TASK_REPORTED_BLOCKED'))
                      else 'COORDINATE' if collision[tid] or (owner and owner != actor)
                      else 'REVIEW_READY_NOT_ADMITTED' if sub and evidence == 'HASH_MATCH' and
-                         all(r not in reasons for r in ('TEST_EVIDENCE_MISSING_OR_STALE', 'INDEPENDENT_REVIEW_NOT_RECORDED', 'SUBMISSION_NOT_FROM_CLAIM_OWNER'))
+                         all(r not in reasons for r in ('TEST_EVIDENCE_MISSING_OR_STALE', 'INDEPENDENT_REVIEW_NOT_RECORDED', 'SUBMISSION_NOT_FROM_CLAIM_OWNER', 'WORK_SCOPE_UNDECLARED'))
                      else 'AVAILABLE' if not reasons else 'EVIDENCE_NEEDED')
         result.append({'id': tid, 'priority': t['priority'], 'assigned_to': owner,
                        'readiness': readiness, 'evidence': evidence,
