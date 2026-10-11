@@ -13,6 +13,7 @@ import json
 import os
 import subprocess
 import sys
+import traceback
 import unittest
 from datetime import datetime, timezone
 from pathlib import Path
@@ -100,6 +101,11 @@ def main() -> int:
     except Exception as exc:  # preserve machine-readable BLOCKED receipt on loader errors
         receipt["disposition"] = "BLOCKED_REPLAY_ERROR"
         receipt["error_type"] = type(exc).__name__
+        # Show the first real failing source or module import, not merely the
+        # exception class. Bound printed evidence to avoid giant receipts.
+        receipt["error_message"] = str(exc)[:2048]
+        receipt["error_traceback"] = traceback.format_exc(limit=12)[-8192:]
+        print(receipt["error_traceback"], file=sys.stderr)
         return 2
     finally:
         print(json.dumps(receipt, sort_keys=True, separators=(",", ":")))
