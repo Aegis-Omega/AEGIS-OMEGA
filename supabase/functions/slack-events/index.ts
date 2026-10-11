@@ -1,6 +1,6 @@
 // AEGIS-Ω Slack event handler — slash commands + app mentions → autonomous agent
 // Deploy: supabase functions deploy slack-events --no-verify-jwt
-// Env vars: SLACK_SIGNING_SECRET, SLACK_BOT_TOKEN, SUPABASE_URL, NOTIFY_SECRET, AEGIS_AGENT_INVOKE_SECRET, AEGIS_SLACK_ALLOWED_USER_IDS, AEGIS_SLACK_ALLOWED_CHANNEL_IDS
+// Env vars: SLACK_SIGNING_SECRET, SLACK_BOT_TOKEN, SUPABASE_URL, NOTIFY_SECRET, AEGIS_AGENT_INVOKE_SECRET, AEGIS_SLACK_ALLOWED_USER_IDS, AEGIS_SLACK_ALLOWED_CHANNEL_IDS, AEGIS_SLACK_ALLOWED_TEAM_IDS
 //
 // Slack app setup (api.slack.com/apps):
 //   1. Incoming Webhooks → ON → install to #aegis-alerts → copy URL → SLACK_WEBHOOK_URL secret
@@ -25,6 +25,10 @@ const ALLOWED_SLACK_USERS = new Set(
 // caller must not route sensitive output into an unapproved Slack channel.
 const ALLOWED_SLACK_CHANNELS = new Set(
   (Deno.env.get('AEGIS_SLACK_ALLOWED_CHANNEL_IDS') ?? '')
+    .split(',').map(x => x.trim()).filter(Boolean),
+)
+const ALLOWED_SLACK_TEAMS = new Set(
+  (Deno.env.get('AEGIS_SLACK_ALLOWED_TEAM_IDS') ?? '')
     .split(',').map(x => x.trim()).filter(Boolean),
 )
 
@@ -100,11 +104,12 @@ async function invokeAgent(payload: Record<string, unknown>): Promise<Response> 
 }
 
 async function runAgent(task: string, dispatchId: string, channel: string,
-                        context?: string): Promise<void> {
+                        actorId: string, teamId: string, context?: string): Promise<void> {
   if (AGENT_INVOKE_SECRET.length < 32 || AGENT_INVOKE_SECRET.length > 256) {
     throw new Error('AGENT_AUTH_NOT_CONFIGURED')
   }
-  const res = await invokeAgent({task,context,dispatch_id:dispatchId,channel_id:channel})
+  const res = await invokeAgent({task,context,dispatch_id:dispatchId,channel_id:channel,
+    actor_id:actorId,team_id:teamId})
   if (res.status === 409) return // Prior event: try to recover output, no second paid inference.
   if (!res.ok) throw new Error('AGENT_DISPATCH_UNAVAILABLE')
   const body = await res.json()
@@ -112,17 +117,19 @@ async function runAgent(task: string, dispatchId: string, channel: string,
 }
 
 async function completeDelivery(dispatchId: string, channel: string,
+                                actorId: string, teamId: string,
                                 attemptId: string, accepted: boolean): Promise<void> {
   const r = await invokeAgent({operation:'complete_delivery',dispatch_id:dispatchId,
-    channel_id:channel,attempt_id:attemptId,delivery_accepted:accepted})
+    channel_id:channel,actor_id:actorId,team_id:teamId,
+    attempt_id:attemptId,delivery_accepted:accepted})
   if (!r.ok) throw new Error('RESULT_DELIVERY_ACK_UNCONFIRMED')
 }
 
 async function deliverStoredResult(dispatchId: string, channel: string,
-                                   threadTs?: string): Promise<void> {
+                                   actorId: string, teamId: string, threadTs?: string): Promise<void> {
   const attemptId = crypto.randomUUID()
   const res = await invokeAgent({operation:'claim_delivery',dispatch_id:dispatchId,
-    channel_id:channel,attempt_id:attemptId})
+    channel_id:channel,actor_id:actorId,team_id:teamId,attempt_id:attemptId})
   if (res.status === 409) return // Pending/claimed/delivered/expired: no duplicate output.
   if (!res.ok) throw new Error('RESULT_OUTBOX_UNAVAILABLE')
   const data = await res.json()
@@ -135,12 +142,12 @@ async function deliverStoredResult(dispatchId: string, channel: string,
     // Only an EXPLICIT Slack ok:false means the provider definitively refused.
     // All network/HTTP/JSON ambiguity remains SENDING for manual reconciliation.
     if (error instanceof Error && error.message === 'SLACK_DELIVERY_REJECTED') {
-      await completeDelivery(dispatchId,channel,attemptId,false)
+      await completeDelivery(dispatchId,channel,actorId,teamId,attemptId,false)
     }
     throw new Error('RESULT_DELIVERY_NOT_CONFIRMED')
   }
   // Never infer delivery merely from our own successful HTTP request.
-  await completeDelivery(dispatchId,channel,attemptId,true)
+  await completeDelivery(dispatchId,channel,actorId,teamId,attemptId,true)
 }
 
 Deno.serve(async (req) => {
@@ -163,7 +170,9 @@ Deno.serve(async (req) => {
     const channel = params.get('channel_id') ?? ''
     const user    = params.get('user_name') ?? 'unknown'
     const userId  = params.get('user_id') ?? ''
-    if (!userId || !ALLOWED_SLACK_USERS.has(userId) ||
+    const teamId = params.get('team_id') ?? ''
+    if (!/^T[A-Za-z0-9]{2,48}$/.test(teamId) || !ALLOWED_SLACK_TEAMS.has(teamId) ||
+        !/^U[A-Za-z0-9]{2,48}$/.test(userId) || !ALLOWED_SLACK_USERS.has(userId) ||
         !ALLOWED_SLACK_CHANNELS.has(channel)) {
       return new Response('Operator or channel not authorized', { status: 403 })
     }
@@ -189,7 +198,7 @@ Deno.serve(async (req) => {
         return new Response('Invalid recovery reference', { status: 400 })
       }
       const accepted = dispatchBackground(async () => {
-        try { await deliverStoredResult(originalId,channel,ts) }
+        try { await deliverStoredResult(originalId,channel,userId,teamId,ts) }
         catch { console.error('AEGIS_MANUAL_RECOVERY_UNCONFIRMED') }
       })
       if (!accepted) return new Response('Recovery unavailable', { status: 503 })
@@ -207,8 +216,8 @@ Deno.serve(async (req) => {
     // Explicitly bind background lifetime to Supabase EdgeRuntime.
     const registered = dispatchBackground(async () => {
       try {
-        await runAgent(task, dispatchId, channel, `Requested by @${user} in Slack`)
-        await deliverStoredResult(dispatchId,channel,ts)
+        await runAgent(task, dispatchId, channel, userId, teamId, `Requested by @${user} in Slack`)
+        await deliverStoredResult(dispatchId,channel,userId,teamId,ts)
       } catch (e) {
         // Do not leak provider/DB errors into Slack. A second delivery failure
         // is observable in the Edge log, never silently treated as success.
@@ -239,7 +248,9 @@ Deno.serve(async (req) => {
     if (event.event?.type === 'app_mention') {
       const userId = event.event.user ?? ''
       const channel = event.event.channel ?? ''
-      if (!userId || !ALLOWED_SLACK_USERS.has(userId) ||
+      const teamId = event.team_id ?? ''
+      if (!/^T[A-Za-z0-9]{2,48}$/.test(teamId) || !ALLOWED_SLACK_TEAMS.has(teamId) ||
+          !/^U[A-Za-z0-9]{2,48}$/.test(userId) || !ALLOWED_SLACK_USERS.has(userId) ||
           !ALLOWED_SLACK_CHANNELS.has(channel)) {
         return new Response('Operator or channel not authorized', { status: 403 })
       }
@@ -255,8 +266,8 @@ Deno.serve(async (req) => {
         const registered = dispatchBackground(async () => {
           try {
             await slackReply(channel, '_Running an approved task..._', ts)
-            await runAgent(text, dispatchId, channel, 'Requested via @AEGIS-Ω mention in Slack')
-            await deliverStoredResult(dispatchId,channel,ts)
+            await runAgent(text, dispatchId, channel, userId, teamId, 'Requested via @AEGIS-Ω mention in Slack')
+            await deliverStoredResult(dispatchId,channel,userId,teamId,ts)
           } catch (e) {
             console.error('AEGIS_SLACK_DISPATCH_FAILED')
             try {
