@@ -135,24 +135,22 @@ def reconcile_circle_v2_observation(
             row.boundary_root == binding.economic_boundary_root,
             'CIRCLE_RESERVATION_BINDING_MISMATCH')
 
-    if observation.statuses[0] == 'complete':
-        # Store the *correlation* root, not the attestation digest alone.
-        # Different observations sharing an attestation cannot be substituted.
-        correlation_root = _root('AEGIS_TAMEION_CIRCLE_CORRELATION_EVIDENCE_V1', {
-            'binding_root': binding.root, 'request_root': request.root,
-            'observation_root': observation.root,
-        })
-        receipt = ledger.record_observation(
-            scope=binding.scope, attempt_id=binding.attempt_id,
-            expected_generation=expected_generation, observation_root=correlation_root,
-        )
-        outcome = 'CIRCLE_COMPLETE_BYTES_CORRELATED_NOT_SETTLED'
-    else:
-        receipt = ledger.record_unknown(
-            scope=binding.scope, attempt_id=binding.attempt_id,
-            expected_generation=expected_generation,
-        )
-        outcome = 'CIRCLE_PENDING_RESERVATION_RETAINED'
+    # The *source-tx claim and journal transition* must be one SQLite atomic
+    # transaction. A distinct attempt cannot claim the same Circle burn tx.
+    correlation_root = _root('AEGIS_TAMEION_CIRCLE_CORRELATION_EVIDENCE_V1', {
+        'binding_root': binding.root, 'request_root': request.root,
+        'observation_root': observation.root,
+    })
+    receipt = ledger.record_circle_correlation(
+        scope=binding.scope, attempt_id=binding.attempt_id,
+        expected_generation=expected_generation,
+        source_domain=binding.source_domain,
+        source_tx_hash=binding.source_transaction_hash,
+        status=observation.statuses[0], correlation_root=correlation_root,
+    )
+    outcome = ('CIRCLE_COMPLETE_BYTES_CORRELATED_NOT_SETTLED'
+               if observation.statuses[0] == 'complete'
+               else 'CIRCLE_PENDING_RESERVATION_RETAINED')
 
     return CircleReconciliationFinding(
         binding_root=binding.root, observation_root=observation.root,
