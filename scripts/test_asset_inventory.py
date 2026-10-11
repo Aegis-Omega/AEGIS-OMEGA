@@ -1,5 +1,4 @@
 """Negative and positive falsifiers for the bounded read-only Git census."""
-import hashlib
 import json
 import subprocess
 import sys
