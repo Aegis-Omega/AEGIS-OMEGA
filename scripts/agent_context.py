@@ -212,6 +212,30 @@ def holon_disposition(pr_source, issue_source, pr_hits, issue_hits):
     return "ISSUE_ASSIGNMENT_AND_REVIEW_REQUIRED"
 
 
+
+def holon_blockers(pr_source, issue_source, main_state, pr_hits, issue_hits):
+    """Report ALL independent blockers; never treat this as a permission grant.
+
+    A single holon_disposition cannot express both stale repo state and a task
+    requiring Operator approval. Multiple simultaneous constraints must remain
+    visible, even in the advisory quick hook.
+    """
+    blockers = []
+    if main_state != "FRESH":
+        blockers.append("HOLD_UNVERIFIED_MAIN")
+    if pr_source != "github":
+        blockers.append("HOLD_INCOMPLETE_PR_INVENTORY")
+    if issue_source != "github":
+        blockers.append("HOLD_INCOMPLETE_ISSUE_BOARD")
+    if any("needs-operator" in issue["labels"] for issue, _ in issue_hits):
+        blockers.append("OPERATOR_ACTION_REQUIRED")
+    if any("claimed" in issue["labels"] for issue, _ in issue_hits):
+        blockers.append("HOLD_CLAIMED_WORK_COORDINATE")
+    if pr_hits:
+        blockers.append("REVIEW_EXISTING_PR_FIRST")
+    return blockers
+
+
 def existing_code(query, limit=8):
     """Code on origin/main that matches the task's words.
 
@@ -297,6 +321,7 @@ def main():
     hits = overlaps(prs, query)
     issue_hits = relevant_issues(issues, query)
     disposition = holon_disposition(source, issue_source, hits, issue_hits)
+    blockers = holon_blockers(source, issue_source, main_receipt["state"], hits, issue_hits)
     if main_receipt["state"] != "FRESH":
         disposition = "HOLD_UNVERIFIED_MAIN"
     p0 = [issue for issue in issues if "p0" in issue["labels"]]
@@ -312,6 +337,7 @@ def main():
                           "issue_source": issue_source,
                           "issue_count": len(issues) if issue_source == "github" else None,
                           "holon_disposition": disposition,
+                          "holon_blockers": blockers,
                           "p0_issues": [{"number": i["n"], "title": i["t"], "labels": i["labels"]}
                                         for i in p0],
                           "issue_matches": [{"number": i["n"], "title": i["t"],
@@ -345,6 +371,8 @@ def main():
         for issue, matched in issue_hits:
             lines.append(f"  #{issue['n']} {issue['t'][:100]} [labels: {', '.join(issue['labels'])}] (match: {', '.join(matched)})")
     lines.append(f"- Holon coordination: {disposition}. Informational only; never authorizes a merge/release.")
+    if blockers:
+        lines.append(f"- All coordination blockers: {', '.join(blockers)}")
     if locked:
         lines.append("- CI IS NOT RUNNING: GitHub Actions jobs fail with 'account is locked due to a "
                      "billing issue'. Every red check is that lock, not your code. Do NOT open PRs to "
