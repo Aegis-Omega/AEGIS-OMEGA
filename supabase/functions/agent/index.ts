@@ -129,6 +129,12 @@ async function runAgent(task: string, context?: string, actorId?: string, teamId
         }
         actions.push(`${block.name}(${JSON.stringify(block.input)})`)
         const output = await runTool(block.name, block.input, actorId, teamId)
+        // A tool failure is not evidence. Never ask the model to turn a failed
+        // query into a confident factual answer, nor spend extra model turns.
+        if (output === 'INVALID_INPUT' || output === 'INVALID_FILTER' ||
+            output === 'TOOL_NOT_AUTHORIZED' || output.startsWith('DB error:')) {
+          throw new Error('TOOL_VERIFICATION_FAILED')
+        }
         toolResults.push({ type: 'tool_result', tool_use_id: block.id, content: output })
       }
       messages.push({ role: 'user', content: toolResults })
