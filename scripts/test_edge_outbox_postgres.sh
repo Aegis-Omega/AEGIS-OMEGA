@@ -5,6 +5,11 @@ set -euo pipefail
 : "${PGHOST:?Set PGHOST to disposable PostgreSQL host}"
 : "${PGUSER:?Set PGUSER to disposable PostgreSQL superuser}"
 : "${PGDATABASE:?Set PGDATABASE to disposable database}"
+: "${PGPORT:?Set PGPORT}"
+if [[ "${PGDATABASE}" != "aegis_test" || "${PGUSER}" != "postgres" || "${PGPORT}" != "5432" ||
+      -n "${PGSERVICE:-}" || -n "${PGHOSTADDR:-}" ]]; then
+  echo "DENIED: only the isolated CI test database is allowed" >&2; exit 4
+fi
 case "${PGHOST}" in
   localhost|127.0.0.1|::1) ;;
   *) echo "DENIED: nonlocal database host" >&2; exit 4 ;;
