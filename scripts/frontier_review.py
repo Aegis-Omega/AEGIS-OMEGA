@@ -17,7 +17,7 @@ import ipaddress
 import json
 from pathlib import Path
 import re
-from urllib.parse import urlsplit
+from urllib.parse import urlsplit, unquote
 
 from holon_gate import unique_json_object, reject_json_constant, read_verified_local_file
 from holon_eval import compare, InvalidEvaluation
@@ -86,6 +86,29 @@ def public_https(url: str) -> str:
         raise InvalidFrontier('invalid HTTPS source URL') from exc
 
 
+def source_publisher_group(url: str) -> str:
+    """Conservative ownership hint for GitHub-hosted research, not attestation.
+
+    github.com/org/repo, raw.githubusercontent.com/org/repo and org.github.io
+    are different hosts but usually one publisher. Independent hostname
+    counts alone must not promote them to two separate peer sources.
+    All other hosts retain their own conservative hostname grouping: actual
+    publisher ownership still requires independent human/source review.
+    """
+    host = public_https(url)
+    parsed = urlsplit(url)
+    pieces = [unquote(x) for x in parsed.path.split('/') if x]
+    if host in ('github.com', 'raw.githubusercontent.com'):
+        if pieces and re.fullmatch(r'[a-zA-Z0-9-]{1,39}', pieces[0]):
+            return 'github-owner:' + pieces[0].lower()
+        return 'github-owner:unknown'
+    if host.endswith('.github.io') and host.count('.') == 2:
+        owner = host.split('.', 1)[0]
+        if re.fullmatch(r'[a-z0-9-]{1,39}', owner):
+            return 'github-owner:' + owner
+    return 'hostname:' + host
+
+
 def assess(review: dict, root: Path, as_of: date | None = None) -> dict:
     """Strict advisory validation. Neither URL claims nor test results are authenticated."""
     names = {'schema', 'issue', 'operator_goal', 'baseline_sha', 'candidate_sha',
@@ -104,7 +127,7 @@ def assess(review: dict, root: Path, as_of: date | None = None) -> dict:
     sources = review['sources']
     require(isinstance(sources, list) and 2 <= len(sources) <= 12,
             '2..12 independent source entries required')
-    seen_ids, domains = set(), set()
+    seen_ids, domains, publisher_groups = set(), set(), set()
     stale = False
     inspected = 0
     for item in sources:
@@ -114,6 +137,7 @@ def assess(review: dict, root: Path, as_of: date | None = None) -> dict:
                 and ident not in seen_ids, 'source identifier invalid or duplicate')
         seen_ids.add(ident)
         domains.add(public_https(item['url']))
+        publisher_groups.add(source_publisher_group(item['url']))
         d = day(item['retrieved_on'], 'retrieved_on')
         require(d <= recorded, 'source retrieval date after comparison date')
         stale |= (now - d).days > 90
@@ -122,6 +146,7 @@ def assess(review: dict, root: Path, as_of: date | None = None) -> dict:
         bounded(item['capability'], 'source.capability')
         bounded(item['relevance'], 'source.relevance')
     require(len(domains) >= 2, 'two distinct source hostnames required')
+    require(len(publisher_groups) >= 2, 'two structurally distinct publisher groups required')
     decision = review['decision']
     fields(decision, {'kind', 'rationale', 'operator_value', 'risks'}, 'decision')
     require(decision['kind'] in DECISIONS, 'invalid transfer decision')
@@ -175,7 +200,10 @@ def assess(review: dict, root: Path, as_of: date | None = None) -> dict:
     return {'schema': 'aegis.holon.frontier.receipt/1', 'issue': review['issue'],
             'baseline_sha': base, 'candidate_sha': candidate,
             'decision': decision['kind'], 'sources_recorded': len(sources),
-            'source_hostnames': sorted(domains), 'inspected_claims': inspected,
+            'source_hostnames': sorted(domains),
+            'source_publisher_groups': sorted(publisher_groups),
+            'source_publisher_ownership_authenticated': False,
+            'inspected_claims': inspected,
             'blockers': blockers, 'disposition': disposition,
             'paired_evaluation_disposition': result['disposition'] if result else None,
             'paired_cases': result['paired_cases'] if result else 0,
