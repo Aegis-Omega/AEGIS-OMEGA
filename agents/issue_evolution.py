@@ -231,8 +231,19 @@ def spread_issue_graph(graph: Mapping[str, Any], *, source_head: str,
                               "evolution_status": "NOT_EVALUATED",
                               "authority_effect": "NONE"}, ensure_ascii=True, sort_keys=True)
         # No self-asserted code-run or competence evidence.
-        packets.append(EvidencePacket("engineering", "engineering", "engineering",
-                                      source_head, digest(node), start+i, summary))
+        routing = {"research": ("cognitive", "corpus_ingestor"),
+                   "formal": ("formal", "applied_science"),
+                   "security": ("security", "cybersecurity"),
+                   "commerce": ("revenue", "strategy"),
+                   "engineering": ("engineering", "engineering"),
+                   "operations": ("operations", "platform_engineering")}
+        source, origin = routing[node["topic"]]
+        channel = "QUARANTINE" if "needs-operator" in node["labels"] else "CANDIDATE"
+        if channel == "QUARANTINE" and source != "cognitive":
+            origin = "cybersecurity"
+        packets.append(EvidencePacket(source, node["topic"], origin,
+                                      source_head, digest(node), start+i, summary,
+                                      channel))
     routed = spread_packets(packets, ttl=5)
     return {"schema": "AEGIS_ISSUE_EVOLUTION_DENDRITE_V1",
             "graph_receipt_hash": graph["receipt_hash"], "routing": routed,
