@@ -127,3 +127,33 @@
 @media(prefers-contrast:more){
   .sm-command button{border:2px solid white;background:#06101c}
 }
+
+
+/* The static fallback preserves the Ω identity when WebGL2 is unavailable.
+   It is artwork, not a status mark or a simulated scientific measurement. */
+.sm-concept .sm-fallback-body {
+  clip-path:none;
+  width:min(62%,385px);
+  aspect-ratio:1;
+  box-shadow:none;
+  background:none;
+  filter:drop-shadow(0 0 22px rgba(99,167,235,.19));
+  transform:none;
+  display:grid;
+  place-items:center;
+}
+.sm-concept .sm-fallback-body:before{
+  content:"Ω";
+  position:static;
+  inset:auto;
+  clip-path:none;
+  display:block;
+  background:linear-gradient(138deg,#e5f5ff 2%,#86bcf2 27%,#3c629b 65%,#d1b784 100%);
+  background-clip:text;
+  -webkit-background-clip:text;
+  color:transparent;
+  font-family:Georgia,'Times New Roman',serif;
+  font-size:clamp(130px,18vw,270px);
+  font-weight:400;
+  line-height:.95;
+}
