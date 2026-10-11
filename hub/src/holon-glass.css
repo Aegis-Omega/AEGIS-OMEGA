@@ -230,3 +230,22 @@
    Suppress generic inherited route prologues only on these two redesigned routes. */
 .hg-route-console > .hg-route-header,
 .hg-route-platform > .hg-route-header {display:none}
+/* Opt-in decorative motion: pause by default and provide a visible user control. */
+.hg-orbit-stage{position:relative;justify-self:center;width:100%;max-width:670px;min-width:0}
+.hg-motion-paused .hg-orbit-turn,
+.hg-motion-paused .hg-holon-a,
+.hg-motion-paused .hg-holon-b{animation-play-state:paused!important}
+.hg-motion-control{
+  position:absolute;bottom:0;right:0;z-index:4;
+  min-height:44px;min-width:110px;padding:9px 14px;
+  border:1px solid #648fc3;border-radius:8px;
+  background:#0b1930;color:#f0f7ff;font:600 12px/1.4 Inter,system-ui,sans-serif;
+  cursor:pointer;box-shadow:0 6px 22px #0008
+}
+.hg-motion-control:hover{border-color:#bbebff;background:#123255}
+.hg-motion-control:focus-visible{outline:2px solid #bbebff;outline-offset:4px}
+@media(prefers-reduced-motion:reduce){
+  /* System preference remains authoritative: no resumed animation via UI. */
+  .hg-motion-control{display:none}
+  .hg-orbit-turn,.hg-holon-a,.hg-holon-b{animation:none!important}
+}
