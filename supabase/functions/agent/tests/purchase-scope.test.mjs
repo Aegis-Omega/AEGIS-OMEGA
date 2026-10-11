@@ -29,3 +29,27 @@ test('exact privileged actor+team can query bounded rows',async()=>{
  const s=setup();const r=await s.runTool('query_purchases',{limit:2},'UOPERATOR','T12345');
  assert.match(r,/example@mock.invalid/);assert.equal(s.stats.db,1);
 });
+
+test('unprivileged agent receives no purchase tools in provider request',async()=>{
+ const requestBodies=[];
+ const Deno={env:{get:n=>n==='ANTHROPIC_API_KEY'?'fake-key':n==='AEGIS_PURCHASE_READERS'?'T12345:UOPERATOR':''},serve(){}};
+ const fakeFetch=async(url,options)=>{
+   assert.equal(url,'https://api.anthropic.com/v1/messages');requestBodies.push(JSON.parse(options.body));
+   return Response.json({stop_reason:'end_turn',content:[{type:'text',text:'ok'}]});
+ };
+ const obj=new Function('Deno','fetch','crypto','createClient','CORS','console','atob','btoa',src+'\nreturn {runAgent};')(Deno,fakeFetch,webcrypto,()=>{throw Error('DATABASE')},{},console,atob,btoa);
+ await obj.runAgent('summarize','none','UCOLLEAGUE','T12345');
+ assert.equal(requestBodies.length,1);assert.deepEqual(requestBodies[0].tools,[]);
+});
+test('exact reader scope exposes bounded query tool but no sending tools',async()=>{
+ const requestBodies=[];
+ const Deno={env:{get:n=>n==='ANTHROPIC_API_KEY'?'fake-key':n==='AEGIS_PURCHASE_READERS'?'T12345:UOPERATOR':''},serve(){}};
+ const fakeFetch=async(url,options)=>{
+   assert.equal(url,'https://api.anthropic.com/v1/messages');requestBodies.push(JSON.parse(options.body));
+   return Response.json({stop_reason:'end_turn',content:[{type:'text',text:'ok'}]});
+ };
+ const obj=new Function('Deno','fetch','crypto','createClient','CORS','console','atob','btoa',src+'\nreturn {runAgent};')(Deno,fakeFetch,webcrypto,()=>{throw Error('DATABASE')},{},console,atob,btoa);
+ await obj.runAgent('summarize','none','UOPERATOR','T12345');
+ assert.equal(requestBodies.length,1);
+ assert.deepEqual(requestBodies[0].tools.map(x=>x.name),['query_purchases']);
+});
