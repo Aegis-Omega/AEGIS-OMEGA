@@ -131,6 +131,16 @@ class DeployEligibilityMatrixTests(unittest.TestCase):
             self.assertIn("exit 0", command)
             self.assertIn("exit 1", command)
 
+    def test_product_api_rewrite_retained_before_spa_fallback(self) -> None:
+        """PR #715 may change deployment gating, not remove API forwarding."""
+        api = {"source": "/api/(.*)", "destination": "/api/$1"}
+        fallback = {"source": "/(.*)", "destination": "/index.html"}
+        for surface in ("platform-picker", "hook-generator"):
+            with self.subTest(surface=surface):
+                config = json.loads((ROOT / surface / "vercel.json").read_text())
+                self.assertEqual(config["rewrites"][0], api)
+                self.assertEqual(config["rewrites"][-1], fallback)
+
     def test_probe_file_is_not_a_deploy_surface(self) -> None:
         probe = ["scripts/test_deploy_eligibility_gate.py"]
         for policy in VERCEL.values():
