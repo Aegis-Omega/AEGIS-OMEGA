@@ -14,11 +14,11 @@ function setup() {
     limit(v){calls.limits.push(v);return Promise.resolve({data:[],error:null})}
   };
   let handler;
-  const Deno={env:{get:()=>''},serve:f=>handler=f};
+  const Deno={env:{get:n=>n==='AEGIS_PURCHASE_READERS'?'T12345:UOPERATOR':''},serve:f=>handler=f};
   const client=()=>({from:()=>q});
   const factory = new Function('Deno','fetch','crypto','createClient','CORS','console','atob','btoa',src+'\n return {runTool};');
   const api=factory(Deno,()=>{throw Error('NETWORK')},webcrypto,client,{},console,atob,btoa);
-  return {runTool:api.runTool,calls};
+  return {runTool:(name,input)=>api.runTool(name,input,'UOPERATOR','T12345'),calls};
 }
 
 test('huge purchase request is bounded to at most 25 rows',async()=>{
