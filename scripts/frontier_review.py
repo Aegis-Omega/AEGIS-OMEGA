@@ -66,9 +66,15 @@ def public_https(url: str) -> str:
         require(p.scheme == 'https' and bool(host) and not p.username and not p.password
                 and p.port in (None, 443) and not p.fragment, 'source must be public HTTPS URL')
         name = host.rstrip('.').lower()
-        require(name not in {'localhost', 'localhost.localdomain'}
-                and not name.endswith(('.local', '.internal', '.localhost')),
-                'local/reserved source is not external evidence')
+        # IANA Special-Use Domain Names registry / RFC 6761, RFC 8375.
+        # Syntactically valid HTTPS links into special-use namespaces are not
+        # independently reachable public evidence, even with subdomains.
+        reserved = ('localhost', 'localhost.localdomain', 'local', 'internal',
+                    'example', 'example.com', 'example.net', 'example.org',
+                    'invalid', 'test', 'onion', 'alt', 'home.arpa')
+        require(not any(name == suffix or name.endswith('.' + suffix)
+                        for suffix in reserved),
+                'special-use source hostname is not public research evidence')
         try:
             ip = ipaddress.ip_address(name.strip('[]'))
         except ValueError:
