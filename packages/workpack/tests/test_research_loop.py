@@ -361,4 +361,21 @@ class ResearchCycleTests(unittest.TestCase):
         d["evaluation"]["evidence_sha256"]=hashlib.sha256(raw).hexdigest()
         self.fails(d,"DUPLICATE_JSON_KEY")
 
+    @unittest.skipUnless(hasattr(__import__('os'), 'mkfifo'), 'POSIX FIFO only')
+    def test_fifo_research_snapshot_never_hangs(self):
+        import os, subprocess
+        path = self.root / self.doc['sources'][0]['artifact']
+        path.unlink()
+        os.mkfifo(path)
+        import pprint
+        script = ("import sys,json;sys.path.insert(0," + repr(str(Path(__file__).resolve().parents[1])) + ");"
+                  "from aegis_workpack.research_loop import audit_research;"
+                  "print(json.dumps(audit_research("+repr(str(self.root))+","+repr(self.doc)+")))")
+        child = subprocess.run([sys.executable, '-S', '-c', script],
+                               capture_output=True, text=True, timeout=2)
+        self.assertEqual(child.returncode, 0, child.stderr)
+        out = json.loads(child.stdout)
+        self.assertEqual(out['status'], 'BLOCKED')
+        self.assertIn('ARTIFACT_NOT_REGULAR_FILE', out['reason'])
+
 if __name__=="__main__": unittest.main()

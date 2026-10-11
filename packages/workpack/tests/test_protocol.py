@@ -177,4 +177,42 @@ class WorkpackTests(unittest.TestCase):
         d=copy.deepcopy(self.good);d['producer']['agent']=''
         self.assertEqual(self.status(d)['contract'],'INVALID')
 
+    @unittest.skipUnless(hasattr(os, "mkfifo") and os.name == "posix", "POSIX FIFO only")
+    def test_fifo_artifact_never_hangs_and_is_rejected(self):
+        import subprocess
+        (self.root / 'work.txt').unlink()
+        os.mkfifo(self.root / 'work.txt')
+        script = ("import json,sys;sys.path.insert(0," + repr(str(Path(__file__).resolve().parents[1])) + ");"
+                  "from aegis_workpack.protocol import verify;"
+                  "report=verify(" + repr(str(self.root)) + "," + repr(self.good) + ");"
+                  "print(json.dumps(report))")
+        child = subprocess.run([sys.executable, '-S', '-c', script],
+                               capture_output=True, text=True, timeout=2)
+        self.assertEqual(child.returncode, 0, child.stderr)
+        out = json.loads(child.stdout)
+        self.assertEqual(out['artifact_integrity'], 'FAIL')
+        self.assertEqual(out['disposition'], 'NOT_ADMITTED')
+
+    @unittest.skipUnless(hasattr(os, "mkfifo") and os.name == "posix", "POSIX FIFO only")
+    def test_fifo_manifest_never_hangs_and_is_rejected(self):
+        import subprocess
+        os.mkfifo(self.root / 'manifest.json')
+        child = subprocess.run([sys.executable, '-S', '-m', 'aegis_workpack.protocol', str(self.root)],
+                               cwd=Path(__file__).resolve().parents[1],
+                               capture_output=True, text=True, timeout=2)
+        self.assertEqual(child.returncode, 1, child.stderr)
+        self.assertEqual(json.loads(child.stdout)['disposition'], 'NOT_ADMITTED')
+
+    @unittest.skipUnless(hasattr(os, "mkfifo") and os.name == "posix", "POSIX FIFO only")
+    def test_fifo_read_json_helper_never_hangs(self):
+        import subprocess
+        os.mkfifo(self.root / 'report.json')
+        script = ("import sys;sys.path.insert(0," + repr(str(Path(__file__).resolve().parents[1])) + ");"
+                  "from aegis_workpack.protocol import read_json;"
+                  "read_json(" + repr(str(self.root / 'report.json')) + ")")
+        child = subprocess.run([sys.executable, '-S', '-c', script],
+                               capture_output=True, text=True, timeout=2)
+        self.assertNotEqual(child.returncode, 0)
+        self.assertIn('ARTIFACT_NOT_REGULAR_FILE', child.stderr)
+
 if __name__=='__main__':unittest.main()

@@ -43,8 +43,11 @@ def _strict_pairs(pairs):
 
 
 def read_json(path, cap=MAX_MANIFEST_BYTES):
-    with open(path, "rb") as f:
-        raw = f.read(cap + 1)
+    require(type(cap) is int and 0 < cap <= MAX_ARTIFACT_BYTES, "JSON_CAP_INVALID")
+    source = Path(path)
+    # Use the same non-blocking, no-follow regular-file reader as the CLI.
+    # A FIFO or device must never stall the caller before type validation.
+    raw = _artifact_bytes(source.parent, source.name, cap)
     require(len(raw) <= cap, "JSON_TOO_LARGE")
     try:
         return json.loads(raw.decode("utf-8"), object_pairs_hook=_strict_pairs,
@@ -81,13 +84,18 @@ def _artifact_bytes(root, name, cap=MAX_ARTIFACT_BYTES):
     parts = name.split("/")
     if os.name == "posix" and hasattr(os, "O_NOFOLLOW"):
         flags = os.O_RDONLY | os.O_NOFOLLOW
+        # A hostile workspace may put a FIFO in place of an artifact or
+        # manifest. Without O_NONBLOCK, open() hangs BEFORE fstat(S_ISREG).
+        # Regular files ignore O_NONBLOCK; special files fail regular-file
+        # verification promptly instead of blocking indefinitely.
+        leaf_flags = flags | os.O_NONBLOCK
         directory = os.open(root, os.O_RDONLY | os.O_DIRECTORY)
         try:
             for part in parts[:-1]:
                 next_fd = os.open(part, flags | os.O_DIRECTORY, dir_fd=directory)
                 os.close(directory)
                 directory = next_fd
-            fd = os.open(parts[-1], flags, dir_fd=directory)
+            fd = os.open(parts[-1], leaf_flags, dir_fd=directory)
             try:
                 require(stat.S_ISREG(os.fstat(fd).st_mode), "ARTIFACT_NOT_REGULAR_FILE")
                 with os.fdopen(fd, "rb", closefd=False) as f:
