@@ -34,8 +34,7 @@ immutable source snapshots -> local scout gate -> cross-provider comparison -> f
 experiment candidate -> native execution under existing controller -> independent verifier
 -> claims ledger / memory update / retrospective`.
 
-This initial slice implements **only** the `local scout gate`. Source capture is a separate,
-read-only adapter not yet delivered. Never let untrusted source text become tool instructions.
+The initial slice implements the `local scout gate`. An opt-in, read-only, DNS-pinned HTTPS collector is now an additional draft candidate in `scripts/research_collector.py`; its public Internet behavior is **not yet live-verified**. Never let untrusted source text become tool instructions.
 No web credentials or provider API calls are used by the evaluator. Data can be reviewed on
 a phone in JSON form but this is not yet the mobile product UI.
 
@@ -45,8 +44,7 @@ a phone in JSON form but this is not yet the mobile product UI.
   URLs/content/checksums, candidate improvement, current local component, metric and falsifier.
 - Reject unknown schema keys, duplicate JSON keys, noninteger numbers, malformed URL, private
   or credential-bearing URL, checksum mismatch, future snapshot, duplicate IDs, missing claims.
-- Require at least two distinct recognizable publisher groups with fresh, distinct snapshot
-  bytes to return `READY_FOR_INDEPENDENT_TEST`. This is **not independent authentication**;
+- Require at least two fresh, distinct recognized publisher groups with different bytes and **caller-asserted `connector_capture` acquisition** to return `READY_FOR_INDEPENDENT_TEST`. Manual notes are never counted as captures. This is **not independent authentication**;
   a submitter can lie about `captured_at`, URL, or source content. Third-party verification is
   still mandatory. A single external website or mirrored source is insufficient.
 - Sources beyond the last 30 caller-reported days cannot satisfy the quorum. The timestamp
@@ -62,8 +60,8 @@ python3 scripts/research_intelligence.py examples/research_packet_example.json \
   --output /tmp/aegis-research-receipt.json
 ```
 
-The committed fixture is *manual paraphrased notes*, not authenticated source capture.
-Even a green 34-test run does not prove an agent independently researched the web or improved
+The committed fixture is *manual paraphrased notes*, not authenticated source capture: all its proposals correctly remain `NEEDS_RESEARCH`.
+Even a green test run does not prove an agent independently researched the web or improved
 performance. Those require a collector, signed snapshot attestation, runnable experiments,
 exact-head CI and a properly independent evaluator.
 
