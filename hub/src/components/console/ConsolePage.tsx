@@ -5,7 +5,7 @@
  * prepare a documented request; it never sends an execution without a key.
  */
 import { useState, type ReactNode, type ChangeEvent } from 'react'
-import { PLATFORM_ORIGIN, useConsoleController, type ConsoleSnapshot } from '../../lib/platformConsole.js'
+import { useConsoleController, type ConsoleSnapshot } from '../../lib/platformConsole.js'
 import '../operator-workbench.css'
 
 type View = 'overview' | 'interfaces' | 'evidence'
