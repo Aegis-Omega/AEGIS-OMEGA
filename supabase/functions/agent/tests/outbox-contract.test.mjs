@@ -60,7 +60,7 @@ function slack(h, mode='accepted'){
     assert.equal(String(url),'https://slack.com/api/chat.postMessage')
     if(mode==='rejected')return Response.json({ok:false,error:'channel_not_found'})
     if(mode==='ambiguous')return new Response('unparseable')
-    return Response.json({ok:true})
+    return Response.json({ok:true,channel:CID,ts:'1760000000.000001'})
   }
   new Function('Deno','EdgeRuntime','crypto','fetch','console',s)(Deno,{waitUntil:p=>pending.push(p)},webcrypto,fetch,{error(){}})
   return {handler,pending,network}
