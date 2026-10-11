@@ -102,6 +102,36 @@ class FrontierReviewTests(unittest.TestCase):
         self.paired()
         self.assertIn('STALE_EXTERNAL_RESEARCH', self.audit()['blockers'])
 
+    def test_github_raw_alias_same_publisher_cannot_count_twice(self):
+        self.data['sources'][0]['url'] = 'https://github.com/openai/openai-agents-python'
+        self.data['sources'][1]['url'] = (
+            'https://raw.githubusercontent.com/openai/openai-agents-python/main/README.md')
+        self.paired()
+        with self.assertRaisesRegex(f.InvalidFrontier, 'publisher groups'):
+            self.audit()
+
+    def test_percent_encoded_github_owner_cannot_bypass_duplicate_check(self):
+        self.data['sources'][0]['url'] = 'https://github.com/%6fpenai/openai-agents-python'
+        self.data['sources'][1]['url'] = 'https://raw.githubusercontent.com/openai/openai-agents-python/main/README.md'
+        self.paired()
+        with self.assertRaisesRegex(f.InvalidFrontier, 'publisher groups'):
+            self.audit()
+
+    def test_github_pages_and_github_repository_same_owner_is_one_source(self):
+        self.data['sources'][0]['url'] = 'https://openai.github.io/openai-agents-python/'
+        self.data['sources'][1]['url'] = 'https://github.com/openai/openai-agents-python'
+        self.paired()
+        with self.assertRaisesRegex(f.InvalidFrontier, 'publisher groups'):
+            self.audit()
+
+    def test_different_github_owners_remain_distinct_unattested_sources(self):
+        self.paired()
+        result = self.audit()
+        self.assertEqual(result['disposition'], 'CANDIDATE_FOR_INDEPENDENT_REPLAY')
+        self.assertEqual(result['source_publisher_groups'],
+                         ['github-owner:google', 'github-owner:openai'])
+        self.assertIs(result['source_publisher_ownership_authenticated'], False)
+
     def test_distinct_domains_required(self):
         self.data['sources'][1]['url'] = 'https://openai.github.io/other'
         with self.assertRaises(f.InvalidFrontier):
