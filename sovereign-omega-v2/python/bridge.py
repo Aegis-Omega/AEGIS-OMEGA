@@ -700,8 +700,16 @@ class BridgeHandler(BaseHTTPRequestHandler):
                     # could commit the same sequence just ahead of us. Sequence
                     # equality alone would incorrectly ACK that discarded
                     # duplicate. The attempt-count delta rejects both cases.
-                    # M2 telemetry is not rolled back by this check.
-                    self._respond(409, {'status': 'REJECTED', 'reason': 'GATE_NOT_APPLIED'})
+                    # Counter/sequence snapshots are NOT an atomic admission
+                    # receipt: another producer (or seal) may race *after*
+                    # this request was applied. A 409 is not proof of rollback.
+                    # Require reconciliation; an automatic retry could replay
+                    # a signal that already affected gate state and M2.
+                    self._respond(409, {
+                        'status': 'UNCONFIRMED',
+                        'reason': 'GATE_ADMISSION_UNCONFIRMED',
+                        'retry_safe': False,
+                    })
                     return
                 last_ack_sequence = seq
             self._respond(200, {'status': 'ACK', 'sequence': seq})
