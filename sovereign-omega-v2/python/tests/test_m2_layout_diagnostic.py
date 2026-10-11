@@ -725,7 +725,8 @@ class TestM2LayoutDiagnosticGate(unittest.TestCase):
             "proposal_id": "valid-proposal",
         })
         self.assertEqual(events, ["M2", ("RESPONSE", 409, {
-            "status": "REJECTED", "reason": "GATE_NOT_APPLIED",
+            "status": "UNCONFIRMED", "reason": "GATE_ADMISSION_UNCONFIRMED",
+            "retry_safe": False,
         })])
         self.assertEqual((racing_gate._last_sequence,
                           racing_gate._total_signals,
@@ -753,7 +754,8 @@ class TestM2LayoutDiagnosticGate(unittest.TestCase):
             "proposal_id": "valid-proposal",
         })
         self.assertEqual(events, ["M2", ("RESPONSE", 409, {
-            "status": "REJECTED", "reason": "GATE_NOT_APPLIED",
+            "status": "UNCONFIRMED", "reason": "GATE_ADMISSION_UNCONFIRMED",
+            "retry_safe": False,
         })])
         self.assertEqual(competing_gate.last_sequence(), 1)
         self.assertEqual(competing_gate.total_signals(), 2)
@@ -783,13 +785,63 @@ class TestM2LayoutDiagnosticGate(unittest.TestCase):
             "proposal_id": "valid-proposal",
         })
         self.assertEqual(events, ["M2", ("RESPONSE", 409, {
-            "status": "REJECTED", "reason": "GATE_NOT_APPLIED",
+            "status": "UNCONFIRMED", "reason": "GATE_ADMISSION_UNCONFIRMED",
+            "retry_safe": False,
         })])
         self.assertTrue(competing_sealed_gate.is_sealed)
         self.assertEqual(competing_sealed_gate.total_signals(), 1)
         self.assertEqual(competing_sealed_gate.last_sequence(), 1)
         self.assertNotIn("valid-proposal", competing_sealed_gate._proposals)
         self.assertEqual(scope["last_ack_sequence"], -1)
+
+        # A conservative negative is possible: the frozen gate records our
+        # valid proposal, but an independent signal/late seal changes the
+        # observable snapshot before the bridge postcheck. The response MUST
+        # be 'UNCONFIRMED', not the false factual claim 'NOT_APPLIED'.
+        class PostApplyInterference:
+            def __init__(self, interfere):
+                self.actual = gate_class()
+                self.interfere = interfere
+
+            @property
+            def is_sealed(self):
+                return self.actual.is_sealed
+
+            def total_signals(self):
+                return self.actual.total_signals()
+
+            def last_sequence(self):
+                return self.actual.last_sequence()
+
+            def record_signal(self, signal):
+                self.actual.record_signal(signal)
+                self.interfere(self.actual)
+
+        for interference in (
+            lambda actual: actual.record_signal(SimpleNamespace(
+                proposal_id="independent-producer", sequence=2,
+                accepted=True, lcb=0.5,
+            )),
+            lambda actual: actual.seal(),
+        ):
+            post_apply_gate = PostApplyInterference(interference)
+            scope["gate"] = post_apply_gate
+            scope["matrix"] = SimpleNamespace(
+                receive_gate_signal=lambda *args: events.append("M2")
+            )
+            events.clear()
+            scope["_gate_branch"](handler_stub, {
+                "sequence": 1, "accepted": True, "lcb": 0.5,
+                "proposal_id": "applied-but-unconfirmed",
+            })
+            self.assertEqual(events, ["M2", ("RESPONSE", 409, {
+                "status": "UNCONFIRMED",
+                "reason": "GATE_ADMISSION_UNCONFIRMED",
+                "retry_safe": False,
+            })])
+            self.assertIn("applied-but-unconfirmed",
+                          post_apply_gate.actual._proposals)
+            self.assertEqual(scope["last_ack_sequence"], -1)
 
         # Valid control must preserve the unchanged frozen gate behavior.
         scope["gate"] = guarded_gate
