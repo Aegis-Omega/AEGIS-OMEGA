@@ -226,3 +226,20 @@
 @media(max-width:360px){
   .hg-site .hg-brand-word small{display:none}
 }
+
+/* Mobile navigation budget / 320px: retain the menu disclosure and search.
+   A secondary top-bar CTA may leave this row only when it would push the
+   primary menu below the clipping edge. The route remains in the menu. */
+@media(max-width:500px){
+  .hg-site .hg-nav{gap:7px}
+  .hg-site .hg-nav-actions{gap:8px;margin-left:0}
+  .hg-site .hg-brand{min-width:0;flex-shrink:1}
+  .hg-site .hg-brand svg{width:33px;height:33px;flex:none}
+  .hg-site .cc-jump{flex:none;margin-left:auto}
+  .hg-site .hg-menu-toggle{display:block;flex:none}
+}
+@media(max-width:360px){
+  .hg-site .hg-nav-cta{display:none}
+  .hg-site .cc-jump{flex:none}
+  .hg-site .hg-menu-toggle{min-width:44px;min-height:44px}
+}
