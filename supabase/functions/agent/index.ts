@@ -70,7 +70,9 @@ async function runTool(name: string, input: Record<string, unknown>,
     q = q.order('updated_at', { ascending: false }).limit(limit)
     const { data, error } = await q
     if (error) return `DB error: ${error.message}`
-    return JSON.stringify(data ?? [])
+    // A missing DB payload is UNKNOWN, not evidence that there are zero rows.
+    if (!Array.isArray(data)) return 'DB_RESULT_UNVERIFIED'
+    return JSON.stringify(data)
   }
 
 
@@ -133,7 +135,8 @@ async function runAgent(task: string, context?: string, actorId?: string, teamId
       // never evidence. Return *only* machine-observed rows, never a second
       // model-generated assertion about their total/meaning.
       if (output === 'INVALID_INPUT' || output === 'INVALID_FILTER' ||
-          output === 'TOOL_NOT_AUTHORIZED' || output.startsWith('DB error:')) {
+          output === 'TOOL_NOT_AUTHORIZED' || output === 'DB_RESULT_UNVERIFIED' ||
+          output.startsWith('DB error:')) {
         throw new Error('TOOL_VERIFICATION_FAILED')
       }
       let rows: unknown
