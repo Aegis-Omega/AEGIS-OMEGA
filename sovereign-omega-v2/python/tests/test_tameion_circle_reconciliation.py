@@ -3,6 +3,8 @@ from __future__ import annotations
 
 import tempfile
 import unittest
+import threading
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import replace
 from pathlib import Path
 import sys
@@ -155,6 +157,54 @@ class CircleReconciliationLab(unittest.TestCase):
 
     def test_binding_root_is_deterministic(self):
         self.assertEqual(self.binding.root, replace(self.binding).root)
+
+    def second_attempt(self, attempt='openmeter:circle-b'):
+        self.ledger.reserve(scope=SCOPE, policy_root=H1, attempt_id=attempt,
+                            intent_root=H2, boundary_root=H3,
+                            amount_microunits=100, expected_generation=1)
+        binding = replace(self.binding, attempt_id=attempt)
+        return binding
+
+    def test_one_circle_source_cannot_fund_two_attempts(self):
+        b = self.second_attempt()
+        self.correlate(expected_generation=2)
+        with self.assertRaisesRegex(ReservationDenied, 'CIRCLE_SOURCE_ALREADY_CLAIMED'):
+            self.correlate(binding=b, pinned_binding_root=b.root, expected_generation=3)
+        self.assertEqual(self.ledger.snapshot(SCOPE).used_microunits, 400)
+
+    def test_pending_source_claim_blocks_second_attempt(self):
+        b = self.second_attempt()
+        self.correlate(observation=self.observation('pending_confirmations'), expected_generation=2)
+        with self.assertRaisesRegex(ReservationDenied, 'CIRCLE_SOURCE_ALREADY_CLAIMED'):
+            self.correlate(binding=b, pinned_binding_root=b.root, expected_generation=3)
+
+    def test_attempt_cannot_replace_its_source_transaction(self):
+        self.correlate(observation=self.observation('pending_confirmations'))
+        other = build_circle_v2_messages_request(0, '0x'+'b'*64)
+        b = replace(self.binding, circle_request_root=other.root,
+                    source_transaction_hash=other.transaction_hash)
+        o = parse_circle_v2_messages_response(other, {
+            'messages':[{'status':'complete','message':'0x1234','attestation':'0xabcd'}]
+        })
+        with self.assertRaisesRegex(ReservationDenied, 'CIRCLE_ATTEMPT_SOURCE_IMMUTABLE'):
+            self.correlate(binding=b, pinned_binding_root=b.root,
+                           request=other, observation=o)
+
+    def test_two_workers_cannot_claim_same_circle_source(self):
+        b = self.second_attempt()
+        gate = threading.Barrier(2)
+        def worker(binding):
+            gate.wait()
+            try:
+                self.correlate(binding=binding, pinned_binding_root=binding.root,
+                               expected_generation=2)
+                return 'RECORDED'
+            except ReservationDenied as exc:
+                return str(exc)
+        with ThreadPoolExecutor(max_workers=2) as pool:
+            results = list(pool.map(worker, (self.binding, b)))
+        self.assertEqual(results.count('RECORDED'), 1, results)
+        self.assertTrue(any('CIRCLE_SOURCE_ALREADY_CLAIMED' in x for x in results), results)
 
     def test_get_attempt_is_read_only(self):
         original = self.ledger.snapshot(SCOPE).root
