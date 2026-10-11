@@ -176,3 +176,34 @@ test('wrong result encryption key leaves delivery uncertain, no new inference',a
  assert.equal([...d.rows.values()][0].state,'SENDING')
  assert.equal(d.stats.paid,1)
 })
+
+test('operator can request output-only recovery from Slack without new model spend',async()=>{
+ const d=db(),h=agent(d),rejected=slack(h,'rejected')
+ const first=await rejected.handler(await signed(form()))
+ assert.equal(first.status,200)
+ const ack=await first.json()
+ assert.equal(ack.response_type,'ephemeral')
+ assert.match(ack.text,/slack:slash:/)
+ await Promise.all(rejected.pending)
+ assert.equal(d.stats.paid,1)
+ assert.equal([...d.rows.values()][0].state,'READY')
+ const recovered=slack(h)
+ const recoveryForm=new URLSearchParams({
+   user_id:'U_OK',channel_id:CID,text:'recover slack:slash:13345224609.738474920.8088930838d88f008e0',
+   trigger_id:'13345224609.738474920.NEWRECOVERID',
+ }).toString()
+ const reply=await recovered.handler(await signed(recoveryForm))
+ assert.equal(reply.status,200)
+ assert.equal((await reply.json()).response_type,'ephemeral')
+ await Promise.all(recovered.pending)
+ assert.equal(d.stats.paid,1)
+ assert.equal([...d.rows.values()][0].state,'DELIVERED')
+})
+test('operator recovery rejects arbitrary references before provider call',async()=>{
+ const d=db(),worker=slack(agent(d))
+ const recoveryForm=new URLSearchParams({user_id:'U_OK',channel_id:CID,
+   text:'recover INVALID_REFERENCE',trigger_id:'13345224609.738474920.NEWRECOVERID',
+ }).toString()
+ assert.equal((await worker.handler(await signed(recoveryForm))).status,400)
+ assert.equal(d.stats.paid,0)
+})
