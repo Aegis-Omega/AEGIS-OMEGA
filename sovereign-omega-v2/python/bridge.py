@@ -481,20 +481,22 @@ class BridgeHandler(BaseHTTPRequestHandler):
                 self._respond(400, {'status': 'REJECTED', 'reason': 'INVALID_SEQUENCE'})
                 return
 
+            # Serialize sequence admission and both writes. Advance ACK only
+            # after both return successfully; an exception is not an ACK.
+            # This is not a cross-subsystem transaction or rollback guarantee.
             with _lock:
                 if seq <= last_ack_sequence:
                     self._respond(400, {'status': 'REJECTED', 'reason': 'SEQUENCE_DESYNC'})
                     return
-                last_ack_sequence = seq
 
-            # Record signal in both gate (mutation authority) and matrix
-            gate.record_signal(GateSignal(
-                proposal_id=proposal_id,
-                sequence=seq,
-                accepted=accepted,
-                lcb=lcb,
-            ))
-            matrix.receive_gate_signal(proposal_id, accepted, seq)
+                gate.record_signal(GateSignal(
+                    proposal_id=proposal_id,
+                    sequence=seq,
+                    accepted=accepted,
+                    lcb=lcb,
+                ))
+                matrix.receive_gate_signal(proposal_id, accepted, seq)
+                last_ack_sequence = seq
             self._respond(200, {'status': 'ACK', 'sequence': seq})
 
         elif self.path == '/event':
