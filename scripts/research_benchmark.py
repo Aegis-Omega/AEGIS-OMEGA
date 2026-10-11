@@ -108,7 +108,9 @@ def make_packet(case: str, index: int) -> dict:
               'truncated':False,
               'publisher_identity':'NOT_INDEPENDENTLY_AUTHENTICATED',
               'claim_truth':'NOT_VERIFIED','authority_effect':'NONE'}
-        v['capture_receipt']=sign_capture(snap,TEST_KEY,'synthetic.test')
+        v['capture_receipt']=sign_capture(snap,TEST_KEY,'synthetic.test',
+            binding={'task_id':o['task_id'],'repo_head':o['repo_head'],
+                     'source_id':v['id']})
     return o
 
 
