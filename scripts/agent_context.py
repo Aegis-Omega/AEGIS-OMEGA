@@ -399,9 +399,14 @@ def main():
         disposition = "HOLD_UNVERIFIED_MAIN"
     coordination_blocks = coordination_blockers(main_receipt, source, issue_source, hits, issue_hits)
     p0 = [issue for issue in issues if "p0" in issue["labels"]]
-    code = existing_code(query) if query and not quick else []
-
     main_verified = main_receipt["state"] == "FRESH"
+    # Git grep reads the local origin/main ref. Never present that material as
+    # existing verified main code unless the remote SHA was independently bound.
+    code_status = ("SKIPPED_QUICK" if quick
+                   else "SKIPPED_UNVERIFIED_MAIN" if not main_verified
+                   else "VERIFIED_REMOTE_MAIN" if query else "NOT_REQUESTED")
+    code = existing_code(query) if query and not quick and main_verified else []
+
     if "--json" in sys.argv:
         print(json.dumps({"main": sha if main_verified else None,
                           "main_exact_sha": main_receipt["sha"] if main_verified else None,
@@ -429,6 +434,7 @@ def main():
                                             for i, m in issue_hits],
                           "overlaps": [{"pr": p["n"], "title": p["t"], "head": p["h"],
                                         "base": p["b"], "match": m} for _, p, m in hits],
+                          "existing_code_status": code_status,
                           "existing_code": [{"path": c, "match": m} for c, m in code]}))
         return
 
@@ -476,8 +482,10 @@ def main():
             lines.append(f"  {ref} {p['h']}{base} — {p['t'][:90]} (match: {', '.join(m)})")
     elif query:
         lines.append("- No *title-keyword* PR overlap found in available data; code and file-path overlap NOT ruled out.")
+    if query and not quick and not main_verified:
+        lines.append("- Existing-code lookup SKIPPED: remote main unverified; local origin/main may be stale or untrusted.")
     if code:
-        lines.append("- Code already on main that matches this task (read it first; reuse or extend it):")
+        lines.append("- Code on verified remote main that matches this task:")
         for path, m in code:
             lines.append(f"  {path} (match: {', '.join(m)})")
     lines.append("- Rules: branch only from origin/main; PR base must be main; one PR per task. "
