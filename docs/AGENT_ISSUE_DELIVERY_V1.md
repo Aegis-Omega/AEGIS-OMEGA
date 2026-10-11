@@ -111,3 +111,15 @@ Compare duplicate-PR creation, false-positive completion, exact-head proof cover
 - No untrusted test code is executed in the evidence job. It checks out only the protected-base SHA; the script must already exist at that trusted base and is intentionally not self-bootstrapped from the candidate.
 - **Test scope:** 63/63 Python stdlib unit tests PASS on locally replayed Git-blob-identical Python source and workflow. This does not verify hosted execution, correctness of arbitrary test assertions, domain-specific research claims, signatures, reviewer authenticity beyond GitHub account identity, protected-main admission, or production safety. No authority expansion.
 - **Rollout:** the Issue template and Issue #746 contract both require `required_step`. Existing v1 Issues using `github_check` without the field now deliberately fail closed until re-contracted and re-reviewed.
+
+
+## v1.5 — count-bound snapshot, rename lineage, unambiguous acceptance (2026-10-11)
+
+This release includes **replayed counterexamples** that previously reported a positive reducer disposition:
+
+1. GitHub PR metadata said two commits and two changed files, but the adapter held one of each. The prior \`len(page) < 100\` heuristic accepted both as complete. Now GitHub's \`pr.commits\` and \`pr.changed_files\` totals must equal observed API record counts, and the pure reducer checks the same metadata. Missing records fail closed; no partial list is considered proof of a complete signed chain or authorized diff.
+2. Renaming \`secrets/creds.txt\` into an allowlisted file was previously checked only against the new path. The adapter now includes **both old and new** paths in the declared-scope test. A \`renamed\` record lacking \`previous_filename\` is incomplete evidence, not a pass.
+3. A mutable base SHA could change during the live audit while the same \`base.ref\` remained \`main\`. Late PR re-fetch now checks **base SHA** as well as head SHA, body, state, commit count and changed-file count.
+4. Two acceptance clauses A1/A2 could name the same GitHub check, yet specify different \`required_step\` values. The live adapter's map would select only one required step and the reducer would mark **both** clauses PASS. Reusing a check name is now a contract error \`ACCEPTANCE_CHECK_REUSED\`; distinct criteria require independently identifiable checks.
+
+**Verification boundary:** source-bound local replay: 71/71 Python 3 stdlib tests PASS. The operator can rerun tests from a clean ZIP and compare each exact Git blob SHA. These results do **not** establish hosted CI execution, independent review or protected-main admission. A full SHA-256 contract digest must remain bound to PR body and reviewer decision. No billing, production writes, branch protection changes, or auto-merge are authorized.
