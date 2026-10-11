@@ -8,7 +8,7 @@ labels: [task]
 Link any overlapping Issue or PR before claiming. Run the existing PR #732 context preflight first. UNKNOWN is not an empty board.
 
 ## Acceptance contract
-Edit the JSON, not just the prose. An exact check name must specify the trusted GitHub Actions publisher integration ID 15368.
+Edit the JSON, not just the prose. An exact check must specify GitHub Actions integration ID 15368 AND the exact non-boilerplate evaluation step name (required_step). A successful checkout alone is never proof of tests.
 
 <!-- AEGIS_WORK_V1
 {
@@ -25,7 +25,8 @@ Edit the JSON, not just the prose. An exact check name must specify the trusted 
       "criterion": "Replace with an observable success criterion",
       "method": "github_check",
       "check": "aegis / issue-gate-tests",
-      "app_id": 15368
+      "app_id": 15368,
+      "required_step": "Run stdlib falsifiers"
     }
   ]
 }
