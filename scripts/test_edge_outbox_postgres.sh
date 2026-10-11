@@ -50,6 +50,8 @@ VALUES
  (repeat('c',64),repeat('d',64),'Yg==','MTIz','READY',null,0,now()+interval '24 hours'),
  (repeat('e',64),repeat('f',64),'Yw==','MTIz','READY',null,0,now()+interval '24 hours');
 
+-- Execute the RPCs AS service_role, not just as the migration superuser.
+SET ROLE service_role;
 DO $t$
 DECLARE removed bigint; unresolved bigint; rows_leased bigint; did_complete boolean;
 BEGIN
@@ -59,10 +61,6 @@ BEGIN
  SELECT deleted_count,unresolved_count INTO removed,unresolved
  FROM public.aegis_outbox_purge_expired_v1(1);
  IF removed<>1 OR unresolved<>1 THEN RAISE EXCEPTION 'EXPIRED SENDING ROW NOT AUDITED'; END IF;
- IF (select count(*) from public.aegis_agent_dispatch_claims_v1)<>3 THEN
-   RAISE EXCEPTION 'PAID DISPATCH CLAIMS WERE LOST'; END IF;
- IF (select count(*) from public.aegis_agent_result_outbox_v1)<>2 THEN
-   RAISE EXCEPTION 'NONEXPIRED CIPHERTEXT LOST'; END IF;
  SELECT count(*) INTO rows_leased FROM public.aegis_outbox_claim_delivery_v1(
   repeat('c',64),repeat('d',64),'cccccccc-cccc-4ccc-8ccc-cccccccccccc');
  IF rows_leased<>1 THEN RAISE EXCEPTION 'FIRST LEASE FAILED'; END IF;
@@ -76,13 +74,21 @@ BEGIN
   'cccccccc-cccc-4ccc-8ccc-cccccccccccc',true) INTO did_complete;
  IF NOT did_complete THEN RAISE EXCEPTION 'CORRECT ATTEMPT NOT ACKED'; END IF;
 END $t$;
+RESET ROLE;
+DO $t$
+BEGIN
+ IF (select count(*) from public.aegis_agent_dispatch_claims_v1)<>3 THEN
+   RAISE EXCEPTION 'PAID DISPATCH CLAIMS WERE LOST'; END IF;
+ IF (select count(*) from public.aegis_agent_result_outbox_v1)<>2 THEN
+   RAISE EXCEPTION 'NONEXPIRED CIPHERTEXT LOST'; END IF;
+END $t$;
 SQL
 # Independent sessions compete to lease the same remaining READY row.
 tmp="$(mktemp -d)"
 trap 'rm -rf "$tmp"' EXIT
-psql -X -At -v ON_ERROR_STOP=1 -c "select count(*) from public.aegis_outbox_claim_delivery_v1(repeat('e',64),repeat('f',64),'eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee');" > "$tmp/1" &
+psql -X -qAt -v ON_ERROR_STOP=1 -c "set role service_role; select count(*) from public.aegis_outbox_claim_delivery_v1(repeat('e',64),repeat('f',64),'eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee');" > "$tmp/1" &
 a=$!
-psql -X -At -v ON_ERROR_STOP=1 -c "select count(*) from public.aegis_outbox_claim_delivery_v1(repeat('e',64),repeat('f',64),'ffffffff-ffff-4fff-8fff-ffffffffffff');" > "$tmp/2" &
+psql -X -qAt -v ON_ERROR_STOP=1 -c "set role service_role; select count(*) from public.aegis_outbox_claim_delivery_v1(repeat('e',64),repeat('f',64),'ffffffff-ffff-4fff-8fff-ffffffffffff');" > "$tmp/2" &
 b=$!
 wait "$a"; wait "$b"
 actual="$(cat "$tmp/1" "$tmp/2" | sort -n)"
