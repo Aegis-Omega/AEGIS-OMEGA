@@ -18,6 +18,38 @@ SPEC.loader.exec_module(ctx)
 
 
 class HolonContextTests(unittest.TestCase):
+    def test_holon_vector_never_hides_operator_and_peer_blockers(self):
+        claimed = {"n": 739, "t": "Receipts", "labels": ["claimed", "needs-operator"]}
+        overlap = [(2, {"n": 743, "t": "Receipts", "h": "a", "b": "main"}, ["receipts"])]
+        actual = ctx.holon_blockers("cache", "partial", "UNVERIFIED_QUICK",
+                                   overlap, [(claimed, ["receipts"])])
+        self.assertEqual(actual, [
+            "HOLD_UNVERIFIED_MAIN",
+            "HOLD_INCOMPLETE_PR_INVENTORY",
+            "HOLD_INCOMPLETE_ISSUE_BOARD",
+            "OPERATOR_ACTION_REQUIRED",
+            "HOLD_CLAIMED_WORK_COORDINATE",
+            "REVIEW_EXISTING_PR_FIRST",
+        ])
+
+    def test_holon_vector_fresh_and_unclaimed_is_empty(self):
+        self.assertEqual(ctx.holon_blockers("github", "github", "FRESH", [], []), [])
+
+    def test_holon_vector_unknown_main_keeps_operator_action(self):
+        item = {"n": 735, "t": "GitHub billing", "labels": ["needs-operator"]}
+        self.assertEqual(ctx.holon_blockers("github", "github", "FETCH_FAILED",
+                                           [], [(item, ["billing"])]),
+                         ["HOLD_UNVERIFIED_MAIN", "OPERATOR_ACTION_REQUIRED"])
+
+    def test_holon_vector_does_not_mutate_source_records(self):
+        item = {"n": 739, "t": "Receipts", "labels": ["claimed"]}
+        original = list(item["labels"])
+        for _ in range(2):
+            self.assertEqual(ctx.holon_blockers("github", "github", "FRESH",
+                                               [], [(item, [])]),
+                             ["HOLD_CLAIMED_WORK_COORDINATE"])
+        self.assertEqual(item["labels"], original)
+
     def test_unknown_peers_are_never_empty_board(self):
         self.assertEqual(ctx.holon_disposition("unavailable", "unavailable", [], []),
                          "HOLD_INCOMPLETE_SHARED_STATE")
