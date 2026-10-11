@@ -4,24 +4,32 @@
 
 This is **not** an autonomous superintelligent agent. It is one small, reusable work-product protocol intended to complement AEGIS Issues #734 (firm of agents), #746 (GitHub exact-head delivery gate), and PRs #732 (context), #730 (capability ranking), #743 (model-call receipts). No signed admission, independent reviewer authentication, CI merge or deployment is implemented in this package.
 
+## v0.2 research-first requirement (new, fail-closed)
+
+**Before agents call their work complete**, they must perform and document a bounded live literature / competitor / standard search, compare at least two alternatives, specify a measurable falsification test and capture a learning outcome. See [RESEARCH_STANDARD.md](RESEARCH_STANDARD.md).
+
+`manifest.json` may include a `research` object with schema `aegis.research-cycle.v1`. The Python verifier checks timestamps (≤7 days), ≥2 source publishers, SHA-256 anchored local source notes, ≥2 compared alternatives, an explicit baseline, metrics, falsification and next experiment. For an existing v0.1 pack without research the receipt still shows **artifact-level** integrity and structure, but `delivery_readiness=BLOCKED_RESEARCH_OR_COMPARISON`; the normal CLI exits 1. If a packet is structurally complete but its falsification outcome is `NOT_RUN`, delivery still exits 1 (`BLOCKED_UNRUN_FALSIFICATION`). A model-reported experiment result is never authenticated factual success. To inspect legacy artifact integrity only, explicitly run `--integrity-only`.
+
+Even a complete packet remains `RESEARCH_PACKET_PRESENT_UNATTESTED`: a self-authored website excerpt is not an authenticated capture, and no offline tool can guarantee an agent really browsed or prove scientific truth. Real web queries and independent source cross-checks belong to the connected, permitted agent harness. **No automatic network requests or unapproved actions** are added to the verifier.
+
+```bash
+python3 -m unittest discover -s tests -q
+python3 build_demo.py
+python3 -m aegis_workpack.protocol examples/data-baseline --integrity-only
+# Normal agent-delivery CLI refuses a manifest missing the research cycle:
+python3 -m aegis_workpack.protocol examples/data-baseline   # expected exit 1
+```
+
 ## Run immediately
 
 ```bash
 python3 build_demo.py
 python3 -m unittest discover -s tests -v
-python3 -m aegis_workpack.protocol examples/data-baseline
+python3 -m aegis_workpack.protocol examples/data-baseline --integrity-only
 python3 -m aegis_workpack.protocol examples/data-tampered
 ```
 
 The verifier reads `manifest.json` inside a workspace, checks declared artifact SHA-256 bytes and limited **structural** acceptance checks. The default is no execution, no network, no writes, and no authority. A positive result is `LOCAL_INTEGRITY_AND_STRUCTURE_VERIFIED` — **not** correctness, provenance authenticity or production admission. The tampered data fixture should return exit 1.
-
-## Use from a phone — no coding required
-
-Open `workbench.html` in a modern browser in a secure context (HTTPS or browser-trusted `file://` origin). Tap **Create a work pack**, enter the objective, choose a work domain and authority boundary, name the agent, and select an artifact of 8 MB or less. Your browser calculates SHA-256 with WebCrypto and exports `manifest.json`, which should be kept next to the original artifact. No file data is sent to AEGIS or third parties. If WebCrypto is unavailable (e.g. insecure HTTP or blocked browser contexts), the app refuses to produce an unverifiable hash.
-
-The same page provides a *display-only* receipt explorer: import any local `receipt.json` to inspect its claims, but run the Python verifier independently to authenticate the local file bytes. Viewer import is not a trusted verifier.
-
-Browser QA: mobile and desktop viewports verified for filter, JSON import, composer form/export using a deterministic cryptographic digest stub, with independent Python SHA-256 reference. The sandbox prevented secure-origin browser navigation, so a full native WebCrypto browser integration PASS is **not** claimed.
 
 ## Protocol (manifest.json)
 
@@ -56,7 +64,7 @@ The containing AEGIS-OMEGA repository is licensed AGPL-3.0. The protocol uses po
 - Paths must be relative and component-safe. Symlinks, duplicate manifest keys, NaN, oversized files, missing assets, undeclared artifacts, unexpected check types, and malformed CSV/JSON reject by default.
 - The local verifier only **reads** workspaces and cannot run arbitrary `command` strings from manifests. `--output` is an explicitly requested local receipt write, not an external side effect.
 - File bytes and hashes can be forged together by the same agent; integrity **does not** mean independent authenticity. `domain_quality` stays `UNVERIFIED` even after structural success.
-- POSIX artifact and CLI manifest reads use `dir_fd` + `O_NOFOLLOW` on each component to resist symlink replacement; on non-POSIX systems a precheck fallback cannot guarantee race-free traversal. For untrusted concurrent writers use immutable workspaces. Signed provenance remains out of scope.
+- Concurrent filesystem mutation between `lstat` and file read is a documented TOCTOU limitation: run on a fixed, immutable checkout when adversarial writers exist. For stronger guarantees add dirfd/openat-based traversal and signed provenance.
 - Never infer authorization to charge money, access secrets, merge a PR, send emails, write production data or claim a mathematics conjecture is proved.
 
 ## Methodology compared with frontier
