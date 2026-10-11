@@ -157,6 +157,33 @@ class TestM2RuntimeReplay(unittest.TestCase):
                              8 * (event_count + 1))
             self.assertLessEqual(self.offset(length, 1, "gate_signal") + 8, length)
 
+    def test_two_writer_concurrent_interleavings_are_disjoint(self) -> None:
+        # Each thread repeatedly updates a distinct namespace at the same
+        # numeric sequence. No reliance on the CoreMatrix lock for isolation.
+        from concurrent.futures import ThreadPoolExecutor
+
+        state = bytearray(140)
+
+        def write(source: str) -> tuple:
+            confidence = INT_SCALE // 2 if source == "event" else INT_SCALE
+            result = (0, 0)
+            for _ in range(500):
+                result = self.m2(memoryview(state), b"\x01", confidence, 1,
+                                 source=source)
+            return result
+
+        with ThreadPoolExecutor(max_workers=2) as pool:
+            event_result, gate_result = list(
+                pool.map(write, ("event", "gate_signal"))
+            )
+
+        for source, result in (("event", event_result),
+                               ("gate_signal", gate_result)):
+            offset = self.offset(len(state), 1, source)
+            record = (result[0].to_bytes(4, "little")
+                      + result[1].to_bytes(4, "little"))
+            self.assertEqual(state[offset:offset + 8], record)
+
     def test_policy_source_bound_and_not_admitted(self) -> None:
         self.assertEqual(self.contract["schema"],
                          "aegis.m2.sequence-domain-contract.v2")
