@@ -49,7 +49,7 @@ def cli_version(binary: str | None) -> dict[str, str]:
                                 check=False, timeout=15)
     except (OSError, subprocess.TimeoutExpired):
         return {'status': 'UNVERIFIED'}
-    if result.returncode != 0 or not result.stdout.startswith('codex '):
+    if result.returncode != 0 or not result.stdout.startswith(('codex ', 'codex-cli ')):
         return {'status': 'UNVERIFIED'}
     # We do not print subprocess stderr, which could contain sensitive information.
     return {'status': 'VERSION_CONFIRMED', 'version': result.stdout.strip()[:96]}
