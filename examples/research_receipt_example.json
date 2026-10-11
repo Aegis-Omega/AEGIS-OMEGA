@@ -2,6 +2,7 @@
   "as_of_utc": "2026-10-11T04:14:00Z",
   "authority_effect": "NONE",
   "benchmark_superiority": "NOT_ESTABLISHED",
+  "collector_attestation": "NOT_VERIFIED",
   "external_claim_verification": "NOT_PERFORMED",
   "freshness_basis": "CALLER_REPORTED_AS_OF_UNAUTHENTICATED",
   "packet_sha256": "85b54e7d2d7350da9fe0f920bfef7d2ca0572ce7b7e87953b477d78ff18a7066",
