@@ -37,3 +37,17 @@ Maximum response: 131072 bytes; excerpt: 16000 UTF-8 bytes; socket timeout: 8 se
 A successful HTTPS/TLS connection and `full_body_sha256` support **integrity of locally observed bytes**, not publisher identity or accuracy of its scientific claims. Local timestamps aren't notarized. Source text remains **untrusted data**, never tool instructions. Outputs explicitly mark `publisher_identity=NOT_INDEPENDENTLY_AUTHENTICATED`, `claim_truth=NOT_VERIFIED`, `authority_effect=NONE`.
 
 Still open: real live capture on trusted egress, strict wall-clock deadline, attested collector identity, signed snapshots, source-use/throttling policy, URL fuzzing and independent review, exact-head hosted CI and protected-main signing/admission. No continuous scheduling, training ingestion or autonomous promotion is claimed.
+## HTTP message framing integrity (2026-10-11)
+
+A targeted regression exposed **a real prior false capture**: an HTTP/1.1 server advertising `Content-Length: 99` could close its TLS connection after only 5 bytes; the collector previously hashed and reported those five bytes as a successfully retrieved complete snapshot. In mock-framing tests, contradictory `Content-Length` and `Transfer-Encoding` metadata could also be accepted.
+
+The collector now distinguishes HTTP framing **before any capture is issued or signed**:
+
+- For an explicit `Content-Length`, require the exact decoded bytes received to match the announced length. Premature EOF is denied as `INCOMPLETE_RESPONSE_BODY`; contradictory mock transport length is denied as `CONTENT_LENGTH_MISMATCH`.
+- Reject simultaneous `Content-Length` and `Transfer-Encoding` as `AMBIGUOUS_TRANSFER_FRAMING`, and reject unsupported transfer codings. `chunked` is accepted only where Python's `http.client.HTTPResponse` has actually enabled chunked decoding.
+- Continue to reject Content-Encoding compression, unsupported content types, redirects, malformed lengths, zero-byte bodies, and responses over 128 KiB.
+- Real localhost TLS integration tests verify that a truncated body is denied and a valid chunked body decodes successfully. These use a temporary test CA, **not** an external website.
+
+Exact-head local Python 3.13.5 full replay: **177/177 tests PASS**. The eight additional HTTP-framing unit tests first showed **5 distinct failures** on the previous code; after the patch all eight passed, alongside two new real TLS integration tests. Local full logs and source digests are in the standalone replay archive.
+
+**Not resolved by this patch:** DNS resolution, TLS handshake and slowly delivered headers/bodies may still lack a reliable **end-to-end wall-clock deadline** despite socket-level timeouts; use a separate trusted process timeout before production deployment. A digest does not independently authenticate publisher ownership, claim truth or actual collector-runner integrity. Hosted CI, independent security review and protected-main admission remain separate blockers.
