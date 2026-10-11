@@ -77,7 +77,7 @@ export async function handlePaidInvocation(request: Request, env: PaidInvocation
   const input = body as Record<string, unknown>
   const objective = typeof input.objective === 'string' ? input.objective.trim() : ''
   const modes = ['analysis', 'revenue', 'gtm', 'retention']
-  if (!objective || objective.length > 700 || !modes.includes(String(input.mode))) {
+  if (!objective || objective.length > 700 || (typeof input.mode !== 'string' || !modes.includes(input.mode))) {
     return reply('Objective and supported mode required', 'INVALID_REQUEST', 400)
   }
   if (input.live !== true) {
