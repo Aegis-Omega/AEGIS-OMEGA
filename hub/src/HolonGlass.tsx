@@ -78,8 +78,8 @@ function Orbit() {
 
 const DOMAINS = [
   { id: '01', glyph: 'neural', title: 'Sovereign runtime', detail: 'Authority-bounded execution, governed agents and a verifiable decision trail.', tag: 'SYSTEM / GOVERNANCE', href: '/runtime' },
-  { id: '02', glyph: 'math', title: 'Frontier mathematics', detail: 'Formal conjectures, falsifiable propositions and proof-producing research.', tag: 'SCIENCE / FORMAL', href: '/platform' },
-  { id: '03', glyph: 'dna', title: 'Computational biology', detail: 'Genomic, structural and spectral research with explicit source provenance.', tag: 'SCIENCE / GENOMICS', href: '/tools' },
+  { id: '02', glyph: 'math', title: 'Frontier mathematics', detail: 'Formal conjectures, falsifiable propositions and proof-producing research.', tag: 'SCIENCE / FORMAL', href: 'https://github.com/tarikskalic33/formal-conjectures' },
+  { id: '03', glyph: 'dna', title: 'Computational biology', detail: 'Genomic, structural and spectral research with explicit source provenance.', tag: 'SCIENCE / GENOMICS', href: 'https://github.com/Aegis-Omega/AEGIS-OMEGA' },
   { id: '04', glyph: 'shield', title: 'Verification systems', detail: 'Replay, cryptographic lineage and epistemic admission boundaries.', tag: 'EVIDENCE / AUDIT', href: '/compliance' },
 ]
 
