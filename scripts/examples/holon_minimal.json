@@ -1,0 +1,60 @@
+{
+  "schema": "AEGIS_HOLON_INPUT_V1",
+  "tasks": [
+    {
+      "id": "TASK-1",
+      "objective": "Verify a research finding from raw evidence",
+      "done_when": "Replayable evidence independently checked",
+      "priority": "p0",
+      "state": "IN_PROGRESS",
+      "claimed_by": "Research-Agent",
+      "depends_on": [],
+      "paths": [
+        "research/evidence"
+      ],
+      "source": "example://TASK-1"
+    },
+    {
+      "id": "TASK-2",
+      "objective": "Review a reusable inference adapter",
+      "done_when": "Independent test and admission report",
+      "priority": "p1",
+      "state": "OPEN",
+      "claimed_by": null,
+      "depends_on": [],
+      "paths": [
+        "runtime/bridge"
+      ],
+      "source": "example://TASK-2"
+    },
+    {
+      "id": "TASK-3",
+      "objective": "Propose competing edits to active research",
+      "done_when": "Coordinate with assigned owner before editing",
+      "priority": "p2",
+      "state": "OPEN",
+      "claimed_by": null,
+      "depends_on": [],
+      "paths": [
+        "research/evidence/result.json"
+      ],
+      "source": "example://TASK-3"
+    },
+    {
+      "id": "TASK-4",
+      "objective": "Build a product from verified research",
+      "done_when": "Dependency independently admitted",
+      "priority": "p1",
+      "state": "OPEN",
+      "claimed_by": null,
+      "depends_on": [
+        "TASK-1"
+      ],
+      "paths": [
+        "product/api"
+      ],
+      "source": "example://TASK-4"
+    }
+  ],
+  "submissions": []
+}

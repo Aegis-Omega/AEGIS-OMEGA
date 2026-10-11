@@ -1,0 +1,1 @@
+{ "name": "aegis-ground-truth", "version": "0.1.0", "description": "AEGIS: injects measured repo state and overlapping open PRs into every prompt; refuses stacked branches/PRs; /aegis" }
