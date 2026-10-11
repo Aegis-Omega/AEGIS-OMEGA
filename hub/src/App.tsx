@@ -1,6 +1,6 @@
 // AEGIS Ω — Holon Glass unified visual shell.
 // Each existing operational route retains its original component and behavior.
-import { HolonHomepage, HolonRoute } from './HolonGlass.js'
+import { HolonHomepage, HolonNotFound, HolonRoute } from './HolonGlass.js'
 import { AegisRuntime } from './components/AegisRuntime.js'
 import { ClaimSponsorPage } from './components/ClaimSponsorPage.js'
 import { CompliancePage } from './components/CompliancePage.js'
@@ -23,6 +23,6 @@ export default function App() {
     case '/console': return <HolonRoute route="console"><ConsolePage /></HolonRoute>
     case '/runtime': return <HolonRoute route="runtime"><AegisRuntime /></HolonRoute>
     case '/tools': return <HolonRoute route="tools"><ToolsPage /></HolonRoute>
-    default: return <HolonHomepage />
+    default: return <HolonNotFound />
   }
 }
