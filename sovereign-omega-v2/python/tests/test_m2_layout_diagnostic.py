@@ -399,6 +399,22 @@ class TestM2LayoutDiagnosticGate(unittest.TestCase):
         self.assertEqual(events, ["M2"])
         self.assertEqual(scope["last_ack_sequence"], -1)
 
+        # Invalid acceptance cannot be turned into an authorized gate
+        # decision by Python truthiness (e.g. JSON string "false").
+        for bad_accepted in ("false", "true", 0, 1, None, [], {}):
+            events.clear()
+            scope["_replay_gate"](
+                fake_http,
+                {"sequence": 1, "accepted": bad_accepted, "lcb": 0.1},
+            )
+            self.assertEqual(
+                events,
+                [("RESPONSE", 400, {
+                    "status": "REJECTED", "reason": "INVALID_ACCEPTED",
+                })],
+            )
+            self.assertEqual(scope["last_ack_sequence"], -1)
+
         # Positive control: when M2 succeeds, only then is gate applied
         # and the request ACKed, in precisely that order.
         events.clear()
