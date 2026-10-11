@@ -211,3 +211,18 @@
 .hg-route-docs .hg-legacy-content .bg-gray-900\/50,.hg-route-tools .hg-legacy-content .bg-hub-bg{background-color:#081b34!important;border-color:#3b6096!important}
 .hg-route-pricing .hg-legacy-content h1,.hg-route-compliance .hg-legacy-content h1{color:#f0f6ff!important;-webkit-text-fill-color:#f0f6ff!important;font-family:Inter,system-ui,sans-serif!important;font-weight:650!important}
 .hg-route-claim-sponsor .hg-legacy-content :is(.max-w-lg,.max-w-md){background:#091d37;border-color:#517bb0}
+
+
+/* The shared 320-600px top CTA remains a 44px labeled icon control;
+   text is still announced through the original aria-label. */
+@media(max-width:600px){
+  .hg-site .hg-nav-cta{width:44px;min-width:44px;height:44px;padding:0 9px;font-size:0;gap:0}
+  .hg-site .hg-nav-cta svg{width:19px;height:19px;flex-shrink:0}
+  .hg-site .hg-nav{gap:9px}
+  .hg-site .hg-brand{gap:7px}
+  .hg-site .hg-brand-word strong{font-size:13px;letter-spacing:.1em}
+  .hg-site .hg-brand-word small{font-size:9px;letter-spacing:.075em}
+}
+@media(max-width:360px){
+  .hg-site .hg-brand-word small{display:none}
+}
