@@ -9,10 +9,6 @@ const NODES = [
   { label:'VERIFY',href:'/compliance',x:'23%',y:'74%',n:'04' },
   { label:'DEVELOP',href:'/docs',x:'11%',y:'37%',n:'05' },
 ] as const
-const STARS = Array.from({length:90},(_,i)=>({
-  x:(i*97+Math.floor(i/5)*17)%1000, y:(i*67+Math.floor(i/3)*41)%560,
-  r:i%13===0?1.6:i%4===0?.8:.4, opacity:i%7===0?.78:.23+(i%4)*.08,
-}))
 
 export function CosmicCommand() {
   const [mode,setMode] = useState<'atlas'|'evidence'>('atlas')
@@ -37,7 +33,6 @@ export function CosmicCommand() {
             <linearGradient id="cc-orbit"><stop stopColor="#5278ff" stopOpacity="0"/><stop offset=".42" stopColor="#68d7ff"/><stop offset=".75" stopColor="#9d86ff"/><stop offset="1" stopColor="#3f6bff" stopOpacity=".12"/></linearGradient>
             <clipPath id="cc-world-clip"><circle cx="555" cy="281" r="190"/></clipPath>
           </defs>
-          <g fill="#b8e8ff">{STARS.map((s,i)=><circle key={i} cx={s.x} cy={s.y} r={s.r} opacity={s.opacity}/>)}</g>
           <circle cx="555" cy="281" r="292" fill="url(#cc-aurora)"/>
           <circle cx="555" cy="281" r="195" fill="#0a2f79" stroke="#8ce2ff" strokeWidth="1.5"/>
           <circle cx="555" cy="281" r="190" fill="url(#cc-world)"/>
