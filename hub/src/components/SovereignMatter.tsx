@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import './sovereign-matter.css'
 
 /**
  * AEGIS Ω — Sovereign Matter. A bounded, authored WebGL2 SDF material.
