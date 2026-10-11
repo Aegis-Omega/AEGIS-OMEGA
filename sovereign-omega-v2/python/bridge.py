@@ -504,6 +504,15 @@ class BridgeHandler(BaseHTTPRequestHandler):
                 self._respond(400, {'status': 'REJECTED', 'reason': 'INVALID_LCB'})
                 return
 
+            # The TypeScript RiskGate computes accepted = (lcb > 0).
+            # Treat contradictory fields as data tampering, not approval.
+            # Consistency is necessary but is NOT sender authentication.
+            if accepted != (lcb > 0):
+                self._respond(400, {
+                    'status': 'REJECTED', 'reason': 'INCONSISTENT_GATE_DECISION',
+                })
+                return
+
             # M2 is strict uint64. Reject invalid sequence before advancing
             # last_ack_sequence or recording a gate mutation (issue #763).
             if type(seq) is not int or not 0 <= seq < (1 << 64):
