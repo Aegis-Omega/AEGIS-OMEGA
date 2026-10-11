@@ -20,6 +20,7 @@ uniform vec2 u_resolution;
 uniform float u_time;
 uniform float u_domain;
 uniform float u_limits;
+uniform float u_concept;
 #define PI 3.14159265359
 
 mat2 rot(float a) { float c=cos(a),s=sin(a); return mat2(c,-s,s,c); }
@@ -32,6 +33,21 @@ float octa(vec3 p,float s) {
   float k=clamp(.5*(q.z-q.y+s),0.,s);
   return length(vec3(q.x,q.y-s+k,q.z-k));
 }
+float segment(vec2 p,vec2 a,vec2 b) {
+  vec2 pa=p-a,ba=b-a;
+  return length(pa-ba*clamp(dot(pa,ba)/dot(ba,ba),0.,1.));
+}
+float omega(vec3 p) {
+  vec2 q=p.xy;
+  float arc=max(abs(length(q-vec2(0.,.16))-.65)-.085,-.46-q.y);
+  float left=segment(q,vec2(-.38,-.38),vec2(-.67,-.73))-.08;
+  float right=segment(q,vec2(.38,-.38),vec2(.67,-.73))-.08;
+  float foot=min(segment(q,vec2(-.87,-.73),vec2(-.31,-.73)),
+    segment(q,vec2(.31,-.73),vec2(.87,-.73)))-.065;
+  float glyph=min(arc,min(left,min(right,foot)));
+  vec2 d=vec2(glyph,abs(p.z)-.115);
+  return length(max(d,0.))+min(max(d.x,d.y),0.);
+}
 float torus(vec3 p,vec2 t) {
   vec2 q=vec2(length(p.xz)-t.x,p.y);
   return length(q)-t.y;
@@ -40,8 +56,8 @@ vec2 map(vec3 p) {
   float a=-.28 + .11*u_time;
   p.xz=rot(a)*p.xz; p.xy=rot(-.29-a*.19)*p.xy;
   vec3 crystal=p; crystal.xz=rot(.785398)*crystal.xz;
-  float shell=octa(p,1.01);
-  float facet=abs(octa(crystal*.87,.81)/.87)-.022;
+  float shell=u_concept>.5?omega(p):octa(p,1.01);
+  float facet=u_concept>.5?100.:abs(octa(crystal*.87,.81)/.87)-.022;
   float ring=torus(p,vec2(1.39,.026));
   vec3 r=p; r.xy=rot(1.14)*r.xy;
   float ring2=torus(r,vec2(1.27,.015));
@@ -188,6 +204,7 @@ export function SovereignMatter({ sourceId, limitCount, motionOverride, conceptA
       const time = gl.getUniformLocation(program, 'u_time')
       gl.uniform1f(gl.getUniformLocation(program, 'u_domain'), DOMAIN[sourceId] ?? 4)
       gl.uniform1f(gl.getUniformLocation(program, 'u_limits'), Math.min(6, Math.max(0, limitCount)))
+      gl.uniform1f(gl.getUniformLocation(program, 'u_concept'), conceptArt ? 1 : 0)
       const start = performance.now()
       onReturn = () => { if (!document.hidden && activeMotion && !reduced && visible) frame = window.requestAnimationFrame(draw) }
       document.addEventListener('visibilitychange', onReturn)
@@ -227,9 +244,9 @@ export function SovereignMatter({ sourceId, limitCount, motionOverride, conceptA
         if (fs) gl.deleteShader(fs)
       }
     }
-  }, [sourceId, limitCount, activeMotion, reduced, visible, contextEpoch])
+  }, [sourceId, limitCount, activeMotion, reduced, visible, contextEpoch, conceptArt])
 
-  return <div className="sm-stage">
+  return <div className={'sm-stage' + (conceptArt ? ' sm-concept' : '')}>
     <div className="sm-fallback" aria-hidden="true">
       <div className="sm-fallback-body" />
       <div className="sm-ring sm-ring-one" />
