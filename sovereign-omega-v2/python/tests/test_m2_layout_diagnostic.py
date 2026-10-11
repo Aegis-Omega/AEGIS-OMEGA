@@ -743,6 +743,19 @@ class TestM2LayoutDiagnosticGate(unittest.TestCase):
              400, "GATE_JSON_INVALID", 1),
             ({}, b'{"sequence":1,"accepted":true,"lcb":0.5,"extra":Infinity}',
              400, "GATE_JSON_INVALID", 1),
+            ({}, b'{"sequence":1,"accepted":true,"lcb":0.5,"extra":1e9999}',
+             400, "GATE_JSON_INVALID", 1),
+            ({}, json.dumps({"sequence": 1, "accepted": True,
+                             "lcb": 0.5}).encode("utf-16"),
+             400, "GATE_JSON_INVALID", 1),
+            ({}, b'\xef\xbb\xbf{"sequence":1,"accepted":true,"lcb":0.5}',
+             400, "GATE_JSON_INVALID", 1),
+            ({}, b'{"sequence":1,"accepted":true,"lcb":0.5,"proposal_id":"\xed\xa0\x80"}',
+             400, "GATE_JSON_INVALID", 1),
+            ({}, b'{"sequence":1,"accepted":true,"lcb":0.5,"proposal_id":"\ud800"}',
+             400, "GATE_JSON_INVALID", 1),
+            ({}, b'{"sequence":1,"accepted":true,"lcb":0.5,"extra":{"\udfff":1}}',
+             400, "GATE_JSON_INVALID", 1),
             ({}, b"[" * 1100 + b"0" + b"]" * 1100,
              400, "GATE_JSON_INVALID", 1),
             ({}, b'{"sequence":1,"accepted":true,"lcb":0.5,"extra":' +
@@ -771,6 +784,20 @@ class TestM2LayoutDiagnosticGate(unittest.TestCase):
             "status": "ACK", "sequence": 1,
         })])
         self.assertEqual((actions, reads, ack), (["M2", "GATE"], 1, 1))
+
+        # RFC 8259 Unicode surrogate pair is legal and must remain accepted.
+        for valid_id in ("\U0001F680-agent", "test-\u00e9", "pair-\ud83d\ude80"):
+            unicode_body = json.dumps({
+                "sequence": 1, "proposal_id": valid_id,
+                "accepted": True, "lcb": 0.5,
+            }).encode("utf-8")
+            responses, actions, reads, ack = exercise(
+                "127.0.0.1", body=unicode_body
+            )
+            self.assertEqual(responses, [(200, {
+                "status": "ACK", "sequence": 1,
+            })])
+            self.assertEqual((actions, reads, ack), (["M2", "GATE"], 1, 1))
 
         # Legitimate loopback signal, including IPv6 loopback, remains usable.
         for peer in ("127.0.0.1", "::1"):
