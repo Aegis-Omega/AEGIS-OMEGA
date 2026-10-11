@@ -9,6 +9,7 @@ on:
       - "sovereign-omega-v2/python/tests/test_m2_runtime_replay.py"
       - "sovereign-omega-v2/python/tests/run_m2_exact_head_replay.py"
       - "sovereign-omega-v2/python/tests/fixtures/m2_sequence_domain_contract.json"
+      - "sovereign-omega-v2/python/tests/fixtures/M2_Ring_Design_Review_2026-10-11.md"
       - ".github/workflows/m2-layout-diagnostic.yml"
   push:
     paths:
@@ -18,6 +19,7 @@ on:
       - "sovereign-omega-v2/python/tests/test_m2_runtime_replay.py"
       - "sovereign-omega-v2/python/tests/run_m2_exact_head_replay.py"
       - "sovereign-omega-v2/python/tests/fixtures/m2_sequence_domain_contract.json"
+      - "sovereign-omega-v2/python/tests/fixtures/M2_Ring_Design_Review_2026-10-11.md"
       - ".github/workflows/m2-layout-diagnostic.yml"
 
 permissions:
