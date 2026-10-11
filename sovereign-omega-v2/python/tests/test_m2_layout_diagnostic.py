@@ -449,7 +449,8 @@ class TestM2LayoutDiagnosticGate(unittest.TestCase):
         )
         with self.assertRaisesRegex(RuntimeError, "injected M2 failure"):
             scope["_replay_gate"](
-                fake_http, {"sequence": 1, "accepted": True, "lcb": 0.1}
+                fake_http, {"sequence": 1, "accepted": True, "lcb": 0.1,
+                            "proposal_id": "valid-proposal"}
             )
         self.assertEqual(events, ["M2"])
         self.assertEqual(scope["last_ack_sequence"], -1)
@@ -460,7 +461,8 @@ class TestM2LayoutDiagnosticGate(unittest.TestCase):
             events.clear()
             scope["_replay_gate"](
                 fake_http,
-                {"sequence": 1, "accepted": bad_accepted, "lcb": 0.1},
+                {"sequence": 1, "accepted": bad_accepted, "lcb": 0.1,
+                 "proposal_id": "valid-proposal"},
             )
             self.assertEqual(
                 events,
@@ -478,6 +480,9 @@ class TestM2LayoutDiagnosticGate(unittest.TestCase):
             ({"proposal_id": {"id": "not-string"}}, "INVALID_PROPOSAL_ID"),
             ({"proposal_id": 3}, "INVALID_PROPOSAL_ID"),
             ({"proposal_id": None}, "INVALID_PROPOSAL_ID"),
+            ({"proposal_id": ""}, "INVALID_PROPOSAL_ID"),
+            ({"proposal_id": "  "}, "INVALID_PROPOSAL_ID"),
+            ({"proposal_id": "\t\n"}, "INVALID_PROPOSAL_ID"),
             ({"lcb": float("nan")}, "INVALID_LCB"),
             ({"lcb": float("inf")}, "INVALID_LCB"),
             ({"lcb": float("-inf")}, "INVALID_LCB"),
@@ -491,7 +496,8 @@ class TestM2LayoutDiagnosticGate(unittest.TestCase):
             ({"sequence": 1, "accepted": None}, "INVALID_ACCEPTED"),
         ]
         for changes, reason in bad_inputs:
-            payload = {"sequence": 1, "accepted": True, "lcb": 0.1}
+            payload = {"sequence": 1, "accepted": True, "lcb": 0.1,
+                            "proposal_id": "valid-proposal"}
             payload.update(changes)
             events.clear()
             scope["_replay_gate"](fake_http, payload)
@@ -508,7 +514,8 @@ class TestM2LayoutDiagnosticGate(unittest.TestCase):
             ("accepted", "INVALID_ACCEPTED"),
             ("lcb", "INVALID_LCB"),
         ):
-            payload = {"sequence": 1, "accepted": True, "lcb": 0.1}
+            payload = {"sequence": 1, "accepted": True, "lcb": 0.1,
+                            "proposal_id": "valid-proposal"}
             del payload[missing_field]
             events.clear()
             scope["_replay_gate"](fake_http, payload)
@@ -524,7 +531,8 @@ class TestM2LayoutDiagnosticGate(unittest.TestCase):
             receive_gate_signal=lambda *args: events.append("M2")
         )
         scope["_replay_gate"](
-            fake_http, {"sequence": 1, "accepted": True, "lcb": 0.1}
+            fake_http, {"sequence": 1, "accepted": True, "lcb": 0.1,
+                            "proposal_id": "valid-proposal"}
         )
         self.assertEqual(
             events,
@@ -590,6 +598,16 @@ class TestM2LayoutDiagnosticGate(unittest.TestCase):
         self.assertEqual(list(old_gate._window), [True])
         self.assertEqual(old_gate._proposals, {})
 
+        # Frozen gate consumes a blank ID as a signal without recording any
+        # proposal verdict; old bridge would still emit ACK.
+        empty_id_gate = gate_class()
+        empty_id_gate.record_signal(SimpleNamespace(
+            proposal_id="", sequence=1, accepted=True, lcb=0.5,
+        ))
+        self.assertEqual(empty_id_gate.last_sequence(), 1)
+        self.assertEqual(empty_id_gate.total_signals(), 1)
+        self.assertEqual(empty_id_gate._proposals, {})
+
         handler = next(
             node for node in self.bridge_tree.body
             if isinstance(node, ast.ClassDef) and node.name == "BridgeHandler"
@@ -627,7 +645,8 @@ class TestM2LayoutDiagnosticGate(unittest.TestCase):
                 ("RESPONSE", code, body)
             )
         )
-        for invalid in (["invalid-json-array"], {"id": "dict"}):
+        for invalid in (["invalid-json-array"], {"id": "dict"},
+                        "", " ", "\t\n"):
             events.clear()
             scope["_gate_branch"](handler_stub, {
                 "sequence": 1, "accepted": True, "lcb": 0.5,
@@ -903,6 +922,12 @@ class TestM2LayoutDiagnosticGate(unittest.TestCase):
             ({"Origin": "http://localhost:5173"}, good, 403, "GATE_BROWSER_FORBIDDEN", 0),
             ({"Sec-Fetch-Site": "cross-site"}, good, 403, "GATE_BROWSER_FORBIDDEN", 0),
             ({"Sec-Fetch-Site": "same-origin"}, good, 403, "GATE_BROWSER_FORBIDDEN", 0),
+            ({}, b'{"sequence":1,"proposal_id":"","accepted":true,"lcb":0.5}',
+             400, "INVALID_PROPOSAL_ID", 1),
+            ({}, b'{"sequence":1,"proposal_id":"  ","accepted":true,"lcb":0.5}',
+             400, "INVALID_PROPOSAL_ID", 1),
+            ({}, b'{"sequence":1,"accepted":true,"lcb":0.5}',
+             400, "INVALID_PROPOSAL_ID", 1),
             ({"Content-Type": "text/plain"}, good, 415, "GATE_JSON_REQUIRED", 0),
             ({"Transfer-Encoding": "chunked"}, good, 400, "GATE_FRAMING_INVALID", 0),
             ({"Content-Length": "4097"}, good, 413, "GATE_BODY_BOUNDS", 0),
