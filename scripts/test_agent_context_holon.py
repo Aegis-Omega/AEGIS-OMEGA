@@ -387,7 +387,8 @@ class HolonContextTests(unittest.TestCase):
         import subprocess
         failed = subprocess.CompletedProcess(args=["git"], returncode=128,
                                              stdout="", stderr="network unavailable")
-        with patch.object(ctx.subprocess, "run", return_value=failed):
+        with patch.object(ctx.subprocess, "run", return_value=failed), \
+             patch.object(ctx, "sh", return_value="https://github.com/Aegis-Omega/AEGIS-OMEGA.git"):
             self.assertEqual(ctx.verify_main_freshness()["state"], "FETCH_FAILED")
 
     def test_same_origin_and_fetch_head_sha_verifies_main(self):
@@ -395,7 +396,7 @@ class HolonContextTests(unittest.TestCase):
         ok = subprocess.CompletedProcess(args=["git"], returncode=0,
                                          stdout="", stderr="")
         with patch.object(ctx.subprocess, "run", return_value=ok), \
-             patch.object(ctx, "sh", side_effect=["a" * 40, "a" * 40]):
+             patch.object(ctx, "sh", side_effect=["https://github.com/Aegis-Omega/AEGIS-OMEGA.git", "a" * 40, "a" * 40]):
             receipt = ctx.verify_main_freshness()
         self.assertEqual(receipt, {"state": "FRESH", "sha": "a" * 40})
 
@@ -404,11 +405,40 @@ class HolonContextTests(unittest.TestCase):
         ok = subprocess.CompletedProcess(args=["git"], returncode=0,
                                          stdout="", stderr="")
         with patch.object(ctx.subprocess, "run", return_value=ok), \
-             patch.object(ctx, "sh", side_effect=["a" * 40, "b" * 40]):
+             patch.object(ctx, "sh", side_effect=["https://github.com/Aegis-Omega/AEGIS-OMEGA.git", "a" * 40, "b" * 40]):
             self.assertEqual(ctx.verify_main_freshness()["state"], "REF_DIVERGED")
         with patch.object(ctx.subprocess, "run", return_value=ok), \
-             patch.object(ctx, "sh", side_effect=["a" * 40, ""]):
+             patch.object(ctx, "sh", side_effect=["https://github.com/Aegis-Omega/AEGIS-OMEGA.git", "a" * 40, ""]):
             self.assertEqual(ctx.verify_main_freshness()["state"], "REF_UNVERIFIED")
+
+    def test_wrong_repo_origin_does_not_fetch_or_certify_main(self):
+        for remote in (
+            "https://github.com/attacker/AEGIS-OMEGA.git",
+            "git@github.com:untrusted/AEGIS-OMEGA.git",
+            "https://github.com.evil.test/Aegis-Omega/AEGIS-OMEGA.git",
+            "https://github.com/Aegis-Omega/AEGIS-OMEGA-attacker.git",
+            "",
+        ):
+            with self.subTest(remote=remote), \
+                 patch.object(ctx, "sh", return_value=remote), \
+                 patch.object(ctx.subprocess, "run",
+                              side_effect=AssertionError("untrusted fetch executed")):
+                self.assertEqual(
+                    ctx.verify_main_freshness(),
+                    {"state": "REMOTE_IDENTITY_UNVERIFIED", "sha": None},
+                )
+
+    def test_verified_origin_ssh_can_fetch_matching_main(self):
+        import subprocess
+        ok = subprocess.CompletedProcess(args=["git"], returncode=0,
+                                         stdout="", stderr="")
+        with patch.object(ctx.subprocess, "run", return_value=ok), \
+             patch.object(ctx, "sh", side_effect=[
+                 "git@github.com:Aegis-Omega/AEGIS-OMEGA.git",
+                 "b" * 40, "b" * 40
+             ]):
+            self.assertEqual(ctx.verify_main_freshness(),
+                             {"state": "FRESH", "sha": "b" * 40})
 
     def test_quick_mode_does_not_fetch_or_claim_fresh_head(self):
         with patch.object(ctx.subprocess, "run", side_effect=AssertionError("network prohibited")):
