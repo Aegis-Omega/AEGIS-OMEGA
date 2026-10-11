@@ -50,9 +50,22 @@ class PairedProgressTests(unittest.TestCase):
         self.assertEqual(out['wins'], 0)
         self.assertEqual(out['delta_success_percentage_points'], 0)
         self.assertEqual(out['delta_model_calls'], -4)
-        self.assertEqual(out['disposition'], 'PARETO_GAIN_REPORTED_UNATTESTED')
+        self.assertEqual(out['disposition'], 'NO_COMPLETED_TASK_COST_ONLY')
         self.assertEqual(out['authority_effect'], 'NONE')
         self.assertEqual(out['independent_attestation'], 'NOT_VERIFIED')
+
+    def test_zero_completed_tasks_cannot_claim_pareto_gain_even_with_lower_cost(self):
+        result = self.run_eval()
+        self.assertEqual(result['baseline']['successes'], 0)
+        self.assertEqual(result['candidate']['successes'], 0)
+        self.assertLess(result['candidate']['model_calls'], result['baseline']['model_calls'])
+        self.assertEqual(result['disposition'], 'NO_COMPLETED_TASK_COST_ONLY')
+
+    def test_completed_task_with_lower_cost_may_report_unattested_pareto(self):
+        d = copy.deepcopy(self.data)
+        d['cases'][0]['baseline']['success'] = True
+        d['cases'][0]['candidate']['success'] = True
+        self.assertEqual(self.run_eval(d)['disposition'], 'PARETO_GAIN_REPORTED_UNATTESTED')
 
     def test_safety_regression_takes_priority_over_better_success(self):
         d=copy.deepcopy(self.data)
