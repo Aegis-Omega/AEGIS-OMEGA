@@ -104,8 +104,10 @@ class CaptureTrustTests(unittest.TestCase):
         FakeConnection.response = __import__('test_research_collector').FakeReply()
         snap=acquire('https://docs.example.org/page',('docs.example.org',),
                      resolver=lambda *a,**k:res(),connection_factory=FakeConnection,
-                     clock=lambda:TEST_NOW,signing_key=TEST_KEY,signing_key_id='synthetic.test')
-        self.assertTrue(verify_capture(snap,TRUST))
+                     clock=lambda:TEST_NOW,signing_key=TEST_KEY,signing_key_id='synthetic.test',
+                     capture_binding={'task_id':'bench_000','repo_head':'a'*40,'source_id':'ex'})
+        self.assertTrue(verify_capture(snap,TRUST,
+            expected_binding={'task_id':'bench_000','repo_head':'a'*40,'source_id':'ex'}))
         src=packet_source(snap,'ex')
         self.assertEqual(src['capture_receipt']['url'],src['url'])
         self.assertEqual(src['acquisition'],'connector_capture')
