@@ -129,6 +129,24 @@ class UniversalHolonTests(unittest.TestCase):
         self.assertEqual([x['id'] for x in self.audit()['tasks']], ['A','B'])
         self.assertEqual(json.dumps(self.audit(), sort_keys=True),json.dumps(self.audit(),sort_keys=True))
 
+    def test_large_dependency_graph_cannot_crash_recursion(self):
+        self.base['tasks'] = [task(str(i), deps=[str(i-1)] if i else []) for i in range(1300)]
+        r = self.audit()['tasks']
+        self.assertEqual(len(r), 1300)
+        self.assertEqual(len([x for x in r if x['readiness'] == 'AVAILABLE']), 1)
+
+    def test_cycle_descendants_also_blocked(self):
+        self.base['tasks'] = [task('A',deps=['B']),task('B',deps=['A']),task('C',deps=['A'])]
+        by_id = {t['id']:t for t in self.audit()['tasks']}
+        self.assertIn('CYCLIC_DEPENDENCY',by_id['C']['blockers'])
+
+    def test_submission_by_nonclaim_owner_not_review_ready(self):
+        self.base['tasks'][0]['claimed_by'] = 'Claude'
+        self.base['submissions'] = [self.sub()]
+        r = self.audit(actor='Claude')['tasks'][0]
+        self.assertIn('SUBMISSION_NOT_FROM_CLAIM_OWNER',r['blockers'])
+        self.assertNotEqual(r['readiness'],'REVIEW_READY_NOT_ADMITTED')
+
     def test_invalid_source_sha_fail_closed(self):
         self.base['submissions']=[self.sub(source_sha='123')]
         with self.assertRaises(h.InvalidSnapshot): self.audit()
