@@ -36,7 +36,7 @@ def sh(*argv, timeout=30):
 
 
 def git_dir():
-    return sh("git", "rev-parse", "--absolute-git-dir").strip() or ".git"
+    return sh("git", "rev-parse", "--absolute-git-dir", timeout=2).strip() or ".git"
 
 
 def verify_main_freshness(quick=False):
@@ -347,11 +347,21 @@ def main():
     args = [a for a in sys.argv[1:] if a not in ("--json", "--quick")]
     query = " ".join(args)
     main_receipt = verify_main_freshness(quick=quick)
-    sha, _, date = sh("git", "log", "-1", "--format=%h %cs", "origin/main").strip().partition(" ")
-    age = sh("git", "log", "-1", "--format=%ct", "origin/main").strip()
-    age_days = int((time.time() - int(age)) / 86400) if age else None
-    branch = sh("git", "branch", "--show-current").strip() or "(detached)"
-    behind = sh("git", "rev-list", "--count", "HEAD..origin/main").strip() or "?"
+    # A per-prompt hook must not inherit the 30s command timeout four times.
+    # These local measurements are advisory whenever remote main is unverified.
+    local_timeout = 2 if quick else 30
+    sha, _, date = sh("git", "log", "-1", "--format=%h %cs", "origin/main",
+                      timeout=local_timeout).strip().partition(" ")
+    age = sh("git", "log", "-1", "--format=%ct", "origin/main",
+             timeout=local_timeout).strip()
+    try:
+        age_days = int((time.time() - int(age)) / 86400) if age else None
+    except ValueError:
+        age_days = None  # Corrupt local git metadata is unknown, not a crash.
+    branch = sh("git", "branch", "--show-current",
+                timeout=local_timeout).strip() or "(detached)"
+    behind = sh("git", "rev-list", "--count", "HEAD..origin/main",
+                timeout=local_timeout).strip() or "?"
     prs, source = open_prs(quick=quick)
     issues, issue_source = open_issue_board(timeout=4 if quick else 15)
     stacked = [p for p in prs if p["b"] not in ("main", "?")]
