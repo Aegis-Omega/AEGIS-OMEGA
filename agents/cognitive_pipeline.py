@@ -452,6 +452,8 @@ def main() -> None:
     run_p.add_argument("--dendrite", action="store_true", help="Route output read-only through dendrite mesh")
     run_p.add_argument("--source-head", help="Exact source Git SHA for dendrite provenance")
     run_p.add_argument("--spool-dir", help="Opt-in private local spool directory (requires --dendrite)")
+    run_p.add_argument("--relay-key-file", help="Private local relay key file (requires --spool-dir)")
+    run_p.add_argument("--relay-key-id", help="Relay key identifier (requires --relay-key-file)")
 
     score_p = sub.add_parser("score", help="Score a single claim through the ARBITRATION gate")
     score_p.add_argument("--claim", required=True)
@@ -460,12 +462,17 @@ def main() -> None:
     demo_p.add_argument("--dendrite", action="store_true", help="Route output read-only through dendrite mesh")
     demo_p.add_argument("--source-head", help="Exact source Git SHA for dendrite provenance")
     demo_p.add_argument("--spool-dir", help="Opt-in private local spool directory (requires --dendrite)")
+    demo_p.add_argument("--relay-key-file", help="Private local relay key file (requires --spool-dir)")
+    demo_p.add_argument("--relay-key-id", help="Relay key identifier (requires --relay-key-file)")
 
     args = parser.parse_args()
     if args.command in ("run", "demo") and args.dendrite and not args.source_head:
         parser.error("--source-head is required with --dendrite")
     if args.command in ("run", "demo") and args.spool_dir and not args.dendrite:
         parser.error("--spool-dir requires --dendrite")
+    if args.command in ("run", "demo") and (args.relay_key_file or args.relay_key_id):
+        if not args.spool_dir or not args.relay_key_file or not args.relay_key_id:
+            parser.error("--relay-key-file and --relay-key-id require --spool-dir")
 
     if args.command == "run":
         r = asyncio.run(run_pipeline(args.topic, live=args.live))
@@ -475,8 +482,9 @@ def main() -> None:
             receipt = from_cognitive_pipeline(r, source_head=args.source_head)
             print(json.dumps(receipt, indent=2))
             if args.spool_dir:
-                from agents.dendrite_mailbox import publish_local
-                print(json.dumps(publish_local(receipt, args.spool_dir), indent=2))
+                from agents.dendrite_attestation import publish_for_pipeline
+                print(json.dumps(publish_for_pipeline(receipt, args.spool_dir,
+                    key_file=args.relay_key_file, key_id=args.relay_key_id), indent=2))
     elif args.command == "score":
         scorer = constitutional_scorer()
         log = KanInferenceLog()
@@ -492,8 +500,9 @@ def main() -> None:
             receipt = from_cognitive_pipeline(r, source_head=args.source_head)
             print(json.dumps(receipt, indent=2))
             if args.spool_dir:
-                from agents.dendrite_mailbox import publish_local
-                print(json.dumps(publish_local(receipt, args.spool_dir), indent=2))
+                from agents.dendrite_attestation import publish_for_pipeline
+                print(json.dumps(publish_for_pipeline(receipt, args.spool_dir,
+                    key_file=args.relay_key_file, key_id=args.relay_key_id), indent=2))
     else:
         parser.print_help()
 
