@@ -17,6 +17,8 @@ import sys
 from pathlib import Path
 from urllib.parse import urlsplit
 
+from research_attestation import verify_capture
+
 SCHEMA = "aegis.research.packet.v1"
 SHA = re.compile(r"^[a-f0-9]{64}$")
 GIT_OID = re.compile(r"^(?:[a-f0-9]{40}|[a-f0-9]{64})$")
@@ -129,13 +131,24 @@ def digest(data: bytes) -> str:
     return hashlib.sha256(data).hexdigest()
 
 
-def evaluate(packet: dict) -> dict:
+def evaluate(packet: dict, *, trusted_keys: dict[str, bytes] | None = None,
+             verified_now: dt.datetime | None = None) -> dict:
     o = obj(packet, {"schema", "task_id", "as_of_utc", "repo_head", "sources", "proposals"},
             {"schema", "task_id", "as_of_utc", "repo_head", "sources", "proposals"})
     if o["schema"] != SCHEMA:
         fail("SCHEMA_MISMATCH")
     task_id = ident(o["task_id"])
-    now = timestamp(o["as_of_utc"])
+    declared_now = timestamp(o["as_of_utc"])
+    # A signed captured_at is not sufficient: a caller could backdate as_of.
+    if trusted_keys is not None:
+        now = verified_now if verified_now is not None else dt.datetime.now(dt.timezone.utc)
+        if not isinstance(now, dt.datetime) or now.tzinfo is None:
+            fail("TRUSTED_CLOCK_REQUIRED")
+        now = now.astimezone(dt.timezone.utc)
+        if abs((now - declared_now).total_seconds()) > 300:
+            fail("UNTRUSTED_AS_OF_CLOCK")
+    else:
+        now = declared_now
     if not isinstance(o["repo_head"], str) or not GIT_OID.fullmatch(o["repo_head"]):
         fail("INVALID_REPO_HEAD")
     if type(o["sources"]) is not list or len(o["sources"]) > 100:
@@ -144,7 +157,7 @@ def evaluate(packet: dict) -> dict:
         fail("INVALID_PROPOSALS")
     sources = {}
     for raw in o["sources"]:
-        s = obj(raw, {"id", "url", "captured_at", "content", "sha256", "acquisition"},
+        s = obj(raw, {"id", "url", "captured_at", "content", "sha256", "acquisition", "capture_receipt"},
                 {"id", "url", "captured_at", "content", "sha256", "acquisition"})
         sid = ident(s["id"])
         if sid in sources:
@@ -159,7 +172,20 @@ def evaluate(packet: dict) -> dict:
         age = (now - timestamp(s["captured_at"])).total_seconds()
         if age < 0:
             fail("FUTURE_SOURCE")
+        receipt = s.get("capture_receipt")
+        valid_attestation = (
+            s["acquisition"] == "connector_capture" and
+            verify_capture(receipt, trusted_keys) and
+            receipt["url"] == s["url"] and
+            receipt["captured_at"] == s["captured_at"] and
+            receipt["excerpt"] == content and
+            receipt["excerpt_sha256"] == checksum and
+            receipt["hostname"] == urlsplit(s["url"]).hostname and
+            receipt["authority_effect"] == "NONE" and
+            receipt["claim_truth"] == "NOT_VERIFIED"
+        )
         sources[sid] = {"publisher_group": group, "digest": checksum,
+                        "attested": bool(valid_attestation),
                         "fresh": age <= MAX_AGE_DAYS * 86400,
                         "url": s["url"], "acquisition": s["acquisition"]}
     output = []
@@ -190,7 +216,7 @@ def evaluate(packet: dict) -> dict:
         # A manually entered note is not evidence of a performed source capture.
         # Connector capture is caller-asserted, NOT cryptographically attested:
         # readiness means independent testing may begin, not source truth/authority.
-        collected = [i for i in fresh if sources[i]["acquisition"] == "connector_capture"]
+        collected = [i for i in fresh if sources[i]["attested"]]
         eligible = {sources[i]["publisher_group"] for i in collected
                     if not sources[i]["publisher_group"].startswith("unattributed:")
                     and sources[i]["publisher_group"] != "github-unknown-issuer"}
@@ -221,7 +247,10 @@ def evaluate(packet: dict) -> dict:
             "as_of_utc": o["as_of_utc"], "repo_head": o["repo_head"],
             "packet_sha256": digest(canonical(o)),
             "source_digest_integrity": "CHECKED_NOT_AUTHENTICATED",
-            "freshness_basis": "CALLER_REPORTED_AS_OF_UNAUTHENTICATED",
+            "freshness_basis": ("LOCAL_TRUSTED_CLOCK" if trusted_keys is not None
+                                else "CALLER_REPORTED_AS_OF_UNAUTHENTICATED"),
+            "collector_attestation": ("LOCAL_HMAC_VERIFIED_FOR_QUORUM" if trusted_keys is not None
+                                      else "NOT_VERIFIED"),
             "external_claim_verification": "NOT_PERFORMED",
             "benchmark_superiority": "NOT_ESTABLISHED",
             "tool_execution": "NOT_EXECUTED", "authority_effect": "NONE",
@@ -232,10 +261,19 @@ def main(argv=None) -> int:
     cli = argparse.ArgumentParser(description="Offline, read-only AEGIS evidence scout")
     cli.add_argument("packet", help="JSON research packet. No URLs are fetched")
     cli.add_argument("--output", help="write JSON receipt to local path")
+    cli.add_argument("--trust-key-file", help="owner-only 32-byte external verifier key file")
+    cli.add_argument("--trust-key-id", help="trusted runner key ID configured out of band")
     args = cli.parse_args(argv)
     try:
-        result = evaluate(parse_json(Path(args.packet).read_text(encoding="utf-8")))
-    except (ResearchError, OSError) as exc:
+        if bool(args.trust_key_file) != bool(args.trust_key_id):
+            fail("TRUST_KEY_AND_ID_REQUIRED")
+        keys = None
+        if args.trust_key_file:
+            from research_attestation import read_protected_key
+            keys = {ident(args.trust_key_id).lower(): read_protected_key(args.trust_key_file)}
+        result = evaluate(parse_json(Path(args.packet).read_text(encoding="utf-8")),
+                          trusted_keys=keys)
+    except (ResearchError, OSError, ValueError) as exc:
         print(json.dumps({"status": "REJECTED", "reason": str(exc), "authority_effect": "NONE"}), file=sys.stderr)
         return 2
     encoded = json.dumps(result, indent=2, sort_keys=True) + "\n"
