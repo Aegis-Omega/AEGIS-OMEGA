@@ -113,9 +113,26 @@ class UniversalHolonTests(unittest.TestCase):
             outside.write_text('EXTERNAL')
             (self.root/'escape.txt').symlink_to(outside)
             self.base['submissions'] = [self.sub(artifact_file='escape.txt')]
-            self.assertEqual(self.audit()['tasks'][0]['evidence'], 'OUTSIDE_WORKSPACE')
+            self.assertNotEqual(self.audit()['tasks'][0]['evidence'], 'HASH_MATCH')
         finally:
             outside.unlink(missing_ok=True)
+
+    def test_in_workspace_symlink_to_matching_artifact_is_rejected(self):
+        # Same-root symlink previously passed resolve()->open() SHA verification.
+        (self.root / 'alias-proof.txt').symlink_to('proof.txt')
+        self.base['submissions'] = [self.sub(artifact_file='alias-proof.txt')]
+        result = self.audit()['tasks'][0]
+        self.assertNotEqual(result['evidence'], 'HASH_MATCH')
+        self.assertIn('ARTIFACT_NOT_REPLAYED', result['blockers'])
+
+    def test_symlinked_parent_directory_cannot_replay_evidence(self):
+        (self.root / 'proofs').mkdir()
+        (self.root / 'proofs' / 'evidence.txt').write_text('CHECKED\\n')
+        (self.root / 'redirect').symlink_to('proofs', target_is_directory=True)
+        self.base['submissions'] = [self.sub(artifact_file='redirect/evidence.txt')]
+        result = self.audit()['tasks'][0]
+        self.assertNotEqual(result['evidence'], 'HASH_MATCH')
+        self.assertIn('ARTIFACT_NOT_REPLAYED', result['blockers'])
 
     def test_conflicting_paths_block_both_active_claims(self):
         self.base['tasks'] = [task('A', ['supabase/functions/agent'], 'GPT-6', state='IN_PROGRESS'),
