@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactNode } from 'react'
+import { useEffect, useRef, useState, type ReactNode, type ChangeEvent } from 'react'
 import './holon-glass.css'
 
 /**
@@ -58,7 +58,7 @@ function Nav({ path = '/' }: { path?: string }) {
       <a className="hg-links-mobile-extra" href="/compliance">Governance</a>
       <a className="hg-links-mobile-extra" href="/tools">Tools</a>
     </nav>
-    <div className="hg-nav-actions"><span className="hg-nav-status"><i/> EVIDENCE FIRST</span><a href="/pricing" className="hg-nav-cta">Enter AEGIS <Arrow diagonal/></a><button className="hg-menu-toggle" type="button" onClick={()=>setOpen(!open)} aria-controls="hg-primary-nav" aria-expanded={open} aria-label={open?'Close navigation':'Open navigation'}>{open?'✕':'☰'}</button></div>
+    <div className="hg-nav-actions"><span className="hg-nav-status">EVIDENCE-BOUND</span><a href="/pricing" className="hg-nav-cta">Enter AEGIS <Arrow diagonal/></a><button className="hg-menu-toggle" type="button" onClick={()=>setOpen(!open)} aria-controls="hg-primary-nav" aria-expanded={open} aria-label={open?'Close navigation':'Open navigation'}>{open?'✕':'☰'}</button></div>
   </div></header></>
 }
 
@@ -103,34 +103,54 @@ async function digest(s: string): Promise<string> {
   return Array.from(new Uint8Array(d)).map(v=>v.toString(16).padStart(2,'0')).join('')
 }
 
-function EvidenceDemo() {
-  const [corrupted, setCorrupted] = useState(false)
-  const [hash, setHash] = useState<string|null>(null)
-  const [status, setStatus] = useState<'checking'|'valid'|'invalid'|'unavailable'>('checking')
-  useEffect(()=>{
-    let active=true
-    setStatus('checking')
-    const records=['genesis:source-bound','experiment:bounded-replay','decision:pending-verification']
-    async function run(){
-      try {
-        let h='0'.repeat(64)
-        for(let i=0;i<records.length;i++)h=await digest(h+'|'+i+'|'+records[i])
-        const expected=h
-        h='0'.repeat(64)
-        for(let i=0;i<records.length;i++){const value=corrupted&&i===1?'experiment:modified-after-seal':records[i];h=await digest(h+'|'+i+'|'+value)}
-        if(active){setHash(h);setStatus(h===expected?'valid':'invalid')}
-      } catch{if(active){setStatus('unavailable');setHash(null)}}
-    }
-    void run();return()=>{active=false}
-  },[corrupted])
-  return <div className="hg-evidence-demo hg-glass">
-    <div className="hg-demo-heading"><div><span className="hg-mono hg-eyebrow">IN-BROWSER DEMONSTRATION / SHA-256</span><h3>Truth leaves a trace.</h3></div><span role="status" aria-live="polite" className={'hg-seal hg-seal-'+status}>{status==='valid'?'CHAIN INTACT':status==='invalid'?'CHAIN BROKEN':status.toUpperCase()}</span></div>
-    <div className="hg-ledger">
-      {['SOURCE / GENESIS','COMPUTE / REPLAY','VERDICT / BOUNDARY'].map((name,i)=><div className="hg-ledger-row" key={name}><span className="hg-ledger-num">0{i}</span><span>{name}</span><span className={corrupted&&i===1?'hg-corrupt':''}>{corrupted&&i===1?'MODIFIED INPUT':'RECORDED'}</span></div>)}
+function ArtifactVerifier() {
+  const [selected, setSelected] = useState<File | null>(null)
+  const [expected, setExpected] = useState('')
+  const [computed, setComputed] = useState<string | null>(null)
+  const [status, setStatus] = useState<'idle'|'running'|'computed'|'matched'|'mismatch'|'error'>('idle')
+  const [message, setMessage] = useState('No file selected. Files are processed locally in this browser.')
+  const [copyStatus, setCopyStatus] = useState('')
+  const revision = useRef(0)
+  const reset = () => {revision.current++;setComputed(null);setStatus('idle');setMessage('Ready to calculate a new digest.');setCopyStatus('')}
+  const MAX_FILE = 32 * 1024 * 1024
+  async function verify() {
+    if (!selected) {setStatus('error');setMessage('Choose a local file first.');return}
+    if (selected.size > MAX_FILE) {setStatus('error');setMessage('Maximum 32 MiB. Large files require a streaming verifier.');return}
+    const reference=expected.trim().replace(/^sha256:/i,'').toLowerCase()
+    if (reference && !/^[0-9a-f]{64}$/.test(reference)) {setStatus('error');setMessage('Expected SHA-256 must contain exactly 64 hexadecimal characters.');return}
+    const runRevision=revision.current
+    setStatus('running');setMessage('Computing SHA-256 locally…')
+    try {
+      if (!globalThis.crypto?.subtle) throw new Error('Secure-context crypto is unavailable.')
+      const buffer=await selected.arrayBuffer()
+      const hashed=await crypto.subtle.digest('SHA-256',buffer)
+      const actual=Array.from(new Uint8Array(hashed), b=>b.toString(16).padStart(2,'0')).join('')
+      if (runRevision !== revision.current) return // input changed during hashing: discard stale result
+      setComputed(actual)
+      setStatus(reference?(reference===actual?'matched':'mismatch'):'computed')
+      setMessage(reference?(reference===actual?'The file matches the supplied expected digest.':'Digest mismatch: this file is not byte-identical to the declared reference.'):'Digest computed. Supply a trusted expected SHA-256 to perform a comparison.')
+    } catch(e) {if (runRevision !== revision.current) return;setStatus('error');setComputed(null);setMessage(e instanceof Error?e.message:'Unable to compute this digest.')}
+  }
+  async function copyHash() {
+    if (!computed) return
+    try {await navigator.clipboard.writeText(computed);setCopyStatus('Copied')} catch {setCopyStatus('Copy unavailable — select the hash below')}
+  }
+  return <section className="hg-evidence-demo hg-glass hg-artifact-verifier" aria-labelledby="hg-verifier-heading">
+    <div className="hg-demo-heading"><div><span className="hg-mono hg-eyebrow">LIVE / DEVICE-LOCAL SHA-256</span><h3 id="hg-verifier-heading">Verify the bytes.</h3></div>
+      <span role="status" aria-live="polite" className={'hg-seal hg-seal-'+(status==='matched'?'valid':status==='mismatch'?'invalid':'checking')}>
+        {status==='matched'?'DIGEST MATCH':status==='mismatch'?'MISMATCH':status==='computed'?'HASHED / UNVERIFIED':status==='running'?'COMPUTING':status==='error'?'INPUT ERROR':'AWAITING FILE'}
+      </span>
     </div>
-    <div className="hg-ledger-foot"><div><small>Computed chain head</small><code>{hash?hash.slice(0,19)+'…':'—'}</code></div><button type="button" className="hg-text-button" onClick={()=>setCorrupted(v=>!v)}>{corrupted?'Restore record':'Tamper with record'} <Arrow/></button></div>
-    <p className="hg-demo-disclaimer">Independent local sample; not a production runtime receipt. Tampering recomputes the SHA-256 chain and changes the verification verdict.</p>
-  </div>
+    <p className="hg-verifier-intro">Calculate a real cryptographic digest of a local file. Compare it to a source-published hash. No upload, telemetry or model inference.</p>
+    <label className="hg-verifier-label" htmlFor="hg-evidence-file">Evidence artifact · maximum 32 MiB</label>
+    <input id="hg-evidence-file" className="hg-verifier-input" type="file" onChange={(event: ChangeEvent<HTMLInputElement>)=>{setSelected(event.currentTarget.files?.[0]||null);reset()}} />
+    {selected&&<p className="hg-verifier-filename">Selected: {selected.name} · {selected.size.toLocaleString()} bytes</p>}
+    <label className="hg-verifier-label" htmlFor="hg-expected-sha">Expected SHA-256 · optional, from a trusted source</label>
+    <input id="hg-expected-sha" className="hg-verifier-input hg-hash-input" type="text" autoCapitalize="off" autoCorrect="off" spellCheck={false} autoComplete="off" value={expected} onChange={(event: ChangeEvent<HTMLInputElement>)=>{setExpected(event.currentTarget.value);reset()}} placeholder="64 hex characters or sha256:…" aria-describedby="hg-verifier-guidance" />
+    <div className="hg-verifier-actions"><button type="button" onClick={()=>void verify()} disabled={status==='running'} className="hg-btn hg-btn-primary">{status==='running'?'Calculating…':'Calculate / compare'} <Arrow/></button>{computed&&<button type="button" onClick={()=>void copyHash()} className="hg-text-button">Copy digest <Arrow/></button>}</div>
+    <div className="hg-verifier-result" aria-live="polite"><span className="hg-verifier-result-label">RESULT / {status.toUpperCase()}</span><p>{message}</p>{computed&&<output className="hg-verifier-hash" aria-label="Computed SHA-256">{computed}</output>}{copyStatus&&<span className="hg-verifier-copy">{copyStatus}</span>}</div>
+    <p id="hg-verifier-guidance" className="hg-demo-disclaimer">A digest match establishes byte identity relative to the supplied expected hash. It does not establish authorship, scientific correctness, digital signature validity, or production admission. No file content leaves this browser.</p>
+  </section>
 }
 
 function SiteFooter() {
@@ -159,7 +179,7 @@ export function HolonHome() {
       setFocus(next)
       requestAnimationFrame(() => document.getElementById('hg-tab-'+next)?.focus())
     }}><button type="button" role="tab" id="hg-tab-research" aria-controls="hg-tab-panel" tabIndex={focus==='research'?0:-1} aria-selected={focus==='research'} onClick={()=>setFocus('research')} className={focus==='research'?'is-active':''}><Glyph kind="math"/> ResearchOS <span>01</span></button><button type="button" role="tab" id="hg-tab-runtime" aria-controls="hg-tab-panel" tabIndex={focus==='runtime'?0:-1} aria-selected={focus==='runtime'} onClick={()=>setFocus('runtime')} className={focus==='runtime'?'is-active':''}><Glyph kind="neural"/> Runtime <span>02</span></button><button type="button" role="tab" id="hg-tab-trust" aria-controls="hg-tab-panel" tabIndex={focus==='trust'?0:-1} aria-selected={focus==='trust'} onClick={()=>setFocus('trust')} className={focus==='trust'?'is-active':''}><Glyph kind="shield"/> Verification <span>03</span></button></div><div className="hg-focus-body" id="hg-tab-panel" role="tabpanel" aria-labelledby={'hg-tab-'+focus}><div className="hg-focus-copy"><span className="hg-eyebrow">{focusData.label} / SELECTED</span><h2>{focusData.title}</h2><p>{focusData.detail}</p><ul>{focusData.bullets.map(b=><li key={b}>{b}</li>)}</ul><a className="hg-btn hg-btn-primary" href={focusData.href}>{focusData.button}<Arrow/></a></div><div className="hg-focus-visual" aria-hidden="true"><div className="hg-holon hg-holon-a"/><div className="hg-holon hg-holon-b"/><div className="hg-holon hg-holon-c"/><div className="hg-holon-core"><Sigil size={74}/></div><span className="hg-holon-lbl hg-holon-lbl-a">MEMORY / CONTEXT</span><span className="hg-holon-lbl hg-holon-lbl-b">OBSERVE / VERIFY</span><span className="hg-holon-lbl hg-holon-lbl-c">COMPUTE / GOVERN</span></div></div></div></section>
-    <section className="hg-section hg-content hg-proof" id="evidence"><div className="hg-section-tag">03 — THE EVIDENCE SPINE</div><div className="hg-section-head"><div><h2>Nothing outranks<br/><span>its proof.</span></h2><p>Auditability is not an illustration. It is the condition under which a capability may move forward.</p></div><a className="hg-small-link" href="/compliance">Governance specification <Arrow diagonal/></a></div><div className="hg-evidence-grid"><div className="hg-proof-steps">{STAGES.map(s=><div className="hg-step" key={s.stage}><span>{s.stage}</span><div><h3>{s.title}</h3><p>{s.text}</p></div><Arrow/></div>)}</div><EvidenceDemo/></div></section>
+    <section className="hg-section hg-content hg-proof" id="evidence"><div className="hg-section-tag">03 — THE EVIDENCE SPINE</div><div className="hg-section-head"><div><h2>Nothing outranks<br/><span>its proof.</span></h2><p>Auditability is not an illustration. It is the condition under which a capability may move forward.</p></div><a className="hg-small-link" href="/compliance">Governance specification <Arrow diagonal/></a></div><div className="hg-evidence-grid"><div className="hg-proof-steps">{STAGES.map(s=><div className="hg-step" key={s.stage}><span>{s.stage}</span><div><h3>{s.title}</h3><p>{s.text}</p></div><Arrow/></div>)}</div><ArtifactVerifier/></div></section>
     <section className="hg-section hg-content hg-labs" id="labs"><div className="hg-section-tag">04 — OPEN RESEARCH SURFACES</div><div className="hg-section-head"><div><h2>Research you can <span>inspect.</span></h2><p>Accessible instruments, visible limitations, and pathways from raw observations to falsifiable claims.</p></div></div><div className="hg-lab-grid"><a href={QUANTUM_URL} className="hg-lab-feature hg-glass"><div className="hg-lab-chip">PUBLIC MOBILE INSTRUMENT · PSD</div><div className="hg-lab-geometry"><span>Δω</span><svg viewBox="0 0 460 160" aria-hidden="true"><defs><linearGradient id="hg-signal" x1="0" x2="1"><stop stopColor="#417BE4"/><stop offset=".5" stopColor="#9DDFFF"/><stop offset="1" stopColor="#AC8AFF"/></linearGradient></defs><path d="M0 80h460M0 40h460M0 120h460" stroke="#5785B2" strokeOpacity=".24" strokeDasharray="2 7"/><polyline points="0,80 27,78 51,74 70,43 85,79 121,84 141,28 163,83 191,71 212,93 231,16 251,94 278,81 306,51 326,83 360,75 378,24 400,80 430,78 460,80" fill="none" stroke="url(#hg-signal)" strokeWidth="2.7"/></svg></div><h3>Quantum Integrity Lab</h3><p>Live PSD-safe spectral computations, traceable physical replay aggregates and bounded discoveries. Built for mobile.</p><span className="hg-open-link">Launch the laboratory <Arrow diagonal/></span></a><div className="hg-lab-stack"><a className="hg-small-lab hg-glass" href="/console"><div className="hg-small-lab-icon"><Glyph kind="terminal"/></div><div><span className="hg-mono">OPERATOR SURFACE</span><h3>Command Console</h3><p>System state, bounded agent workflows and explicit provenance.</p></div><Arrow diagonal/></a><a className="hg-small-lab hg-glass" href="/docs"><div className="hg-small-lab-icon"><Glyph kind="layers"/></div><div><span className="hg-mono">INTEGRATION SURFACE</span><h3>Developer API</h3><p>Contracts and interfaces for governed execution.</p></div><Arrow diagonal/></a></div></div></section>
     <section className="hg-section hg-content hg-enterprise" id="enterprise"><div><span className="hg-section-tag">05 — BUILT FOR SERIOUS SYSTEMS</span><h2>From frontier research<br/>to governed operations.</h2><p>Enterprise quality starts with a clear separation between demonstration, validation and deployment. Explore the available API, research tools and compliance model.</p><div className="hg-hero-actions"><a href="/pricing" className="hg-btn hg-btn-primary">Explore access <Arrow/></a><a href="/docs" className="hg-btn hg-btn-secondary">Read API contracts <Arrow diagonal/></a></div></div><div className="hg-enterprise-sigil" aria-hidden="true"><Sigil size={184}/></div></section>
     <section className="hg-section hg-content hg-source-registry" id="registry" aria-labelledby="hg-registry-title">
