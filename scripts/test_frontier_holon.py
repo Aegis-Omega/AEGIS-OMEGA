@@ -113,6 +113,7 @@ class FrontierReviewTests(unittest.TestCase):
             'https://sample.example.com',
             'https://sample.example.net',
             'https://sample.example.org',
+            'https://example.com', 'https://example.net', 'https://example.org',
             'https://localhost.localdomain',
         ]
         for url in invalid:
@@ -127,6 +128,7 @@ class FrontierReviewTests(unittest.TestCase):
         self.assertEqual(
             f.public_https('https://learn.microsoft.com/en-us/agent-framework/'),
             'learn.microsoft.com')
+        self.assertEqual(f.public_https('https://notexample.com/research'), 'notexample.com')
 
     def test_frontier_receipt_rejects_special_use_second_source(self):
         self.data['sources'][1]['url'] = 'https://research.invalid/claims'
