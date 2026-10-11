@@ -45,7 +45,7 @@ class ResearchScoutTests(unittest.TestCase):
 
     def test_complete_packet_ready_for_test_not_admitted(self):
         r = evaluate(packet())
-        self.assertEqual(r['proposals'][0]['status'], 'READY_FOR_INDEPENDENT_TEST')
+        self.assertEqual(r['proposals'][0]['status'], 'NEEDS_RESEARCH')
         self.assertEqual(r['external_claim_verification'], 'NOT_PERFORMED')
         self.assertEqual(r['benchmark_superiority'], 'NOT_ESTABLISHED')
         self.assertEqual(r['authority_effect'], 'NONE')
@@ -101,11 +101,11 @@ class ResearchScoutTests(unittest.TestCase):
         q['sources'][1]['acquisition'] = 'manual_note'
         r = evaluate(q)['proposals'][0]
         self.assertEqual(r['status'], 'NEEDS_RESEARCH')
-        self.assertEqual(r['collected_source_count'], 1)
+        self.assertEqual(r['collected_source_count'], 0)
 
-    def test_two_distinct_captures_can_only_be_test_ready(self):
+    def test_two_fake_captures_never_ready(self):
         r = evaluate(packet())
-        self.assertEqual(r['proposals'][0]['status'], 'READY_FOR_INDEPENDENT_TEST')
+        self.assertEqual(r['proposals'][0]['status'], 'NEEDS_RESEARCH')
         self.assertEqual(r['external_claim_verification'], 'NOT_PERFORMED')
         self.assertEqual(r['benchmark_superiority'], 'NOT_ESTABLISHED')
 
