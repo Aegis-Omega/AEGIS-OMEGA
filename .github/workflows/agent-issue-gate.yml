@@ -42,6 +42,13 @@ jobs:
         with:
           ref: ${{ github.event.pull_request.base.sha }}
           persist-credentials: false
+      - name: Refuse bootstrap without trusted-base verifier
+        run: |
+          if [ ! -f scripts/agent_issue_gate.py ]; then
+            echo "::error title=TRUSTED_BASE_BOOTSTRAP_REQUIRED::Verifier is not installed on base; this PR cannot self-admit"
+            printf '{"schema":"aegis.issue-gate.report.v1","disposition":"NOT_ADMITTED","reason":"TRUSTED_BASE_BOOTSTRAP_REQUIRED","authority_effect":"NONE"}\n' > "$RUNNER_TEMP/AEGIS_ISSUE_GATE.json"
+            exit 1
+          fi
       - name: Inspect live GitHub evidence for exact PR head
         env:
           GITHUB_TOKEN: ${{ github.token }}
