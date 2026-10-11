@@ -180,7 +180,11 @@ def evaluate(snapshot, root, actor):
                 reasons.append('TEST_EVIDENCE_MISSING_OR_STALE')
             # Reviewer identity strings are claims, not independently proven IDs.
             review = sub.get('review')
-            if not isinstance(review, dict) or review.get('reviewer') == sub['author'] or review.get('verdict') != 'ACCEPT' or review.get('source_sha') != sub['source_sha']:
+            reviewer = review.get('reviewer') if isinstance(review, dict) else None
+            if (not isinstance(reviewer, str) or not reviewer.strip()
+                    or reviewer == sub['author']
+                    or review.get('verdict') != 'ACCEPT'
+                    or review.get('source_sha') != sub['source_sha']):
                 reasons.append('INDEPENDENT_REVIEW_NOT_RECORDED')
             if t['state'] == 'REPORTED_LANDED':
                 reasons.append('LANDING_REPORTED_NOT_ATTESTED')
