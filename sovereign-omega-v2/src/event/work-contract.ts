@@ -45,6 +45,7 @@ export interface CompiledWorkPlan {
   readonly contract_sha256: string
   readonly work_id: string
   readonly ordered_steps: readonly WorkStep[]
+  readonly policy: Readonly<Pick<WorkContract, 'authority_ceiling' | 'max_cost_cents' | 'failure_policy' | 'forbidden_effects'>>
   readonly authorization: 'NOT_GRANTED'
   readonly execution: 'NOT_EXECUTED'
 }
@@ -244,6 +245,12 @@ export async function compileWorkContract(raw: unknown): Promise<CompiledWorkPla
     contract_sha256: contractSha256,
     work_id: contract.work_id,
     ordered_steps: orderedSteps,
+    policy: Object.freeze({
+      authority_ceiling: contract.authority_ceiling,
+      max_cost_cents: contract.max_cost_cents,
+      failure_policy: contract.failure_policy,
+      forbidden_effects: Object.freeze(contract.forbidden_effects),
+    }),
     authorization: 'NOT_GRANTED' as const,
     execution: 'NOT_EXECUTED' as const,
   })
