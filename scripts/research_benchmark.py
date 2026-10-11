@@ -17,11 +17,16 @@ import importlib.util
 import argparse
 
 from research_intelligence import evaluate, ResearchError
+from research_attestation import sign_capture
 
 FIXTURE_VERSION = 'aegis.research.benchmark.v1'
 PRIOR_SOURCE_BLOB = '595cd180aa4c1e8c73f7dd73d2496350923aeb81'
 CLOCK = '2026-10-11T12:00:00Z'
 BASE_SHA = '495bfd85d79abcb2b4f6898fe9c156488492426a'
+TEST_KEY = bytes(range(32))  # Development-only reproducibility. NEVER use for real trust.
+TRUST = {'synthetic.test': TEST_KEY}
+import datetime as dt
+TEST_NOW = dt.datetime(2026,10,11,12,tzinfo=dt.timezone.utc)
 
 
 def source(sid: str, host: str, *, method: str = 'connector_capture',
@@ -85,6 +90,25 @@ def make_packet(case: str, index: int) -> dict:
         o['schema'] = 'untrusted.version'
     else:
         raise ValueError(f'UNKNOWN_BENCHMARK_CLASS_{case}')
+    # A synthetic receiver receipt, made by a TEST signer (not web traffic).
+    # Sign only after mutation so the payload is structurally self-consistent;
+    # tampered-source remains a negative because source checksum does not match.
+    for v in s:
+        if v['acquisition'] != 'connector_capture':
+            continue
+        host=v['url'].split('/')[2]
+        snap={'schema':'aegis.research.capture.v1','url':v['url'],
+              'hostname':host,'resolved_ip':'93.184.216.34',
+              'captured_at':v['captured_at'],'http_status':200,
+              'content_type':'text/plain',
+              'tls_peer_cert_sha256':'a'*64,
+              'full_body_sha256':hashlib.sha256(v['content'].encode()).hexdigest(),
+              'excerpt_sha256':hashlib.sha256(v['content'].encode()).hexdigest(),
+              'excerpt':v['content'],'full_bytes':len(v['content'].encode()),
+              'truncated':False,
+              'publisher_identity':'NOT_INDEPENDENTLY_AUTHENTICATED',
+              'claim_truth':'NOT_VERIFIED','authority_effect':'NONE'}
+        v['capture_receipt']=sign_capture(snap,TEST_KEY,'synthetic.test')
     return o
 
 
@@ -112,7 +136,7 @@ def naive_two_urls(packet: dict) -> bool:
 
 def scout_ready(packet: dict) -> tuple[bool, str]:
     try:
-        response = evaluate(packet)
+        response = evaluate(packet, trusted_keys=TRUST, verified_now=TEST_NOW)
         return response['proposals'][0]['status'] == 'READY_FOR_INDEPENDENT_TEST', response['proposals'][0]['reason']
     except ResearchError as error:
         return False, 'REJECTED:' + str(error)
@@ -174,7 +198,12 @@ def pinned_legacy_module(source_path: str):
 
     def previous(packet):
         try:
-            answer = old.evaluate(packet)
+            # Prior version had no capture-receipt field. Strip only that new
+            # schema extension; all historical structural fields remain equal.
+            previous_input = dict(packet)
+            previous_input['sources'] = [{k:v for k,v in src.items() if k!='capture_receipt'}
+                                         for src in packet['sources']]
+            answer = old.evaluate(previous_input)
             proposal = answer['proposals'][0]
             return proposal['status'] == 'READY_FOR_INDEPENDENT_TEST', proposal['reason']
         except old.ResearchError as error:
