@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type ReactNode, type ChangeEvent } from 'react'
 import './holon-glass.css'
 import { MAX_ARTIFACT_SIZE, verifyArtifactBytes, copyDigestIfCurrent } from './lib/artifactIntegrity.js'
+import { FIRST_VALUE_ACTION } from './lib/navigationContract.js'
 import { shouldDismissDisclosure } from './lib/disclosure.js'
 
 /**
@@ -79,7 +80,7 @@ function Nav({ path = '/' }: { path?: string }) {
       <a className="hg-links-mobile-extra" href="/compliance">Governance</a>
       <a className="hg-links-mobile-extra" href="/tools">Tools</a>
     </nav>
-    <div className="hg-nav-actions"><span className="hg-nav-status">EVIDENCE-BOUND</span><a href="/pricing" className="hg-nav-cta">Enter AEGIS <Arrow diagonal/></a><button ref={menuToggleRef} className="hg-menu-toggle" type="button" onClick={()=>setOpen(!open)} aria-controls="hg-primary-nav" aria-expanded={open} aria-label={open?'Close navigation':'Open navigation'}>{open?'✕':'☰'}</button></div>
+    <div className="hg-nav-actions"><span className="hg-nav-status">EVIDENCE-BOUND</span><a href={FIRST_VALUE_ACTION.href} className="hg-nav-cta" aria-label={FIRST_VALUE_ACTION.accessibleName}>{FIRST_VALUE_ACTION.label} <Arrow diagonal/></a><button ref={menuToggleRef} className="hg-menu-toggle" type="button" onClick={()=>setOpen(!open)} aria-controls="hg-primary-nav" aria-expanded={open} aria-label={open?'Close navigation':'Open navigation'}>{open?'✕':'☰'}</button></div>
   </div></header></>
 }
 
