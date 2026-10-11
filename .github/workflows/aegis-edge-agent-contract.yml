@@ -11,6 +11,7 @@ on:
       - 'supabase/functions/bridge/**'
       - 'hub/src/lib/telemetry.ts'
       - 'supabase/migrations/*agent_dispatch_claims_v1.sql'
+      - 'supabase/migrations/*agent_result_outbox*.sql'
       - '.github/workflows/aegis-edge-agent-contract.yml'
   merge_group:
     branches: [main]
@@ -22,6 +23,7 @@ on:
       - 'supabase/functions/bridge/**'
       - 'hub/src/lib/telemetry.ts'
       - 'supabase/migrations/*agent_dispatch_claims_v1.sql'
+      - 'supabase/migrations/*agent_result_outbox*.sql'
       - '.github/workflows/aegis-edge-agent-contract.yml'
 
 permissions:
@@ -40,4 +42,4 @@ jobs:
         with:
           node-version: '22.16.0'
       - name: Run fail-closed Edge admission tests
-        run: node --test supabase/functions/agent/tests/admission-chain.test.mjs
+        run: node --test supabase/functions/agent/tests/admission-chain.test.mjs supabase/functions/agent/tests/sql-retention.test.mjs
