@@ -88,6 +88,36 @@ class CollectorTests(unittest.TestCase):
         source = packet_source(capture(), 'release_1')
         self.assertEqual(source['acquisition'], 'connector_capture')
         self.assertEqual(source['sha256'],hashlib.sha256(source['content'].encode()).hexdigest())
+    def test_capture_url_cannot_be_rebound_to_other_publisher(self):
+        snap = capture()
+        snap['url'] = 'https://developers.openai.com/research'
+        with self.assertRaisesRegex(CaptureDenied, 'CAPTURE_ORIGIN_MISMATCH'):
+            packet_source(snap, 'original')
+
+    def test_capture_hostname_must_equal_url_host(self):
+        snap = capture()
+        snap['hostname'] = 'developers.openai.com'
+        with self.assertRaisesRegex(CaptureDenied, 'CAPTURE_ORIGIN_MISMATCH'):
+            packet_source(snap, 'original')
+
+    def test_capture_missing_tls_evidence_rejected(self):
+        snap = capture()
+        snap['tls_peer_cert_sha256'] = 'not-a-certificate-sha'
+        with self.assertRaisesRegex(CaptureDenied, 'CAPTURE_EVIDENCE_INVALID'):
+            packet_source(snap, 'original')
+
+    def test_capture_invalid_ip_rejected(self):
+        snap = capture()
+        snap['resolved_ip'] = '127.0.0.1'
+        with self.assertRaisesRegex(CaptureDenied, 'CAPTURE_EVIDENCE_INVALID'):
+            packet_source(snap, 'original')
+
+    def test_capture_full_byte_count_rejected(self):
+        snap = capture()
+        snap['full_bytes'] = 1
+        with self.assertRaisesRegex(CaptureDenied, 'CAPTURE_EVIDENCE_INVALID'):
+            packet_source(snap, 'original')
+
     def test_tampered_packet_rejected(self):
         snap = capture(); snap['excerpt'] = 'tampered'
         with self.assertRaisesRegex(CaptureDenied,'CAPTURE_TAMPERED'):
