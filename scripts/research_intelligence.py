@@ -187,11 +187,15 @@ def evaluate(packet: dict) -> dict:
             fail("UNKNOWN_SOURCE_REF")
         fresh = [i for i in ids if sources[i]["fresh"]]
         groups = sorted({sources[i]["publisher_group"] for i in fresh})
-        # Distinct URL != independent evidence. 'Unattributed' issuers and manual
-        # references cannot establish authenticated provenance or superiority.
-        eligible = {g for g in groups if not g.startswith("unattributed:") and g != "github-unknown-issuer"}
-        # Mirrored same-byte content from different URLs is not corroboration.
-        distinct_digest_count = len({sources[i]["digest"] for i in fresh
+        # A manually entered note is not evidence of a performed source capture.
+        # Connector capture is caller-asserted, NOT cryptographically attested:
+        # readiness means independent testing may begin, not source truth/authority.
+        collected = [i for i in fresh if sources[i]["acquisition"] == "connector_capture"]
+        eligible = {sources[i]["publisher_group"] for i in collected
+                    if not sources[i]["publisher_group"].startswith("unattributed:")
+                    and sources[i]["publisher_group"] != "github-unknown-issuer"}
+        # Byte-identical mirrors cannot form a second independent observation.
+        distinct_digest_count = len({sources[i]["digest"] for i in collected
                                      if sources[i]["publisher_group"] in eligible})
         ready = len(eligible) >= 2 and distinct_digest_count >= 2
         if ready:
@@ -200,11 +204,16 @@ def evaluate(packet: dict) -> dict:
         elif any(not sources[i]["fresh"] for i in ids):
             status = "NEEDS_RESEARCH"
             reason = "STALE_OR_INSUFFICIENT_DIVERSITY"
+        elif len(collected) < 2:
+            status = "NEEDS_RESEARCH"
+            reason = "INSUFFICIENT_CAPTURE_EVIDENCE"
         else:
             status = "NEEDS_RESEARCH"
             reason = "INSUFFICIENT_PUBLISHER_DIVERSITY"
         output.append({"id": pid, "status": status, "reason": reason,
-                       "fresh_source_count": len(fresh), "publisher_groups": groups,
+                       "fresh_source_count": len(fresh),
+                       "collected_source_count": len(collected),
+                       "publisher_groups": groups,
                        "source_sha256": {i: sources[i]["digest"] for i in sorted(ids)},
                        "test_metric": p["test_metric"], "falsifier": p["falsifier"],
                        "local_component": component})
