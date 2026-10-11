@@ -4,7 +4,7 @@
  * It observes public API responses, marks their limits and lets the operator
  * prepare a documented request; it never sends an execution without a key.
  */
-import { useState, type ReactNode } from 'react'
+import { useState, type ReactNode, type ChangeEvent } from 'react'
 import { PLATFORM_ORIGIN, useConsoleController, type ConsoleSnapshot } from '../../lib/platformConsole.js'
 import '../operator-workbench.css'
 
@@ -40,10 +40,10 @@ function ExecutionComposer() {
     <div className="op-panel-head"><div><Label>02 / INVOCATION CONTRACT</Label><h2 id="op-compose-label">Prepare a governed request</h2></div><Stamp kind="unknown">NOT EXECUTED</Stamp></div>
     <p className="op-muted">Draft the JSON body for the documented <code>POST /platform/collaborate</code> endpoint. This console does not make paid/provider calls or handle API keys.</p>
     <label className="op-fieldlabel" htmlFor="op-objective">Objective <span>{objective.length}/700</span></label>
-    <textarea id="op-objective" className="op-input op-textarea" value={objective} maxLength={701} onChange={e=>setObjective(e.currentTarget.value)} placeholder="Describe the objective and constraints. No secrets or personal data." rows={3}/>
+    <textarea id="op-objective" className="op-input op-textarea" value={objective} maxLength={701} onChange={(e:ChangeEvent<HTMLTextAreaElement>)=>setObjective(e.currentTarget.value)} placeholder="Describe the objective and constraints. No secrets or personal data." rows={3}/>
     <div className="op-controls">
-      <label className="op-fieldlabel" htmlFor="op-mode">Mode<select id="op-mode" className="op-input" value={mode} onChange={e=>setMode(e.target.value as Mode)}><option value="analysis">Analysis</option><option value="gtm">Go-to-market</option><option value="revenue">Revenue</option><option value="retention">Retention</option></select></label>
-      <label className="op-fieldlabel" htmlFor="op-infer">Request inference<select id="op-infer" className="op-input" value={infer} onChange={e=>setInfer(e.target.value as 'demo'|'live')}><option value="demo">Demo request (live: false)</option><option value="live">Provider request (live: true)</option></select></label>
+      <label className="op-fieldlabel" htmlFor="op-mode">Mode<select id="op-mode" className="op-input" value={mode} onChange={(e:ChangeEvent<HTMLSelectElement>)=>setMode(e.currentTarget.value as Mode)}><option value="analysis">Analysis</option><option value="gtm">Go-to-market</option><option value="revenue">Revenue</option><option value="retention">Retention</option></select></label>
+      <label className="op-fieldlabel" htmlFor="op-infer">Request inference<select id="op-infer" className="op-input" value={infer} onChange={(e:ChangeEvent<HTMLSelectElement>)=>setInfer(e.currentTarget.value as 'demo'|'live')}><option value="demo">Demo request (live: false)</option><option value="live">Provider request (live: true)</option></select></label>
     </div>
     <div className="op-code-header"><span>REQUEST.JSON · LOCAL DRAFT</span>{eligible?<Copyable key={payload} value={payload} label="Copy request JSON"/>:<span className="op-low">Enter an objective</span>}</div>
     <pre className="op-code" aria-label="Documented request body">{eligible?payload:'{\n  "objective": "…",\n  "mode": "analysis",\n  "live": false\n}'}</pre>
@@ -61,6 +61,7 @@ function Observation({snap,busy,refresh}: {snap:ConsoleSnapshot;busy:boolean;ref
     <div className="op-data-rows">
       <DataLine label="Platform availability" value={observed?(snap.status.available?'REPORTED AVAILABLE':'REPORTED UNAVAILABLE'):'UNKNOWN'}/>
       <DataLine label="Contract" value={observed?'Reported v'+snap.status.contract_version:'NOT OBSERVED'}/>
+      <DataLine label="Upstream event time" value={observed?(snap.upstream_at||'NOT REPORTED'):'UNKNOWN'} mono/>
       <DataLine label="Agent registry" value={observed?`${snap.status.total_agents} reported`:'UNKNOWN'}/>
       <DataLine label="Audit-chain verification" value={observed&&snap.status.chain_valid===false?'REPORTED INVALID':'NOT INDEPENDENTLY VERIFIED'}/>
     </div>
@@ -71,20 +72,20 @@ function Observation({snap,busy,refresh}: {snap:ConsoleSnapshot;busy:boolean;ref
 
 function Verification({snap}: {snap:ConsoleSnapshot}) {
   const observed=snap.source==='live'
-  const json=JSON.stringify({schema:'AEGIS_OPERATOR_OBSERVATION_V1',generated_at:new Date().toISOString(),authority:'UNSIGNED_OBSERVATION_NOT_ADMISSION',source:snap.source,checked_at:snap.checked_at,reason:snap.reason,status:snap.status,calibration:observed?snap.calibration:null,checks:snap.checks,tools:snap.tools},null,2)
+  const json=JSON.stringify({schema:'AEGIS_OPERATOR_OBSERVATION_V1',generated_at:new Date().toISOString(),authority:'UNSIGNED_OBSERVATION_NOT_ADMISSION',source:snap.source,checked_at:snap.checked_at,reason:snap.reason,status:snap.status,calibration:snap.calibration,tools_observed:snap.tools_observed,checks:snap.checks,tools:snap.tools},null,2)
   function download(){const blob=new Blob([json],{type:'application/json'}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download='aegis-operator-observation.json';a.click();window.setTimeout(()=>URL.revokeObjectURL(url),2000)}
   return <div className="op-proof-layout">
-    <section className="op-panel"><div className="op-panel-head"><div><Label>VERIFICATION / REASONS</Label><h2>Evidence ledger</h2></div><Stamp kind="unknown">NOT ADMITTED</Stamp></div><div className="op-checks">{snap.checks.map((check,i)=><div className="op-check" key={check.label}><span className="op-check-index">{String(i+1).padStart(2,'0')}</span><div><strong>{check.label}</strong><p>{check.reason}</p></div><span className={'op-check-verdict '+(check.ok?'op-check-observed':'')}>{check.ok?'OBSERVED':'UNKNOWN'}</span></div>)}</div></section>
-    <section className="op-panel"><Label>EXPORT / LOCAL</Label><h2>Observation receipt</h2><p className="op-muted">Export exactly what this browser observed. The JSON is neither signed nor a production-attested evidence bundle.</p><div className="op-data-rows"><DataLine label="Source" value={observed?'remote API':'unavailable'}/><DataLine label="Checked at" value={snap.checked_at||'not checked'} mono/><DataLine label="Provider tools" value={observed?`${snap.tools.length} reported`:'unknown'}/></div><button className="op-action op-download" onClick={download}>Export unsigned observation <span aria-hidden="true">↓</span></button></section>
+    <section className="op-panel"><div className="op-panel-head"><div><Label>VERIFICATION / REASONS</Label><h2>Evidence ledger</h2></div><Stamp kind="unknown">NOT ADMITTED</Stamp></div><div className="op-checks">{snap.checks.map((check,i)=><div className="op-check" key={check.label}><span className="op-check-index">{String(i+1).padStart(2,'0')}</span><div><strong>{check.label}</strong><p>{check.reason}</p></div><span className={'op-check-verdict '+(check.ok?'op-check-observed':'')}>{check.ok?'OBSERVED':check.reason.includes('INVALID')?'REPORTED INVALID':check.reason.startsWith('NOT QUERIED')?'NOT QUERIED':'UNVERIFIED'}</span></div>)}</div></section>
+    <section className="op-panel"><Label>EXPORT / LOCAL</Label><h2>Observation receipt</h2><p className="op-muted">Export exactly what this browser observed. The JSON is neither signed nor a production-attested evidence bundle.</p><div className="op-data-rows"><DataLine label="Source" value={observed?'public status only':'unavailable'}/><DataLine label="Checked at" value={snap.checked_at||'not checked'} mono/><DataLine label="Provider tools" value={snap.tools_observed?`${snap.tools.length} reported`:'NOT QUERIED — AUTH REQUIRED'}/></div><button className="op-action op-download" onClick={download}>Export unsigned observation <span aria-hidden="true">↓</span></button></section>
   </div>
 }
 
 function Interfaces({snap}: {snap:ConsoleSnapshot}) {
   const [query,setQuery]=useState('')
-  const tools=snap.source==='live'?snap.tools.filter(t=>(t.api_name+' '+t.capabilities.join(' ')).toLowerCase().includes(query.trim().toLowerCase())):[]
+  const tools=snap.tools_observed?snap.tools.filter(t=>(t.api_name+' '+t.capabilities.join(' ')).toLowerCase().includes(query.trim().toLowerCase())):[]
   return <div className="op-proof-layout">
-    <section className="op-panel"><div className="op-panel-head"><div><Label>REPORTED TOOL REGISTRY</Label><h2>Connected interfaces</h2></div><Stamp kind={snap.source==='live'?'observed':'unknown'}>{snap.source==='live'?'API OBSERVED':'UNKNOWN'}</Stamp></div>
-      {snap.source==='live'?<><label htmlFor="op-filter" className="op-fieldlabel">Filter by provider or capability</label><input id="op-filter" className="op-input" value={query} onChange={e=>setQuery(e.target.value)} placeholder="Find an endpoint…"/><div className="op-tool-list">{tools.length?tools.map((t,i)=><div className="op-tool" key={t.api_name+'-'+i}><span className="op-tool-symbol">↗</span><div><strong>{t.api_name}</strong><small>{t.capabilities.join(' · ')}</small></div><span>{t.tier_required}</span></div>):<Empty title="No matching interfaces" body="No reported tool matches the filter. This is not evidence that the provider is down."/>}</div></>:<Empty title="Registry unavailable" body="No backend-verified tool inventory was received. Provider availability and access are unknown."/>}
+    <section className="op-panel"><div className="op-panel-head"><div><Label>REPORTED TOOL REGISTRY</Label><h2>Connected interfaces</h2></div><Stamp kind={snap.tools_observed?'observed':'unknown'}>{snap.tools_observed?'API OBSERVED':'NOT QUERIED'}</Stamp></div>
+      {snap.tools_observed?<><label htmlFor="op-filter" className="op-fieldlabel">Filter by provider or capability</label><input id="op-filter" className="op-input" value={query} onChange={(e:ChangeEvent<HTMLInputElement>)=>setQuery(e.currentTarget.value)} placeholder="Find an endpoint…"/><div className="op-tool-list">{tools.length?tools.map((t,i)=><div className="op-tool" key={t.api_name+'-'+i}><span className="op-tool-symbol">↗</span><div><strong>{t.api_name}</strong><small>{t.capabilities.join(' · ')}</small></div><span>{t.tier_required}</span></div>):<Empty title="No matching interfaces" body="No reported tool matches the filter. This is not evidence that the provider is down."/>}</div></>:<Empty title="Registry unavailable" body="Tool registry requires authorized credentials. This public console does not request secrets or probe protected endpoints."/>}
     </section>
     <section className="op-panel"><Label>OPEN INSTRUMENTS</Label><h2>Go to the source</h2><p className="op-muted">Links are real destinations, not health checks or claims that the service will respond.</p><div className="op-destinations"><a href={links.lab} target="_blank" rel="noopener noreferrer"><span>01 / QUANTUM</span><strong>Quantum Integrity Lab</strong><small>Edge PSD arithmetic · physics replay archive</small><b>↗</b></a><a href={links.repo} target="_blank" rel="noopener noreferrer"><span>02 / CODE</span><strong>AEGIS source</strong><small>Commits · pull requests · build evidence</small><b>↗</b></a><a href={links.runtime}><span>03 / RUNTIME</span><strong>Constitutional mechanism</strong><small>Browser demonstrations · not signed receipts</small><b>→</b></a></div></section>
   </div>
