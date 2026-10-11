@@ -419,29 +419,41 @@ def main() -> None:
                        help="Dispatch each stage to its real agent via the coordinator")
     run_p.add_argument("--dendrite", action="store_true", help="Produce read-only knowledge routing receipts")
     run_p.add_argument("--source-head", help="Exact Git commit used for source attribution")
+    run_p.add_argument("--spool-dir", help="Opt-in private local mailbox directory (requires --dendrite)")
 
     demo_p = sub.add_parser("demo", help="Run the deterministic revenue collaboration demo")
     demo_p.add_argument("--dendrite", action="store_true", help="Produce read-only knowledge routing receipts")
     demo_p.add_argument("--source-head", help="Exact Git commit used for source attribution")
+    demo_p.add_argument("--spool-dir", help="Opt-in private local mailbox directory (requires --dendrite)")
     sub.add_parser("verify", help="Verify the revenue lineage hash chain")
 
     args = parser.parse_args()
     if args.command in ("run", "demo") and args.dendrite and not args.source_head:
         parser.error("--source-head is required with --dendrite")
+    if args.command in ("run", "demo") and args.spool_dir and not args.dendrite:
+        parser.error("--spool-dir requires --dendrite")
 
     if args.command == "run":
         r = asyncio.run(run_revenue_cycle(args.objective, live=args.live))
         _print_cycle(r)
         if args.dendrite:
             from agents.dendrite_system import from_revenue_cycle
-            print(json.dumps(from_revenue_cycle(r, source_head=args.source_head), indent=2))
+            receipt = from_revenue_cycle(r, source_head=args.source_head)
+            print(json.dumps(receipt, indent=2))
+            if args.spool_dir:
+                from agents.dendrite_mailbox import publish_local
+                print(json.dumps(publish_local(receipt, args.spool_dir), indent=2))
     elif args.command == "demo":
         r = asyncio.run(run_revenue_cycle(
             "Sell AEGIS constitutional governance to AI labs needing EU AI Act compliance"))
         _print_cycle(r)
         if args.dendrite:
             from agents.dendrite_system import from_revenue_cycle
-            print(json.dumps(from_revenue_cycle(r, source_head=args.source_head), indent=2))
+            receipt = from_revenue_cycle(r, source_head=args.source_head)
+            print(json.dumps(receipt, indent=2))
+            if args.spool_dir:
+                from agents.dendrite_mailbox import publish_local
+                print(json.dumps(publish_local(receipt, args.spool_dir), indent=2))
     elif args.command == "verify":
         from agents.evolution import AdaptiveLineage
         lineage = AdaptiveLineage.load()
