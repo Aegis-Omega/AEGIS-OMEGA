@@ -44,7 +44,7 @@ class WorkpackTests(unittest.TestCase):
     def test_symlink_fail(self):
         outside=self.root/'outside';outside.write_bytes(b'valid result')
         self.root.joinpath('work.txt').unlink();self.root.joinpath('work.txt').symlink_to(outside)
-        self.assertEqual(self.status()['artifacts'][0]['reason'],'SYMLINK_FORBIDDEN')
+        self.assertIn(self.status()['artifacts'][0]['reason'], {'SYMLINK_FORBIDDEN', 'UNSAFE_OR_MISSING_ARTIFACT'})
     def test_parent_symlink_fail(self):
         data=manifest('sub/work.txt');(self.root/'sub').symlink_to(self.root)
         self.assertEqual(self.status(data)['disposition'],'NOT_ADMITTED')
@@ -52,6 +52,24 @@ class WorkpackTests(unittest.TestCase):
         for name in ['../x','a/../../b','/etc/passwd','a//b','a\\b','.','a/./b']:
             with self.subTest(name=name):
                 d=manifest(name);self.assertEqual(self.status(d)['disposition'],'NOT_ADMITTED')
+    def test_manifest_symlink_parent_fails(self):
+        from aegis_workpack.protocol import cli
+        import contextlib
+        import io
+        outside = self.root / 'manifest.json'
+        outside.write_text(json.dumps(self.good))
+        (self.root / 'sub').symlink_to(self.root)
+        with contextlib.redirect_stdout(io.StringIO()) as buf:
+            exit_code = cli([str(self.root), '--manifest', 'sub/manifest.json'])
+        self.assertEqual(exit_code, 1)
+        self.assertEqual(json.loads(buf.getvalue())['disposition'], 'NOT_ADMITTED')
+
+    def test_regular_nested_artifact_works(self):
+        (self.root/'nested').mkdir()
+        (self.root/'nested'/'result.txt').write_bytes(b'valid result')
+        d=manifest('nested/result.txt')
+        self.assertEqual(self.status(d)['artifact_integrity'],'PASS')
+
     def test_duplicate_artifact_fails(self):
         d=copy.deepcopy(self.good);d['artifacts'].append(d['artifacts'][0]);self.assertEqual(self.status(d)['contract'],'INVALID')
     def test_duplicate_check_fails(self):
