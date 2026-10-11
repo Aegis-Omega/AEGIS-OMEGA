@@ -89,22 +89,58 @@ async function slackReply(channel: string, text: string, thread_ts?: string): Pr
   }
 }
 
-// Call the agent function with a task
-async function runAgent(task: string, dispatchId: string, context?: string): Promise<string | null> {
-  // Do not dispatch (or spend) if the internal admission capability is absent.
+// Same authenticated worker route owns dispatch, encrypted outbox and delivery
+// leases. A Slack retry may recover its result; it NEVER reruns model inference.
+async function invokeAgent(payload: Record<string, unknown>): Promise<Response> {
+  return fetch(`${SUPABASE_URL}/functions/v1/agent`, {
+    method: 'POST',
+    headers: { 'Content-Type':'application/json', 'x-aegis-agent-secret':AGENT_INVOKE_SECRET },
+    body: JSON.stringify(payload),
+  })
+}
+
+async function runAgent(task: string, dispatchId: string, channel: string,
+                        context?: string): Promise<void> {
   if (AGENT_INVOKE_SECRET.length < 32 || AGENT_INVOKE_SECRET.length > 256) {
     throw new Error('AGENT_AUTH_NOT_CONFIGURED')
   }
-  const agentUrl = `${SUPABASE_URL}/functions/v1/agent`
-  const res = await fetch(agentUrl, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'x-aegis-agent-secret': AGENT_INVOKE_SECRET },
-    body: JSON.stringify({ task, context, dispatch_id: dispatchId }),
-  })
-  if (res.status === 409) return null // Already claimed; no second result or model spend
-  if (!res.ok) return `Agent error: ${res.status}`
+  const res = await invokeAgent({task,context,dispatch_id:dispatchId,channel_id:channel})
+  if (res.status === 409) return // Prior event: try to recover output, no second paid inference.
+  if (!res.ok) throw new Error('AGENT_DISPATCH_UNAVAILABLE')
+  const body = await res.json()
+  if (body?.status !== 'RESULT_STORED') throw new Error('RESULT_NOT_PERSISTED')
+}
+
+async function completeDelivery(dispatchId: string, channel: string,
+                                attemptId: string, accepted: boolean): Promise<void> {
+  const r = await invokeAgent({operation:'complete_delivery',dispatch_id:dispatchId,
+    channel_id:channel,attempt_id:attemptId,delivery_accepted:accepted})
+  if (!r.ok) throw new Error('RESULT_DELIVERY_ACK_UNCONFIRMED')
+}
+
+async function deliverStoredResult(dispatchId: string, channel: string,
+                                   threadTs?: string): Promise<void> {
+  const attemptId = crypto.randomUUID()
+  const res = await invokeAgent({operation:'claim_delivery',dispatch_id:dispatchId,
+    channel_id:channel,attempt_id:attemptId})
+  if (res.status === 409) return // Pending/claimed/delivered/expired: no duplicate output.
+  if (!res.ok) throw new Error('RESULT_OUTBOX_UNAVAILABLE')
   const data = await res.json()
-  return data.result ?? 'No result'
+  if (data?.status !== 'DELIVERY_LEASED' || typeof data.result !== 'string') {
+    throw new Error('RESULT_OUTBOX_INVALID')
+  }
+  try {
+    await slackReply(channel, `*AEGIS-Ω:* ${data.result}`, threadTs)
+  } catch (error) {
+    // Only an EXPLICIT Slack ok:false means the provider definitively refused.
+    // All network/HTTP/JSON ambiguity remains SENDING for manual reconciliation.
+    if (error instanceof Error && error.message === 'SLACK_DELIVERY_REJECTED') {
+      await completeDelivery(dispatchId,channel,attemptId,false)
+    }
+    throw new Error('RESULT_DELIVERY_NOT_CONFIRMED')
+  }
+  // Never infer delivery merely from our own successful HTTP request.
+  await completeDelivery(dispatchId,channel,attemptId,true)
 }
 
 Deno.serve(async (req) => {
@@ -154,8 +190,8 @@ Deno.serve(async (req) => {
     // Explicitly bind background lifetime to Supabase EdgeRuntime.
     const registered = dispatchBackground(async () => {
       try {
-        const result = await runAgent(task, dispatchId, `Requested by @${user} in Slack`)
-        if (result !== null) await slackReply(channel, `*AEGIS-Ω:* ${result}`, ts)
+        await runAgent(task, dispatchId, channel, `Requested by @${user} in Slack`)
+        await deliverStoredResult(dispatchId,channel,ts)
       } catch (e) {
         // Do not leak provider/DB errors into Slack. A second delivery failure
         // is observable in the Edge log, never silently treated as success.
@@ -202,8 +238,8 @@ Deno.serve(async (req) => {
         const registered = dispatchBackground(async () => {
           try {
             await slackReply(channel, '_Running an approved task..._', ts)
-            const result = await runAgent(text, dispatchId, 'Requested via @AEGIS-Ω mention in Slack')
-            if (result !== null) await slackReply(channel, `*AEGIS-Ω:* ${result}`, ts)
+            await runAgent(text, dispatchId, channel, 'Requested via @AEGIS-Ω mention in Slack')
+            await deliverStoredResult(dispatchId,channel,ts)
           } catch (e) {
             console.error('AEGIS_SLACK_DISPATCH_FAILED')
             try {
