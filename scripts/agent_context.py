@@ -236,6 +236,31 @@ def holon_blockers(pr_source, issue_source, main_state, pr_hits, issue_hits):
     return blockers
 
 
+
+def coordination_blockers(main_receipt, pr_source, issue_source, pr_hits, issue_hits):
+    """Independent advisory blockers; no one failure may conceal another.
+
+    These are NOT authority decisions. Title matches are only possible overlaps,
+    and an unknown lookup must not be mistaken for an empty result.
+    """
+    blocks = []
+    if main_receipt.get("state") != "FRESH":
+        blocks.append("MAIN_FRESHNESS_UNVERIFIED")
+    if pr_source != "github":
+        blocks.append("PR_INVENTORY_INCOMPLETE")
+    if issue_source != "github":
+        blocks.append("ISSUE_BOARD_INCOMPLETE")
+    if any("needs-operator" in i.get("labels", []) for i, _ in issue_hits):
+        blocks.append("OPERATOR_ACTION_REQUIRED")
+    if any("claimed" in i.get("labels", []) for i, _ in issue_hits):
+        blocks.append("CLAIMED_ISSUE_COORDINATION")
+    if pr_hits:
+        blocks.append("POSSIBLE_PR_TITLE_OVERLAP")
+    if not issue_hits:
+        blocks.append("ISSUE_NOT_RESOLVED")
+    return blocks
+
+
 def existing_code(query, limit=8):
     """Code on origin/main that matches the task's words.
 
@@ -324,6 +349,7 @@ def main():
     blockers = holon_blockers(source, issue_source, main_receipt["state"], hits, issue_hits)
     if main_receipt["state"] != "FRESH":
         disposition = "HOLD_UNVERIFIED_MAIN"
+    blockers = coordination_blockers(main_receipt, source, issue_source, hits, issue_hits)
     p0 = [issue for issue in issues if "p0" in issue["labels"]]
     code = existing_code(query) if query and not quick else []
 
@@ -337,6 +363,7 @@ def main():
                           "issue_source": issue_source,
                           "issue_count": len(issues) if issue_source == "github" else None,
                           "holon_disposition": disposition,
+                          "holon_blockers": blockers,
                           "holon_blockers": blockers,
                           "p0_issues": [{"number": i["n"], "title": i["t"], "labels": i["labels"]}
                                         for i in p0],
@@ -371,12 +398,13 @@ def main():
         for issue, matched in issue_hits:
             lines.append(f"  #{issue['n']} {issue['t'][:100]} [labels: {', '.join(issue['labels'])}] (match: {', '.join(matched)})")
     lines.append(f"- Holon coordination: {disposition}. Informational only; never authorizes a merge/release.")
+    lines.append(f"- Independent blockers: {', '.join(blockers) if blockers else 'none observed; still advisory'}")
     if blockers:
         lines.append(f"- All coordination blockers: {', '.join(blockers)}")
     if locked:
         lines.append("- CI IS NOT RUNNING: GitHub Actions jobs fail with 'account is locked due to a "
-                     "billing issue'. Every red check is that lock, not your code. Do NOT open PRs to "
-                     "'fix' CI; nothing can be verified or merged until the operator fixes org billing.")
+                     "billing issue'. This is evidence for that check only, not all red checks. "
+                     "Inspect other failures separately; do not infer a code error or a global PASS.")
     if age_days is not None and age_days > 7 and source in ("github", "cache") and len(prs) > 20:
         lines.append("- main is stale and the queue is huge: the work you are about to do may "
                      "already exist in an open PR. Check the list below before writing code.")
