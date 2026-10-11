@@ -32,3 +32,42 @@ Implementation bounds: max 32 nodes; max eight out-neighbors per node; TTL max e
 - [#765](https://github.com/Aegis-Omega/AEGIS-OMEGA/issues/765): research intake; richer evidence and authenticity checks remain separate.
 - [#747](https://github.com/Aegis-Omega/AEGIS-OMEGA/pull/747): exact-head gate; no merge without protected-main admission.
 - [#730](https://github.com/Aegis-Omega/AEGIS-OMEGA/pull/730): capability ranking after central authorization; dendrite paths do **not** select or authorize tools.
+
+
+## Cross-domain connection (current PR branch)
+
+The multi-domain adapter in `agents/dendrite_system.py` builds on the original `agents/dendrite_mesh.py`, not another coordinator. It has 19 nodes drawn from existing `agents/agents.yaml` and six typed informational topics:
+
+| Source lane | Ingress contract | Roles reached (subject to topic, fan-out and TTL) |
+| --- | --- | --- |
+| Cognitive | Existing `run_pipeline` result, verified-in-memory KAN chain shape | corpus ingestion, research, safety, science, product, strategy |
+| Formal | Explicit JSON record with `source=formal` | applied science, research, engineering, chronology, safety |
+| Engineering | Explicit JSON record with `source=engineering` | engineering, DevEx, platform, product, safety |
+| Security | Explicit JSON record with `source=security` | cybersecurity, AI safety, compliance, engineering, chronology |
+| Revenue | Existing `RevenueCycleResult` artifacts with lineage root | strategy, product, business development, finance, sales |
+| Operations | Explicit JSON record with `source=operations` | platform engineering, cybersecurity, chronology |
+
+The cross-domain model *does not* decide who is authorized to read confidential data; do not supply secrets/private datasets. Receipt-level `source_authenticity=NOT_VERIFIED` means source SHA and digests are externally claimed, not independently authenticated. Also, `source_record` hashes do **not** imply a theorem proof or revenue settlement.
+
+### Reproduce (candidate branch checkout)
+
+```sh
+python3 -m unittest agents.tests.test_dendrite_mesh agents.tests.test_dendrite_system -v
+python3 -m agents.cognitive_pipeline demo --dendrite --source-head "$(git rev-parse HEAD)"
+python3 -m agents.revenue_engine demo --dendrite --source-head "$(git rev-parse HEAD)"
+python3 -m agents.dendrite_system examples/dendrite_formal_observation.json
+```
+
+**CAUTION:** Existing `revenue_engine.demo` writes `agents/adaptive_lineage.json` and may update the existing skill tree through the pre-existing evolution tick. The new dendrite adapter does not itself write to disk, but this producer already does. Run revenue demos in a disposable worktree/sandbox, not in the protected checkout. The cognitive offline demo and external-record ingress require no paid model call.
+
+### External source record schema
+
+Exactly six fields: `source`, `source_head`, `source_record`, `sequence`, `text`, `channel` (`CANDIDATE` or `QUARANTINE`). The record file is read with an 8 KiB cap. Claims are in-memory and remain inert data. Any additional executable instruction field is rejected. `QUARANTINE` routes only through designated security/chronology subscriptions; no business or engineering delivery.
+
+### Trust/authority limits
+
+This is **information routing, not operational federation**. There is no durable transport, authenticated sender, message-bus delivery, cross-process replay cache, signature attestation, economic action, formal proof check, automatic tier promotion, or canonical `EventEnvelope V2` admission. Existing `AuthorityEvaluator` continues to govern any tool execution. Porting to Redis, Temporal, MCP/A2A or cross-repo consumers requires an independent design and authorization review. Do not treat the generated inboxes as agent executions.
+
+### Exact-head verification standard
+
+Locally exercised synthetic unit tests may show the candidate code operates, but hosted CI is required for repository-native proof at the exact SHA. A skipped check or zero-step failure is `NOT_VERIFIED`, never a PASS. The PR stays draft while signed commits, independent review, trusted execution and protected-main admission remain unresolved.
