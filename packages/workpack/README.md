@@ -20,6 +20,25 @@ python3 -m aegis_workpack.protocol examples/data-baseline --integrity-only
 python3 -m aegis_workpack.protocol examples/data-baseline   # expected exit 1
 ```
 
+## v0.3 — deterministic falsification replay (2026-10-11)
+
+A model **cannot** satisfy a completed experiment merely by changing `evaluation.outcome` from `NOT_RUN` to `SUPPORTED` or `FALSIFIED`. When the claimed outcome is not `NOT_RUN`, the research packet **requires** `evaluation.metric_kind="case_exact_match"`, an `evaluation.evidence_artifact` relative path, and its `evaluation.evidence_sha256`. The evaluator reads the evidence file under the workspace without following POSIX symlinks, verifies its SHA-256, requires 3–100 case records, and computes the outcome directly from each record's `expected`, `baseline`, and `candidate` values. Claimed outcomes that disagree with computed results are blocked.
+
+Example research evaluation fields:
+
+```json
+{
+  "metric_kind": "case_exact_match",
+  "evidence_artifact": "evidence/eval-cases.json",
+  "evidence_sha256": "REPLACE_WITH_REAL_SHA256",
+  "outcome": "SUPPORTED"
+}
+```
+
+`evidence/eval-cases.json` contains `{"schema":"aegis.exact-match-eval.v1","cases":[{"id":"case01","expected":"a","baseline":"b","candidate":"a"}, ...]}` with at least three distinct cases. `SUPPORTED` means **more locally matched cases** for the candidate, `FALSIFIED` means fewer, and `INCONCLUSIVE` means equal. These labels do **not** establish true real-world improvement: the expected answers and test cases may still be authored by the agent itself, or contaminated by its training data. `domain_quality=UNVERIFIED`, `improvement=UNPROVEN` and `authority_effect=NONE` remain unchanged. Other metrics must use separately reviewed evaluator adapters; we do not accept arbitrary commands or code from the manifest.
+
+This exactly follows the distinction between deterministic offline test doubles and independent end-to-end model integration described in the current [OpenAI Agents SDK testing guidance](https://openai.github.io/openai-agents-python/testing/) and the need for layered evaluation, holdouts and human calibration in [Anthropic's eval engineering guidance](https://www.anthropic.com/engineering/demystifying-evals-for-ai-agents). Source documentation is contextual; no claim of A2A or MCP certification is made.
+
 ## Run immediately
 
 ```bash
