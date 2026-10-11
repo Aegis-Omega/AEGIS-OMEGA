@@ -37,10 +37,11 @@ class HTTPFramingTests(unittest.TestCase):
             'Content-Type': 'text/plain','Content-Length': '5'}))
         self.assertEqual(snap['full_bytes'], 5)
 
-    def test_missing_content_length_connection_close_allowed(self):
-        snap=capture(response=FakeReply(body=b'Hello', headers={
-            'Content-Type': 'text/plain'}))
-        self.assertEqual(snap['full_bytes'], 5)
+    def test_missing_content_length_connection_close_denied(self):
+        # RFC 9112 allows close delimiting, but does not prove completeness.
+        with self.assertRaisesRegex(CaptureDenied, 'UNVERIFIABLE_BODY_COMPLETION'):
+            capture(response=FakeReply(body=b'Hello', headers={
+                'Content-Type': 'text/plain'}))
 
     def test_duplicate_length_header_rejected(self):
         with self.assertRaisesRegex(CaptureDenied, 'RESPONSE_TOO_LARGE'):
