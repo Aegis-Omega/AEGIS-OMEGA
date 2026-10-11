@@ -160,3 +160,54 @@
 @media(max-width:360px){.cc-map-node b{display:none}.cc-map-node{padding:5px}.cc-map-node span{min-width:32px;height:32px}}
 @media(prefers-reduced-motion:reduce){.cc-system *{transition:none!important;animation:none!important}}
 @media(prefers-contrast:more){.cc-card,.cc-map-node{border-color:#bfdfff}.cc-copy>p,.cc-card p{color:#eff6ff}}
+
+
+/* Command-K: route navigation, not fictional universal repository search. */
+.cc-jump{position:relative;z-index:110;min-width:210px;width:clamp(210px,26vw,430px);margin-left:auto}
+.cc-jump-trigger{width:100%;min-height:41px;display:flex;align-items:center;gap:11px;padding:9px 12px;background:#06142c;border:1px solid #4875b5;border-radius:9px;box-shadow:inset 0 1px 0 #7dbfff27;color:#a5bfdf;font-size:12px;text-align:left;cursor:pointer}
+.cc-jump-trigger:hover,.cc-jump-trigger[aria-expanded=true]{border-color:#8cc6ff;color:#fff;background:#0a2250}
+.cc-jump-trigger>span{font-size:25px;line-height:16px;color:#b8d9ff}
+.cc-jump-trigger kbd{font:10px 'JetBrains Mono',monospace;margin-left:auto;padding:3px 6px;border:1px solid #3b689d;border-radius:4px;color:#b1d4ff;white-space:nowrap}
+.cc-jump-panel{position:absolute;z-index:200;top:calc(100% + 12px);left:0;right:0;min-width:min(380px,92vw);background:#06152ceb;border:1px solid #7db8f2;border-radius:10px;padding:15px;box-shadow:0 27px 68px #000c,0 0 25px #145ace42;backdrop-filter:blur(24px)}
+.cc-jump-panel label{display:block;color:#a1c6f4;letter-spacing:.11em;font:10px 'JetBrains Mono',monospace;margin-bottom:10px}
+.cc-jump-panel input{height:44px;width:100%;color:#f6faff;background:#030e20;border:1px solid #5683c4;border-radius:6px;padding:10px 12px;font:13px Inter,system-ui,sans-serif}
+.cc-jump-panel input:focus-visible{outline:2px solid #b2dfff;outline-offset:2px}
+.cc-jump-results{max-height:min(53vh,490px);overflow:auto;padding-top:9px}
+.cc-jump-results a{display:grid;grid-template-columns:minmax(0,1fr) 18px;gap:4px 10px;border-radius:6px;padding:12px;color:#e5f1ff;text-decoration:none;border:1px solid transparent}
+.cc-jump-results a:hover,.cc-jump-results a:focus-visible{background:#18407a;border-color:#567ebe}
+.cc-jump-results a b{font-size:13px;font-weight:650}
+.cc-jump-results a span:nth-child(2){font-size:11px;color:#aac6e8;grid-column:1;grid-row:2}
+.cc-jump-results a span:last-child{grid-column:2;grid-row:1}
+.cc-jump-results>p{padding:9px;color:#d1e1f6;font-size:13px}
+.cc-jump-foot{font:10px 'JetBrains Mono',monospace;color:#9fb9df;line-height:1.5;margin:12px 0 0}
+@media(max-width:1200px){.cc-jump{width:clamp(135px,20vw,300px);min-width:135px}.cc-jump-trigger kbd{display:none}}
+@media(max-width:900px){.cc-jump{order:2;margin-left:auto;min-width:142px}.cc-jump-trigger{font-size:0;justify-content:center}.cc-jump-trigger>span{font-size:24px}.cc-jump-panel{left:auto;right:0;width:min(390px,90vw)}}
+@media(max-width:500px){.cc-jump{width:44px;min-width:44px}.cc-jump-trigger{padding:8px;min-height:44px}.cc-jump-panel{position:fixed;top:76px;left:10px;right:10px;width:auto;min-width:0}}
+/* Coherent dark-blue instrument materials across all old operational pages.
+   Never turn a report/unknown state into green through stylistic overrides. */
+.hg-route .rw-shell,.hg-route .op-console{color:#ecf4ff}
+.hg-route .rw-shell :where(.rw-inspector,.rw-entry,.rw-question,.rw-limits),
+.hg-route .op-console :where(.op-panel,.op-tool,.op-main-layout),
+.hg-route .sf-root{
+  --sf-ink:#041022;--sf-panel:#081a32;--sf-cream:#eef6ff;
+  --sf-stroke:rgba(102,153,218,.32);--sf-metal:#9cbbff;
+  border-color:rgba(98,152,222,.35);
+}
+.hg-route .rw-shell .rw-hero h1,
+.hg-route .op-console .op-intro h1{color:#eef5ff;font-family:Inter,system-ui,sans-serif;font-weight:600}
+.hg-route .rw-shell .rw-hero h1 em{color:#9bc5ff}
+.hg-route .sf-root{background:#061228;box-shadow:0 22px 54px #0008}
+.hg-route .sf-root .sf-detail{background:#071a34}
+.hg-route .sf-root .sf-head{background:#06142b;border-color:#3c6290}
+.hg-route .sf-root .sf-node{background:#11264c;border-color:#5d8bc9}
+.hg-route .sf-root .sf-node-active{border-color:#a2ddff;box-shadow:0 0 12px #4683eb59}
+.hg-route .sf-root .sf-constraints li,.hg-route .sf-root .sf-description{color:#c4d6ee}
+.hg-route .sf-root .sf-verdict{border-color:#476ca2}
+.hg-route .rw-shell .rw-filters button[aria-pressed=true]{background:#1d4d95;color:#fff}
+.hg-route .op-console .op-tabs .op-tab-active{border-color:#75bcff;color:#eef7ff;background:#11366f}
+.hg-route .hg-route-header{border-color:#4975b8}
+.hg-route .hg-legacy-content .rt-shell{background:transparent}
+.hg-route .rt-shell .rt-veil{background:radial-gradient(ellipse 65% 40% at 50% 0%,#0c357d29,transparent 90%)}
+.hg-route-docs .hg-legacy-content .bg-gray-900\/50,.hg-route-tools .hg-legacy-content .bg-hub-bg{background-color:#081b34!important;border-color:#3b6096!important}
+.hg-route-pricing .hg-legacy-content h1,.hg-route-compliance .hg-legacy-content h1{color:#f0f6ff!important;-webkit-text-fill-color:#f0f6ff!important;font-family:Inter,system-ui,sans-serif!important;font-weight:650!important}
+.hg-route-claim-sponsor .hg-legacy-content :is(.max-w-lg,.max-w-md){background:#091d37;border-color:#517bb0}
