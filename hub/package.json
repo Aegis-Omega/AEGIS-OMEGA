@@ -9,7 +9,8 @@
     "lint": "eslint .",
     "preview": "vite preview",
     "test:integrity": "node --experimental-strip-types --test tests/artifact-integrity.test.mjs",
-    "test:console": "node --test tests/console-observation.test.mjs"
+    "test:console": "node --test tests/console-observation.test.mjs",
+    "test:experience": "node --test tests/holon-interaction.test.mjs"
   },
   "dependencies": {
     "react": "^19.2.6",
