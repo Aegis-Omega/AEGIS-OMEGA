@@ -69,6 +69,50 @@ class HolonContextTests(unittest.TestCase):
         with patch.object(ctx, "sh", return_value='{"total":1,"items":[{"n":"bad"}]}'):
             self.assertEqual(ctx.open_issue_board(), ([], "unavailable"))
 
+    def test_exact_100_page_drift_is_incomplete(self):
+        """100 + [] must still re-read page 1 before a complete receipt."""
+        import tempfile
+        def record(n):
+            return {"n": n, "t": f"PR {n}", "h": f"feature/{n}",
+                    "b": "main", "s": "a" * 40}
+        first = [record(n) for n in range(200, 100, -1)]
+        changed = [record(201)] + first[:-1]
+        calls = []
+        def response(*args, **_kwargs):
+            if args[:2] != ("gh", "api"):
+                return ""
+            page = 1 if args[2].endswith("&page=1") else 2
+            calls.append(page)
+            if page == 2:
+                return "[]"
+            return json.dumps(changed if calls.count(1) > 1 else first)
+        with tempfile.TemporaryDirectory() as directory, \
+             patch.object(ctx, "git_dir", return_value=directory), \
+             patch.object(ctx, "sh", side_effect=response):
+            rows, status = ctx.open_prs()
+        self.assertEqual((len(rows), status), (100, "partial"))
+        self.assertEqual(calls, [1, 2, 1])
+
+    def test_exact_100_stable_page_is_complete(self):
+        import tempfile
+        def record(n):
+            return {"n": n, "t": f"PR {n}", "h": f"feature/{n}",
+                    "b": "main", "s": "a" * 40}
+        first = [record(n) for n in range(200, 100, -1)]
+        calls = []
+        def response(*args, **_kwargs):
+            if args[:2] != ("gh", "api"):
+                return ""
+            page = 1 if args[2].endswith("&page=1") else 2
+            calls.append(page)
+            return "[]" if page == 2 else json.dumps(first)
+        with tempfile.TemporaryDirectory() as directory, \
+             patch.object(ctx, "git_dir", return_value=directory), \
+             patch.object(ctx, "sh", side_effect=response):
+            rows, status = ctx.open_prs()
+        self.assertEqual((len(rows), status), (100, "github"))
+        self.assertEqual(calls, [1, 2, 1])
+
     def test_duplicate_across_pages_is_not_a_complete_shared_snapshot(self):
         import re
         import tempfile
