@@ -32,6 +32,13 @@ class DendriteTests(unittest.TestCase):
         self.assertEqual(len(r["delivered_roles"]), 9)
         self.assertIn("DUPLICATE", [x["result"] for x in r["routes"]])
 
+    def test_information_is_in_recipient_inbox(self):
+        r = default_mesh().propagate(event(), ttl=4)
+        recipient = r["inboxes"]["product_management"]
+        self.assertEqual(recipient["text"], "Test claim")
+        self.assertEqual(recipient["recipient"], "product_management")
+        self.assertEqual(recipient["event_hash"], r["event_hash"])
+
     def test_ttl_zero(self):
         self.assertEqual(default_mesh().propagate(event(), ttl=0)["delivered_roles"], ["corpus_ingestor"])
 
