@@ -123,11 +123,6 @@ const STAGES = [
   { stage: '04', title: 'Admit', text: 'Capability advances only as far as verified evidence permits. Unverified claims stay blocked.' },
 ]
 
-async function digest(s: string): Promise<string> {
-  const d = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(s))
-  return Array.from(new Uint8Array(d)).map(v=>v.toString(16).padStart(2,'0')).join('')
-}
-
 function ArtifactVerifier() {
   const [selected, setSelected] = useState<File | null>(null)
   const [expected, setExpected] = useState('')
