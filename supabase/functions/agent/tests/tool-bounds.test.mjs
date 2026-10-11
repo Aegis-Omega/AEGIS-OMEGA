@@ -25,10 +25,11 @@ test('huge purchase request is bounded to at most 25 rows',async()=>{
  const x=setup(); await x.runTool('query_purchases',{limit:1000000000});
  assert.ok(x.calls.limits[0] >= 1 && x.calls.limits[0] <= 25,JSON.stringify(x.calls.limits));
 });
-test('negative and nonnumeric limits cannot enter database',async()=>{
- for(const limit of [-100,Infinity,'NaN','10foobar',null]){
-   const x=setup();await x.runTool('query_purchases',{limit});
-   assert.ok(Number.isInteger(x.calls.limits[0])&&x.calls.limits[0]>=1&&x.calls.limits[0]<=25,`limit=${limit} used=${x.calls.limits[0]}`);
+test('negative and nonnumeric limits are refused BEFORE querying database',async()=>{
+ for(const limit of [-100,0,2.5,Infinity,NaN,'NaN','10foobar',null]){
+   const x=setup();const result=await x.runTool('query_purchases',{limit});
+   assert.equal(result,'INVALID_LIMIT');
+   assert.equal(x.calls.limits.length,0,`limit=${limit} launched DB query`);
  }
 });
 test('email lookup uses exact equality, not contains/wildcard match',async()=>{
