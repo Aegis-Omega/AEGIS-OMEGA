@@ -90,6 +90,79 @@ def _negative_knowledge(references: list[Mapping[str, Any]],
     return {k: sorted(v, key=lambda x: x["record_digest"]) for k, v in result.items()}
 
 
+
+def _verify_workplane_derivation(workplane: Mapping[str, Any],
+                                 graph: Mapping[str, Any],
+                                 evolution: Mapping[str, Any],
+                                 source_head: str,
+                                 lineage: Any | None) -> None:
+    """Recompute derived workplane evidence, not merely its caller-supplied hash.
+
+    A rehashed malicious workplane previously passed the outer receipt gate
+    despite carrying fake route shards, lessons or route-search conclusions.
+    Reuse existing producers as the sole source of truth, not another router.
+    """
+    from agents.dendrite_workplane import _route_lessons
+    from agents.dendrite_route_evolution import search_routes
+
+    expected_keys = {
+        "schema", "source_head", "snapshot_hash", "graph_receipt",
+        "evolution_receipt", "node_count", "dependency_edges",
+        "relationships", "unresolved_relations", "issue_evolution",
+        "issue_route_shards", "lesson_route_shards",
+        "candidate_route_search", "existing_skill_evolution",
+        "transport", "source_authenticity", "benchmark_status",
+        "production_admission", "skill_promotion", "execution_effect",
+        "authority_effect", "receipt_hash",
+    }
+    if set(workplane) != expected_keys:
+        raise ValueError("WORKPLANE_FIELDS_INVALID")
+
+    routes = [
+        spread_issue_graph(graph, source_head=source_head, start=i,
+                           limit=min(32, len(graph["nodes"]) - i))["routing"]
+        for i in range(0, len(graph["nodes"]), 32)
+    ]
+    expected = {
+        "snapshot_hash": graph["snapshot_sha256"],
+        "issue_evolution": evolution,
+        "issue_route_shards": routes,
+        "lesson_route_shards": _route_lessons(graph, evolution, source_head),
+        "candidate_route_search": search_routes(head=source_head),
+        "dependency_edges": sum(e["kind"] == "depends_on" for e in graph["edges"]),
+        "relationships": len(graph["edges"]),
+        "unresolved_relations": len(graph["unresolved_references"]),
+        "transport": "IN_MEMORY_BY_DEFAULT",
+        "source_authenticity": "NOT_VERIFIED",
+        "benchmark_status": "SELF_REPORTED_OR_NOT_RUN",
+    }
+    for key, canonical_value in expected.items():
+        if workplane.get(key) != canonical_value:
+            raise ValueError("WORKPLANE_DERIVATION_MISMATCH:" + key)
+
+    observed = workplane["existing_skill_evolution"]
+    if not isinstance(observed, Mapping):
+        raise ValueError("WORKPLANE_EVOLUTION_OBSERVATION_INVALID")
+    if observed == {"status": "NOT_REQUESTED", "promotion_applied": False}:
+        return
+    if (set(observed) != {
+            "status", "lineage_root", "skills_observed",
+            "candidate_tier_changes_not_approved", "promotion_applied",
+            "authority_effect",
+        } or observed.get("status") != "READ_ONLY_OBSERVATION"
+            or observed.get("promotion_applied") is not False
+            or observed.get("authority_effect") != "NONE"
+            or type(observed.get("skills_observed")) is not int
+            or type(observed.get("candidate_tier_changes_not_approved")) is not int
+            or observed["skills_observed"] < 0
+            or not 0 <= observed["candidate_tier_changes_not_approved"] <= observed["skills_observed"]
+            or lineage is None):
+        raise ValueError("WORKPLANE_EVOLUTION_OBSERVATION_UNVERIFIED")
+    if observed.get("lineage_root") != _lineage_checkpoint(lineage)["root"]:
+        raise ValueError("WORKPLANE_LINEAGE_ROOT_MISMATCH")
+
+
+
 def compose_spine(*, graph: Mapping[str, Any], trials: list[Mapping[str, Any]],
                   source_head: str, lineage: Any | None = None,
                   registry: Mapping[str, Any] | None = None,
@@ -118,6 +191,8 @@ def compose_spine(*, graph: Mapping[str, Any], trials: list[Mapping[str, Any]],
                 workplane.get("execution_effect") != "NONE" or
                 workplane.get("node_count") != evolution["issue_count"]):
             raise ValueError("WORKPLANE_CONTRACT_BINDING_INVALID")
+    if workplane is not None:
+        _verify_workplane_derivation(workplane, graph, evolution, source_head, lineage)
     if not isinstance(nodes, list) or len(nodes) != evolution["issue_count"]:
         raise ValueError("ISSUE_NODE_COUNT_MISMATCH")
     issue_keys = [x["issue"] for x in evolution["issues"]]
