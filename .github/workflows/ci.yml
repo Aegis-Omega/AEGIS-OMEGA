@@ -175,8 +175,8 @@ jobs:
       - name: Run /platform/* contract tests
         run: python python/tests/test_platform.py
 
-      - name: Run read-only dendritic knowledge propagation tests
-        run: PYTHONPATH=.. python3 -m unittest agents.tests.test_dendrite_mesh -v
+      - name: Run cross-domain dendrite propagation and ingress tests
+        run: PYTHONPATH=.. python3 -m unittest agents.tests.test_dendrite_mesh agents.tests.test_dendrite_system -v
 
       - name: Contract equivalence gate — TS contract <-> Python runtime (no silent drift)
         run: python3 ../scripts/contract_equivalence_check.py
