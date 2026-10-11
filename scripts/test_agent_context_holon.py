@@ -50,6 +50,36 @@ class HolonContextTests(unittest.TestCase):
                              ["HOLD_CLAIMED_WORK_COORDINATE"])
         self.assertEqual(item["labels"], original)
 
+    def test_operator_claim_and_stale_sources_are_all_retained(self):
+        claimed = {"n": 739, "t": "Receipts", "labels": ["claimed", "needs-operator"]}
+        overlap = [(3, {"n": 743, "t": "Receipts SDK", "h": "receipts",
+                        "b": "main", "s": "a" * 40}, ["receipts"])]
+        blocks = ctx.coordination_blockers(
+            {"state": "FETCH_FAILED", "sha": None}, "partial", "unavailable",
+            overlap, [(claimed, ["receipts"])])
+        self.assertEqual(blocks, [
+            "MAIN_FRESHNESS_UNVERIFIED",
+            "PR_INVENTORY_INCOMPLETE",
+            "ISSUE_BOARD_INCOMPLETE",
+            "OPERATOR_ACTION_REQUIRED",
+            "CLAIMED_ISSUE_COORDINATION",
+            "POSSIBLE_PR_TITLE_OVERLAP",
+        ])
+
+    def test_unresolved_task_is_not_a_free_task(self):
+        blocks = ctx.coordination_blockers(
+            {"state": "FRESH", "sha": "a" * 40}, "github", "github", [], [])
+        self.assertEqual(blocks, ["ISSUE_NOT_RESOLVED"])
+
+    def test_clean_advisory_board_does_not_create_authority(self):
+        issue = {"n": 734, "t": "Holon", "labels": ["task"]}
+        blocks = ctx.coordination_blockers(
+            {"state": "FRESH", "sha": "a" * 40}, "github", "github",
+            [], [(issue, ["holon"])])
+        self.assertEqual(blocks, [])
+        self.assertEqual(ctx.holon_disposition("github", "github", [], [(issue, [])]),
+                         "ISSUE_ASSIGNMENT_AND_REVIEW_REQUIRED")
+
     def test_unknown_peers_are_never_empty_board(self):
         self.assertEqual(ctx.holon_disposition("unavailable", "unavailable", [], []),
                          "HOLD_INCOMPLETE_SHARED_STATE")
