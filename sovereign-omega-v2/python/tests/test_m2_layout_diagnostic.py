@@ -369,9 +369,9 @@ class TestM2LayoutDiagnosticGate(unittest.TestCase):
             and node.test.comparators[0].value == "/gate_signal"
         )
         isolated = ast.parse(
-            "def _replay_gate(self, data):\\n"
-            "    global last_ack_sequence\\n"
-            "    pass\\n"
+            "def _replay_gate(self, data):\n"
+            "    global last_ack_sequence\n"
+            "    pass\n"
         ).body[0]
         isolated.body = [isolated.body[0]] + copy.deepcopy(branch.body)
         unit = ast.fix_missing_locations(ast.Module(body=[isolated], type_ignores=[]))
