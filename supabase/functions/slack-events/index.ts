@@ -159,10 +159,45 @@ async function deliverStoredResult(dispatchId: string, channel: string,
   await completeDelivery(dispatchId,channel,actorId,teamId,attemptId,true)
 }
 
+// Bounded consumption of untrusted, unsigned request bodies. A Content-Length
+// hint alone is insufficient: chunked transfers can exceed the declared size.
+const MAX_SIGNED_BODY_BYTES = 64 * 1024
+async function readBoundedSlackBody(req: Request): Promise<string | null> {
+  const lengthHeader = req.headers.get('content-length')
+  if (lengthHeader !== null &&
+      (!/^\d+$/.test(lengthHeader) || Number(lengthHeader) > MAX_SIGNED_BODY_BYTES)) {
+    return null
+  }
+  if (!req.body) return ''
+  const reader = req.body.getReader()
+  const chunks: Uint8Array[] = []
+  let total = 0
+  try {
+    while (true) {
+      const {done,value} = await reader.read()
+      if (done) break
+      total += value.byteLength
+      if (total > MAX_SIGNED_BODY_BYTES) {
+        await reader.cancel()
+        return null
+      }
+      chunks.push(value)
+    }
+  } finally { reader.releaseLock() }
+  const joined = new Uint8Array(total)
+  let offset = 0
+  for (const chunk of chunks) { joined.set(chunk,offset); offset += chunk.byteLength }
+  return new TextDecoder('utf-8', {fatal:true}).decode(joined)
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response(null, { headers: CORS })
+  if (req.method !== 'POST') return new Response('Method Not Allowed', {status:405})
 
-  const body = await req.text()
+  let body: string | null
+  try { body = await readBoundedSlackBody(req) }
+  catch { return new Response('Invalid request body', {status:400}) }
+  if (body === null) return new Response('Payload Too Large', {status:413})
   const timestamp = req.headers.get('x-slack-request-timestamp') ?? ''
   const sig       = req.headers.get('x-slack-signature') ?? ''
 
