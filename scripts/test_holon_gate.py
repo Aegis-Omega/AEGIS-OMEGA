@@ -23,7 +23,7 @@ class UniversalHolonTests(unittest.TestCase):
         self.root = Path(self.tmp.name)
         (self.root / 'proof.txt').write_text('CHECKED\n')
         self.hash = hashlib.sha256((self.root / 'proof.txt').read_bytes()).hexdigest()
-        self.base = {'tasks': [task('T1')]}
+        self.base = {'tasks': [task('T1', ['proof.txt'])]}
 
     def audit(self, data=None, actor='GPT-6'):
         return h.evaluate(data or self.base, self.root, actor)
@@ -39,6 +39,18 @@ class UniversalHolonTests(unittest.TestCase):
     def test_clean_task_remains_available_not_done(self):
         r = self.audit()['tasks'][0]
         self.assertEqual(r['readiness'], 'AVAILABLE')
+        self.assertEqual(self.audit()['admitted_tasks'], 0)
+
+    def test_undeclared_work_scope_cannot_be_available_or_review_ready(self):
+        # A task with no paths cannot be safely compared with peer work.
+        self.base['tasks'][0]['paths'] = []
+        without_submission = self.audit()['tasks'][0]
+        self.assertIn('WORK_SCOPE_UNDECLARED', without_submission['blockers'])
+        self.assertNotEqual(without_submission['readiness'], 'AVAILABLE')
+        self.base['submissions'] = [self.sub()]
+        with_submission = self.audit()['tasks'][0]
+        self.assertIn('WORK_SCOPE_UNDECLARED', with_submission['blockers'])
+        self.assertNotEqual(with_submission['readiness'], 'REVIEW_READY_NOT_ADMITTED')
         self.assertEqual(self.audit()['admitted_tasks'], 0)
 
     def test_valid_evidence_plus_distinct_reviewer_only_review_ready(self):
