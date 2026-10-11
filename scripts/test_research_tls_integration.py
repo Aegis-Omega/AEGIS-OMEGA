@@ -39,7 +39,7 @@ class RealLocalTLS(unittest.TestCase):
         if hasattr(cls, 'temp'):
             cls.temp.cleanup()
 
-    def exchange(self, hostname):
+    def exchange(self, hostname, *, server_payload=None):
         listener = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         listener.bind(('127.0.0.1', 0))
         listener.listen(1)
@@ -56,7 +56,8 @@ class RealLocalTLS(unittest.TestCase):
                     with ctx.wrap_socket(client, server_side=True) as tls:
                         tls.settimeout(3)
                         evidence['requests'].append(tls.recv(4096).decode('ascii'))
-                        tls.sendall(b'HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\n'
+                        tls.sendall(server_payload if server_payload is not None else
+                                    b'HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\n'
                                     b'Content-Length: 7\r\nConnection: close\r\n\r\nTLS_OK!')
             except (ssl.SSLError, OSError) as error:
                 evidence['server_errors'].append(type(error).__name__)
@@ -99,6 +100,22 @@ class RealLocalTLS(unittest.TestCase):
         self.assertIn('GET /release HTTP/1.1', evidence['requests'][0])
         self.assertIn('Host: docs.example.org', evidence['requests'][0])
         self.assertEqual(result['claim_truth'], 'NOT_VERIFIED')
+
+    def test_truncated_content_length_denied_real_tls(self):
+        # Real HTTPResponse must not turn a short TLS body into a signed
+        # complete-source capture when server closes before Content-Length.
+        data=(b'HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\n'
+              b'Content-Length: 99\r\nConnection: close\r\n\r\nshort')
+        with self.assertRaisesRegex(module.CaptureDenied,'INCOMPLETE_RESPONSE_BODY'):
+            self.exchange('docs.example.org', server_payload=data)
+
+    def test_valid_chunked_response_real_tls(self):
+        data=(b'HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\n'
+              b'Transfer-Encoding: chunked\r\nConnection: close\r\n\r\n'
+              b'5\r\nHello\r\n0\r\n\r\n')
+        receipt, _ = self.exchange('docs.example.org', server_payload=data)
+        self.assertEqual(receipt['excerpt'],'Hello')
+        self.assertEqual(receipt['full_bytes'],5)
 
     def test_wrong_hostname_certificate_rejected(self):
         with self.assertRaisesRegex(module.CaptureDenied, 'NETWORK_OR_TLS_FAILED'):
