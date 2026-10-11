@@ -16,20 +16,25 @@ test('upstream HTTP failure fails closed, no synthetic available',async()=>{let 
 test('upstream hidden content not passed through',async()=>{let r=make(()=>jsonResponse({...good,data:{...good.data, customer_email:'private@example.com',token:'private'}}));let res=await r.handle();let body=await res.text();assert.ok(!body.includes('private@example.com'));assert.ok(!body.includes('token'))});
 test('oversize body rejected',async()=>{let r=make(()=>new Response('x'.repeat(9000)));let res=await r.handle();assert.equal(res.status,502)});
 test('health requires no upstream',async()=>{let r=make(remote);let res=await r.handle('/api/health');assert.equal(res.status,200);assert.equal(r.urls.length,0)});
-test('streamed response above wire-byte limit is rejected and body cancelled',async()=>{
-  let chunks=0,cancelled=false;
-  const upstream=()=>new Response(new ReadableStream({pull(controller){chunks++;controller.enqueue(new Uint8Array(4097));if(chunks>4)controller.close()},cancel(){cancelled=true}}),{status:200});
+
+test('streamed body exceeding the byte cap is rejected before full consumption',async()=>{
+  let chunks=0, cancelled=false;
+  const upstream=()=>new Response(new ReadableStream({pull(controller){chunks++; controller.enqueue(new Uint8Array(4097)); if(chunks>4)controller.close()},cancel(){cancelled=true}}),{status:200});
   const r=make(upstream),res=await r.handle();
-  assert.equal(res.status,502);assert.equal((await res.json()).error,'UPSTREAM_TOO_LARGE');
-  assert.ok(chunks<=3);assert.equal(cancelled,true);
+  assert.equal(res.status,502);
+  assert.equal((await res.json()).error,'UPSTREAM_TOO_LARGE');
+  assert.ok(chunks<=3,'body reader must not read an unbounded stream');
+  assert.equal(cancelled,true);
 });
-test('UTF-8 wire-byte limit counts multibyte characters',async()=>{
-  const r=make(()=>jsonResponse({...good,padding:'🚀'.repeat(2400)})),res=await r.handle();
-  assert.equal(res.status,502);assert.equal((await res.json()).error,'UPSTREAM_TOO_LARGE');
+test('byte cap applies to non-ASCII UTF-8, not JavaScript string length',async()=>{
+  const data={...good, padding:'🚀'.repeat(2400)}; // 9600 bytes of emoji + envelope
+  const r=make(()=>jsonResponse(data)),res=await r.handle();
+  assert.equal(res.status,502);
+  assert.equal((await res.json()).error,'UPSTREAM_TOO_LARGE');
 });
-test('missing upstream body and invalid JSON fail closed',async()=>{
+test('missing body or invalid JSON fails closed',async()=>{
   const a=make(()=>new Response(null,{status:200}));
-  assert.equal((await(await a.handle()).json()).error,'UPSTREAM_EMPTY_BODY');
+  assert.equal((await (await a.handle()).json()).error,'UPSTREAM_EMPTY_BODY');
   const b=make(()=>new Response('not-json',{status:200}));
-  assert.equal((await(await b.handle()).json()).error,'UPSTREAM_INVALID_JSON');
+  assert.equal((await (await b.handle()).json()).error,'UPSTREAM_INVALID_JSON');
 });
