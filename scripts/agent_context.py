@@ -146,9 +146,11 @@ def open_prs(quick=False):
         if len(batch) < 100:
             complete = True  # [] is a valid, authenticated end of pagination.
             break
-    if complete and len(prs) >= 100:
-        # Bounded consistency check: a newly opened PR may shift page 1 while
-        # we read pages 2+. REST pagination is not an atomic transaction.
+    if complete:
+        # Bounded consistency check for every full observation, including
+        # zero PRs and short single-page lists. A concurrent create/close
+        # can otherwise turn a plausible result into a false complete board.
+        # REST pagination is not an atomic transaction.
         refreshed = sh("gh", "api",
                        f"repos/{REPO}/pulls?state=open&per_page=100&page=1",
                        "--jq", "[.[] | {n: .number, t: .title, h: .head.ref, b: .base.ref, d: .created_at[:10], s: .head.sha, body: ((.body // \"\")[:8192])}]")
