@@ -359,10 +359,10 @@ def main():
     hits = overlaps(prs, query)
     issue_hits = relevant_issues(issues, query)
     disposition = holon_disposition(source, issue_source, hits, issue_hits)
-    blockers = holon_blockers(source, issue_source, main_receipt["state"], hits, issue_hits)
+    holon_blocks = holon_blockers(source, issue_source, main_receipt["state"], hits, issue_hits)
     if main_receipt["state"] != "FRESH":
         disposition = "HOLD_UNVERIFIED_MAIN"
-    blockers = coordination_blockers(main_receipt, source, issue_source, hits, issue_hits)
+    coordination_blocks = coordination_blockers(main_receipt, source, issue_source, hits, issue_hits)
     p0 = [issue for issue in issues if "p0" in issue["labels"]]
     code = existing_code(query) if query and not quick else []
 
@@ -376,8 +376,8 @@ def main():
                           "issue_source": issue_source,
                           "issue_count": len(issues) if issue_source == "github" else None,
                           "holon_disposition": disposition,
-                          "holon_blockers": blockers,
-                          "holon_blockers": blockers,
+                          "holon_blockers": holon_blocks,
+                          "coordination_blockers": coordination_blocks,
                           "p0_issues": [{"number": i["n"], "title": i["t"], "labels": i["labels"]}
                                         for i in p0],
                           "issue_matches": [{"number": i["n"], "title": i["t"],
@@ -411,9 +411,8 @@ def main():
         for issue, matched in issue_hits:
             lines.append(f"  #{issue['n']} {issue['t'][:100]} [labels: {', '.join(issue['labels'])}] (match: {', '.join(matched)})")
     lines.append(f"- Holon coordination: {disposition}. Informational only; never authorizes a merge/release.")
-    lines.append(f"- Independent blockers: {', '.join(blockers) if blockers else 'none observed; still advisory'}")
-    if blockers:
-        lines.append(f"- All coordination blockers: {', '.join(blockers)}")
+    lines.append(f"- Holon blockers: {', '.join(holon_blocks) if holon_blocks else 'none observed; still advisory'}")
+    lines.append(f"- Coordination blockers: {', '.join(coordination_blocks) if coordination_blocks else 'none observed; still advisory'}")
     if locked:
         lines.append("- CI IS NOT RUNNING: GitHub Actions jobs fail with 'account is locked due to a "
                      "billing issue'. This is evidence for that check only, not all red checks. "
