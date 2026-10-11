@@ -65,11 +65,11 @@ function slack(h, mode='accepted'){
   new Function('Deno','EdgeRuntime','crypto','fetch','console',s)(Deno,{waitUntil:p=>pending.push(p)},webcrypto,fetch,{error(){}})
   return {handler,pending,network}
 }
-async function signed(body){
+async function signed(body,ctype='application/x-www-form-urlencoded'){
   const time=String(Math.floor(Date.now()/1000))
   const key=await webcrypto.subtle.importKey('raw',new TextEncoder().encode(SIGN),{name:'HMAC',hash:'SHA-256'},false,['sign'])
   const mac=await webcrypto.subtle.sign('HMAC',key,new TextEncoder().encode('v0:'+time+':'+body))
-  return new Request('https://mock.invalid/slack',{method:'POST',headers:{'content-type':'application/x-www-form-urlencoded','x-slack-request-timestamp':time,'x-slack-signature':'v0='+Buffer.from(mac).toString('hex')},body})
+  return new Request('https://mock.invalid/slack',{method:'POST',headers:{'content-type':ctype,'x-slack-request-timestamp':time,'x-slack-signature':'v0='+Buffer.from(mac).toString('hex')},body})
 }
 const form=(user='U_OK',channel=CID)=>new URLSearchParams({user_id:user,channel_id:channel,user_name:'operator',text:'check',trigger_id:'13345224609.738474920.8088930838d88f008e0'}).toString()
 test('bearer token rejection precedes paid work',async()=>{const d=db();assert.equal((await send(agent(d),'dispatch',{},'invalid'))[0],401);assert.equal(d.stats.paid,0)})
@@ -148,4 +148,31 @@ test('AES-GCM AAD rejects ciphertext substitution between different events',asyn
  assert.equal((await send(h,'claim_delivery',{attempt_id:crypto.randomUUID()}))[0],503)
  assert.equal(rows[0].state,'SENDING')
  assert.equal(d.stats.paid,2)
+})
+
+test('signed Slack app mention stores and delivers without repeat inference',async()=>{
+ const d=db(),h=agent(d),worker=slack(h)
+ const body=JSON.stringify({type:'event_callback',event_id:'Ev1234567890',
+   event:{type:'app_mention',user:'U_OK',channel:CID,text:'<@BOT> inspect',ts:'123.1'}})
+ assert.equal((await worker.handler(await signed(body,'application/json'))).status,200)
+ await Promise.all(worker.pending)
+ assert.equal(d.stats.paid,1)
+ assert.equal([...d.rows.values()][0].state,'DELIVERED')
+ assert.equal((await worker.handler(await signed(body,'application/json'))).status,200)
+ await Promise.all(worker.pending)
+ assert.equal(d.stats.paid,1)
+})
+test('Slack mention with missing stable event ID cannot dispatch',async()=>{
+ const d=db(),worker=slack(agent(d))
+ const body=JSON.stringify({type:'event_callback',
+   event:{type:'app_mention',user:'U_OK',channel:CID,text:'<@BOT> do work',ts:'123.1'}})
+ assert.equal((await worker.handler(await signed(body,'application/json'))).status,400)
+ assert.equal(d.stats.paid,0)
+})
+test('wrong result encryption key leaves delivery uncertain, no new inference',async()=>{
+ const d=db(),original=agent(d);assert.equal((await send(original))[0],200)
+ const wrong=agent(d,{...env,AEGIS_RESULT_ENCRYPTION_KEY_B64:Buffer.alloc(32,8).toString('base64')})
+ assert.equal((await send(wrong,'claim_delivery',{attempt_id:crypto.randomUUID()}))[0],503)
+ assert.equal([...d.rows.values()][0].state,'SENDING')
+ assert.equal(d.stats.paid,1)
 })
