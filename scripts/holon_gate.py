@@ -9,6 +9,8 @@ import argparse
 import hashlib
 import json
 import re
+import os
+import stat
 from pathlib import Path, PurePosixPath
 
 SHA = re.compile(r'^[0-9a-f]{40}$')
@@ -73,6 +75,51 @@ def verify_local_file(root, name, digest):
         return 'HASH_MATCH' if h.hexdigest() == digest else 'HASH_MISMATCH'
     except (OSError, ValueError, InvalidSnapshot):
         return 'UNAVAILABLE_OR_UNSAFE'
+
+
+def read_verified_local_file(root, name, digest, max_bytes=MAX_ARTIFACT):
+    """Return only SHA-256-verified bytes from one pinned file descriptor.
+
+    POSIX dirfd + O_NOFOLLOW traversal refuses symlink redirection. This is
+    local artifact integrity, NOT a signature or independent source proof.
+    Unsupported platforms fail closed.
+    """
+    if (not isinstance(name, str) or not isinstance(digest, str)
+            or DIGEST.fullmatch(digest) is None):
+        return 'NO_HASH_OR_FILE', None
+    if type(max_bytes) is not int or not 1 <= max_bytes <= MAX_ARTIFACT:
+        return 'UNAVAILABLE_OR_UNSAFE', None
+    if (not name or '\\' in name or ':' in name or name.startswith(('~', '/'))
+            or any(part in ('', '.', '..') for part in name.split('/'))):
+        return 'OUTSIDE_WORKSPACE', None
+    parts = PurePosixPath(name).parts
+    owned = []
+    try:
+        directory_flags = os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW
+        rootfd = os.open(str(Path(root).resolve(strict=True)), directory_flags)
+        owned.append(rootfd)
+        for part in parts[:-1]:
+            child = os.open(part, directory_flags, dir_fd=owned[-1])
+            owned.append(child)
+        filefd = os.open(parts[-1], os.O_RDONLY | os.O_NOFOLLOW, dir_fd=owned[-1])
+        owned.append(filefd)
+        info = os.fstat(filefd)
+        if not stat.S_ISREG(info.st_mode):
+            return 'UNAVAILABLE_OR_UNSAFE', None
+        if info.st_size > max_bytes:
+            return 'ARTIFACT_TOO_LARGE', None
+        with os.fdopen(os.dup(filefd), 'rb') as stream:
+            raw = stream.read(max_bytes + 1)
+        if len(raw) > max_bytes:
+            return 'ARTIFACT_TOO_LARGE', None
+        if hashlib.sha256(raw).hexdigest() != digest:
+            return 'HASH_MISMATCH', None
+        return 'HASH_MATCH', raw
+    except (OSError, ValueError, AttributeError):
+        return 'UNAVAILABLE_OR_UNSAFE', None
+    finally:
+        for fd in reversed(owned):
+            os.close(fd)
 
 
 def cycle_ids(by_id):
