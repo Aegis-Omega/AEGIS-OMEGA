@@ -117,7 +117,7 @@ def open_prs(quick=False):
     for page in range(1, 20):
         out = sh("gh", "api",
                  f"repos/{REPO}/pulls?state=open&per_page=100&page={page}",
-                 "--jq", "[.[] | {n: .number, t: .title, h: .head.ref, b: .base.ref, d: .created_at[:10], s: .head.sha}]")
+                 "--jq", "[.[] | {n: .number, t: .title, h: .head.ref, b: .base.ref, d: .created_at[:10], s: .head.sha, body: ((.body // \"\")[:8192])}]")
         if not out.strip():
             break  # Ambiguous final page or failed request: status stays UNKNOWN.
         try:
@@ -142,7 +142,7 @@ def open_prs(quick=False):
         # we read pages 2+. REST pagination is not an atomic transaction.
         refreshed = sh("gh", "api",
                        f"repos/{REPO}/pulls?state=open&per_page=100&page=1",
-                       "--jq", "[.[] | {n: .number, t: .title, h: .head.ref, b: .base.ref, d: .created_at[:10], s: .head.sha}]")
+                       "--jq", "[.[] | {n: .number, t: .title, h: .head.ref, b: .base.ref, d: .created_at[:10], s: .head.sha, body: ((.body // \"\")[:8192])}]")
         try:
             consistent = json.loads(refreshed) == first_page
         except (TypeError, ValueError):
@@ -332,14 +332,28 @@ def words(s):
 
 
 def overlaps(prs, query, limit=8):
+    """Advisory dedup: explicit local closing issue refs outrank title words.
+
+    The body field is untrusted author prose, not GitHub's verified
+    closingIssuesReferences graph. It indicates a possible overlap only.
+    """
     q = words(query)
-    if not q:
+    issue_ids = {int(x) for x in re.findall(r"(?<![\w/])#(\d+)\b", query)}
+    if not q and not issue_ids:
         return []
     scored = []
     for p in prs:
         hit = q & words(p["t"] + " " + p["h"])
-        if len(hit) >= 2 or (len(q) <= 2 and hit):
-            scored.append((len(hit), p, sorted(hit)))
+        body = p.get("body", "")
+        if not isinstance(body, str):
+            body = ""
+        closes = {int(x) for x in re.findall(
+            r"(?im)\b(?:close[sd]?|fix(?:es|ed)?|resolve[sd]?)\s+#(\d+)\b",
+            body)}
+        matching_issues = issue_ids & closes
+        if matching_issues or len(hit) >= 2 or (len(q) <= 2 and hit):
+            tags = sorted(hit) + [f"#{n}" for n in sorted(matching_issues)]
+            scored.append((len(hit) + 10 * len(matching_issues), p, tags))
     scored.sort(key=lambda x: (-x[0], -(x[1]["n"] or 0)))
     return scored[:limit]
 
