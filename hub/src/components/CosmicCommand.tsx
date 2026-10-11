@@ -13,11 +13,6 @@ const STARS = Array.from({length:90},(_,i)=>({
   x:(i*97+Math.floor(i/5)*17)%1000, y:(i*67+Math.floor(i/3)*41)%560,
   r:i%13===0?1.6:i%4===0?.8:.4, opacity:i%7===0?.78:.23+(i%4)*.08,
 }))
-const CARDS = [
- {n:'01',kind:'DISCOVER',title:'ResearchOS',desc:'Curated sources, open questions and research boundaries.',href:'/platform'},
- {n:'02',kind:'OPERATE',title:'Command system',desc:'Inspect observable state. Keep execution authority explicit.',href:'/console'},
- {n:'03',kind:'VERIFY',title:'Evidence spine',desc:'Understand what was tested and what remains unproven.',href:'/runtime'},
-] as const
 
 export function CosmicCommand() {
   const [mode,setMode] = useState<'atlas'|'evidence'>('atlas')
@@ -70,19 +65,6 @@ export function CosmicCommand() {
         <div className="cc-mode-note" aria-live="polite">{mode==='atlas'?'Select a node to open its real destination.':'Evidence is confirmed inside source records, not by this illustration.'}</div>
         <span className="cc-space-note cc-note-bottom">CONCEPT ART / NO LIVE TELEMETRY</span>
       </div>
-    </section>
-    <section className="cc-facts" aria-label="Operating principles">
-      <div><small>01 / DISCOVER</small><strong>Start with sources.</strong><p>Curated research and explicit limitations.</p></div>
-      <div><small>02 / OPERATE</small><strong>Authority is bounded.</strong><p>Human control over consequential actions.</p></div>
-      <div><small>03 / VERIFY</small><strong>Unknown stays unknown.</strong><p>No invented uptime, activity or results.</p></div>
-    </section>
-    <section className="cc-directory" aria-labelledby="cc-directory-title">
-      <header className="cc-directory-header"><span>AEGIS / THE WORKING SYSTEM</span><h2 id="cc-directory-title">Choose your frontier.</h2><p>Three actual entrypoints. One operating system.</p></header>
-      <div className="cc-cards">{CARDS.map(x=><a key={x.href} className="cc-card" href={x.href}>
-        <div className="cc-card-top"><span>{x.n} / {x.kind}</span><span aria-hidden="true">↗</span></div>
-        <div className="cc-card-orbit" aria-hidden="true"><span>{x.n}</span></div>
-        <h3>{x.title}</h3><p>{x.desc}</p><div className="cc-card-enter">OPEN INSTRUMENT <span aria-hidden="true">→</span></div>
-      </a>)}</div>
     </section>
   </div>
 }
