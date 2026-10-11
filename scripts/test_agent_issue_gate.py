@@ -256,6 +256,21 @@ class GateTests(unittest.TestCase):
         x = good(); x["check_runs"] = []
         self.fail_gate(x, "acceptance:A1")
 
+    def test_offline_snapshot_cli_never_reports_success(self):
+        import contextlib
+        import io
+        import tempfile
+        from agent_issue_gate import main
+        with tempfile.TemporaryDirectory() as d:
+            path = Path(d) / "forged-success.json"
+            path.write_text(json.dumps(good()), encoding="utf-8")
+            with contextlib.redirect_stdout(io.StringIO()) as capture:
+                exit_code = main(["--snapshot", str(path)])
+            result = json.loads(capture.getvalue())
+            self.assertEqual(result["disposition"], "EVIDENCE_COMPLETE_NOT_ADMITTED")
+            self.assertEqual(result["source"], "caller_supplied_UNTRUSTED")
+            self.assertEqual(exit_code, 2)
+
     def test_untrusted_input_not_remote_attestation(self):
         x = assess(good())
         self.assertEqual(x["source"], "caller_supplied_UNTRUSTED")
