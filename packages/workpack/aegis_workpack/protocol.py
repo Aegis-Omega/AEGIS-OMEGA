@@ -83,6 +83,19 @@ def _bounded_json_nesting(text):
     # Leave malformed syntax to json.loads for consistent error reporting.
 
 
+def _utf8_size(value):
+    """Require well-formed Unicode before canonical JSON or receipt encoding.
+
+    RFC 8259 allows escaped surrogate code units in its ABNF, but notes their
+    behaviour is unpredictable. We reject unpaired surrogates deterministically
+    rather than surfacing UnicodeEncodeError or converting them silently.
+    """
+    try:
+        return len(value.encode("utf-8"))
+    except UnicodeEncodeError as exc:
+        raise Invalid("JSON_UNPAIRED_SURROGATE") from exc
+
+
 def _bounded_json_tree(value, *, max_text_bytes=MAX_MANIFEST_BYTES):
     """Guard direct Python API input against deep/cyclic/non-JSON graphs.
 
@@ -105,13 +118,13 @@ def _bounded_json_tree(value, *, max_text_bytes=MAX_MANIFEST_BYTES):
             if isinstance(node, dict):
                 for key, child in node.items():
                     require(isinstance(key, str), "JSON_KEY_TYPE_INVALID")
-                    text_size += len(key.encode('utf-8'))
+                    text_size += _utf8_size(key)
                     stack.append((child, depth + 1))
             else:
                 require(type(node) is list, "JSON_VALUE_TYPE_INVALID")
                 stack.extend((child, depth + 1) for child in node)
         elif isinstance(node, str):
-            text_size += len(node.encode('utf-8'))
+            text_size += _utf8_size(node)
         elif node is None or type(node) in (bool, int, float):
             if type(node) is float:
                 require(math.isfinite(node), "NONFINITE_JSON")

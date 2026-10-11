@@ -127,3 +127,22 @@ The previous parser could crash with an uncaught `RecursionError` on ~60 KB of d
 The prior JSON decoder enforced maximum nesting depth but accepted more than the declared 50,000-node limit in flat arrays. A 100 KB file with 50,001 numeric entries passed `json_keys` despite a documented `MAX_JSON_NODES` cap in the direct-Python manifest path. Fixed by a quote-aware pre-parse lower-bound check (container openers and unquoted separators), followed by an exact iterative node count of the decoded graph. The parsed artifact text allowance remains 8 MiB; a legitimate 300 KB string document is still accepted. Existing manifests and receipts remain `NOT_ADMITTED` by default. This prevents a false positive and bounds **validated** JSON structure, but a third-party parser's peak memory before the post-parse check remains implementation-dependent; no full resource-limit attestation is claimed.
 
 External safety references: OWASP Input Validation Cheat Sheet, “Parse Safely, Then Validate” (https://cheatsheetseries.owasp.org/cheatsheets/Input_Validation_Cheat_Sheet.html); Python `json` implementation limitations (https://docs.python.org/3/library/json.html).
+
+## v0.11 — well-formed Unicode boundary (controlled denial)
+
+The v0.10 decoded-JSON validator called `str.encode('utf-8')` while estimating
+JSON node text size. A syntactically permitted but **unpaired escaped UTF-16
+surrogate** (`"\\ud800"` or `"\\udfff"`) therefore raised an unhandled
+`UnicodeEncodeError` from `read_json()` and printed a traceback instead of an
+ordinary JSON receipt from the CLI. It also bypassed the per-check error
+handler for `json_keys`, upgrading a single malformed artifact into a whole
+contract-processing error. This was reproduced against the exact v0.10
+source, then covered by seven subprocess, direct-API, JSON-check and positive
+Unicode regression tests.
+
+v0.11 rejects such strings and object keys explicitly with
+`JSON_UNPAIRED_SURROGATE`; complete UTF-16 surrogate pairs, correctly decoded
+Unicode code points, and ordinary UTF-8 remain supported. No Unicode repair,
+source authenticity claim, production admission, or authority expansion is
+implied. RFC 8259 §8.2 explicitly warns that lone UTF-16 surrogates have
+unpredictable interoperability: https://www.rfc-editor.org/rfc/rfc8259#section-8.2
