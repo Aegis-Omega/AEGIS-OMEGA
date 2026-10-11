@@ -268,7 +268,7 @@ def _trusted_check_origin(repo, pr, check, token):
         # job. Requiring overall success here creates a circular admission gate.
         if not (isinstance(path, str) and WORKFLOW_FILE.fullmatch(path)
                 and run.get("head_sha") == sha and run.get("event") == "pull_request"
-                and run.get("status") == "completed"
+                and run.get("status") in {"in_progress", "completed"}
                 and type(run.get("workflow_id")) is int and run["workflow_id"] > 0):
             return False
         job = _api(repo, f"actions/jobs/{job_id}", token)
