@@ -113,7 +113,7 @@
           "name": "p2"
         }
       ],
-      "updated_at": "2026-10-11T05:49:15Z"
+      "updated_at": "2026-10-11T22:52:28Z"
     },
     {
       "number": 757,
@@ -127,7 +127,7 @@
           "name": "p0"
         }
       ],
-      "updated_at": "2026-10-11T06:08:01Z"
+      "updated_at": "2026-10-11T22:49:39Z"
     },
     {
       "number": 756,
@@ -169,7 +169,7 @@
           "name": "p1"
         }
       ],
-      "updated_at": "2026-10-11T05:28:51Z"
+      "updated_at": "2026-10-11T22:37:49Z"
     },
     {
       "number": 753,
@@ -183,7 +183,7 @@
           "name": "p1"
         }
       ],
-      "updated_at": "2026-10-11T05:28:02Z"
+      "updated_at": "2026-10-11T22:37:47Z"
     },
     {
       "number": 752,
@@ -405,7 +405,7 @@
           "name": "epic"
         }
       ],
-      "updated_at": "2026-10-11T20:26:34Z"
+      "updated_at": "2026-10-11T22:52:26Z"
     },
     {
       "number": 531,
@@ -472,6 +472,6 @@
     }
   ],
   "complete_pages": true,
-  "acquisition": "EXPLICIT_OFFLINE_FIXTURE",
+  "acquisition": "GITHUB_READ_ONLY_API",
   "pages": 3
 }
