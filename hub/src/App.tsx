@@ -6,7 +6,7 @@ import { ClaimSponsorPage } from './components/ClaimSponsorPage.js'
 import { CompliancePage } from './components/CompliancePage.js'
 import { ConsolePage } from './components/console/ConsolePage.js'
 import { DocsPage } from './components/DocsPage.js'
-import { PlatformPage } from './components/PlatformPage.js'
+import { ResearchWorkbench } from './components/ResearchWorkbench.js'
 import { PricingPage } from './components/PricingPage.js'
 import { ToolsPage } from './components/ToolsPage.js'
 
@@ -19,7 +19,7 @@ export default function App() {
     case '/claim-sponsor': return <HolonRoute route="claim-sponsor"><ClaimSponsorPage /></HolonRoute>
     case '/compliance': return <HolonRoute route="compliance"><CompliancePage /></HolonRoute>
     case '/docs': return <HolonRoute route="docs"><DocsPage /></HolonRoute>
-    case '/platform': return <HolonRoute route="platform"><PlatformPage /></HolonRoute>
+    case '/platform': return <HolonRoute route="platform"><ResearchWorkbench /></HolonRoute>
     case '/console': return <HolonRoute route="console"><ConsolePage /></HolonRoute>
     case '/runtime': return <HolonRoute route="runtime"><AegisRuntime /></HolonRoute>
     case '/tools': return <HolonRoute route="tools"><ToolsPage /></HolonRoute>
