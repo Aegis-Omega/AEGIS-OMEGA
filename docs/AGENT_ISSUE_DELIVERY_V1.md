@@ -65,3 +65,12 @@ Anthropic 2026 agent evals and sequential/parallel/evaluator-optimizer selection
 ## Pilot metrics (10 heterogeneous existing Issues minimum)
 
 Compare duplicate-PR creation, false-positive completion, exact-head proof coverage, unverified evidence percentage, accepted outcome latency, cost and human intervention. If the full workflow is slower and no safer than a single-agent baseline, simplify it. Keep falsification cases in the regression suite. No auto-merge, hidden authority escalation, secrets or spend.
+
+## v1.1 hardening audit (2026-10-11)
+
+- The checker enforces `files_complete` before admitting path scope and checks `pr.state=open`.
+- PR head/base, draft status, description and Issue body/state/updated_at are read twice around the evidence fetch. Observable concurrent edits fail `PR_CHANGED_DURING_SNAPSHOT` or `ISSUE_CHANGED_DURING_SNAPSHOT`. A final API read is not a cross-system atomic transaction; the SHA is valid only for the observed snapshot.
+- Every PR body must include `AEGIS-WORK-CONTRACT-SHA256: <digest>`, computed over canonical JSON (`sort_keys=True`, UTF-8, compact separators, no NaN). The independent reviewer must reference the same digest in the approving review body. Issue amendments invalidate prior approvals even if the PR head did not change.
+- The read-only trusted-base job explicitly fails `TRUSTED_BASE_BOOTSTRAP_REQUIRED` until reviewed, signed source is installed on main. **Do not copy the verifier from the candidate PR into this privileged slot.** For this first PR, the normal protected-main process must establish the verifier. No bypass is allowed.
+- A success reported by a PR-authored workflow is not independently authoritative merely because its GitHub Actions check-run app ID is 15368. The trusted base, protected rulesets, and reviewer identities remain required. Only `NOT_ADMITTED` or `EVIDENCE_COMPLETE_NOT_ADMITTED` can be emitted.
+- The source and tests were replayed locally with Git blob SHA equality to this PR. Hosted CI failures with missing job steps are `NO_TEST_VERDICT`, not proven Python errors.
