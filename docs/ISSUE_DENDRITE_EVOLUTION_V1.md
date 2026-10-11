@@ -43,6 +43,12 @@ Every issue receives a distinct `AEGIS_ISSUE_EVOLUTION_CONTRACT_V1`:
   status or `main`. Even a perfect synthetic result only yields
   `NEEDS_INDEPENDENT_VERIFICATION`, never `ADMITTED`.
 
+One fully paginated 2026-10-12 API snapshot contains 37 open Issues and
+70 deduplicated between-open-Issue relations (19 dependencies, 20 parent
+links and 31 related references); 49 further relations point outside that
+open-Issue node set and remain unresolved. Issue text is not treated as
+evidence of completed work.
+
 The issue-to-dendrite bridge sends a short **informational** topic-specific
 summary into the *existing* `agents/dendrite_system.py` 19-node network.
 It never treats issue body/markdown as an executable prompt. Issues marked
@@ -78,6 +84,15 @@ python3 -m agents.issue_evolution graph \
 # 4. Simulated trial screens an implementation candidate; NOT admission.
 python3 -m agents.issue_evolution evaluate \
   --trial examples/issue_evolution_trial_SYNTHETIC.json
+
+# 5. Evolution round for EVERY issue, with negative-result memory,
+#    proposal families and cross-issue learning pointers (no promotion).
+#    Empty array means no trials yet, not that experiments succeeded.
+printf '[]\n' > /tmp/issue-trials-NONE.json
+python3 -m agents.issue_evolution round \
+  --graph /tmp/aegis_issue_evolution_graph.json \
+  --trials /tmp/issue-trials-NONE.json \
+  > /tmp/aegis_issue_evolution_round.json
 ```
 
 The synthesized holdout fixture deliberately uses dummy Git SHAs
@@ -85,6 +100,12 @@ The synthesized holdout fixture deliberately uses dummy Git SHAs
 It MUST NOT enter historical competence metrics or be described as a
 demonstrated optimization. The issue graph's node evolution contracts are
 **capabilities to plan and evaluate**, not realized autonomous evolution.
+A round produces seven deterministic, content-addressed NOT_EXECUTED
+improvement proposal families **per issue** and keeps all positive/negative
+trial screen receipts in the resulting JSON. Unverified outcomes may be
+forwarded across explicit issue links only as unverified learning pointers;
+even a statistically promising result cannot alter the skill registry or
+the existing adaptive lineage without independent outcome verification.
 
 ## Connections with existing work — no duplicate engines
 
@@ -106,7 +127,7 @@ demonstrated optimization. The issue graph's node evolution contracts are
 
 ## Current verification boundary
 
-The Python candidate's 34 falsifier tests are committed to
+The Python candidate's 42 falsifier tests are committed to
 `agents/tests/test_issue_evolution.py` and referenced by the **existing**
 Python CI job. Local synthetic/test-file presence and deterministic JavaScript
 independent issue-reference inventory checks must not be promoted to
