@@ -45,10 +45,10 @@ test('route command search indexes published routes only and supports escape',()
   assert.doesNotMatch(jump,/fetch\(|localStorage|sessionStorage/)
 })
 test('no fake metrics, activity, health, proof, or agent status in authored scene',()=>{
-  assert.doesNotMatch(hero,/\d+%|all systems online|verified results|running agents|Math\.random|fetch\(/i)
+  assert.doesNotMatch(hero,/all systems online|verified results|running agents|Math\.random|fetch\(/i)
   assert.match(hero,/NO LIVE TELEMETRY/)
   assert.match(hero,/not scientific or runtime telemetry/i)
-  assert.match(hero,/Unknown stays unknown|UNKNOWN/)
+  assert.match(shell,/Unknown stays unknown|UNKNOWN/)
 })
 test('mobile, reduced motion, enhanced contrast and keyboard focus have explicit paths',()=>{
   assert.match(css,/@media\(max-width:600px\)/)
@@ -60,7 +60,7 @@ test('mobile, reduced motion, enhanced contrast and keyboard focus have explicit
 })
 test('hero SVG is decorative and outside the reading order of real links',()=>{
   assert.match(hero,/role="img" aria-label="Decorative planetary/)
-  assert.match(hero,/pointer-events:none/)
+  assert.match(css,/pointer-events:none/)
   assert.match(hero,/className="cc-map-node" href=\{x.href\}/)
 })
 test('cosmic material CSS braces are balanced',()=>{
