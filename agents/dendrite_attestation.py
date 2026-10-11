@@ -202,6 +202,19 @@ def _read_secret(path: Path) -> bytes:
     return key
 
 
+
+def publish_for_pipeline(receipt: Mapping[str, Any], root: str | Path,
+                         *, key_file: str | Path | None = None,
+                         key_id: str | None = None) -> dict[str, Any]:
+    """Existing cognitive/revenue opt-in spool with optional relay authentication."""
+    if bool(key_file) != bool(key_id):
+        raise ValueError("RELAY_KEY_ARGUMENTS_INCOMPLETE")
+    if key_file:
+        return publish_attested(receipt, root, key_id=key_id,
+                                key=_read_secret(Path(key_file)))
+    return publish_local(receipt, root)
+
+
 def main() -> None:
     """Explicit local CLI: neither model calls nor authority decisions."""
     import argparse
