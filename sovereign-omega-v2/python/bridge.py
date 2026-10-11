@@ -665,6 +665,16 @@ class BridgeHandler(BaseHTTPRequestHandler):
                     self._respond(400, {'status': 'REJECTED', 'reason': 'SEQUENCE_DESYNC'})
                     return
 
+                # record_signal() deliberately returns None and may silently
+                # ignore a sealed gate or an old sequence. Never ACK a
+                # decision the governance gate has not actually accepted.
+                if gate.is_sealed:
+                    self._respond(409, {'status': 'REJECTED', 'reason': 'GATE_SEALED'})
+                    return
+                if seq <= gate.last_sequence():
+                    self._respond(409, {'status': 'REJECTED', 'reason': 'GATE_SEQUENCE_DESYNC'})
+                    return
+
                 # Write non-authoritative M2 telemetry first. If that fails,
                 # do not apply a governance gate decision or acknowledge seq.
                 matrix.receive_gate_signal(proposal_id, accepted, seq)
@@ -674,6 +684,12 @@ class BridgeHandler(BaseHTTPRequestHandler):
                     accepted=accepted,
                     lcb=lcb,
                 ))
+                if gate.last_sequence() != seq:
+                    # Gate can be sealed by another thread after the precheck,
+                    # or advanced by a competing producer. ACK must fail closed.
+                    # M2 telemetry is not rolled back by this check.
+                    self._respond(409, {'status': 'REJECTED', 'reason': 'GATE_NOT_APPLIED'})
+                    return
                 last_ack_sequence = seq
             self._respond(200, {'status': 'ACK', 'sequence': seq})
 
