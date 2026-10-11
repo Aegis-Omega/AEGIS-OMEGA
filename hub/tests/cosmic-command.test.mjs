@@ -76,3 +76,27 @@ test('cosmic material CSS braces are balanced',()=>{
   }
   assert.equal(depth,0)
 })
+
+test('mobile header preserves real menu and search before optional CTA at 320px',()=>{
+  assert.match(css,/Mobile navigation budget \/ 320px/)
+  assert.match(css,/\.hg-site \.hg-menu-toggle\{display:block;flex:none\}/)
+  assert.match(css,/\.hg-site \.hg-nav-cta\{display:none\}/)
+  assert.match(jump,/aria-haspopup="dialog"/)
+  assert.match(jump,/aria-modal="false"/)
+  assert.match(jump,/trigger\.current\?\.focus\(\)/)
+  assert.match(jump,/query\.trim\(\)!==''/)
+})
+test('white primary button text clears WCAG AA contrast at both gradient stops',()=>{
+  const primary=css.match(/\.hg-site :is\(\.hg-btn-primary,\.cc-cta-primary\)\{([^}]+)\}/)?.[1]??''
+  const stops=primary.match(/background:linear-gradient\(130deg,(#[0-9a-f]{6}),(#[0-9a-f]{6})\)/i)
+  assert.ok(stops,'Two endpoint gradient colors must be explicit')
+  const luminance=hex=>{
+    const [r,g,b]=[1,3,5].map(i=>parseInt(hex.slice(i,i+2),16)/255)
+      .map(v=>v<=.04045?v/12.92:Math.pow((v+.055)/1.055,2.4))
+    return r*.2126+g*.7152+b*.0722
+  }
+  for(const stop of stops.slice(1)){
+    const contrast=1.05/(luminance(stop)+.05)
+    assert.ok(contrast>=4.5,'Primary text contrast failed at '+stop+': '+contrast)
+  }
+})
