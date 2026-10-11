@@ -166,6 +166,16 @@ class LocalMailboxTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "MAILBOX_ROOT_MUST_BE_ABSOLUTE"):
             publish_local(source_record(), Path("relative-untrusted-mailbox"))
 
+
+    def test_replay_orders_by_source_sequence_not_filename_hash(self):
+        r = {"source": "formal", "source_head": HEAD, "source_record": RECORD,
+             "sequence": 0, "text": "Evidence observation", "channel": "CANDIDATE"}
+        from agents.dendrite_system import from_source_record
+        publish_local(from_source_record(dict(r, sequence=1)), self.root)
+        publish_local(from_source_record(r), self.root)
+        packets = read_local(self.root, "engineering")
+        self.assertEqual([p["envelope"]["sequence"] for p in packets], [0, 1])
+
     def test_read_only_no_agent_execution(self):
         publish_local(source_record(), self.root)
         packet = read_local(self.root, "engineering")[0]
