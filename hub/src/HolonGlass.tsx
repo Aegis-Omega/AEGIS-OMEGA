@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type ReactNode, type ChangeEvent } from 'react'
 import './holon-glass.css'
 import { MAX_ARTIFACT_SIZE, verifyArtifactBytes } from './lib/artifactIntegrity.js'
+import { shouldDismissDisclosure } from './lib/disclosure.js'
 
 /**
  * AEGIS Ω | HOLON GLASS — one optical / navigational system for the hub.
@@ -58,8 +59,7 @@ function Nav({ path = '/' }: { path?: string }) {
     const outside = (event: PointerEvent | FocusEvent) => {
       const target = event.target
       if (!(target instanceof Node)) return
-      if (menuRef.current?.contains(target) || menuToggleRef.current?.contains(target)) return
-      setOpen(false)
+      if (shouldDismissDisclosure(target, menuRef.current, menuToggleRef.current)) setOpen(false)
     }
     // A navigation disclosure is not a focus trap: tapping elsewhere or
     // tabbing out dismisses it without stealing the destination's focus.
