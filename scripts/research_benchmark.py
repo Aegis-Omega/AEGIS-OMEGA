@@ -192,6 +192,7 @@ def report(legacy_source: str | None = None) -> dict:
         'negative_cases':sum(not c[2] for c in trials),
         'mutation_families':len(ALL_CLASSES), 'repetitions_per_family':5,
         'held_out':'NO', 'independent_human_labels':'NO',
+        'wilson_intervals':'DESCRIPTIVE_ONLY_NONINDEPENDENT_REPEATED_FAMILIES',
         'genuine_external_web_observation':'NO', 'model_or_agent_competitor':'NO',
         'task_completion_measure':'NOT_MEASURED',
         'label_definition':'Synthetically known structural readiness, NOT claim truth'},
