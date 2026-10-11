@@ -651,6 +651,7 @@ class TestM2LayoutDiagnosticGate(unittest.TestCase):
         helper_names = {
             "_gate_peer_is_loopback", "_gate_unique_json_members",
             "_gate_reject_non_json_constant", "_gate_json_depth_is_bounded",
+            "_gate_has_unicode_noncharacter",
         }
         helpers = [
             copy.deepcopy(node) for node in self.bridge_tree.body
@@ -755,6 +756,12 @@ class TestM2LayoutDiagnosticGate(unittest.TestCase):
             ({}, b'{"sequence":1,"accepted":true,"lcb":0.5,"proposal_id":"\ud800"}',
              400, "GATE_JSON_INVALID", 1),
             ({}, b'{"sequence":1,"accepted":true,"lcb":0.5,"extra":{"\udfff":1}}',
+             400, "GATE_JSON_INVALID", 1),
+            ({}, b'{"sequence":1,"accepted":true,"lcb":0.5,"proposal_id":"\ufdd0"}',
+             400, "GATE_JSON_INVALID", 1),
+            ({}, b'{"sequence":1,"accepted":true,"lcb":0.5,"extra":{"\ufffe":1}}',
+             400, "GATE_JSON_INVALID", 1),
+            ({}, b'{"sequence":1,"accepted":true,"lcb":0.5,"extra":["\udbff\udfff"]}',
              400, "GATE_JSON_INVALID", 1),
             ({}, b"[" * 1100 + b"0" + b"]" * 1100,
              400, "GATE_JSON_INVALID", 1),
