@@ -59,23 +59,14 @@ def path_overlaps(a, b):
 
 
 def verify_local_file(root, name, digest):
-    if not isinstance(name, str) or not DIGEST.fullmatch(str(digest)):
-        return 'NO_HASH_OR_FILE'
-    try:
-        path_tokens(name)
-        target = (root / name).resolve(strict=True)
-        if not target.is_relative_to(root.resolve()) or not target.is_file():
-            return 'OUTSIDE_WORKSPACE'
-        if target.stat().st_size > MAX_ARTIFACT:
-            return 'ARTIFACT_TOO_LARGE'
-        h = hashlib.sha256()
-        with target.open('rb') as stream:
-            for chunk in iter(lambda: stream.read(1024 * 1024), b''):
-                h.update(chunk)
-        return 'HASH_MATCH' if h.hexdigest() == digest else 'HASH_MISMATCH'
-    except (OSError, ValueError, InvalidSnapshot):
-        return 'UNAVAILABLE_OR_UNSAFE'
+    """Verify one artifact through the pinned, no-symlink file descriptor.
 
+    A path-based resolve/stat/open sequence can accept in-root symlinks and
+    races with a concurrent rename. Share the descriptor-based integrity
+    boundary with frontier_review rather than maintaining two trust models.
+    """
+    status, _ = read_verified_local_file(root, name, digest)
+    return status
 
 def read_verified_local_file(root, name, digest, max_bytes=MAX_ARTIFACT):
     """Return only SHA-256-verified bytes from one pinned file descriptor.
