@@ -563,12 +563,21 @@ class BridgeHandler(BaseHTTPRequestHandler):
                 raw_body = self.rfile.read(int(raw_length))
                 if not _gate_json_depth_is_bounded(raw_body):
                     raise ValueError("gate JSON depth exceeds limit")
+                # RFC 8259 section 8.1: network JSON is UTF-8.
+                # Decoding bytes directly with json.loads also accepts
+                # UTF-16/UTF-32 with a BOM; do not allow alternate encodings
+                # at this authority boundary.
                 data = json.loads(
-                    raw_body,
+                    raw_body.decode('utf-8', errors='strict'),
                     object_pairs_hook=_gate_unique_json_members,
                     parse_constant=_gate_reject_non_json_constant,
                 )
-            except (ValueError, UnicodeDecodeError, RecursionError):
+                # Python accepts isolated Unicode surrogate escape sequences,
+                # and exponent overflow can produce nonfinite floats. An
+                # unescaped UTF-8 round-trip with allow_nan=False rejects
+                # both at any nesting depth, including object member names.
+                json.dumps(data, ensure_ascii=False, allow_nan=False).encode('utf-8')
+            except (ValueError, UnicodeError, RecursionError):
                 self._respond(400, {'status': 'REJECTED', 'reason': 'GATE_JSON_INVALID'})
                 return
             if type(data) is not dict:
