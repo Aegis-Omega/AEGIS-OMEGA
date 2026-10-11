@@ -23,6 +23,9 @@ PYTHON = ROOT / "sovereign-omega-v2" / "python"
 SOURCES = (
     "sovereign-omega-v2/python/core_matrix.py",
     "sovereign-omega-v2/python/bridge.py",
+    # Source-bound ingress/governance tests compile the *frozen* gate.py class.
+    # Omitting this dependency from receipts makes exact-head evidence incomplete.
+    "sovereign-omega-v2/python/gate.py",
     "sovereign-omega-v2/python/tests/fixtures/m2_sequence_domain_contract.json",
     "sovereign-omega-v2/python/tests/fixtures/M2_Ring_Design_Review_2026-10-11.md",
     "sovereign-omega-v2/python/tests/test_m2_layout_diagnostic.py",
