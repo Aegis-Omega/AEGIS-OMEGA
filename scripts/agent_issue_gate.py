@@ -104,10 +104,11 @@ def assess(snapshot):
                             and "pull_request" not in issue, "ISSUE_NOT_OPEN_OR_IS_PR"))
         scope = c["scope"]
         filenames = snapshot.get("changed_files")
-        scope_ok = isinstance(filenames, list) and len(filenames) > 0 and all(
+        scope_ok = snapshot.get("files_complete") is True and isinstance(filenames, list) and len(filenames) > 0 and all(
             isinstance(f, str) and any(fnmatch.fnmatchcase(f, pattern) for pattern in scope)
             for f in filenames)
-        gates.append(_check("declared_scope", scope_ok, "UNBOUND_OR_OUT_OF_SCOPE_DIFF"))
+        gates.append(_check("declared_scope", scope_ok, "INCOMPLETE_OR_OUT_OF_SCOPE_DIFF"))
+        gates.append(_check("pr_open", pr.get("state") == "open", "PR_NOT_OPEN"))
         checks = snapshot.get("check_runs")
         complete = isinstance(checks, list) and snapshot.get("checks_complete") is True
         if not complete:
@@ -190,7 +191,21 @@ def live_snapshot(repo, number, token):
     reviews = _api(repo, f"pulls/{number}/reviews?per_page=100", token)
     commits = _api(repo, f"pulls/{number}/commits?per_page=100", token)
     files = _api(repo, f"pulls/{number}/files?per_page=100", token)
-    return {"source": "github_api_live_read_only", "repo": repo, "pr": pr, "issue": issue,
+    # Detect a moving PR head, altered acceptance contract or changed approval surface.
+    # A read-only API sequence is not an atomic snapshot; fail closed on observable drift.
+    latest_pr = _api(repo, f"pulls/{number}", token)
+    latest_issue = _api(repo, f"issues/{int(links[0])}", token)
+    pr_fields = (("head", "sha"), ("base", "ref"))
+    require(all(pr.get(outer, {}).get(inner) == latest_pr.get(outer, {}).get(inner)
+                for outer, inner in pr_fields)
+            and pr.get("body") == latest_pr.get("body")
+            and pr.get("draft") == latest_pr.get("draft")
+            and pr.get("state") == latest_pr.get("state"), "PR_CHANGED_DURING_SNAPSHOT")
+    require(issue.get("body") == latest_issue.get("body")
+            and issue.get("state") == latest_issue.get("state")
+            and issue.get("updated_at") == latest_issue.get("updated_at"),
+            "ISSUE_CHANGED_DURING_SNAPSHOT")
+    return {"source": "github_api_live_read_only", "repo": repo, "pr": latest_pr, "issue": latest_issue,
             "check_runs": data.get("check_runs", []),
             "checks_complete": data.get("total_count") == len(data.get("check_runs", [])),
             "reviews": reviews, "reviews_complete": isinstance(reviews, list) and len(reviews) < 100,
@@ -211,6 +226,8 @@ def main(argv=None):
         if args.snapshot:
             with open(args.snapshot, encoding="utf-8") as f:
                 snap = json.load(f)
+            require(isinstance(snap, dict), "SNAPSHOT_INVALID")
+            snap["source"] = "caller_supplied_UNTRUSTED"
         else:
             snap = live_snapshot(args.repo, args.live_pr, os.environ.get("GITHUB_TOKEN", ""))
         result = assess(snap)
