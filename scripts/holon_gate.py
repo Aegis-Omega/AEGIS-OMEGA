@@ -8,7 +8,6 @@ Usage: python3 scripts/holon_gate.py --input snapshot.json --actor GPT-6 --root 
 import argparse
 import hashlib
 import json
-import os
 import re
 from pathlib import Path, PurePosixPath
 
@@ -64,26 +63,26 @@ def verify_local_file(root, name, digest):
 
 
 def cycle_ids(by_id):
-    state = {}
-    cycles = set()
-    stack = []
+    """Iterative Kahn pruning; conservatively block cycles and descendants.
 
-    def visit(t):
-        if state.get(t) == 2:
-            return
-        if state.get(t) == 1:
-            cycles.update(stack[stack.index(t):])
-            return
-        state[t] = 1
-        stack.append(t)
-        for dep in by_id[t]['depends_on']:
-            visit(dep)
-        stack.pop()
-        state[t] = 2
-
-    for tid in sorted(by_id):
-        visit(tid)
-    return cycles
+    No recursion-depth failure for large issue DAGs. A dependent of a cyclic
+    task cannot be scheduled even if the descendant itself is not on the loop.
+    """
+    remaining = {i: len(t['depends_on']) for i, t in by_id.items()}
+    children = {i: [] for i in by_id}
+    for i, t in by_id.items():
+        for dependency in t['depends_on']:
+            children[dependency].append(i)
+    queue = sorted(i for i, count in remaining.items() if count == 0)
+    position = 0
+    while position < len(queue):
+        known = queue[position]
+        position += 1
+        for child in children[known]:
+            remaining[child] -= 1
+            if remaining[child] == 0:
+                queue.append(child)
+    return {i for i, count in remaining.items() if count > 0}
 
 
 def validate(snapshot):
@@ -157,6 +156,8 @@ def evaluate(snapshot, root, actor):
         sub = submissions.get(tid)
         evidence = 'NO_SUBMISSION'
         if sub:
+            if owner and sub['author'] != owner:
+                reasons.append('SUBMISSION_NOT_FROM_CLAIM_OWNER')
             evidence = verify_local_file(root, sub.get('artifact_file'), sub.get('artifact_sha256'))
             if evidence != 'HASH_MATCH':
                 reasons.append('ARTIFACT_NOT_REPLAYED')
@@ -180,7 +181,7 @@ def evaluate(snapshot, root, actor):
                      else 'BLOCKED' if reasons and any(r in reasons for r in (
                          'CYCLIC_DEPENDENCY', 'DEPENDENCIES_NOT_INDEPENDENTLY_ADMITTED', 'TASK_REPORTED_BLOCKED'))
                      else 'REVIEW_READY_NOT_ADMITTED' if sub and evidence == 'HASH_MATCH' and
-                         all(r not in reasons for r in ('TEST_EVIDENCE_MISSING_OR_STALE', 'INDEPENDENT_REVIEW_NOT_RECORDED'))
+                         all(r not in reasons for r in ('TEST_EVIDENCE_MISSING_OR_STALE', 'INDEPENDENT_REVIEW_NOT_RECORDED', 'SUBMISSION_NOT_FROM_CLAIM_OWNER'))
                      else 'AVAILABLE' if not reasons else 'EVIDENCE_NEEDED')
         result.append({'id': tid, 'priority': t['priority'], 'assigned_to': owner,
                        'readiness': readiness, 'evidence': evidence,
