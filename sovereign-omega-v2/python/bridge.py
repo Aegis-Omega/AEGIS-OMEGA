@@ -478,6 +478,36 @@ def _gate_reject_non_json_constant(value):
     raise ValueError("non-JSON numeric literal")
 
 
+def _gate_json_depth_is_bounded(raw: bytes, max_depth: int = 32) -> bool:
+    """Bound array/object nesting before parsing; ignore delimiters in strings.
+
+    This is a structural depth guard, not an independent JSON validator.
+    json.loads still performs syntax validation and duplicate-key rejection.
+    """
+    depth = 0
+    quoted = False
+    escaped = False
+    for char in raw:
+        if quoted:
+            if escaped:
+                escaped = False
+            elif char == 92:  # backslash
+                escaped = True
+            elif char == 34:  # double quote
+                quoted = False
+        elif char == 34:
+            quoted = True
+        elif char in (91, 123):  # opening bracket / brace
+            depth += 1
+            if depth > max_depth:
+                return False
+        elif char in (93, 125):  # closing bracket / brace
+            depth -= 1
+            if depth < 0:
+                return False
+    return not quoted and depth == 0
+
+
 def _gate_peer_is_loopback(client_address) -> bool:
     """Fail closed for unauthenticated gate ingress, ignoring forwarded headers.
 
@@ -530,8 +560,11 @@ class BridgeHandler(BaseHTTPRequestHandler):
                 self._respond(413, {'status': 'REJECTED', 'reason': 'GATE_BODY_BOUNDS'})
                 return
             try:
+                raw_body = self.rfile.read(int(raw_length))
+                if not _gate_json_depth_is_bounded(raw_body):
+                    raise ValueError("gate JSON depth exceeds limit")
                 data = json.loads(
-                    self.rfile.read(int(raw_length)),
+                    raw_body,
                     object_pairs_hook=_gate_unique_json_members,
                     parse_constant=_gate_reject_non_json_constant,
                 )
