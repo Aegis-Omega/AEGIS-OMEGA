@@ -342,7 +342,8 @@
   .hg-nav{gap:10px;padding-inline:16px;height:68px}
   .hg-brand-word strong{font-size:14px;letter-spacing:.1em}
   .hg-brand-word small{font-size:10px}
-  .hg-nav-cta{min-height:43px;font-size:11px}
+  .hg-nav-cta{font-size:0;min-width:44px;width:44px;height:44px;padding:0 10px;flex:none}
+  .hg-nav-cta svg{width:17px;height:17px}
   .hg-menu-toggle{min-width:44px;min-height:44px}
   .hg-content{padding-inline:20px}
   .hg-hero{padding-top:50px;padding-bottom:40px}
