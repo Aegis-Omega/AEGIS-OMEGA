@@ -43,7 +43,7 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '22.16.0'
-      - name: Run all seven distinct native Edge contract suites
+      - name: Run all eight distinct native Edge contract suites
         shell: bash
         run: |
           set -euo pipefail
@@ -55,7 +55,8 @@ jobs:
             supabase/functions/agent/tests/purchase-scope.test.mjs \
             supabase/functions/agent/tests/evidence-bound-purchases.test.mjs \
             supabase/functions/agent/tests/strict-limit.test.mjs \
-            supabase/functions/slack-events/tests/plain-text.test.mjs
+            supabase/functions/slack-events/tests/plain-text.test.mjs \
+            supabase/functions/slack-events/tests/ack-evidence.test.mjs
 
   postgres-outbox-integration:
     name: aegis / postgres-outbox-integration
