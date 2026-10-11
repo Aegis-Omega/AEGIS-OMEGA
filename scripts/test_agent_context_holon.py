@@ -510,6 +510,59 @@ class HolonContextTests(unittest.TestCase):
             self.assertEqual(ctx.verify_main_freshness(quick=True),
                              {"state": "UNVERIFIED_QUICK", "sha": None})
 
+    def test_failed_fetch_keeps_stale_sha_only_under_local_main(self):
+        out = io.StringIO()
+        def git_report(*args, **kwargs):
+            if args[:3] == ("git", "log", "-1"):
+                return ("deadbee 2026-10-01" if "--format=%h %cs" in args
+                        else "1790812800")
+            if args[:2] == ("git", "rev-list"):
+                return "2"
+            return ""
+        with patch.object(ctx, "sh", side_effect=git_report), \
+             patch.object(ctx, "verify_main_freshness",
+                          return_value={"state": "FETCH_FAILED", "sha": None}), \
+             patch.object(ctx, "open_prs", return_value=([], "unavailable")), \
+             patch.object(ctx, "open_issue_board", return_value=([], "unavailable")), \
+             patch.object(ctx, "existing_code", return_value=[]), \
+             patch.object(sys, "argv", ["agent_context.py", "--json", "#734"]), \
+             contextlib.redirect_stdout(out):
+            ctx.main()
+        receipt = json.loads(out.getvalue())
+        self.assertIsNone(receipt["main"])
+        self.assertIsNone(receipt["main_exact_sha"])
+        self.assertIsNone(receipt["main_date"])
+        self.assertIsNone(receipt["main_age_days"])
+        self.assertIsNone(receipt["behind_main"])
+        self.assertEqual(receipt["local_main"], "deadbee")
+        self.assertEqual(receipt["local_behind_main"], "2")
+        self.assertEqual(receipt["holon_disposition"], "HOLD_UNVERIFIED_MAIN")
+
+    def test_successful_exact_fetch_exposes_verified_main_with_provenance(self):
+        out = io.StringIO()
+        def git_report(*args, **kwargs):
+            if args[:3] == ("git", "log", "-1"):
+                return ("aaaaaaa 2026-10-01" if "--format=%h %cs" in args
+                        else "1790812800")
+            if args[:2] == ("git", "rev-list"):
+                return "2"
+            return ""
+        with patch.object(ctx, "sh", side_effect=git_report), \
+             patch.object(ctx, "verify_main_freshness",
+                          return_value={"state": "FRESH", "sha": "a" * 40}), \
+             patch.object(ctx, "open_prs", return_value=([], "github")), \
+             patch.object(ctx, "open_issue_board", return_value=([], "github")), \
+             patch.object(ctx, "existing_code", return_value=[]), \
+             patch.object(sys, "argv", ["agent_context.py", "--json", "#734"]), \
+             contextlib.redirect_stdout(out):
+            ctx.main()
+        receipt = json.loads(out.getvalue())
+        self.assertEqual(receipt["main"], "aaaaaaa")
+        self.assertEqual(receipt["main_exact_sha"], "a" * 40)
+        self.assertEqual(receipt["main_date"], "2026-10-01")
+        self.assertEqual(receipt["behind_main"], "2")
+        self.assertEqual(receipt["local_main"], "aaaaaaa")
+
     def test_json_does_not_claim_zero_on_disconnected_github(self):
         buf = io.StringIO()
         with patch.object(ctx, "sh", return_value=""), \
