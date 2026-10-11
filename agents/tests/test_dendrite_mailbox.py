@@ -140,5 +140,39 @@ class LocalMailboxTests(unittest.TestCase):
         self.assertFalse((self.root / "finance").exists())
 
 
+    def test_cli_publish_to_separate_read(self):
+        path = Path(self.workspace.name) / "source.json"
+        source = {"source": "formal", "source_head": HEAD, "source_record": RECORD,
+                  "sequence": 0, "text": "Cross-process Lean evidence", "channel": "CANDIDATE"}
+        path.write_text(json.dumps(source), encoding="utf-8")
+        publish = subprocess.run(
+            [sys.executable, "-m", "agents.dendrite_mailbox", "publish",
+             str(path), "--root", str(self.root)],
+            capture_output=True, text=True, timeout=12,
+        )
+        self.assertEqual(publish.returncode, 0, publish.stderr)
+        summary = json.loads(publish.stdout)
+        self.assertGreater(summary["written"], 0)
+        read = subprocess.run(
+            [sys.executable, "-m", "agents.dendrite_mailbox", "read",
+             "engineering", "--root", str(self.root)],
+            capture_output=True, text=True, timeout=12,
+        )
+        self.assertEqual(read.returncode, 0, read.stderr)
+        self.assertEqual(json.loads(read.stdout)[0]["envelope"]["text"],
+                         "Cross-process Lean evidence")
+
+    def test_reject_relative_root(self):
+        with self.assertRaisesRegex(ValueError, "MAILBOX_ROOT_MUST_BE_ABSOLUTE"):
+            publish_local(source_record(), Path("relative-untrusted-mailbox"))
+
+    def test_read_only_no_agent_execution(self):
+        publish_local(source_record(), self.root)
+        packet = read_local(self.root, "engineering")[0]
+        self.assertEqual(packet["authority_effect"], "NONE")
+        self.assertEqual(packet["execution_effect"], "NONE")
+        self.assertEqual(packet["source_authenticity"], "NOT_VERIFIED")
+
+
 if __name__ == "__main__":
     unittest.main()
