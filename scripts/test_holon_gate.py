@@ -86,6 +86,19 @@ class UniversalHolonTests(unittest.TestCase):
                 self.assertNotEqual(result['readiness'], 'REVIEW_READY_NOT_ADMITTED')
                 self.assertEqual(self.audit()['admitted_tasks'], 0)
 
+    def test_active_claim_requires_nonempty_owner(self):
+        # A missing owner cannot reserve a shared task for an invisible agent.
+        for state in ('CLAIMED', 'IN_PROGRESS', 'REVIEW'):
+            for invalid_owner in (None, '', '   ', 123):
+                with self.subTest(state=state, owner=invalid_owner):
+                    self.base['tasks'][0]['state'] = state
+                    self.base['tasks'][0]['claimed_by'] = invalid_owner
+                    with self.assertRaises(h.InvalidSnapshot):
+                        self.audit()
+        self.base['tasks'][0]['state'] = 'CLAIMED'
+        self.base['tasks'][0]['claimed_by'] = 'Claude'
+        self.assertEqual(self.audit(actor='Claude')['tasks'][0]['assigned_to'], 'Claude')
+
     def test_stale_test_sha_not_proof(self):
         self.base['submissions'] = [self.sub(tests=[{'source_sha':'b'*40, 'result':'PASS'}])]
         self.assertIn('TEST_EVIDENCE_MISSING_OR_STALE', self.audit()['tasks'][0]['blockers'])
