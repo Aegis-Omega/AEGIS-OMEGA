@@ -617,7 +617,10 @@ class BridgeHandler(BaseHTTPRequestHandler):
             # Guard ALL externally supplied gate fields before M2, the gate,
             # and ACK. A JSON array used as proposal_id is unhashable, and
             # record_signal mutates its window *before* indexing that id.
-            if type(proposal_id) is not str:
+            # The frozen MutationGate only records a proposal verdict when
+            # proposal_id is truthy. ACKing an empty/whitespace identifier
+            # would consume the sequence with no addressable decision.
+            if type(proposal_id) is not str or not proposal_id.strip():
                 self._respond(400, {'status': 'REJECTED', 'reason': 'INVALID_PROPOSAL_ID'})
                 return
 
