@@ -17,7 +17,7 @@ def source(sid, url, t='2026-10-10T00:00:00Z'):
     content = 'Summary of published behavior for source ' + sid
     return {'id': sid, 'url': url, 'captured_at': t, 'content': content,
             'sha256': hashlib.sha256(content.encode()).hexdigest(),
-            'acquisition': 'manual_note'}
+            'acquisition': 'connector_capture'}
 
 
 def packet():
@@ -86,6 +86,28 @@ class ResearchScoutTests(unittest.TestCase):
 
     def test_future_source_rejected(self):
         self.reject(lambda q: q['sources'][0].update(captured_at='2026-11-01T00:00:00Z'), 'FUTURE_SOURCE')
+
+    def test_two_manual_notes_cannot_be_ready(self):
+        q = packet()
+        for s in q['sources']:
+            s['acquisition'] = 'manual_note'
+        r = evaluate(q)['proposals'][0]
+        self.assertEqual(r['status'], 'NEEDS_RESEARCH')
+        self.assertEqual(r['reason'], 'INSUFFICIENT_CAPTURE_EVIDENCE')
+        self.assertEqual(r['collected_source_count'], 0)
+
+    def test_one_collected_plus_manual_cannot_be_ready(self):
+        q = packet()
+        q['sources'][1]['acquisition'] = 'manual_note'
+        r = evaluate(q)['proposals'][0]
+        self.assertEqual(r['status'], 'NEEDS_RESEARCH')
+        self.assertEqual(r['collected_source_count'], 1)
+
+    def test_two_distinct_captures_can_only_be_test_ready(self):
+        r = evaluate(packet())
+        self.assertEqual(r['proposals'][0]['status'], 'READY_FOR_INDEPENDENT_TEST')
+        self.assertEqual(r['external_claim_verification'], 'NOT_PERFORMED')
+        self.assertEqual(r['benchmark_superiority'], 'NOT_ESTABLISHED')
 
     def test_source_tamper_rejected(self):
         self.reject(lambda q: q['sources'][0].update(content='Altered claim, unchanged hash'), 'SOURCE_DIGEST_MISMATCH')
