@@ -13,7 +13,11 @@ import hashlib
 import http.client
 import ipaddress
 import json
+import os
+from pathlib import Path
 import re
+import subprocess
+import sys
 import socket
 import ssl
 from urllib.parse import urlsplit
@@ -23,6 +27,9 @@ from research_attestation import sign_capture, read_protected_key, AttestationEr
 MAX_RESPONSE = 131072
 MAX_EXCERPT = 16000
 TIMEOUT = 8
+DEFAULT_TOTAL_DEADLINE_SECONDS = 20
+MAX_TOTAL_DEADLINE_SECONDS = 120
+MAX_WORKER_STDOUT = 100000
 AGENT = 'AEGIS-UWP-ResearchSnapshot/1.0'
 HOST = re.compile(r'^[a-z0-9](?:[a-z0-9.-]*[a-z0-9])?$')
 
@@ -258,12 +265,133 @@ def packet_source(snapshot: dict, source_id: str) -> dict:
             **({'capture_receipt': snapshot} if 'attestation' in snapshot else {})}
 
 
+
+# The worker is a child Python process, not a thread. The supervisor can kill
+# DNS, TLS and slow-body stalls; socket timeout alone is only per-operation.
+# -I ignores PYTHONPATH and other Python-specific environment injection. The
+# module directory is inserted explicitly so sibling imports work.
+_WORKER_BOOTSTRAP = (
+    'import sys, os, json; '
+    'source = sys.argv[1]; sys.path.insert(0, os.path.dirname(source)); '
+    'from research_collector import _capture_child_request; '
+    'record = _capture_child_request(json.loads(sys.argv[2])); '
+    'sys.stdout.write(json.dumps(record, sort_keys=True, ensure_ascii=False))'
+)
+
+
+def _capture_child_request(request: dict) -> dict:
+    """No public CLI bypass: child is reached only by a supervisor-launched code path.
+
+    This is not a sandbox for someone already able to execute arbitrary Python
+    or import acquire(). Workload authorization must live outside this process.
+    """
+    allowed = {'url', 'hosts', 'key_file', 'key_id', 'binding'}
+    if type(request) is not dict or set(request) != allowed:
+        raise CaptureDenied('INVALID_WORKER_REQUEST')
+    url, hosts = request['url'], request['hosts']
+    if type(hosts) is not list or not 1 <= len(hosts) <= 8 or any(
+            type(h) is not str or not HOST.fullmatch(h) for h in hosts):
+        raise CaptureDenied('INVALID_HOST_ALLOWLIST')
+    target(url, tuple(hosts))
+    key_file, key_id, binding = request['key_file'], request['key_id'], request['binding']
+    if key_file is not None:
+        if type(key_file) is not str or not key_file or not isinstance(key_id,str):
+            raise CaptureDenied('INVALID_WORKER_SIGNER')
+        _binding(binding)
+        key = read_protected_key(key_file)
+    else:
+        if key_id is not None or binding is not None:
+            raise CaptureDenied('INVALID_WORKER_SIGNER')
+        key = None
+    return acquire(url, tuple(hosts), signing_key=key,
+                   signing_key_id=key_id, capture_binding=binding)
+
+
+def _deadline_value(value: int) -> int:
+    if type(value) is not int or not (1 <= value <= MAX_TOTAL_DEADLINE_SECONDS):
+        raise CaptureDenied('INVALID_TOTAL_DEADLINE')
+    return value
+
+
+def _run_bounded_worker(command: list[str], *, deadline_seconds: int) -> dict:
+    """Run one fixed worker under a finite subprocess deadline.
+
+    No shell. No caller-supplied command in production: main() constructs a
+    constant Python bootstrap and fixed absolute source path. All output is
+    buffered until the child has exited successfully; stdout is not a receipt
+    until it has been parsed and validated by the parent.
+    """
+    deadline_seconds = _deadline_value(deadline_seconds)
+    # In particular strip PYTHONPATH, SSL_CERT_FILE and proxy credentials.
+    environment = {key: os.environ[key] for key in ('SYSTEMROOT', 'WINDIR')
+                   if key in os.environ}
+    try:
+        child = subprocess.run(command, check=False, capture_output=True,
+                               text=True, timeout=deadline_seconds, env=environment)
+    except subprocess.TimeoutExpired as exc:
+        # subprocess.run kills and waits for its child on timeout.
+        raise CaptureDenied('TOTAL_DEADLINE_EXCEEDED') from exc
+    except (OSError, UnicodeError) as exc:
+        raise CaptureDenied('WORKER_UNAVAILABLE') from exc
+    if child.returncode != 0:
+        # The worker may expose no signing material, even in its error message.
+        raise CaptureDenied('WORKER_DENIED')
+    if len(child.stdout.encode('utf-8')) > MAX_WORKER_STDOUT:
+        raise CaptureDenied('WORKER_OUTPUT_TOO_LARGE')
+    try:
+        result = json.loads(child.stdout)
+    except (ValueError, TypeError) as exc:
+        raise CaptureDenied('WORKER_RESULT_INVALID') from exc
+    if type(result) is not dict:
+        raise CaptureDenied('WORKER_RESULT_INVALID')
+    return result
+
+
+def _capture_bounded(args, hosts: tuple[str, ...]) -> dict:
+    """Validate locally, then acquire and optionally sign *inside* a child."""
+    _deadline_value(args.deadline_seconds)
+    # Fail closed before process creation; both worker and parent check URL.
+    target(args.url, hosts)
+    if bool(args.signing_key_file) != bool(args.signing_key_id):
+        raise CaptureDenied('KEY_AND_ID_REQUIRED')
+    if args.signing_key_file and not all((args.task_id, args.repo_head, args.source_id)):
+        raise CaptureDenied('BINDING_ARGUMENTS_REQUIRED')
+    if not args.signing_key_file and any((args.task_id, args.repo_head, args.source_id)):
+        raise CaptureDenied('UNSIGNED_BINDING_FORBIDDEN')
+    if args.signing_key_file:
+        _binding({'task_id': args.task_id, 'repo_head': args.repo_head,
+                  'source_id': args.source_id})
+    worker_input = {
+        'url': args.url, 'hosts': list(hosts),
+        'key_file': args.signing_key_file, 'key_id': args.signing_key_id,
+        'binding': {'task_id': args.task_id, 'repo_head': args.repo_head,
+                    'source_id': args.source_id} if args.signing_key_file else None,
+    }
+    # No --output is sent to the child: only the supervisor can publish
+    # completed and independently coherence-checked source evidence.
+    script = str(Path(__file__).resolve())
+    command = [sys.executable, '-I', '-c', _WORKER_BOOTSTRAP, script,
+               json.dumps(worker_input, sort_keys=True)]
+    result = _run_bounded_worker(command, deadline_seconds=args.deadline_seconds)
+    # Local coherence validation independently of the worker process.
+    packet_source(result, args.source_id or 'bounded_capture')
+    if result['url'] != args.url or result['hostname'] != target(args.url, hosts)[0]:
+        raise CaptureDenied('WORKER_ORIGIN_MISMATCH')
+    if args.signing_key_file and 'attestation' not in result:
+        raise CaptureDenied('WORKER_UNSIGNED_RESULT')
+    if not args.signing_key_file and 'attestation' in result:
+        raise CaptureDenied('WORKER_UNEXPECTED_ATTESTATION')
+    return result
+
+
 def main(argv=None):
     a = argparse.ArgumentParser(description='Opt-in bounded HTTPS-only public research capture')
     a.add_argument('url')
     a.add_argument('--allow-host', action='append', required=True)
     a.add_argument('--allow-network', action='store_true', help='explicit opt-in required')
     a.add_argument('--output', help='explicit local output path (else stdout)')
+    a.add_argument('--deadline-seconds', type=int, default=DEFAULT_TOTAL_DEADLINE_SECONDS,
+                   help='total worker wall-clock limit, 1-120 s (default 20)')
     a.add_argument('--signing-key-file', help='32 raw secret bytes in owner-only file; trusted runner ONLY')
     a.add_argument('--signing-key-id', help='externally configured trusted runner key ID')
     a.add_argument('--task-id', help='trusted runner task identity (required to sign)')
@@ -282,11 +410,8 @@ def main(argv=None):
             raise CaptureDenied('BINDING_ARGUMENTS_REQUIRED')
         if not args.signing_key_file and any((args.task_id, args.repo_head, args.source_id)):
             raise CaptureDenied('UNSIGNED_BINDING_FORBIDDEN')
-        key = read_protected_key(args.signing_key_file) if args.signing_key_file else None
-        binding = {'task_id': args.task_id, 'repo_head': args.repo_head,
-                   'source_id': args.source_id} if key is not None else None
-        result = acquire(args.url, hosts, signing_key=key,
-                         signing_key_id=args.signing_key_id, capture_binding=binding)
+        _deadline_value(args.deadline_seconds)
+        result = _capture_bounded(args, hosts)
     except (CaptureDenied, AttestationError, OSError) as exc:
         a.exit(2, 'DENIED: ' + str(exc) + '\n')
     encoded = json.dumps(result, sort_keys=True, indent=2, ensure_ascii=False) + '\n'
