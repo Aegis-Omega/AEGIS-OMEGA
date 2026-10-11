@@ -648,13 +648,17 @@ class TestM2LayoutDiagnosticGate(unittest.TestCase):
         )
         post = next(node for node in http_handler.body
                     if isinstance(node, ast.FunctionDef) and node.name == "do_POST")
-        peer_guard = next(
-            node for node in self.bridge_tree.body
-            if isinstance(node, ast.FunctionDef)
-            and node.name == "_gate_peer_is_loopback"
-        )
+        helper_names = {
+            "_gate_peer_is_loopback", "_gate_unique_json_members",
+            "_gate_reject_non_json_constant",
+        }
+        helpers = [
+            copy.deepcopy(node) for node in self.bridge_tree.body
+            if isinstance(node, ast.FunctionDef) and node.name in helper_names
+        ]
+        self.assertEqual({node.name for node in helpers}, helper_names)
         module = ast.fix_missing_locations(ast.Module(
-            body=[copy.deepcopy(peer_guard), copy.deepcopy(post)],
+            body=[*helpers, copy.deepcopy(post)],
             type_ignores=[],
         ))
         steps = []
@@ -731,6 +735,16 @@ class TestM2LayoutDiagnosticGate(unittest.TestCase):
             ({}, b"[]", 400, "GATE_OBJECT_REQUIRED", 1),
             ({}, b"null", 400, "GATE_OBJECT_REQUIRED", 1),
             ({}, b"true", 400, "GATE_OBJECT_REQUIRED", 1),
+            ({}, b'{"sequence":1,"accepted":false,"accepted":true,"lcb":0.5}',
+             400, "GATE_JSON_INVALID", 1),
+            ({}, b'{"sequence":1,"accepted":true,"lcb":0.5,"extra":{"a":1,"a":2}}',
+             400, "GATE_JSON_INVALID", 1),
+            ({}, b'{"sequence":1,"accepted":true,"lcb":0.5,"extra":NaN}',
+             400, "GATE_JSON_INVALID", 1),
+            ({}, b'{"sequence":1,"accepted":true,"lcb":0.5,"extra":Infinity}',
+             400, "GATE_JSON_INVALID", 1),
+            ({}, b"[" * 1100 + b"0" + b"]" * 1100,
+             400, "GATE_JSON_INVALID", 1),
         ]
         for headers, body, code, reason, expected_reads in negative_cases:
             with self.subTest(reason=reason, headers=headers):
