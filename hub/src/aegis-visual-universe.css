@@ -381,3 +381,120 @@
   .hg-glass,.hg-domain,.hg-route-header,.hg-route-aside{border-color:#ede9db}
   .hg-links a{color:#f2f0e9}
 }
+
+
+/* Edition 002: editorial bento rhythm + route families.
+   The same 4 actual domain destinations, but with a composed rather than
+   templated 4-identical-cards visual narrative. */
+@media(min-width:901px){
+  .hg-domains{display:grid;grid-template-columns:repeat(12,minmax(0,1fr));gap:14px}
+  .hg-domains .hg-domain{grid-column:span 6}
+  .hg-domains .hg-domain:nth-child(1){grid-column:span 7}
+  .hg-domains .hg-domain:nth-child(2){grid-column:span 5}
+  .hg-domains .hg-domain:nth-child(3){grid-column:span 5}
+  .hg-domains .hg-domain:nth-child(4){grid-column:span 7}
+}
+.hg-domains .hg-domain{position:relative;overflow:hidden;min-height:350px}
+.hg-domains .hg-domain:after{
+  content:"";pointer-events:none;position:absolute;inset:auto -20% -55% auto;
+  width:min(74%,385px);aspect-ratio:1;border-radius:50%;
+  border:1px solid rgba(206,197,169,.095);
+  box-shadow:0 0 0 40px rgba(206,197,169,.017),0 0 0 90px rgba(206,197,169,.012);
+}
+.hg-domains .hg-domain:nth-child(2):after,.hg-domains .hg-domain:nth-child(3):after{
+  border-radius:18%;transform:rotate(35deg);
+}
+.hg-domain .hg-domain-icon {color:#d4b98e}
+.hg-domain-arrow {color:#dccda9}
+.hg-domain:hover .hg-domain-arrow{transform:translate(2px,-2px)}
+.hg-domain p{max-width:55ch}
+.hg-site-home .hg-proof,.hg-site-home .hg-evidence{
+  border-top:1px solid var(--av-line);
+}
+.hg-route .hg-route-header + .hg-legacy-content {border-top:0}
+/* Commercial and documentation legacy root elements have inline neutral
+   background/color contracts. Normalize only their visual presentation,
+   without touching billing, identity, inputs or submission code. */
+.hg-route-pricing .hg-legacy-content h1,
+.hg-route-compliance .hg-legacy-content h1{
+  font-family:Georgia,'Times New Roman',serif!important;
+  font-weight:400!important;
+  letter-spacing:-.055em!important;
+  background:none!important;
+  -webkit-text-fill-color:#f1e9db!important;
+  color:#f1e9db!important;
+}
+.hg-route-pricing .hg-legacy-content h2,
+.hg-route-compliance .hg-legacy-content h2,
+.hg-route-docs .hg-legacy-content h2,
+.hg-route-tools .hg-legacy-content h2 {
+  color:#ebe6da;font-weight:550;letter-spacing:-.035em
+}
+.hg-route-pricing .hg-legacy-content input[type=email]{
+  min-height:48px!important;border-color:rgba(206,207,194,.48)!important;
+  color:#f1efe4!important;outline-offset:3px;
+}
+.hg-route-pricing .hg-legacy-content a:focus-visible,
+.hg-route-pricing .hg-legacy-content button:focus-visible,
+.hg-route-pricing .hg-legacy-content input:focus-visible{
+  outline:3px solid #ddc591!important;outline-offset:3px!important;
+}
+.hg-route .hg-legacy-content :where(label,legend){color:#d1d6cc}
+.hg-route .hg-legacy-content :where(input,textarea,select){
+  accent-color:#d9c293;
+}
+.hg-route-docs .hg-legacy-content :where(pre,code){
+  font-variant-ligatures:none;
+  font-size:clamp(12px,.88vw,14px);
+}
+.hg-route-docs .hg-legacy-content pre{max-width:100%;overflow:auto}
+.hg-route-docs .hg-legacy-content nav.sticky {scroll-margin-top:90px}
+.hg-route-docs .hg-legacy-content .rounded-lg,
+.hg-route-tools .hg-legacy-content .rounded-xl{
+  border-radius:4px;
+}
+.hg-route-tools .hg-legacy-content .bg-hub-bg{
+  border-color:rgba(196,199,186,.23)!important;
+}
+.hg-route-tools .hg-legacy-content a[href="/pricing"]{
+  border-color:#d2b483;
+}
+.hg-route-claim-sponsor .hg-legacy-content .max-w-md,
+.hg-route-claim-sponsor .hg-legacy-content .max-w-lg{
+  max-width:680px;min-width:0;
+  border:1px solid var(--av-line-strong);
+  background:#121b1e;padding:clamp(20px,4vw,48px);
+  box-shadow:0 24px 74px #0005;
+}
+.hg-route-claim-sponsor .hg-legacy-content input{min-height:46px}
+.hg-route .rt-shell{background:transparent;color:var(--av-ink)}
+.hg-route .rt-topbar{
+  background:#12191ccf;
+  border-bottom-color:var(--av-line);
+}
+.hg-route .rt-topbar :where(a,button){font-size:max(11px,.8em)}
+.hg-route .rt-wrap{max-width:1320px}
+.hg-route .rt-content{isolation:isolate}
+.hg-route .rt-field{opacity:.56}
+.hg-route .op-console .op-panel,.hg-route .rw-inspector,.hg-route .rw-entry{
+  border-color:var(--av-line);
+}
+.hg-route .op-console :where(button,a):focus-visible,
+.hg-route .rw-shell :where(button,a,input):focus-visible{
+  outline:2px solid #e9cd97;outline-offset:3px;
+}
+@media(max-width:900px) {
+  .hg-domains{grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+  .hg-domains .hg-domain{grid-column:auto!important}
+}
+@media(max-width:600px){
+  .hg-domains{grid-template-columns:1fr}
+  .hg-domains .hg-domain{min-height:290px}
+  .hg-route-pricing .hg-legacy-content h1,.hg-route-compliance .hg-legacy-content h1{
+    font-size:clamp(35px,9.1vw,51px)!important;line-height:1.05!important;
+  }
+  .hg-route-claim-sponsor .hg-legacy-content .max-w-md,
+  .hg-route-claim-sponsor .hg-legacy-content .max-w-lg{
+    padding:20px;border-left:0;border-right:0;
+  }
+}
