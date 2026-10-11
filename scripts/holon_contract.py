@@ -117,6 +117,17 @@ def assess(task: dict, state: dict) -> dict:
         # Never downgrade an upstream HOLD to task-allocation readiness.
         if state.get("holon_disposition") != "ISSUE_ASSIGNMENT_AND_REVIEW_REQUIRED":
             blockers.append("UPSTREAM_COORDINATION_NOT_CLEAR")
+        # Both independently produced blocker channels must be present, valid
+        # and empty. A singular disposition can conceal simultaneous blockers.
+        for field in ("holon_blockers", "coordination_blockers"):
+            upstream = state.get(field)
+            if not isinstance(upstream, list) or any(
+                not isinstance(entry, str) or not entry.strip() or len(entry) > 128
+                for entry in upstream
+            ):
+                blockers.append("UPSTREAM_BLOCKER_LIST_NOT_VERIFIED")
+            elif upstream:
+                blockers.append("UPSTREAM_BLOCKERS_PRESENT")
         if state.get("ci_billing_locked") is True:
             blockers.append("CI_BILLING_LOCK_REPORTED")
         if state.get("ci_billing_locked") is None:
