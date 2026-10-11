@@ -467,8 +467,8 @@ def main() -> None:
         r = asyncio.run(run_pipeline(args.topic, live=args.live))
         _print_result(r)
         if args.dendrite:
-            from agents.dendrite_mesh import propagate_pipeline
-            print(json.dumps(propagate_pipeline(r, source_head=args.source_head), indent=2))
+            from agents.dendrite_system import from_cognitive_pipeline
+            print(json.dumps(from_cognitive_pipeline(r, source_head=args.source_head), indent=2))
     elif args.command == "score":
         scorer = constitutional_scorer()
         log = KanInferenceLog()
@@ -480,8 +480,8 @@ def main() -> None:
         r = asyncio.run(run_pipeline("INT4 LUT-KAN viability"))
         _print_result(r)
         if args.dendrite:
-            from agents.dendrite_mesh import propagate_pipeline
-            print(json.dumps(propagate_pipeline(r, source_head=args.source_head), indent=2))
+            from agents.dendrite_system import from_cognitive_pipeline
+            print(json.dumps(from_cognitive_pipeline(r, source_head=args.source_head), indent=2))
     else:
         parser.print_help()
 
