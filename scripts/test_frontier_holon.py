@@ -58,6 +58,20 @@ class FrontierReviewTests(unittest.TestCase):
         with patch.object(f, 'compare', return_value=self.outcome):
             return f.assess(self.data, self.root, as_of=self.today)
 
+    def test_paired_outcome_never_reopens_after_integrity_check(self):
+        self.paired()
+        # A stale digest cannot protect a second read of mutable path bytes.
+        with patch.object(Path, 'read_bytes', side_effect=AssertionError('TOCTOU reopen')):
+            receipt = self.audit()
+        self.assertEqual(receipt['disposition'], 'CANDIDATE_FOR_INDEPENDENT_REPLAY')
+        self.assertFalse(receipt['external_sources_authenticated'])
+
+    def test_outcome_changed_before_pinned_read_rejected(self):
+        self.paired()
+        (self.root / 'outcome.json').write_text('{"candidate_sha":"altered"}')
+        with self.assertRaises(f.InvalidFrontier):
+            self.audit()
+
     def test_adapt_requires_measured_comparison(self):
         x = self.audit()
         self.assertEqual(x['disposition'], 'HOLD_FOR_RESEARCH_OR_EVALUATION')
