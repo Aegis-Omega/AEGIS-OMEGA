@@ -3,7 +3,7 @@ import copy
 import json
 import unittest
 
-from agents.issue_evolution import compile_graph, spread_issue_graph, evaluate_trial
+from agents.issue_evolution import compile_graph, spread_issue_graph, evaluate_trial, evolve_issues
 
 
 REPO = "Aegis-Omega/AEGIS-OMEGA"
@@ -227,6 +227,55 @@ class IssueEvolutionTests(unittest.TestCase):
         result=evaluate_trial(proposal)
         self.assertEqual(result["outcome_evidence"], "SELF_REPORTED_UNVERIFIED")
         self.assertEqual(result["authority_effect"], "NONE")
+
+
+    def test_round_has_distinct_proposals_for_every_issue(self):
+        result=evolve_issues(compile_graph(snapshot()), [])
+        self.assertEqual(result["issue_count"],5)
+        self.assertTrue(all(len(x["proposals"])==7 for x in result["issues"]))
+        self.assertTrue(all(x["next_action"]=="NO_VERIFIED_IMPROVEMENT" for x in result["issues"]))
+        self.assertEqual(result["promotion"],"DENIED")
+
+    def test_round_positive_stays_external_review_only(self):
+        result=evolve_issues(compile_graph(snapshot()), [trial()])
+        item=next(x for x in result["issues"] if x["issue"]==f"{REPO}#758")
+        self.assertEqual(item["next_action"],"EXTERNAL_REVIEW_REQUIRED")
+        self.assertEqual(item["skill_tier_effect"],"NONE")
+        self.assertEqual(result["outcome_verification"],"NOT_PERFORMED")
+
+    def test_round_negative_lesson_retained(self):
+        rows=[{"task_id":f"l{i}", "baseline_score":0.8,
+               "candidate_score":0.1,"safety_regression":False} for i in range(30)]
+        r=evolve_issues(compile_graph(snapshot()),[trial(rows=rows)])
+        item=next(x for x in r["issues"] if x["issue"]==f"{REPO}#758")
+        self.assertEqual(item["history"][0]["screen"],"RETAIN_AS_UNPROMOTED_LESSON")
+        self.assertEqual(item["next_action"],"NO_VERIFIED_IMPROVEMENT")
+
+    def test_round_explicit_cross_issue_feedback_only(self):
+        r=evolve_issues(compile_graph(snapshot()),[trial()])
+        self.assertTrue(any(x["source_issue"]==f"{REPO}#758" and
+                            x["recipient_issue"]==f"{REPO}#757"
+                            for x in r["cross_issue_lessons"]))
+        self.assertTrue(all(x["message_kind"]=="UNVERIFIED_EVOLUTION_LESSON_POINTER"
+                            for x in r["cross_issue_lessons"]))
+
+    def test_round_rejects_unlinked_issue(self):
+        with self.assertRaisesRegex(ValueError,"EVOLUTION_UNLINKED_ISSUE"):
+            evolve_issues(compile_graph(snapshot()),[trial(issue=f"{REPO}#999")])
+
+    def test_round_rejects_duplicate_candidate_for_holdout(self):
+        with self.assertRaisesRegex(ValueError,"EVOLUTION_DUPLICATE_CANDIDATE"):
+            evolve_issues(compile_graph(snapshot()),[trial(),trial()])
+
+    def test_round_rejects_graph_mutation(self):
+        x=compile_graph(snapshot());x["nodes"][0]["title"]="Falsified"
+        with self.assertRaisesRegex(ValueError,"EVOLUTION_GRAPH_INVALID"):
+            evolve_issues(x,[])
+
+    def test_round_is_deterministic(self):
+        graph=compile_graph(snapshot())
+        self.assertEqual(evolve_issues(graph,[trial()]),evolve_issues(graph,[trial()]))
+
 
 
 if __name__ == "__main__":
