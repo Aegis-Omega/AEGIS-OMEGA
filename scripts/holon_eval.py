@@ -9,7 +9,7 @@ import json
 import math
 import re
 from pathlib import Path
-from holon_gate import unique_json_object, reject_json_constant, verify_local_file
+from holon_gate import unique_json_object, reject_json_constant, verify_local_file, read_verified_local_file
 
 SHA = re.compile(r'^[a-f0-9]{40}$')
 METRICS = {'success', 'unsafe_actions', 'model_calls', 'latency_ms'}
@@ -62,7 +62,8 @@ def compare(payload, root):
     need(isinstance(bench, dict) and set(bench) == {'file', 'sha256', 'population'}, 'benchmark manifest fields')
     check_number(bench['population'], 'population', integer=True)
     need(1 <= bench['population'] <= 100000, 'invalid population')
-    need(verify_local_file(root, bench['file'], bench['sha256']) == 'HASH_MATCH', 'benchmark manifest not hash-verified')
+    benchmark_status, benchmark_bytes = read_verified_local_file(root, bench['file'], bench['sha256'])
+    need(benchmark_status == 'HASH_MATCH', 'benchmark manifest not hash-verified')
     rows = payload['cases']
     need(isinstance(rows, list) and 0 < len(rows) <= MAX, 'need 1..512 paired cases')
     need(len(rows) <= bench['population'], 'more cases than benchmark population')
@@ -71,7 +72,7 @@ def compare(payload, root):
     need(len(ids) == len(set(ids)), 'duplicate case ID')
     # Binding all cases to a separately hashed benchmark manifest prevents
     # silently changing the reference population, but does not prove sampling.
-    manifest = json.loads((root / bench['file']).read_text(encoding='utf-8'),
+    manifest = json.loads(benchmark_bytes.decode('utf-8'),
                           object_pairs_hook=unique_json_object, parse_constant=reject_json_constant)
     need(isinstance(manifest, dict) and set(manifest) == {'case_ids'}, 'invalid benchmark manifest')
     all_ids = manifest['case_ids']
