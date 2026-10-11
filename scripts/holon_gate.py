@@ -177,9 +177,9 @@ def evaluate(snapshot, root, actor):
             reasons.append('TASK_REPORTED_BLOCKED')
         # This offline tool never awards DONE. Exact source and hash attest
         # only local integrity; GitHub merge/check provenance remains external.
-        readiness = ('COORDINATE' if collision[tid] or (owner and owner != actor)
-                     else 'BLOCKED' if reasons and any(r in reasons for r in (
+        readiness = ('BLOCKED' if any(r in reasons for r in (
                          'CYCLIC_DEPENDENCY', 'DEPENDENCIES_NOT_INDEPENDENTLY_ADMITTED', 'TASK_REPORTED_BLOCKED'))
+                     else 'COORDINATE' if collision[tid] or (owner and owner != actor)
                      else 'REVIEW_READY_NOT_ADMITTED' if sub and evidence == 'HASH_MATCH' and
                          all(r not in reasons for r in ('TEST_EVIDENCE_MISSING_OR_STALE', 'INDEPENDENT_REVIEW_NOT_RECORDED', 'SUBMISSION_NOT_FROM_CLAIM_OWNER'))
                      else 'AVAILABLE' if not reasons else 'EVIDENCE_NEEDED')
