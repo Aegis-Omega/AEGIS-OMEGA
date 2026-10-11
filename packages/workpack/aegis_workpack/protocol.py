@@ -24,6 +24,9 @@ MAX_ARTIFACT_BYTES = 8 * 1024 * 1024
 MAX_MANIFEST_BYTES = 256 * 1024
 MAX_ARTIFACTS = 50
 MAX_CHECKS = 100
+MAX_JSON_DEPTH = 64
+MAX_JSON_NODES = 50000
+MAX_JSON_INTEGER_DIGITS = 100
 
 
 class Invalid(ValueError):
@@ -43,6 +46,78 @@ def _strict_pairs(pairs):
     return result
 
 
+def _bounded_json_nesting(text):
+    """Reject excessive nesting *before* entering the JSON decoder.
+
+    Quote/escape-aware, including escaped quotes; unmatched delimiters remain
+    the responsibility of the ordinary strict JSON parser.
+    """
+    require(isinstance(text, str), "JSON_INPUT_INVALID")
+    depth = 0
+    inside = False
+    escaped = False
+    for char in text:
+        if inside:
+            if escaped:
+                escaped = False
+            elif char == "\\":
+                escaped = True
+            elif char == '"':
+                inside = False
+        elif char == '"':
+            inside = True
+        elif char in '{[':
+            depth += 1
+            require(depth <= MAX_JSON_DEPTH, "JSON_DEPTH_LIMIT")
+        elif char in '}]':
+            depth -= 1
+    # Leave malformed syntax to json.loads for consistent error reporting.
+
+
+def _bounded_json_tree(value):
+    """Guard direct Python API input against deep/cyclic/non-JSON graphs.
+
+    A decoded JSON value is acyclic. Programmatic input may not be. Iterative
+    traversal bounds depth and node count without relying on Python recursion.
+    """
+    stack = [(value, 0)]
+    seen = set()
+    count = 0
+    text_size = 0
+    while stack:
+        node, depth = stack.pop()
+        count += 1
+        require(count <= MAX_JSON_NODES, "JSON_NODE_LIMIT")
+        require(depth <= MAX_JSON_DEPTH, "JSON_DEPTH_LIMIT")
+        if isinstance(node, (dict, list, tuple)):
+            ident = id(node)
+            require(ident not in seen, "JSON_CYCLE_OR_SHARED_CONTAINER")
+            seen.add(ident)
+            if isinstance(node, dict):
+                for key, child in node.items():
+                    require(isinstance(key, str), "JSON_KEY_TYPE_INVALID")
+                    text_size += len(key.encode('utf-8'))
+                    stack.append((child, depth + 1))
+            else:
+                require(type(node) is list, "JSON_VALUE_TYPE_INVALID")
+                stack.extend((child, depth + 1) for child in node)
+        elif isinstance(node, str):
+            text_size += len(node.encode('utf-8'))
+        elif node is None or type(node) in (bool, int, float):
+            if type(node) is float:
+                require(math.isfinite(node), "NONFINITE_JSON")
+            if type(node) is int:
+                require(node.bit_length() <= 340, "JSON_INTEGER_TOO_LONG")
+        else:
+            raise Invalid("JSON_VALUE_TYPE_INVALID")
+        require(text_size <= MAX_MANIFEST_BYTES, "JSON_TEXT_SIZE_LIMIT")
+
+
+def _bounded_json_integer(value):
+    require(len(value.lstrip('-')) <= MAX_JSON_INTEGER_DIGITS, "JSON_INTEGER_TOO_LONG")
+    return int(value)
+
+
 def _reject_nonfinite_constant(value):
     # Python accepts NaN and Infinity extensions that RFC 8259 forbids.
     raise Invalid("NONFINITE_JSON")
@@ -51,15 +126,21 @@ def _reject_nonfinite_constant(value):
 def _finite_json_float(value):
     # 1e400 is legal JSON syntax but overflows binary64 to infinity. Do not
     # let Python's implementation-specific float semantics leak into receipts.
+    require(len(value) <= 128, "JSON_FLOAT_TOO_LONG")
     number = float(value)
     require(math.isfinite(number), "NONFINITE_JSON")
     return number
 
 
 def _strict_json_loads(raw):
-    return json.loads(raw, object_pairs_hook=_strict_pairs,
-                      parse_constant=_reject_nonfinite_constant,
-                      parse_float=_finite_json_float)
+    _bounded_json_nesting(raw)
+    try:
+        return json.loads(raw, object_pairs_hook=_strict_pairs,
+                          parse_constant=_reject_nonfinite_constant,
+                          parse_int=_bounded_json_integer,
+                          parse_float=_finite_json_float)
+    except RecursionError as exc:
+        raise Invalid("JSON_DEPTH_LIMIT") from exc
 
 
 def read_json(path, cap=MAX_MANIFEST_BYTES):
@@ -88,8 +169,14 @@ def read_json(path, cap=MAX_MANIFEST_BYTES):
 
 
 def canonical(value):
-    return json.dumps(value, ensure_ascii=False, sort_keys=True,
-                      separators=(",", ":"), allow_nan=False).encode("utf-8")
+    _bounded_json_tree(value)
+    try:
+        raw = json.dumps(value, ensure_ascii=False, sort_keys=True,
+                         separators=(",", ":"), allow_nan=False).encode("utf-8")
+    except RecursionError as exc:
+        raise Invalid("JSON_DEPTH_LIMIT") from exc
+    require(len(raw) <= MAX_MANIFEST_BYTES, "JSON_TOO_LARGE")
+    return raw
 
 
 def sha(value):

@@ -392,4 +392,20 @@ class ResearchCycleTests(unittest.TestCase):
         self.assertEqual(out['status'], 'BLOCKED')
         self.assertIn('ARTIFACT_NOT_REGULAR_FILE', out['reason'])
 
+    def test_deep_evaluation_dataset_is_blocked_without_crash(self):
+        d=self.set_evaluation(copy.deepcopy(self.doc))
+        raw=('{"schema":"aegis.exact-match-eval.v1","cases":['+
+             '['*180+'0'+']'*180+']}').encode()
+        (self.root/'evidence'/'eval-cases.json').write_bytes(raw)
+        d['evaluation']['evidence_sha256']=hashlib.sha256(raw).hexdigest()
+        self.fails(d,'JSON_DEPTH_LIMIT')
+
+    def test_huge_integer_evaluation_is_blocked_without_crash(self):
+        d=self.set_evaluation(copy.deepcopy(self.doc))
+        raw=('{'+'"schema":"aegis.exact-match-eval.v1","cases":['+
+             '9'*5000+']}').encode()
+        (self.root/'evidence'/'eval-cases.json').write_bytes(raw)
+        d['evaluation']['evidence_sha256']=hashlib.sha256(raw).hexdigest()
+        self.fails(d,'JSON_INTEGER_TOO_LONG')
+
 if __name__=="__main__": unittest.main()

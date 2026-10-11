@@ -290,4 +290,58 @@ class WorkpackTests(unittest.TestCase):
         self.assertNotEqual(child.returncode, 0)
         self.assertIn('ARTIFACT_NOT_REGULAR_FILE', child.stderr)
 
+    def test_extreme_json_depth_rejected_without_uncaught_exception(self):
+        import contextlib, io
+        depth=30000
+        (self.root/'manifest.json').write_text('{"schema":"aegis.workpack.v1","x":'+'['*depth+'0'+']'*depth+'}')
+        with self.assertRaisesRegex(Invalid,"JSON_DEPTH_LIMIT"):
+            read_json(self.root/'manifest.json')
+        with contextlib.redirect_stdout(io.StringIO()) as output:
+            code=cli([str(self.root)])
+        self.assertEqual(code,1)
+        self.assertEqual(json.loads(output.getvalue())['reason'],'JSON_DEPTH_LIMIT')
+
+    def test_huge_json_integer_rejected_without_uncaught_exception(self):
+        import contextlib, io
+        (self.root/'manifest.json').write_text('{"number":'+'9'*5000+'}')
+        with self.assertRaisesRegex(Invalid,'JSON_INTEGER_TOO_LONG'):
+            read_json(self.root/'manifest.json')
+        with contextlib.redirect_stdout(io.StringIO()) as output:
+            code=cli([str(self.root)])
+        self.assertEqual(code,1)
+        self.assertEqual(json.loads(output.getvalue())['reason'],'JSON_INTEGER_TOO_LONG')
+
+    def test_cyclic_direct_manifest_is_bounded_and_not_admitted(self):
+        d=copy.deepcopy(self.good)
+        d['extension']=d
+        r=verify(self.root,d)
+        self.assertEqual(r['disposition'],'NOT_ADMITTED')
+        self.assertEqual(r['reason'],'JSON_CYCLE_OR_SHARED_CONTAINER')
+
+    def test_deep_direct_manifest_does_not_overflow_serializer(self):
+        d=copy.deepcopy(self.good)
+        nested=[]; d['extension']=nested
+        for _ in range(200):
+            next_value=[]; nested.append(next_value); nested=next_value
+        r=verify(self.root,d)
+        self.assertEqual(r['reason'],'JSON_DEPTH_LIMIT')
+        self.assertEqual(r['disposition'],'NOT_ADMITTED')
+
+    def test_brackets_inside_quoted_json_strings_are_not_counted(self):
+        from aegis_workpack.protocol import _strict_json_loads
+        s=json.dumps({'display':'['*150+'escaped quote: \" and a brace: {'})
+        result=_strict_json_loads(s)
+        self.assertEqual(result['display'].count('['),150)
+
+    def test_nested_json_artifact_fails_structurally_without_crash(self):
+        from aegis_workpack.protocol import _strict_json_loads
+        huge='{ "key":' + '['*250+'0'+']'*250 + '}'
+        raw=huge.encode()
+        (self.root/'deep.json').write_bytes(raw)
+        d=manifest('deep.json',raw)
+        d['checks'].append({'id':'A2','kind':'json_keys','artifact':'deep.json','keys':['key']})
+        r=verify(self.root,d)
+        self.assertEqual(r['checks'][1]['result'],'FAIL')
+        self.assertEqual(r['checks'][1]['reason'],'JSON_DEPTH_LIMIT')
+
 if __name__=='__main__':unittest.main()
