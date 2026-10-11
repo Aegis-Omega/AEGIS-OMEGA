@@ -1,30 +1,61 @@
 {
-  "schema": "aegis.m2.sequence-domain-contract.v1",
-  "issue": 531,
+  "schema": "aegis.m2.sequence-domain-contract.v2",
+  "issue": 763,
+  "parent_diagnostic_issue": 531,
   "authority_effect": "NONE",
-  "runtime_semantics": "FROZEN_PENDING_SEQUENCE_DOMAIN_POLICY",
-  "current_offset_formula": "(sequence * 8 + len(verifier_result)) % (len(state) // 8)",
+  "implementation_status": "CANDIDATE_NOT_ADMITTED",
+  "production_admission": "BLOCKED_PENDING_REVIEW_AND_EXACT_HEAD_CI",
+  "runtime_semantics_change_allowed": false,
+  "current_offset_formula": "_m2_byte_offset(len(state), sequence, source)",
+  "record": {
+    "width_bytes": 8,
+    "encoding": "two little-endian unsigned Q16.16 32-bit fixed-point values",
+    "tail_bytes": "L % 8 reserved"
+  },
+  "addressing": {
+    "step1": "slots = floor(L / 8)",
+    "step2": "event_slots = ceil(slots / 2)",
+    "step3": "event uses [0, event_slots); gate_signal uses [event_slots, slots)",
+    "step4": "byte_offset = 8 * (namespace_start + sequence % namespace_capacity)",
+    "minimum_region_bytes": 16,
+    "valid_sequence": "integer in [0, 2^64)",
+    "overwrite_rule": "same-namespace circular overwrite at capacity; independent namespaces never alias",
+    "readers": "No independent M2 memory reader established in audited source"
+  },
   "writers": [
     {
       "writer": "CoreMatrix.process_event",
       "sequence_argument": "self._sequence",
-      "sequence_source": "CoreMatrix internal sequence after M1 increments it"
+      "source_keyword": "event",
+      "sequence_source": "CoreMatrix internal M1 sequence"
     },
     {
       "writer": "CoreMatrix.receive_gate_signal",
       "sequence_argument": "sequence",
+      "source_keyword": "gate_signal",
       "sequence_source": "TypeScript-supplied /gate_signal sequence"
     }
   ],
   "event_router_sequence_forwarding": "DISCARDED",
   "policy": {
-    "status": "DEFERRED",
-    "selected": null,
+    "status": "SELECTED_CANDIDATE",
+    "selected": "disjoint_source_namespaces",
     "allowed": [
       "shared_key",
       "overwrite_update",
       "disjoint_source_namespaces"
-    ]
+    ],
+    "rationale": "Independent counters cannot safely alias by integer equality without a cross-domain event identity proof; dedicated slot rings eliminate cross-source aliasing.",
+    "alternatives_rejected": {
+      "shared_key": "no common canonical event key proof",
+      "overwrite_update": "no proof the two writers represent the same logical record"
+    }
   },
-  "runtime_semantics_change_allowed": false
+  "nonclaims": [
+    "does not prove an M2 reader exists",
+    "does not prove gate-decision changes",
+    "does not expand governance authority",
+    "not admitted for deployment",
+    "not a zero-loss or persistence guarantee"
+  ]
 }
