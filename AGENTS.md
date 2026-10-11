@@ -72,6 +72,32 @@ Current reference patterns to compare, not copy blindly:
 - OpenTelemetry GenAI workflow/agent/tool trace semantics (development status):
   https://github.com/open-telemetry/semantic-conventions-genai/blob/main/docs/gen-ai/gen-ai-agent-spans.md
 
+### Runnable comparison receipt (advisory; reuses existing evaluation)
+
+For a meaningful capability proposal, save a source-reviewed `aegis.holon.frontier/1`
+JSON receipt (schema in `scripts/frontier_review.py`, sample fields in
+`scripts/test_frontier_holon.py`) and run:
+
+```bash
+python3 scripts/frontier_review.py --input comparison.json --root .
+```
+
+The receipt requires two distinct external HTTPS source hostnames, inspection
+claims, retrieval dates, an explicit ADOPT/ADAPT/REJECT/INVESTIGATE decision,
+Operator-value rationale, and a concrete independent falsifier. ADOPT/ADAPT
+cannot be a review candidate without a SHA-256-bound `holon_eval.py` paired
+outcome manifest at the exact baseline and candidate commits. The existing
+paired evaluator determines safety regressions and baseline coverage; this
+script does **not** duplicate those measurements.
+
+Inspecting URLs and authenticating reviewers are **external responsibilities**:
+the validator never browses, authenticates content, trusts `Agent:` labels,
+or grants any authority. `CANDIDATE_FOR_INDEPENDENT_REPLAY` means only that
+the self-reported sources and local outcome manifest meet structural/integrity
+checks, not that claims are true, independently reviewed, released or SOTA.
+An expired source, missing test, altered artifact or observed regression must
+remain visible as a HOLD; share failed attempts on the existing Issue/PR.
+
 Repeat the check when the task materially changes or the source becomes stale.
 Never claim SOTA, first place, independent proof, production admission or
 user adoption based on a feature checklist or an agent's own prose. This
