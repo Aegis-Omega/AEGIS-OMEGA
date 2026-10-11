@@ -50,9 +50,13 @@ async function runTool(name: string, input: Record<string, unknown>,
     // A model-provided argument is untrusted. Never let it expand a
     // service-role query or make an unknown filter silently return all rows.
     const requested = input.limit
-    const requestedLimit = typeof requested === 'number' && Number.isFinite(requested)
-      ? Math.trunc(requested) : 10
-    const limit = Math.max(1, Math.min(25, requestedLimit))
+    // Explicitly reject malformed model arguments before building a database query.
+    // An omitted limit is distinct from a supplied null/string/negative number.
+    if (requested !== undefined &&
+        (typeof requested !== 'number' || !Number.isSafeInteger(requested) || requested < 1)) {
+      return 'INVALID_LIMIT'
+    }
+    const limit = Math.min(25, requested === undefined ? 10 : requested)
     const supabase = createClient(SUPABASE_URL, SERVICE_KEY)
     let q = supabase.from('purchases').select('customer_email,plan,ls_order_id,updated_at')
     if (input.filter !== undefined && input.filter !== null && input.filter !== '') {
@@ -134,7 +138,7 @@ async function runAgent(task: string, context?: string, actorId?: string, teamId
       // A tool failure, malformed result or fabricated model continuation is
       // never evidence. Return *only* machine-observed rows, never a second
       // model-generated assertion about their total/meaning.
-      if (output === 'INVALID_INPUT' || output === 'INVALID_FILTER' ||
+      if (output === 'INVALID_INPUT' || output === 'INVALID_FILTER' || output === 'INVALID_LIMIT' ||
           output === 'TOOL_NOT_AUTHORIZED' || output === 'DB_RESULT_UNVERIFIED' ||
           output.startsWith('DB error:')) {
         throw new Error('TOOL_VERIFICATION_FAILED')
