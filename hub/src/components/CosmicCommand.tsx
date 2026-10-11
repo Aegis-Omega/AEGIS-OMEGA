@@ -55,14 +55,14 @@ export function CosmicCommand() {
           <circle cx="555" cy="281" r="61" fill="none" stroke="#a7dfff" strokeOpacity=".48" strokeDasharray="2 8"/>
           <text x="555" y="311" textAnchor="middle" fill="#f0edff" fontSize="91" fontFamily="Georgia,serif">Ω</text>
         </svg>
-        <div className="cc-map-nodes">{NODES.map(x=><a className="cc-map-node" href={x.href} style={{left:x.x,top:x.y}} key={x.n} aria-label={'Open '+x.label}>
+        <div className="cc-map-nodes">{NODES.filter(x=>mode==='atlas'||['/runtime','/compliance','/docs'].includes(x.href)).map(x=><a className="cc-map-node" href={x.href} style={{left:x.x,top:x.y}} key={x.n} aria-label={'Open '+x.label}>
           <span>{x.n}</span><b>{x.label}</b>
         </a>)}</div>
         <div className="cc-layer-picker" role="group" aria-label="Context view">
           <button type="button" onClick={()=>setMode('atlas')} aria-pressed={mode==='atlas'}>Atlas</button>
           <button type="button" onClick={()=>setMode('evidence')} aria-pressed={mode==='evidence'}>Evidence</button>
         </div>
-        <div className="cc-mode-note" aria-live="polite">{mode==='atlas'?'Select a node to open its real destination.':'Evidence is confirmed inside source records, not by this illustration.'}</div>
+        <div className="cc-mode-note" aria-live="polite">{mode==='atlas'?'Select a node to open its real destination.':'Verification routes only · open each record to inspect its actual evidence.'}</div>
         <span className="cc-space-note cc-note-bottom">CONCEPT ART / NO LIVE TELEMETRY</span>
       </div>
     </section>
