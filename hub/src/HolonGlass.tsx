@@ -213,6 +213,10 @@ const ROUTE_META: Record<string, RouteDescription> = {
 export function HolonRoute({ route, children }: { route: string; children: ReactNode }) {
   const meta=ROUTE_META[route]
   return <div className={'hg-site hg-route hg-route-'+route}><Nav path={'/'+route}/>
+    <div className="av-route-rail hg-content" aria-label="AEGIS section context">
+      <div><span className="av-route-rail-index">AEGIS Ω / {route.toUpperCase()}</span><span className="av-route-rail-title">{meta?.title||'Sovereign system'}</span></div>
+      <div className="av-route-rail-right"><span>VISIBLE BOUNDARIES · NO IMPLIED ADMISSION</span><a href={meta?.action.href||'/'}>{meta?.action.label||'Overview'} <Arrow diagonal/></a></div>
+    </div>
     <section className="hg-route-header hg-content" aria-label="Route context">
       <div className="hg-route-header-main"><span className="hg-eyebrow">{meta?.kicker||'AEGIS OMEGA'} / SYSTEM SURFACE</span>
         <h1>{meta?.title || 'AEGIS runtime.'}</h1><p>{meta?.description}</p>
