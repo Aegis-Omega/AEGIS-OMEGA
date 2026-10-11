@@ -8,7 +8,7 @@ const step = (id: string, depends_on: string[] = []) => ({
 })
 const spec = () => ({
   schema: 'aegis.work.v1', work_id: 'example', objective: 'Complete task', authority_ceiling: 'read_only',
-  max_cost_cents: 0, steps: [step('c', ['b']), step('a'), step('b', ['a'])]
+  max_cost_cents: 0, failure_policy: 'halt', forbidden_effects: ['production_writes'], steps: [step('c', ['b']), step('a'), step('b', ['a'])]
 })
 const invalid = (fn: (s: any) => void) => {
   const s = spec() as any
@@ -92,4 +92,48 @@ describe('UWP-01 work compiler: bounded exact contract', () => {
     await expect(compileWorkContract(null)).rejects.toThrow(WorkContractError)
     await expect(compileWorkContract(Object.assign(Object.create({evil: true}), spec()))).rejects.toThrow('INVALID_OBJECT')
   })
+
+  it('fails closed on missing failure policy or forbidden effects', async () => {
+    await expect(compileWorkContract(invalid(s => { delete s.failure_policy }))).rejects.toThrow('UNKNOWN_OR_MISSING_FIELD')
+    await expect(compileWorkContract(invalid(s => { s.failure_policy = 'auto_retry' }))).rejects.toThrow('INVALID_FAILURE_POLICY')
+    await expect(compileWorkContract(invalid(s => { s.forbidden_effects = [] }))).rejects.toThrow('MISSING_FORBIDDEN_EFFECTS')
+  })
+  it('binds failure policy and forbidden effects in digest', async () => {
+    const a = spec(), b = spec()
+    ;(b as any).failure_policy = 'manual_recovery'
+    expect((await compileWorkContract(a)).contract_sha256).not.toBe((await compileWorkContract(b)).contract_sha256)
+    ;(b as any).failure_policy = 'halt'
+    ;(b as any).forbidden_effects = ['secrets_access']
+    expect((await compileWorkContract(a)).contract_sha256).not.toBe((await compileWorkContract(b)).contract_sha256)
+  })
+  it('rejects unbounded mutation scopes, wildcard or traversal', async () => {
+    for (const scope of ['*', 'repo:../main', 'repo:foo/../main', 'repo:*', '/etc/shadow']) {
+      await expect(compileWorkContract(invalid(s => { s.steps[0].scope = [scope] }))).rejects.toThrow('INVALID_SCOPE')
+    }
+  })
+  it('rejects sparse arrays and accessor properties without invoking getters', async () => {
+    const sparse = invalid(s => { s.steps = new Array(2); s.steps[0] = step('a') })
+    await expect(compileWorkContract(sparse)).rejects.toThrow('INVALID_STEPS')
+    let accessed = false
+    const unsafe = invalid(s => {
+      Object.defineProperty(s.steps[0], 'objective', { get() { accessed = true; return 'unsafe' }, enumerable: true })
+    })
+    await expect(compileWorkContract(unsafe)).rejects.toThrow('NON_JSON_PROPERTY')
+    expect(accessed).toBe(false)
+  })
+  it('rejects non-enumerable and symbol hidden fields', async () => {
+    await expect(compileWorkContract(invalid(s => {
+      Object.defineProperty(s.steps[0], 'hidden', {value: 1})
+    }))).rejects.toThrow('NON_JSON_PROPERTY')
+    await expect(compileWorkContract(invalid(s => {
+      s.steps[0][Symbol.for('bad')] = 1
+    }))).rejects.toThrow('NON_JSON_PROPERTY')
+  })
+  it('returns deeply immutable ordered steps and acceptance', async () => {
+    const plan = await compileWorkContract(spec())
+    expect(Object.isFrozen(plan.ordered_steps)).toBe(true)
+    expect(Object.isFrozen(plan.ordered_steps[0])).toBe(true)
+    expect(Object.isFrozen(plan.ordered_steps[0].acceptance[0])).toBe(true)
+  })
+
 })
