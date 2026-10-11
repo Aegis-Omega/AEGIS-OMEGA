@@ -664,7 +664,18 @@ class BridgeHandler(BaseHTTPRequestHandler):
             # after both return successfully; an exception is not an ACK.
             # This is not a cross-subsystem transaction or rollback guarantee.
             with _lock:
-                if seq <= last_ack_sequence:
+                if seq == last_ack_sequence:
+                    # An ACK may have been lost after this sequence was
+                    # applied. Without a per-request identity/receipt we
+                    # cannot prove whether this is the same request.
+                    # Do not reapply M2 or gate, and never claim rollback.
+                    self._respond(409, {
+                        'status': 'UNCONFIRMED',
+                        'reason': 'DUPLICATE_SEQUENCE_UNCONFIRMED',
+                        'retry_safe': False,
+                    })
+                    return
+                if seq < last_ack_sequence:
                     self._respond(400, {'status': 'REJECTED', 'reason': 'SEQUENCE_DESYNC'})
                     return
 
