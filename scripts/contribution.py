@@ -22,7 +22,16 @@ AGENT_PREFIXES = ("claude", "codex", "copilot", "chatgpt", "qwen", "gemini", "cu
 
 
 def git(*args):
-    return subprocess.run(["git", *args], capture_output=True, text=True).stdout
+    """Fail closed on stale/absent git evidence; never print fabricated zero work."""
+    try:
+        result = subprocess.run(["git", *args], capture_output=True,
+                                text=True, timeout=90)
+    except (OSError, subprocess.TimeoutExpired) as exc:
+        raise RuntimeError(f"git {args[0]} was not verified: {exc}") from exc
+    if result.returncode != 0:
+        detail = result.stderr.strip()[:300]
+        raise RuntimeError(f"git {args[0]} exited {result.returncode}: {detail}")
+    return result.stdout
 
 
 def agent_of(body, branches):
@@ -30,8 +39,12 @@ def agent_of(body, branches):
     if m:
         return m.group(1).strip()
     m = re.search(r"^Co-Authored-By:\s*([^<\n]+)", body, re.M | re.I)
-    if m and "bot" not in m.group(1).lower():
-        return m.group(1).strip()
+    if m:
+        candidate = m.group(1).strip()
+        # Generic human co-author names are not model evidence.
+        if (re.match(r"^(?:" + "|".join(AGENT_PREFIXES) + r")\b", candidate, re.I)
+                or re.match(r"^gpt[-\s]?\d", candidate, re.I)):
+            return candidate
     for b in branches:
         prefix = b.split("/", 1)[0]
         if prefix in AGENT_PREFIXES:
@@ -67,14 +80,14 @@ def main():
         stats[who]["landed" if sha in on_main else "branch_only"] += 1
 
     total = sum(s["landed"] + s["branch_only"] for s in stats.values()) or 1
-    print(f"AEGIS contribution — last {days} days (credit = commits on main)\n")
-    print(f"{'agent':28} {'on main':>8} {'branch-only':>12} {'landed %':>9}")
+    print(f"AEGIS contribution — last {days} days (landed commits, attribution UNVERIFIED)\n")
+    print(f"{'claimed agent':28} {'on main':>8} {'branch-only':>12} {'landed %':>9}")
     for who, s in sorted(stats.items(), key=lambda kv: (-kv[1]["landed"], -kv[1]["branch_only"])):
         n = s["landed"] + s["branch_only"]
         print(f"{who[:28]:28} {s['landed']:>8} {s['branch_only']:>12} {100 * s['landed'] / n:>8.1f}%")
     un = stats.get("unattributed", {"landed": 0, "branch_only": 0})
     print(f"\nunattributed: {100 * (un['landed'] + un['branch_only']) / total:.0f}% of {total} commits "
-          "— every agent must add an `Agent: <model>` trailer (AGENTS.md).")
+          "— trailer claims are unverified identity; validate independently (AGENTS.md).")
 
 
 if __name__ == "__main__":
