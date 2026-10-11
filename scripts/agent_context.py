@@ -19,6 +19,8 @@ import subprocess
 import sys
 import time
 
+import shared_state_audit
+
 REPO = "Aegis-Omega/AEGIS-OMEGA"
 CACHE_TTL = 600
 STOP = set("""the and for with from into onto that this then than when what have has
@@ -390,6 +392,7 @@ def main():
     behind = sh("git", "rev-list", "--count", "HEAD..origin/main",
                 timeout=local_timeout).strip() or "?"
     prs, source = open_prs(quick=quick)
+    shared_state = shared_state_audit.inspect(prs, source, main_receipt)
     issues, issue_source = open_issue_board(timeout=4 if quick else 15)
     stacked = [p for p in prs if p["b"] not in ("main", "?")]
     locked = (billing_locked(prs) if not quick and source in ("github", "cache") else None)
@@ -421,6 +424,7 @@ def main():
                           "behind_main": behind if main_verified else None,
                           "local_behind_main": behind,
                           "main_freshness": main_receipt,
+                          "shared_state": shared_state,
                           "open": len(prs) if source in ("github", "cache") else None,
                           "stacked": len(stacked) if source in ("github", "cache") else None,
                           "source": source, "ci_billing_locked": locked,
@@ -468,6 +472,11 @@ def main():
     lines.append(f"- Holon coordination: {disposition}. Informational only; never authorizes a merge/release.")
     lines.append(f"- Holon blockers: {', '.join(holon_blocks) if holon_blocks else 'none observed; still advisory'}")
     lines.append(f"- Coordination blockers: {', '.join(coordination_blocks) if coordination_blocks else 'none observed; still advisory'}")
+    lines.append("- Shared-state snapshot: "
+                 f"{shared_state['verified_primary_lanes']} exact-head matches, "
+                 f"{shared_state['stale_primary_lanes']} stale/missing PRs, "
+                 f"{shared_state['out_of_scope_lanes']} other-repo lanes unchecked; "
+                 f"{shared_state['reason']}. Advisory only.")
     if locked:
         lines.append("- CI IS NOT RUNNING: GitHub Actions jobs fail with 'account is locked due to a "
                      "billing issue'. This is evidence for that check only, not all red checks. "
