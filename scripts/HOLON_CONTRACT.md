@@ -10,6 +10,16 @@
 
 Exit 0 means the contract is structurally ready for **assignment review** or read-only inspection; **never** means that a model is authorized to edit, deploy, publish, pay or merge. Exit 2 means HOLD. All JSON output includes `authorization=NOT_VERIFIED`, `admission=NOT_ADMITTED`, and `claim_truth=NOT_VERIFIED` by construction. No secrets, network, model calls, or third-party packages are required.
 
+For `contribute` or `release`, the coordinator context must explicitly report
+`holon_disposition=ISSUE_ASSIGNMENT_AND_REVIEW_REQUIRED` as well as its
+independently evaluated source/main/issue/CI fields. Any upstream `HOLD_*`,
+`OPERATOR_ACTION_REQUIRED`, `HOLD_CLAIMED_WORK_COORDINATE`,
+`REVIEW_EXISTING_PR_FIRST`, missing or unknown disposition produces
+`UPSTREAM_COORDINATION_NOT_CLEAR` and exit 2. **A second module must never
+silently upgrade the first module's HOLD to READY**, even if unrelated JSON
+fields appear healthy. This remains *advisory* task assignment, not authorization.
+
+
 ## Task JSON
 
 ```json
