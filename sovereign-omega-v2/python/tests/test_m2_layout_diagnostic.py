@@ -650,7 +650,7 @@ class TestM2LayoutDiagnosticGate(unittest.TestCase):
                     if isinstance(node, ast.FunctionDef) and node.name == "do_POST")
         helper_names = {
             "_gate_peer_is_loopback", "_gate_unique_json_members",
-            "_gate_reject_non_json_constant",
+            "_gate_reject_non_json_constant", "_gate_json_depth_is_bounded",
         }
         helpers = [
             copy.deepcopy(node) for node in self.bridge_tree.body
@@ -745,6 +745,9 @@ class TestM2LayoutDiagnosticGate(unittest.TestCase):
              400, "GATE_JSON_INVALID", 1),
             ({}, b"[" * 1100 + b"0" + b"]" * 1100,
              400, "GATE_JSON_INVALID", 1),
+            ({}, b'{"sequence":1,"accepted":true,"lcb":0.5,"extra":' +
+             b"[" * 33 + b"0" + b"]" * 33 + b"}",
+             400, "GATE_JSON_INVALID", 1),
         ]
         for headers, body, code, reason, expected_reads in negative_cases:
             with self.subTest(reason=reason, headers=headers):
@@ -756,6 +759,18 @@ class TestM2LayoutDiagnosticGate(unittest.TestCase):
                 })])
                 self.assertEqual((actions, reads, ack),
                                  ([], expected_reads, -1))
+
+        # Structural delimiters inside JSON strings, including escaped
+        # quotes/backslashes, must not count as nesting.
+        quoted = json.dumps({
+            "sequence": 1, "proposal_id": "[{}]" * 40 + '\\\\"}}[',
+            "accepted": True, "lcb": 0.5,
+        }).encode("utf-8")
+        responses, actions, reads, ack = exercise("127.0.0.1", body=quoted)
+        self.assertEqual(responses, [(200, {
+            "status": "ACK", "sequence": 1,
+        })])
+        self.assertEqual((actions, reads, ack), (["M2", "GATE"], 1, 1))
 
         # Legitimate loopback signal, including IPv6 loopback, remains usable.
         for peer in ("127.0.0.1", "::1"):
