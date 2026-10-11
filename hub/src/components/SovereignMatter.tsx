@@ -8,11 +8,11 @@ import { useEffect, useRef, useState } from 'react'
  * Text, source links and evidence decisions remain ordinary accessible HTML.
  * No autoplay; never starts a background render loop without user intent.
  */
-const VERTEX = \`#version 300 es
+const VERTEX = `#version 300 es
 in vec2 position;
-void main() { gl_Position = vec4(position, 0.0, 1.0); }\`
+void main() { gl_Position = vec4(position, 0.0, 1.0); }`
 
-const FRAGMENT = \`#version 300 es
+const FRAGMENT = `#version 300 es
 precision highp float;
 out vec4 outColor;
 uniform vec2 u_resolution;
@@ -99,7 +99,7 @@ void main() {
   col+=hue*.014*exp(-2.3*dot(uv,uv));
   col*=.91+.09*(1.-smoothstep(.65,2.1,length(uv)));
   outColor=vec4(pow(max(col,vec3(0.)),vec3(.93)),1.);
-}\`
+}`
 
 const DOMAIN: Record<string, number> = {
   'formal-fork': 0, 'qgi-lab': 1, qbp: 2,
