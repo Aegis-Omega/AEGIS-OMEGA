@@ -1,0 +1,68 @@
+{
+  "as_of_utc": "2026-10-11T04:14:00Z",
+  "authority_effect": "NONE",
+  "benchmark_superiority": "NOT_ESTABLISHED",
+  "collector_attestation": "NOT_VERIFIED",
+  "external_claim_verification": "NOT_PERFORMED",
+  "freshness_basis": "CALLER_REPORTED_AS_OF_UNAUTHENTICATED",
+  "packet_sha256": "85b54e7d2d7350da9fe0f920bfef7d2ca0572ce7b7e87953b477d78ff18a7066",
+  "proposals": [
+    {
+      "collected_source_count": 0,
+      "falsifier": "Any crash replay performs a consequential effect twice",
+      "fresh_source_count": 2,
+      "id": "crash_recovery",
+      "local_component": "sovereign-omega-v2/src/event/replay.ts",
+      "publisher_groups": [
+        "langchain",
+        "openai"
+      ],
+      "reason": "INSUFFICIENT_CAPTURE_EVIDENCE",
+      "source_sha256": {
+        "lg": "a975ff0ab5f2fc65a4b8c391502f792574e83962466fa3328023a0d54572923d",
+        "oa": "0de608ce4029cac5470d3c6fbd5d20bc40f8c1affbc944e67e62af1dee3db709"
+      },
+      "status": "NEEDS_RESEARCH",
+      "test_metric": "Duplicate side effects per 100 crash/replay injections"
+    },
+    {
+      "collected_source_count": 0,
+      "falsifier": "Cross-resource token reuse accepted",
+      "fresh_source_count": 1,
+      "id": "mcp_oauth",
+      "local_component": "agents/coordinator.py",
+      "publisher_groups": [
+        "github-unknown-issuer"
+      ],
+      "reason": "INSUFFICIENT_CAPTURE_EVIDENCE",
+      "source_sha256": {
+        "mcp": "c3cc5ed1717914c39a75694dbc7c2fa2881152a22fd6a4bdc4496497e839b545"
+      },
+      "status": "NEEDS_RESEARCH",
+      "test_metric": "Wrong-resource token acceptance count"
+    },
+    {
+      "collected_source_count": 0,
+      "falsifier": "An unsigned reviewer/unauthorized hook grants execution",
+      "fresh_source_count": 2,
+      "id": "policy_review",
+      "local_component": "agents/cognitive_pipeline.py",
+      "publisher_groups": [
+        "anthropic",
+        "openai"
+      ],
+      "reason": "INSUFFICIENT_CAPTURE_EVIDENCE",
+      "source_sha256": {
+        "cl": "128646c7b7987feddf2b2cb05dc1555ac30d53129bf88c31e9d87ee6fffed3e4",
+        "oa": "0de608ce4029cac5470d3c6fbd5d20bc40f8c1affbc944e67e62af1dee3db709"
+      },
+      "status": "NEEDS_RESEARCH",
+      "test_metric": "Incorrect acceptances on 50 adversarial unauthorized tool invocations"
+    }
+  ],
+  "repo_head": "495bfd85d79abcb2b4f6898fe9c156488492426a",
+  "schema": "aegis.research.receipt.v1",
+  "source_digest_integrity": "CHECKED_NOT_AUTHENTICATED",
+  "task_id": "AEGISUWP13",
+  "tool_execution": "NOT_EXECUTED"
+}

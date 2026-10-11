@@ -1,0 +1,77 @@
+{
+  "schema": "aegis.research.packet.v1",
+  "task_id": "AEGISUWP13",
+  "as_of_utc": "2026-10-11T04:14:00Z",
+  "repo_head": "495bfd85d79abcb2b4f6898fe9c156488492426a",
+  "sources": [
+    {
+      "id": "lg",
+      "url": "https://langchain-ai.github.io/langgraph/concepts/durable_execution/",
+      "captured_at": "2026-10-11T04:14:00Z",
+      "content": "LangGraph docs explain thread checkpoints, persistent state and durable resume; re-execution hazards require side-effect boundaries.",
+      "sha256": "a975ff0ab5f2fc65a4b8c391502f792574e83962466fa3328023a0d54572923d",
+      "acquisition": "manual_note"
+    },
+    {
+      "id": "oa",
+      "url": "https://developers.openai.com/api/docs/guides/agent-evals",
+      "captured_at": "2026-10-11T04:14:00Z",
+      "content": "OpenAI agent evaluations discuss trace grading, datasets and graders for detecting workflow regressions.",
+      "sha256": "0de608ce4029cac5470d3c6fbd5d20bc40f8c1affbc944e67e62af1dee3db709",
+      "acquisition": "manual_note"
+    },
+    {
+      "id": "cl",
+      "url": "https://claude.com/resources/articles/steering-claude-code-skills-hooks-rules-subagents-and-more",
+      "captured_at": "2026-10-11T04:14:00Z",
+      "content": "Claude Code documentation distinguishes persistent instructions, rules, hooks and subagents and their authority/load patterns.",
+      "sha256": "128646c7b7987feddf2b2cb05dc1555ac30d53129bf88c31e9d87ee6fffed3e4",
+      "acquisition": "manual_note"
+    },
+    {
+      "id": "mcp",
+      "url": "https://github.com/modelcontextprotocol/modelcontextprotocol/blob/main/docs/specification/2026-07-28/basic/authorization/index.mdx",
+      "captured_at": "2026-10-11T04:14:00Z",
+      "content": "MCP authorization specification specifies OAuth protected resource metadata and token audience validation for HTTP transports.",
+      "sha256": "c3cc5ed1717914c39a75694dbc7c2fa2881152a22fd6a4bdc4496497e839b545",
+      "acquisition": "manual_note"
+    }
+  ],
+  "proposals": [
+    {
+      "id": "crash_recovery",
+      "local_component": "sovereign-omega-v2/src/event/replay.ts",
+      "candidate": "Add durable side-effect fences and per-execution trace ids",
+      "mechanism": "Combine thread-level state recovery with source-bound audit records",
+      "test_metric": "Duplicate side effects per 100 crash/replay injections",
+      "falsifier": "Any crash replay performs a consequential effect twice",
+      "source_ids": [
+        "lg",
+        "oa"
+      ]
+    },
+    {
+      "id": "policy_review",
+      "local_component": "agents/cognitive_pipeline.py",
+      "candidate": "Independent hook and reviewer isolation gates",
+      "mechanism": "Distinguish model-selected reviewers from cryptographically validated actor identity",
+      "test_metric": "Incorrect acceptances on 50 adversarial unauthorized tool invocations",
+      "falsifier": "An unsigned reviewer/unauthorized hook grants execution",
+      "source_ids": [
+        "oa",
+        "cl"
+      ]
+    },
+    {
+      "id": "mcp_oauth",
+      "local_component": "agents/coordinator.py",
+      "candidate": "Bound per-request transport identity to accepted issuer/audience",
+      "mechanism": "Enforce provider metadata and token resource binding",
+      "test_metric": "Wrong-resource token acceptance count",
+      "falsifier": "Cross-resource token reuse accepted",
+      "source_ids": [
+        "mcp"
+      ]
+    }
+  ]
+}
