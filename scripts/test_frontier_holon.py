@@ -155,6 +155,24 @@ class FrontierReviewTests(unittest.TestCase):
                          ['github-owner:google', 'github-owner:openai'])
         self.assertFalse(result['source_publisher_ownership_authenticated'])
 
+    def test_unresolvable_github_owner_never_becomes_independent_evidence(self):
+        self.paired()
+        self.data['sources'][0]['url'] = 'https://raw.githubusercontent.com/openai/repo/main/README.md'
+        for url in ('https://github.com/%256fpenai/repo',
+                    'https://gist.github.com/',
+                    'https://api.github.com/gists/123456'):
+            self.data['sources'][1]['url'] = url
+            with self.subTest(url=url), self.assertRaisesRegex(
+                    f.InvalidFrontier, 'publisher owner cannot be identified'):
+                self.audit()
+
+    def test_github_organization_api_alias_matches_same_publisher(self):
+        self.paired()
+        self.data['sources'][0]['url'] = 'https://github.com/openai/openai-agents-python'
+        self.data['sources'][1]['url'] = 'https://api.github.com/orgs/openai'
+        with self.assertRaisesRegex(f.InvalidFrontier, 'publisher groups'):
+            self.audit()
+
     def test_distinct_domains_required(self):
         self.data['sources'][1]['url'] = 'https://openai.github.io/other'
         with self.assertRaises(f.InvalidFrontier):
