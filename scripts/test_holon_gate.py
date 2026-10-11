@@ -160,6 +160,24 @@ class UniversalHolonTests(unittest.TestCase):
         self.audit()
         self.assertEqual(self.base,d)
 
+    def test_duplicate_json_key_is_not_silently_overridden(self):
+        p=self.root/'bad.json'
+        p.write_text('{"tasks":[],"tasks":[]}')
+        with patch('sys.stdout'):
+            self.assertEqual(h.main(['--input',str(p),'--actor','GPT-6']),2)
+
+    def test_nan_or_infinity_cannot_enter_task_snapshot(self):
+        p=self.root/'bad.json'
+        p.write_text('{"tasks":[],"score":NaN}')
+        with patch('sys.stdout'):
+            self.assertEqual(h.main(['--input',str(p),'--actor','GPT-6']),2)
+
+    def test_oversized_snapshot_denied(self):
+        p=self.root/'large.json'
+        p.write_text('{"tasks":[],'+'"a":"'+'x'*1100000+'"}')
+        with patch('sys.stdout'):
+            self.assertEqual(h.main(['--input',str(p),'--actor','GPT-6']),2)
+
     def test_cli_outputs_json_and_invalid_input_exit_nonzero(self):
         p=self.root/'snapshot.json'
         p.write_text(json.dumps(self.base))
