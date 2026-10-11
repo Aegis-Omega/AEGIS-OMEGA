@@ -98,9 +98,14 @@ def source_publisher_group(url: str) -> str:
     host = public_https(url)
     parsed = urlsplit(url)
     pieces = [unquote(x) for x in parsed.path.split('/') if x]
-    if host in ('github.com', 'raw.githubusercontent.com'):
+    if host in ('github.com', 'raw.githubusercontent.com',
+                'gist.github.com', 'gist.githubusercontent.com'):
         if pieces and re.fullmatch(r'[a-zA-Z0-9-]{1,39}', pieces[0]):
             return 'github-owner:' + pieces[0].lower()
+        return 'github-owner:unknown'
+    if host == 'api.github.com' and len(pieces) >= 2 and pieces[0] == 'repos':
+        if re.fullmatch(r'[a-zA-Z0-9-]{1,39}', pieces[1]):
+            return 'github-owner:' + pieces[1].lower()
         return 'github-owner:unknown'
     if host.endswith('.github.io') and host.count('.') == 2:
         owner = host.split('.', 1)[0]
