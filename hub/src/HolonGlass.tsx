@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, type ReactNode, type ChangeEvent } from 'react'
 import './holon-glass.css'
+import { MAX_ARTIFACT_SIZE, verifyArtifactBytes } from './lib/artifactIntegrity.js'
 
 /**
  * AEGIS Ω | HOLON GLASS — one optical / navigational system for the hub.
@@ -112,23 +113,16 @@ function ArtifactVerifier() {
   const [copyStatus, setCopyStatus] = useState('')
   const revision = useRef(0)
   const reset = () => {revision.current++;setComputed(null);setStatus('idle');setMessage('Ready to calculate a new digest.');setCopyStatus('')}
-  const MAX_FILE = 32 * 1024 * 1024
   async function verify() {
     if (!selected) {setStatus('error');setMessage('Choose a local file first.');return}
-    if (selected.size > MAX_FILE) {setStatus('error');setMessage('Maximum 32 MiB. Large files require a streaming verifier.');return}
-    const reference=expected.trim().replace(/^sha256:/i,'').toLowerCase()
-    if (reference && !/^[0-9a-f]{64}$/.test(reference)) {setStatus('error');setMessage('Expected SHA-256 must contain exactly 64 hexadecimal characters.');return}
     const runRevision=revision.current
     setStatus('running');setMessage('Computing SHA-256 locally…')
     try {
-      if (!globalThis.crypto?.subtle) throw new Error('Secure-context crypto is unavailable.')
-      const buffer=await selected.arrayBuffer()
-      const hashed=await crypto.subtle.digest('SHA-256',buffer)
-      const actual=Array.from(new Uint8Array(hashed), b=>b.toString(16).padStart(2,'0')).join('')
+      const { digest, verdict } = await verifyArtifactBytes(selected, expected)
       if (runRevision !== revision.current) return // input changed during hashing: discard stale result
-      setComputed(actual)
-      setStatus(reference?(reference===actual?'matched':'mismatch'):'computed')
-      setMessage(reference?(reference===actual?'The file matches the supplied expected digest.':'Digest mismatch: this file is not byte-identical to the declared reference.'):'Digest computed. Supply a trusted expected SHA-256 to perform a comparison.')
+      setComputed(digest)
+      setStatus(verdict)
+      setMessage(verdict==='matched'?'The file matches the supplied expected digest.':verdict==='mismatch'?'Digest mismatch: this file is not byte-identical to the declared reference.':'Digest computed. Supply a trusted expected SHA-256 to perform a comparison.')
     } catch(e) {if (runRevision !== revision.current) return;setStatus('error');setComputed(null);setMessage(e instanceof Error?e.message:'Unable to compute this digest.')}
   }
   async function copyHash() {
@@ -142,7 +136,7 @@ function ArtifactVerifier() {
       </span>
     </div>
     <p className="hg-verifier-intro">Calculate a real cryptographic digest of a local file. Compare it to a source-published hash. No upload, telemetry or model inference.</p>
-    <label className="hg-verifier-label" htmlFor="hg-evidence-file">Evidence artifact · maximum 32 MiB</label>
+    <label className="hg-verifier-label" htmlFor="hg-evidence-file">Evidence artifact · maximum {MAX_ARTIFACT_SIZE / (1024 * 1024)} MiB</label>
     <input id="hg-evidence-file" className="hg-verifier-input" type="file" onChange={(event: ChangeEvent<HTMLInputElement>)=>{setSelected(event.currentTarget.files?.[0]||null);reset()}} />
     {selected&&<p className="hg-verifier-filename">Selected: {selected.name} · {selected.size.toLocaleString()} bytes</p>}
     <label className="hg-verifier-label" htmlFor="hg-expected-sha">Expected SHA-256 · optional, from a trusted source</label>
