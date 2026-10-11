@@ -489,13 +489,15 @@ class BridgeHandler(BaseHTTPRequestHandler):
                     self._respond(400, {'status': 'REJECTED', 'reason': 'SEQUENCE_DESYNC'})
                     return
 
+                # Write non-authoritative M2 telemetry first. If that fails,
+                # do not apply a governance gate decision or acknowledge seq.
+                matrix.receive_gate_signal(proposal_id, accepted, seq)
                 gate.record_signal(GateSignal(
                     proposal_id=proposal_id,
                     sequence=seq,
                     accepted=accepted,
                     lcb=lcb,
                 ))
-                matrix.receive_gate_signal(proposal_id, accepted, seq)
                 last_ack_sequence = seq
             self._respond(200, {'status': 'ACK', 'sequence': seq})
 
