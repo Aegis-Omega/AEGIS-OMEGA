@@ -66,3 +66,16 @@ Decision: **minimal disjoint aligned storage is a justified candidate correction
 - OWASP API Top 10 API2:2023 authentication / API4:2023 resource consumption / API5:2023 function authorization: https://api-security.owasp.org/editions/2023/en/0x11-t10/
 - OWASP API4 mitigations: https://api-security.owasp.org/editions/2023/en/0xa4-unrestricted-resource-consumption/
 
+
+
+## Governance ACK concurrent-seal counterexample (2026-10-11)
+
+**Falsified candidate invariant:** requiring only `gate.last_sequence() == seq` and `gate.total_signals() == before + 1` does **not** guarantee the current bridge signal was accepted.
+
+**Deterministic witness:** independent producer records sequence `1` and seals `MutationGate` between the bridge precheck and its own `record_signal(1)`. The external producer increments `total_signals` once and sets `last_sequence=1`; the bridge's own call is silently discarded by the sealed gate, incrementing no counter. Therefore both numeric postconditions pass although this request was not admitted. The initial local adversarial mirror returned `200 ACK` for the rejected signal.
+
+**Minimal mitigation:** the bridge postcondition now additionally requires `not gate.is_sealed`; it denies the demonstrated race with HTTP `409 GATE_NOT_APPLIED`. A source-extracted `gate.py` + `/gate_signal` regression reproduces the exact competing-producer-and-seal sequence, and asserts no ACK, no proposal verdict for the current request, and an unchanged bridge ACK counter. Frozen `gate.py` remains unmodified.
+
+**Evidence limits:** local oracle `AEGIS_763_Ack_Adversarial_Replay_v2.py`: 8/8 unittest methods PASS. Actual PR source test added but full exact-head GitHub replay **NOT VERIFIED**. A separate process that can call frozen `gate.record_signal` has no shared atomic admission token; snapshot-based checks are conservative and do not prove linearizability for all concurrent schedules. An authoritative, reviewed admission receipt returned directly by a synchronized gate transition would be required for full transactional certainty; that redesign is outside this bounded candidate and would need constitutional approval.
+
+**Production gate:** not admitted, protected main unchanged, no deployment.
