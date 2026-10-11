@@ -26,3 +26,30 @@ Run `npm run test:edge-invocation` (18 tests: admission plus injected paid-reque
 - Daily rate and provider-spend hard cap beyond the per-key cumulative quota is **NOT IMPLEMENTED**; Cloudflare/DB-enforced rate and cost policy required for a public rollout.
 - No provider token metering, automatic refunds, idempotent retry ledger, or abuse anomaly detection in this patch.
 - Do **not** deploy SQL or enable Worker secret until reviewed and approved. This is **NOT_ADMITTED**.
+
+## 2026-10-11 strict mode type repair
+
+**Reproduced failure at the exact original source blob**
+`6c7c6879024b5e257762bfb4bcf8000d49f6730d`: the
+`!modes.includes(String(input.mode))` expression invokes coercion of
+user-supplied JSON. With `mode: {"toString": null}`, Node raises
+`TypeError: Cannot convert object to primitive value` before the
+admission gate can return its documented 400. This is an input-handling
+failure, **not** evidence of a paid provider call or quota spend.
+
+**Repair:** check `typeof input.mode === 'string'` before checking the
+allowlist; never coerce an object supplied by untrusted JSON. Candidate
+implementation blob `d0e52d7eba023506bd85775d2ae656ccc13a2ac0`;
+new negative regression blob `d99039c20fb71ab027035fc771a97ea1c8fa2cb5`;
+the root `test:edge-invocation` command includes the new test.
+
+**Executed local exact-blob replay:** pre-fix 1/2 tests failed with the
+expected uncaught TypeError; post-fix **2/2 PASS** for malformed and
+nonstring modes, with zero mock quota reservations/provider calls.
+Source and test bytes each matched GitHub blob SHA. Isolated strict
+TypeScript 5.8.3 check passed for patched `paidInvocation.ts`.
+
+This is *not* a complete exact-head build or live credential/quota
+exercise; existing 18 admission/provider tests and staging SQL
+integration remain separate release requirements. No production
+deployment, database migration, billing activation or authority change.
