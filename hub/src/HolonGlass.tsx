@@ -55,8 +55,22 @@ function Nav({ path = '/' }: { path?: string }) {
         menuToggleRef.current?.focus()
       }
     }
+    const outside = (event: PointerEvent | FocusEvent) => {
+      const target = event.target
+      if (!(target instanceof Node)) return
+      if (menuRef.current?.contains(target) || menuToggleRef.current?.contains(target)) return
+      setOpen(false)
+    }
+    // A navigation disclosure is not a focus trap: tapping elsewhere or
+    // tabbing out dismisses it without stealing the destination's focus.
     document.addEventListener('keydown', escape)
-    return () => document.removeEventListener('keydown', escape)
+    document.addEventListener('pointerdown', outside)
+    document.addEventListener('focusin', outside)
+    return () => {
+      document.removeEventListener('keydown', escape)
+      document.removeEventListener('pointerdown', outside)
+      document.removeEventListener('focusin', outside)
+    }
   }, [open])
   return <><a className="hg-skip-link" href="#hg-main">Skip to content</a><header className="hg-nav-wrap"><div className="hg-nav">
     <a className="hg-brand" href="/" aria-label="AEGIS Ω — home"><Sigil/><span className="hg-brand-word"><strong>AEGIS <em>Ω</em></strong><small>SOVEREIGN INTELLIGENCE</small></span></a>
