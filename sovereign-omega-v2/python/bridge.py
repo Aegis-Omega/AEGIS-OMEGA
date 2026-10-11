@@ -470,7 +470,12 @@ def _gate_peer_is_loopback(client_address) -> bool:
     authorization proof; authenticated remote ingress needs a separate adapter.
     """
     try:
-        return ip_address(client_address[0]).is_loopback
+        address = ip_address(client_address[0])
+        # CPython considers ::ffff:127.0.0.1 loopback. Do not allow
+        # IPv4-mapped IPv6 addresses to inherit trusted-peer status.
+        if address.version == 6 and address.ipv4_mapped is not None:
+            return False
+        return address.is_loopback
     except (ValueError, TypeError, IndexError, KeyError):
         return False
 
