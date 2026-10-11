@@ -14,10 +14,13 @@ import re
 import stat
 from pathlib import Path
 
-SCHEME = 'aegis.capture.hmac-sha256.v1'
-DOMAIN = b'AEGIS-UWP13-CAPTURE\x00'
+SCHEME = 'aegis.capture.hmac-sha256.v2'
+DOMAIN = b'AEGIS-UWP13-CAPTURE-BOUND-V2\x00'
 KEY_ID_RE = re.compile(r'^[a-z][a-z0-9_.-]{0,63}$')
 HEX64 = re.compile(r'^[a-f0-9]{64}$')
+GIT_OID = re.compile(r'^(?:[a-f0-9]{40}|[a-f0-9]{64})$')
+SOURCE_ID = re.compile(r'^[A-Za-z][A-Za-z0-9_.-]{0,63}$')
+BINDING_FIELDS = frozenset({'task_id', 'repo_head', 'source_id'})
 SNAPSHOT_FIELDS = frozenset({
     'schema','url','hostname','resolved_ip','captured_at','http_status',
     'content_type','tls_peer_cert_sha256','full_body_sha256',
@@ -29,13 +32,28 @@ class AttestationError(ValueError):
     pass
 
 
-def _payload(snapshot: dict) -> bytes:
+def _binding(binding: object) -> dict:
+    if type(binding) is not dict or set(binding) != BINDING_FIELDS:
+        raise AttestationError('CAPTURE_BINDING_REQUIRED')
+    if (type(binding['task_id']) is not str or
+            not SOURCE_ID.fullmatch(binding['task_id']) or
+            type(binding['source_id']) is not str or
+            not SOURCE_ID.fullmatch(binding['source_id']) or
+            type(binding['repo_head']) is not str or
+            not GIT_OID.fullmatch(binding['repo_head'])):
+        raise AttestationError('INVALID_CAPTURE_BINDING')
+    return binding
+
+
+def _payload(snapshot: dict, binding: dict) -> bytes:
     if type(snapshot) is not dict or set(snapshot) != SNAPSHOT_FIELDS:
         raise AttestationError('CAPTURE_FIELDS_MISMATCH')
     if snapshot.get('schema') != 'aegis.research.capture.v1':
         raise AttestationError('CAPTURE_SCHEMA_MISMATCH')
+    _binding(binding)
     try:
-        return DOMAIN + json.dumps(snapshot, sort_keys=True, separators=(',', ':'),
+        return DOMAIN + json.dumps({'snapshot': snapshot, 'binding': binding},
+                                   sort_keys=True, separators=(',', ':'),
                                    ensure_ascii=False, allow_nan=False).encode('utf-8')
     except (TypeError, ValueError, UnicodeError) as exc:
         raise AttestationError('CAPTURE_NONCANONICAL') from exc
@@ -46,20 +64,22 @@ def _validate_key(key: bytes, key_id: str) -> None:
         raise AttestationError('INVALID_TRUST_KEY')
 
 
-def sign_capture(snapshot: dict, key: bytes, key_id: str) -> dict:
+def sign_capture(snapshot: dict, key: bytes, key_id: str, *, binding: dict | None = None) -> dict:
     """Trusted runner only: sign an unmodified, post-TLS capture record."""
     _validate_key(key, key_id)
-    msg = _payload(snapshot)
+    msg = _payload(snapshot, binding)
     mac = hmac.new(key, msg, hashlib.sha256).hexdigest()
-    return {**snapshot, 'attestation': {'scheme': SCHEME, 'key_id': key_id, 'mac_sha256': mac}}
+    return {**snapshot, 'attestation': {'scheme': SCHEME, 'key_id': key_id,
+                                        'binding': dict(binding), 'mac_sha256': mac}}
 
 
-def verify_capture(receipt: object, trusted_keys: dict[str, bytes] | None) -> bool:
+def verify_capture(receipt: object, trusted_keys: dict[str, bytes] | None,
+                   *, expected_binding: dict | None = None) -> bool:
     """False when absent/untrusted; tampered attestation is never a valid quorum member."""
     if type(receipt) is not dict or set(receipt) != (SNAPSHOT_FIELDS | {'attestation'}):
         return False
     a = receipt.get('attestation')
-    if (type(a) is not dict or set(a) != {'scheme', 'key_id', 'mac_sha256'} or
+    if (type(a) is not dict or set(a) != {'scheme', 'key_id', 'mac_sha256', 'binding'} or
             a['scheme'] != SCHEME or type(a['key_id']) is not str or
             not KEY_ID_RE.fullmatch(a['key_id']) or type(a['mac_sha256']) is not str or
             not HEX64.fullmatch(a['mac_sha256'])):
@@ -68,8 +88,15 @@ def verify_capture(receipt: object, trusted_keys: dict[str, bytes] | None) -> bo
         return False
     key = trusted_keys[a['key_id']]
     try:
+        # Verifier-supplied expected identity MUST match the signed binding.
+        # Do not validate a request against a self-declared bound task alone.
+        _binding(expected_binding)
+        _binding(a['binding'])
+        if a['binding'] != expected_binding:
+            return False
         _validate_key(key, a['key_id'])
-        expected = hmac.new(key, _payload({k: receipt[k] for k in SNAPSHOT_FIELDS}), hashlib.sha256).hexdigest()
+        expected = hmac.new(key, _payload({k: receipt[k] for k in SNAPSHOT_FIELDS},
+                                          a['binding']), hashlib.sha256).hexdigest()
     except (AttestationError, KeyError):
         return False
     return hmac.compare_digest(expected, a['mac_sha256'])
