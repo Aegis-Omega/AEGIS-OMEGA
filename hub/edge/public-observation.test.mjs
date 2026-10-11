@@ -2,9 +2,9 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import vm from 'node:vm';
-const source=readFileSync(new URL('./worker.js',import.meta.url),'utf8');
+const source=readFileSync(new URL('./public-observation.js',import.meta.url),'utf8');
 const good={contract_version:'1.0.0',execution_id:'status-true',timestamp:'2026-10-11T04:00:00Z',data:{version:'2.0.0',contract_version:'1.0.0',total_agents:39,available:true,chain_valid:true,audit_chain_hash:'a'.repeat(64),usage:{customer_email:'private@example.com'}}};
-function make(fetchMock){let handler=null;let urls=[];const env={Response,URL,AbortController,setTimeout,clearTimeout,Date,fetch:async (u,o)=>{urls.push([u,o]);return fetchMock(u,o)},addEventListener:(name,cb)=>{handler=cb}};vm.runInNewContext(source,env);const handle=async(path='/platform/status',method='GET')=>{let out;await handler({request:new Request('https://example.workers.dev'+path,{method}),respondWith:p=>{out=p}});return out};return {handle,urls}}
+function make(fetchMock){let handler=null;let urls=[];const env={Response,URL,AbortController,setTimeout,clearTimeout,Date,TextDecoder,Uint8Array,fetch:async (u,o)=>{urls.push([u,o]);return fetchMock(u,o)},addEventListener:(name,cb)=>{handler=cb}};vm.runInNewContext(source,env);const handle=async(path='/platform/status',method='GET')=>{let out;await handler({request:new Request('https://example.workers.dev'+path,{method}),respondWith:p=>{out=p}});return out};return {handle,urls}}
 const jsonResponse=(data,status=200)=>new Response(JSON.stringify(data),{status,headers:{'content-type':'application/json'}});
 const remote=()=>jsonResponse(good);
 test('live GET returns only public allowlisted fields and source labels',async()=>{let r=make(remote),v=await(await r.handle()).json();assert.equal(v.data.total_agents,39);assert.equal(v.gateway.authority,'UNSIGNED_REMOTE_REPORT_NOT_INDEPENDENTLY_VERIFIED');assert.equal(v.data.usage,undefined);assert.equal(r.urls[0][0],'https://aegis-vertex.aegisomega.com/platform/status')});
@@ -16,3 +16,20 @@ test('upstream HTTP failure fails closed, no synthetic available',async()=>{let 
 test('upstream hidden content not passed through',async()=>{let r=make(()=>jsonResponse({...good,data:{...good.data, customer_email:'private@example.com',token:'private'}}));let res=await r.handle();let body=await res.text();assert.ok(!body.includes('private@example.com'));assert.ok(!body.includes('token'))});
 test('oversize body rejected',async()=>{let r=make(()=>new Response('x'.repeat(9000)));let res=await r.handle();assert.equal(res.status,502)});
 test('health requires no upstream',async()=>{let r=make(remote);let res=await r.handle('/api/health');assert.equal(res.status,200);assert.equal(r.urls.length,0)});
+test('streamed response above wire-byte limit is rejected and body cancelled',async()=>{
+  let chunks=0,cancelled=false;
+  const upstream=()=>new Response(new ReadableStream({pull(controller){chunks++;controller.enqueue(new Uint8Array(4097));if(chunks>4)controller.close()},cancel(){cancelled=true}}),{status:200});
+  const r=make(upstream),res=await r.handle();
+  assert.equal(res.status,502);assert.equal((await res.json()).error,'UPSTREAM_TOO_LARGE');
+  assert.ok(chunks<=3);assert.equal(cancelled,true);
+});
+test('UTF-8 wire-byte limit counts multibyte characters',async()=>{
+  const r=make(()=>jsonResponse({...good,padding:'🚀'.repeat(2400)})),res=await r.handle();
+  assert.equal(res.status,502);assert.equal((await res.json()).error,'UPSTREAM_TOO_LARGE');
+});
+test('missing upstream body and invalid JSON fail closed',async()=>{
+  const a=make(()=>new Response(null,{status:200}));
+  assert.equal((await(await a.handle()).json()).error,'UPSTREAM_EMPTY_BODY');
+  const b=make(()=>new Response('not-json',{status:200}));
+  assert.equal((await(await b.handle()).json()).error,'UPSTREAM_INVALID_JSON');
+});
