@@ -707,6 +707,38 @@ class TestM2LayoutDiagnosticGate(unittest.TestCase):
         self.assertEqual(competing_gate.total_signals(), 2)
         self.assertEqual(scope["last_ack_sequence"], -1)
 
+        # Falsifier for counter-only ACK checking: an outside producer
+        # records the same sequence once, *then seals* the gate. Our signal
+        # is silently discarded without incrementing total_signals, so
+        # (last_seq == seq and count == before + 1) both appeared valid.
+        competing_sealed_gate = gate_class()
+        scope["gate"] = competing_sealed_gate
+
+        def write_then_seal(*args):
+            events.append("M2")
+            competing_sealed_gate.record_signal(SimpleNamespace(
+                proposal_id="competing", sequence=1,
+                accepted=True, lcb=0.5,
+            ))
+            competing_sealed_gate.seal()
+
+        scope["matrix"] = SimpleNamespace(
+            receive_gate_signal=write_then_seal
+        )
+        events.clear()
+        scope["_gate_branch"](handler_stub, {
+            "sequence": 1, "accepted": True, "lcb": 0.5,
+            "proposal_id": "valid-proposal",
+        })
+        self.assertEqual(events, ["M2", ("RESPONSE", 409, {
+            "status": "REJECTED", "reason": "GATE_NOT_APPLIED",
+        })])
+        self.assertTrue(competing_sealed_gate.is_sealed)
+        self.assertEqual(competing_sealed_gate.total_signals(), 1)
+        self.assertEqual(competing_sealed_gate.last_sequence(), 1)
+        self.assertNotIn("valid-proposal", competing_sealed_gate._proposals)
+        self.assertEqual(scope["last_ack_sequence"], -1)
+
         # Valid control must preserve the unchanged frozen gate behavior.
         scope["gate"] = guarded_gate
         scope["matrix"] = SimpleNamespace(
