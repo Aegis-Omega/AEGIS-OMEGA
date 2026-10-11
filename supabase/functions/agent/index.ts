@@ -41,6 +41,19 @@ const TOOLS = [
 
 ]
 
+// Do not let Date.parse normalize impossible calendar dates into claimed data.
+function validObservedTimestamp(value: unknown): boolean {
+  if (typeof value !== 'string') return false
+  const match = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})(?:\.\d{1,6})?(Z|[+-]\d{2}:\d{2})$/.exec(value)
+  if (!match) return false
+  const [year, month, day, hour, minute, second] = match.slice(1, 7).map(Number)
+  const leap = year % 4 === 0 && (year % 100 !== 0 || year % 400 === 0)
+  const days = [31, leap ? 29 : 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31]
+  return year >= 1 && month >= 1 && month <= 12 && day >= 1 &&
+    day <= days[month - 1] && hour <= 23 && minute <= 59 && second <= 59 &&
+    Number.isFinite(Date.parse(value))
+}
+
 // ── Tool execution ────────────────────────────────────────────────────────────
 async function runTool(name: string, input: Record<string, unknown>,
                        actorId?: string, teamId?: string): Promise<string> {
@@ -96,9 +109,7 @@ async function runTool(name: string, input: Record<string, unknown>,
             (typeof r.customer_email !== 'string' || r.customer_email.length > 320)) ||
           typeof r.plan !== 'string' || !r.plan.trim() || r.plan.length > 64 ||
           typeof r.ls_order_id !== 'string' || !r.ls_order_id.trim() || r.ls_order_id.length > 256 ||
-          typeof r.updated_at !== 'string' ||
-          !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})$/.test(r.updated_at) ||
-          !Number.isFinite(Date.parse(r.updated_at))) {
+          !validObservedTimestamp(r.updated_at)) {
         return 'DB_RESULT_UNVERIFIED'
       }
     }
