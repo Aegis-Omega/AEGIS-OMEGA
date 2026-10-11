@@ -58,3 +58,17 @@ Independent isolated TypeScript declaration check and 7 pure verifier tests pass
 - Browser upload interactions on the public preview are not certified; a remote QA run timed out.
 - The dependency audit previously reported 13 npm vulnerabilities (1 low, 2 moderate, 10 high) which still require dependency-level triage.
 - Pricing, sponsor provisioning, runtime, console, documentation navigation and all responsive breakpoints require authorized regression testing before merge/deploy.
+
+
+## 2026-10-11 interaction quality repair: navigation focus and motion choice
+
+This is a **bounded frontend repair on the existing #745 branch**, not a redesign or release admission. Exact candidate source must be rebound to the latest branch SHA before reporting results.
+
+- Existing decorative orbital animations last 19, 24, 52 and 72 seconds and previously had no user-operated pause control. `HolonHome` now defaults to a paused ambient visual and adds a visible, keyboard-operated Play/Pause button outside the ornament's `aria-hidden` subtree. The same control covers the hero orbit and focus-panel holons without duplicating artwork. A device-level `prefers-reduced-motion: reduce` request always disables animations and hides a control that could not restart them.
+- On mobile, opening navigation now focuses the first link. Escape closes it and restores focus to the disclosure button. Existing `aria-controls` and `aria-expanded` remain intact. The menu is a disclosure, not an incorrectly modeled modal dialog or focus trap.
+- CSS provides a minimum 44px motion control height and explicit `:focus-visible`. No new audio, autoplay, tracking, remote assets, payment callbacks, new design tokens or authority permissions.
+- The read-only source-contract tests under `hub/tests/holon-interaction.test.mjs` cover 10 source-level invariants and 6 negative mutation cases. Run `npm run test:experience` from `hub/`; negative source tests do **not** substitute for assistive-technology or browser behavior.
+
+**Fresh source check:** connector readback confirmed the JSX/CSS/test blobs exist at a single exact commit and 10 independently inspected source predicates match. This is **SOURCE_CONTRACT_ONLY**. The Node test command and full TypeScript/Vite build are not proven by that inspection; native GitHub Actions and real browser journey must be independently replayed. A user experience cannot be declared best-in-world, WCAG-conformant or released based on this change.
+
+**Next acceptance**: verify 390px mobile navigation by keyboard and touch, focus return after Escape, reduced-motion on physical/mobile browsers, Play/Pause with assistive tech, actual contrasts and performance, plus unchanged /pricing and /claim-sponsor callbacks. Hold protected main until signed commit, independent review and full release gates.
