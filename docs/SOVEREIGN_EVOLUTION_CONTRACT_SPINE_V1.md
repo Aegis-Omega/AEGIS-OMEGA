@@ -95,3 +95,83 @@ No skipped job or zero-step workflow counts as PASS.
 
 This is a bounded implementation connecting existing modules, not a
 claim that every system-wide module has been integrated.
+
+
+## Fusion integrity repair — 2026-10-12
+
+### Proven failure in the prior contract binder
+
+The spine previously accepted a caller-authored workplane containing fabricated
+\`issue_route_shards\` as long as the caller recomputed the top-level JSON hash
+and preserved selected summary fields. A hash of attacker-supplied content is
+not proof that its derived data follows the canonical issue graph.
+
+The bounded **pre-patch local replay** submitted a forged
+\`delivered_roles=["finance","sales"]\` packet in the workplane and recomputed
+\`receipt_hash\`. The old binder returned
+\`LOCAL_CONTENT_CONSISTENCY_ONLY\` instead of rejecting it.
+
+### Single fusion repair, no new service
+
+Existing \`evolution_contract_spine.py\` now checks the full allowed workplane
+field set and **rederives** each of the following from the already-validated
+graph, exact \`source_head\` and existing trial reducer:
+
+- issue evolution state;
+- every 32-event issue routing shard;
+- every cross-issue lesson routing shard;
+- the existing bounded synthetic TTL search result;
+- issue snapshot hash, explicit dependency and relationship counts;
+- informational transport, source/benchmark-unverified status;
+- existing EvolutionEngine observation; any reported applied promotion fails
+  closed, and a claimed observed lineage must match a supplied replayed
+  AdaptiveLineage root.
+
+These computations reuse \`issue_evolution.py\`,
+\`dendrite_workplane._route_lessons\`, \`dendrite_route_evolution.search_routes\`
+and \`AdaptiveLineage\`. No independent second route graph, new model, contract
+executor, workflow daemon, financial token, or privileged capability is created.
+
+Six new adversarial tests in the **existing** contract-spine suite deny
+rehash-after-forgery of route delivery, purported evolution outcome, route
+optimizer promotion, lesson deletion, skill promotion and additional authority
+metadata. The existing valid workplane test remains unchanged.
+
+A local candidate replay with partial mirror modules produced 96/96 passing
+tests (89 existing tests plus 7 targeted checks); this is **not**
+a byte-identical complete-GitHub-tree native run. GitHub Python Bridge
+was skipped due to upstream zero-step workflow failures at the observed
+heads; no hosted PASS is claimed.
+
+### Open issue inventory rebinding
+
+The existing 37-issue example snapshot was re-bound to a **complete three-page
+GitHub read-only API observation**. Exactly five issue records had changed
+between the previous frozen snapshot and the checked API response:
+#734, #753, #754, #757, #758. The \`acquisition\` field now records
+\`GITHUB_READ_ONLY_API\` instead of \`EXPLICIT_OFFLINE_FIXTURE\`.
+
+GitHub API retrieval authenticates neither arbitrary embedded assertions in
+issue bodies nor the independent validity of trial scores. It only supplies the
+observed current issue metadata as input to a reproducible local compilation.
+Other repositories and inaccessible/redirected scopes remain explicitly
+outside this 37-issue snapshot.
+
+### Verification and admission limits
+
+Recomputed consistency means that the workplane agrees with the current
+in-memory source graph and the existing version-pinned code; it does **not**
+authenticate the GitHub issue author, establish mathematical truth, authorize
+tool execution or verify the external benchmarks. The exact-head CI, signed
+commit admission, independent reviewer and any higher-authority operations
+remain separate and currently blocked/unknown.
+
+Run from an exact-head PR checkout:
+
+~~~sh
+PYTHONPATH=. python3 -m unittest \
+  agents.tests.test_evolution_contract_spine \
+  agents.tests.test_issue_evolution \
+  agents.tests.test_dendrite_workplane \
+  agents.tests.test_evolution_no_self_promotion -v
+~~~
