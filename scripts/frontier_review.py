@@ -157,8 +157,9 @@ def assess(review: dict, root: Path, as_of: date | None = None) -> dict:
         blockers.append('TWO_SOURCES_NOT_INSPECTED')
     if paired is None and decision['kind'] in ('ADOPT', 'ADAPT'):
         blockers.append('MISSING_PAIRED_OUTCOME_EVALUATION')
-    if result is not None and result['disposition'] not in (
-            'PARETO_GAIN_REPORTED_UNATTESTED', 'TRADEOFF_REQUIRES_REVIEW'):
+    if (result is not None and decision['kind'] in ('ADOPT', 'ADAPT')
+            and result['disposition'] not in (
+            'PARETO_GAIN_REPORTED_UNATTESTED', 'TRADEOFF_REQUIRES_REVIEW')):
         blockers.append('MEASURED_OUTCOME_NOT_IMPROVED_OR_NOT_COMPLETE')
     # Non-adopting decisions can record useful falsifications without inventing gain.
     if blockers:
@@ -194,7 +195,8 @@ def main(argv=None) -> int:
                              parse_constant=reject_json_constant)
         output = assess(payload, Path(args.root).resolve())
         print(json.dumps(output, sort_keys=True, indent=2))
-        return 0 if output['disposition'] == 'CANDIDATE_FOR_INDEPENDENT_REPLAY' else 2
+        return 0 if output['disposition'] in ('CANDIDATE_FOR_INDEPENDENT_REPLAY',
+                                             'RESEARCH_ONLY_NO_ADOPTION') else 2
     except (OSError, ValueError, UnicodeError, AttributeError) as exc:
         print(json.dumps({'schema': 'aegis.holon.frontier.receipt/1',
                           'disposition': 'INVALID_INPUT', 'error': str(exc),
