@@ -9,6 +9,7 @@ are wired in at startup. gate receives every /gate_signal; router dispatches
 every /event to the appropriate core_matrix handler.
 """
 import json
+from math import isfinite
 import os
 import threading
 from http.server import HTTPServer, BaseHTTPRequestHandler
@@ -471,16 +472,29 @@ class BridgeHandler(BaseHTTPRequestHandler):
 
         if self.path == '/gate_signal':
             seq = data.get('sequence', -1)
-            accepted = data.get('accepted', False)
+            accepted = data.get('accepted')
             proposal_id = data.get('proposal_id', '')
+            raw_lcb = data.get('lcb')
 
-            # JSON strings such as "false" are truthy in Python. Never
-            # coerce untrusted acceptance text into gate authority (#763).
+            # Guard ALL externally supplied gate fields before M2, the gate,
+            # and ACK. A JSON array used as proposal_id is unhashable, and
+            # record_signal mutates its window *before* indexing that id.
+            if type(proposal_id) is not str:
+                self._respond(400, {'status': 'REJECTED', 'reason': 'INVALID_PROPOSAL_ID'})
+                return
+
+            # JSON strings such as "false" are truthy in Python. Require an
+            # explicit JSON boolean, not a default from an absent field.
             if type(accepted) is not bool:
                 self._respond(400, {'status': 'REJECTED', 'reason': 'INVALID_ACCEPTED'})
                 return
 
-            lcb = float(data.get('lcb', 0.0))
+            # Non-finite values are legal in Python's non-strict JSON decoder.
+            # They are never valid measurements, even when lcb is informational.
+            if type(raw_lcb) not in (int, float) or not isfinite(raw_lcb):
+                self._respond(400, {'status': 'REJECTED', 'reason': 'INVALID_LCB'})
+                return
+            lcb = float(raw_lcb)
 
             # M2 is strict uint64. Reject invalid sequence before advancing
             # last_ack_sequence or recording a gate mutation (issue #763).
