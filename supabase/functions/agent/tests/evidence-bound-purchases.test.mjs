@@ -5,7 +5,7 @@ import {stripTypeScriptTypes} from 'node:module'
 import {webcrypto} from 'node:crypto'
 
 const source=stripTypeScriptTypes(readFileSync(new URL('../index.ts',import.meta.url),'utf8').replace(/^import .*$/gm,''),{mode:'strip'})
-function harness(blocks, dbRows=[{customer_email:'user@example.test',plan:'starter'}]) {
+function harness(blocks, dbRows=[{customer_email:'user@example.test',plan:'starter',ls_order_id:'ord_1',updated_at:'2026-10-11T05:00:00Z'}]) {
  const stats={provider:0,db:0,body:[]}
  const chain={select(){return chain},eq(){return chain},order(){return chain},limit(){stats.db++;return Promise.resolve({data:dbRows,error:null})}}
  const Deno={env:{get:n=>({ANTHROPIC_API_KEY:'fake',AEGIS_PURCHASE_READERS:'T12345:UOPERATOR'})[n]??''},serve(){}}
@@ -41,4 +41,25 @@ test('invalid DB result representation cannot masquerade as a sample',async()=>{
  const h=harness(one,{total:42})
  await assert.rejects(h.run(),/TOOL_VERIFICATION_FAILED/)
  assert.equal(h.stats.provider,1)
+})
+
+test('adapter must not launder an unexpected secret field into observed purchase evidence',async()=>{
+ const h=harness(one,[{customer_email:'user@example.test',plan:'starter',ls_order_id:'ord_1',updated_at:'2026-10-11T05:00:00Z',internal_api_token:'NOT_FOR_OUTPUT'}])
+ await assert.rejects(h.run(),/TOOL_VERIFICATION_FAILED/)
+ assert.equal(h.stats.provider,1)
+ assert.equal(h.stats.db,1)
+})
+test('adapter must not certify incomplete projected rows',async()=>{
+ const h=harness(one,[{customer_email:'user@example.test',plan:'starter'}])
+ await assert.rejects(h.run(),/TOOL_VERIFICATION_FAILED/)
+})
+test('adapter must reject malformed non-nullable timestamp',async()=>{
+ const h=harness(one,[{customer_email:null,plan:'starter',ls_order_id:'ord_1',updated_at:'not-a-time'}])
+ await assert.rejects(h.run(),/TOOL_VERIFICATION_FAILED/)
+})
+test('actual nullable customer_email with the full four-column projection remains valid',async()=>{
+ const h=harness(one,[{customer_email:null,plan:'full',ls_order_id:'ord_nullable',updated_at:'2026-10-11T05:00:00+00:00'}])
+ const value=JSON.parse((await h.run()).result)
+ assert.equal(value.status,'OBSERVED_DB_ROWS')
+ assert.equal(value.rows[0].customer_email,null)
 })
