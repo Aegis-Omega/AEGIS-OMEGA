@@ -16,7 +16,7 @@ BODY = '<!-- AEGIS_WORK_V1\n' + json.dumps({
     "kind": "code", "authority": "branch_only", "risk": "moderate",
     "scope": ["scripts/agent_issue_gate.py", "scripts/test_agent_issue_gate.py", "docs/**"],
     "forbidden": ["Production deployment", "Changing branch protection"],
-    "acceptance": [{"id": "A1", "criterion": "Exact source tests pass", "method": "github_check", "check": "aegis / issue-gate-tests", "app_id": 15368}]
+    "acceptance": [{"id": "A1", "criterion": "Exact source tests pass", "method": "github_check", "check": "aegis / issue-gate-tests", "app_id": 15368, "required_step": "Run stdlib falsifiers"}]
 }) + '\n-->'
 
 
@@ -203,7 +203,7 @@ class GateTests(unittest.TestCase):
                                                "status": "completed", "conclusion": "success"}]}
         replies = [run, job, {"type": "file", "sha": "c" * 40}, {"type": "file", "sha": "d" * 40}]
         with unittest.mock.patch("agent_issue_gate._api", side_effect=replies):
-            self.assertFalse(_trusted_check_origin(x["repo"], x["pr"], check, ""))
+            self.assertFalse(_trusted_check_origin(x["repo"], x["pr"], check, "", "Run stdlib falsifiers"))
 
     def test_origin_verifier_accepts_unchanged_workflow(self):
         import unittest.mock
@@ -218,7 +218,7 @@ class GateTests(unittest.TestCase):
                                                "status": "completed", "conclusion": "success"}]}
         replies = [run, job, {"type": "file", "sha": "c" * 40}, {"type": "file", "sha": "c" * 40}]
         with unittest.mock.patch("agent_issue_gate._api", side_effect=replies):
-            self.assertTrue(_trusted_check_origin(x["repo"], x["pr"], check, ""))
+            self.assertTrue(_trusted_check_origin(x["repo"], x["pr"], check, "", "Run stdlib falsifiers"))
 
     def test_origin_checker_breaks_old_self_dependency_cycle(self):
         import unittest.mock
@@ -235,7 +235,7 @@ class GateTests(unittest.TestCase):
                                                "status": "completed", "conclusion": "success"}]}
         with unittest.mock.patch("agent_issue_gate._api", side_effect=[
             run, job, {"type": "file", "sha": "c" * 40}, {"type": "file", "sha": "c" * 40}]):
-            self.assertTrue(_trusted_check_origin(x["repo"], x["pr"], c, ""))
+            self.assertTrue(_trusted_check_origin(x["repo"], x["pr"], c, "", "Run stdlib falsifiers"))
 
     def test_running_workflow_can_verify_completed_job_without_deadlock(self):
         import unittest.mock
@@ -250,7 +250,34 @@ class GateTests(unittest.TestCase):
                                                "status": "completed", "conclusion": "success"}]}
         with unittest.mock.patch("agent_issue_gate._api", side_effect=[
             run, job, {"type": "file", "sha": "c" * 40}, {"type": "file", "sha": "c" * 40}]):
-            self.assertTrue(_trusted_check_origin(x["repo"], x["pr"], check, ""))
+            self.assertTrue(_trusted_check_origin(x["repo"], x["pr"], check, "", "Run stdlib falsifiers"))
+
+    def test_origin_checker_requires_exact_evaluation_step(self):
+        import unittest.mock
+        from agent_issue_gate import _trusted_check_origin
+        x = good(); x["pr"]["base"]["sha"] = "b" * 40
+        c = x["check_runs"][0]
+        c["details_url"] = "https://github.com/Aegis-Omega/AEGIS-OMEGA/actions/runs/333/job/999"
+        run = {"path": ".github/workflows/agent-issue-gate.yml", "head_sha": HEAD,
+               "status": "in_progress", "event": "pull_request", "workflow_id": 22}
+        job = {"id": 999, "run_id": 333, "head_sha": HEAD, "status": "completed",
+               "conclusion": "success", "steps": [{"name": "Checkout exact PR head (tests only; no authority)",
+                                               "status": "completed", "conclusion": "success"},
+                                             {"name": "Run stdlib falsifiers", "status": "completed",
+                                               "conclusion": "skipped"}]}
+        with unittest.mock.patch("agent_issue_gate._api", side_effect=[run, job]):
+            self.assertFalse(_trusted_check_origin(x["repo"], x["pr"], c, "", "Run stdlib falsifiers"))
+
+    def test_missing_required_step_invalid_contract(self):
+        x = good()
+        x["issue"]["body"] = BODY.replace(', "required_step": "Run stdlib falsifiers"', '')
+        self.assertEqual(assess(x)["contract"], "INVALID")
+
+    def test_required_step_change_revokes_digest(self):
+        x = good()
+        x["issue"]["body"] = BODY.replace('"required_step": "Run stdlib falsifiers"',
+                                                '"required_step": "Checkout exact PR head"')
+        self.fail_gate(x, "contract_binding")
 
     def test_origin_checker_requires_real_executed_step(self):
         import unittest.mock
@@ -263,7 +290,7 @@ class GateTests(unittest.TestCase):
         job = {"id": 999, "run_id": 333, "head_sha": HEAD, "status": "completed",
                "conclusion": "success", "steps": []}
         with unittest.mock.patch("agent_issue_gate._api", side_effect=[run, job]):
-            self.assertFalse(_trusted_check_origin(x["repo"], x["pr"], c, ""))
+            self.assertFalse(_trusted_check_origin(x["repo"], x["pr"], c, "", "Run stdlib falsifiers"))
 
     def test_origin_checker_requires_same_run_id(self):
         import unittest.mock
@@ -277,7 +304,7 @@ class GateTests(unittest.TestCase):
                "conclusion": "success", "steps": [{"name": "Run stdlib falsifiers",
                                                "status": "completed", "conclusion": "success"}]}
         with unittest.mock.patch("agent_issue_gate._api", side_effect=[run, job]):
-            self.assertFalse(_trusted_check_origin(x["repo"], x["pr"], c, ""))
+            self.assertFalse(_trusted_check_origin(x["repo"], x["pr"], c, "", "Run stdlib falsifiers"))
 
     def test_live_snapshot_rejects_changed_reviews_mid_fetch(self):
         import unittest.mock
@@ -309,8 +336,14 @@ class GateTests(unittest.TestCase):
 
     def test_workflow_has_read_only_actions_permission(self):
         workflow = Path(__file__).resolve().parents[1] / ".github/workflows/agent-issue-gate.yml"
-        self.assertIn("  actions: read\n", workflow.read_text(encoding="utf-8"))
-        self.assertNotIn("  actions: write\n", workflow.read_text(encoding="utf-8"))
+        source = workflow.read_text(encoding="utf-8")
+        test_job = source.split("  issue-contract-tests:", 1)[1].split("  issue-evidence:", 1)[0]
+        evidence_job = source.split("  issue-evidence:", 1)[1]
+        self.assertIn("    permissions:\n      contents: read\n", test_job)
+        self.assertNotIn("actions: read", test_job)
+        self.assertIn("      actions: read\n", evidence_job)
+        self.assertNotIn("actions: write", source)
+        self.assertNotIn("issues: write", source)
 
     def test_integration_live_snapshot_and_assess(self):
         import unittest.mock
@@ -338,7 +371,7 @@ class GateTests(unittest.TestCase):
     def test_origin_verifier_rejects_fake_job_details_url(self):
         from agent_issue_gate import _trusted_check_origin
         x = good(); x["check_runs"][0]["details_url"] = "https://evil.invalid/check/999"
-        self.assertFalse(_trusted_check_origin(x["repo"], x["pr"], x["check_runs"][0], ""))
+        self.assertFalse(_trusted_check_origin(x["repo"], x["pr"], x["check_runs"][0], "", "Run stdlib falsifiers"))
 
     def test_stacked_branch(self):
         x = good(); x["pr"]["base"]["ref"] = "feat/old"
