@@ -96,6 +96,8 @@ def open_prs(quick=False):
     if quick:
         return [], "unavailable"  # Hook only trusts a fresh full cache.
     prs = []
+    seen_numbers = set()
+    first_page = None
     complete = False
     for page in range(1, 20):
         out = sh("gh", "api",
@@ -110,10 +112,28 @@ def open_prs(quick=False):
         if (not isinstance(batch, list) or len(batch) > 100
                 or not all(_valid_pr_record(p) for p in batch)):
             break
+        page_ids = [p["n"] for p in batch]
+        if len(page_ids) != len(set(page_ids)) or seen_numbers.intersection(page_ids):
+            break  # Mid-pagination changes can shift the same PR across pages.
+        seen_numbers.update(page_ids)
+        if page == 1:
+            first_page = batch
         prs.extend(batch)
         if len(batch) < 100:
             complete = True  # [] is a valid, authenticated end of pagination.
             break
+    if complete and len(prs) > 100:
+        # Bounded consistency check: a newly opened PR may shift page 1 while
+        # we read pages 2+. REST pagination is not an atomic transaction.
+        refreshed = sh("gh", "api",
+                       f"repos/{REPO}/pulls?state=open&per_page=100&page=1",
+                       "--jq", "[.[] | {n: .number, t: .title, h: .head.ref, b: .base.ref, d: .created_at[:10], s: .head.sha}]")
+        try:
+            consistent = json.loads(refreshed) == first_page
+        except (TypeError, ValueError):
+            consistent = False
+        if not consistent:
+            complete = False
     if complete:
         try:
             with open(cache, "w") as f:
