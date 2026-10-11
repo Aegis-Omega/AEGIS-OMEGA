@@ -106,7 +106,35 @@ def M1(state: memoryview, payload: bytes, sequence: int) -> Tuple[int, bytes]:
     return sequence + 1, chain_hash
 
 
-def M2(state: memoryview, verifier_result: bytes, confidence_fixed: int, sequence: int = 0) -> Tuple[int, int]:
+def _m2_byte_offset(region_length: int, sequence: int, source: str) -> int:
+    """Versioned M2 layout: disjoint, aligned 8-byte rings for two writers.
+
+    Event and TypeScript gate-signal sequence numbers are independent. An equal
+    numeric sequence therefore never aliases across the two writer namespaces.
+    Circular wrap *within* a source namespace is an explicit overwrite policy.
+    Incomplete tail bytes are reserved and never addressed.
+    """
+    if type(region_length) is not int or region_length < 16:
+        raise ValueError("M2 requires at least 16 bytes for two namespaces")
+    if type(sequence) is not int or not 0 <= sequence < (1 << 64):
+        raise ValueError("M2 sequence must be an unsigned 64-bit integer")
+    if source not in ("event", "gate_signal"):
+        raise ValueError("M2 source must be event or gate_signal")
+
+    slots = region_length // 8
+    event_slots = (slots + 1) // 2
+    if source == "event":
+        start, capacity = 0, event_slots
+    else:
+        start, capacity = event_slots, slots - event_slots
+
+    offset = (start + (sequence % capacity)) * 8
+    if offset % 8 != 0 or not 0 <= offset <= region_length - 8:
+        raise RuntimeError("M2 address layout invariant violated")
+    return offset
+
+
+def M2(state: memoryview, verifier_result: bytes, confidence_fixed: int, sequence: int = 0, *, source: str) -> Tuple[int, int]:
     """
     M2: Calibration and gate data function.
     Transforms the calibration region of the byte array.
@@ -134,12 +162,11 @@ def M2(state: memoryview, verifier_result: bytes, confidence_fixed: int, sequenc
     lcb_adjustment = (2 * vcg_error_fixed) >> 1
     gate_lcb_fixed = max(0, confidence_fixed - lcb_adjustment)
 
-    # Write to M2 region — offset incorporates sequence to prevent collision when
-    # different events produce verifier_result bytes of equal length.
-    offset = (sequence * 8 + len(verifier_result)) % (len(state) // 8)
-    if offset + 8 <= len(state):
-        state[offset:offset + 4] = vcg_error_fixed.to_bytes(4, 'little', signed=False)
-        state[offset + 4:offset + 8] = gate_lcb_fixed.to_bytes(4, 'little', signed=False)
+    # Writer namespaces are independent. Slot arithmetic precedes byte conversion.
+    # Validation occurs before any memory mutation (fail closed on invalid input).
+    offset = _m2_byte_offset(len(state), sequence, source)
+    state[offset:offset + 4] = vcg_error_fixed.to_bytes(4, 'little', signed=False)
+    state[offset + 4:offset + 8] = gate_lcb_fixed.to_bytes(4, 'little', signed=False)
 
     return vcg_error_fixed, gate_lcb_fixed
 
@@ -294,7 +321,8 @@ class CoreMatrix:
             # confidence_fixed derived from verifier result
             confidence_fixed = INT_SCALE if verifier_result and verifier_result[0] else INT_SCALE // 2
             vcg_error_fixed, gate_lcb_fixed = M2(
-                self._m2_region, verifier_result, confidence_fixed, self._sequence
+                self._m2_region, verifier_result, confidence_fixed, self._sequence,
+                source="event",
             )
 
             # M3: context projection with current W_scale
@@ -336,7 +364,8 @@ class CoreMatrix:
         """
         with self._lock:
             signal_byte = b'\x01' if accepted else b'\x00'
-            M2(self._m2_region, signal_byte, INT_SCALE if accepted else 0, sequence)
+            M2(self._m2_region, signal_byte, INT_SCALE if accepted else 0,
+               sequence, source="gate_signal")
 
     def emit_vcg_telemetry(self) -> Dict[str, object]:
         """
