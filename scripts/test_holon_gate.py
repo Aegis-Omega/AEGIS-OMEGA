@@ -60,6 +60,20 @@ class UniversalHolonTests(unittest.TestCase):
         self.assertIn('INDEPENDENT_REVIEW_NOT_RECORDED', r['blockers'])
         self.assertNotEqual(r['readiness'], 'REVIEW_READY_NOT_ADMITTED')
 
+    def test_missing_empty_or_nonstring_reviewer_cannot_be_review_ready(self):
+        # A claimed ACCEPT verdict must not count as a recorded independent
+        # review without a distinct, nonempty reviewer identifier.
+        base = {'verdict': 'ACCEPT', 'source_sha': 'a' * 40}
+        cases = [base, dict(base, reviewer=''), dict(base, reviewer='  '),
+                 dict(base, reviewer=None), dict(base, reviewer=123)]
+        for review in cases:
+            with self.subTest(review=review):
+                self.base['submissions'] = [self.sub(review=review)]
+                result = self.audit()['tasks'][0]
+                self.assertIn('INDEPENDENT_REVIEW_NOT_RECORDED', result['blockers'])
+                self.assertNotEqual(result['readiness'], 'REVIEW_READY_NOT_ADMITTED')
+                self.assertEqual(self.audit()['admitted_tasks'], 0)
+
     def test_stale_test_sha_not_proof(self):
         self.base['submissions'] = [self.sub(tests=[{'source_sha':'b'*40, 'result':'PASS'}])]
         self.assertIn('TEST_EVIDENCE_MISSING_OR_STALE', self.audit()['tasks'][0]['blockers'])
