@@ -74,3 +74,13 @@ test('visual system stylesheet syntax is balanced, independent of optional WebGL
   assert.equal(count,0)
   assert.doesNotMatch(raw,/canvas\.getContext|fetch\(|WebGLRenderingContext/)
 })
+
+
+test('section context rail replaces duplicated visual heading on nested pages',()=>{
+  assert.match(files.holon,/className="av-route-rail hg-content"/)
+  assert.match(files.visual,/\.hg-route:not\(\.hg-route-docs\) > \.hg-route-header\{display:none\}/)
+  assert.match(files.visual,/\.hg-route-docs > \.hg-route-header/)
+  const docs=readFileSync(new URL('../src/components/DocsPage.tsx',import.meta.url),'utf8')
+  assert.doesNotMatch(docs,/<main(?:\s|>)/,'nested main landmark under shared main')
+  assert.match(docs,/aria-label="API reference sections"/)
+})
