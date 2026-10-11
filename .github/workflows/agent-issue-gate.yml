@@ -1,0 +1,60 @@
+name: AEGIS Agent Issue Gate (proposal)
+
+on:
+  pull_request:
+    types: [opened, synchronize, edited, reopened, ready_for_review]
+    branches: [main]
+
+permissions:
+  contents: read
+  pull-requests: read
+  issues: read
+  checks: read
+
+concurrency:
+  group: agent-issue-gate-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  issue-contract-tests:
+    if: contains(github.event.pull_request.body, 'AEGIS-WORK-ISSUE:')
+    name: aegis / issue-gate-tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout exact PR head (tests only; no authority)
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          persist-credentials: false
+      - name: Run stdlib falsifiers
+        run: python3 -m unittest discover -s scripts -p 'test_agent_issue_gate.py' -v
+
+  issue-evidence:
+    if: contains(github.event.pull_request.body, 'AEGIS-WORK-ISSUE:')
+    name: aegis / issue-evidence
+    needs: [issue-contract-tests]
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout trusted base (not candidate PR code)
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.base.sha }}
+          persist-credentials: false
+      - name: Inspect live GitHub evidence for exact PR head
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          REPOSITORY: ${{ github.repository }}
+        run: |
+          python3 scripts/agent_issue_gate.py --repo "$REPOSITORY" \
+            --live-pr "$PR_NUMBER" --output "$RUNNER_TEMP/AEGIS_ISSUE_GATE.json"
+      - name: Upload read-only gate receipt
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: aegis-issue-gate-${{ github.event.pull_request.head.sha }}
+          path: ${{ runner.temp }}/AEGIS_ISSUE_GATE.json
+          if-no-files-found: ignore
+          retention-days: 30
