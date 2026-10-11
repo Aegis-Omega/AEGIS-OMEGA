@@ -36,15 +36,21 @@ export function EvidenceFilament({ sources, selectedId, onSelect }: Props) {
           </g>
           <g fill="none" stroke="url(#ef-beam)" strokeWidth="1.5">
             <path d="M195 194 C305 194 290 194 408 194" />
-            <path d="M658 194 C750 194 740 194 862 194" />
             <path d="M195 194 260 118 410 194 260 271Z" strokeOpacity=".35" />
-            <path d="M862 194 806 122 680 194 806 269Z" strokeOpacity=".35" />
+            {flow && flow.source.boundaries.map((limit, index) => {
+              const count = flow.source.boundaries.length
+              const y = count === 1 ? 194 : 80 + index * 228 / (count - 1)
+              return <g key={index}>
+                <path d={'M658 194 C740 194 752 ' + y + ' 862 ' + y} />
+                <circle cx="862" cy={y} r="5" stroke="#b7d9ed" fill="#102840" />
+              </g>
+            })}
           </g>
           <g fill="#9fd9f6" stroke="#142b46" strokeWidth="4">
             <circle cx="195" cy="194" r="6" />
             <circle cx="408" cy="194" r="5" />
             <circle cx="658" cy="194" r="5" />
-            <circle cx="862" cy="194" r="6" />
+
           </g>
         </svg>
         <div className="ef-flow" key={flow.source.id}>
