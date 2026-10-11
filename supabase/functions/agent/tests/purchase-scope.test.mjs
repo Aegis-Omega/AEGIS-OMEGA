@@ -67,7 +67,7 @@ function runModelWithPurchaseToolOutcome(toolInput, databaseOutcome) {
       {stop_reason:'tool_use',content:[{
         type:'tool_use',name:'query_purchases',id:'tool1',input:toolInput
       }]}:
-      {stop_reason:'end_turn',content:[{type:'text',text:'Verified: 42 purchases'}]})
+      {stop_reason:'end_turn',content:[{type:'text',text:'Tool query completed; review the records'}]})
   }
   const runAgent=new Function('Deno','fetch','crypto','createClient','CORS','console','atob','btoa',
     src+'\nreturn runAgent')(Deno,fetch,webcrypto,createClient,{},console,atob,btoa)
@@ -88,10 +88,10 @@ test('invalid model filter cannot be promoted to verified answer',async()=>{
   assert.equal(a.stats().modelCalls,1)
   assert.equal(a.stats().dbCalls,0)
 })
-test('grounded read still permits a model result',async()=>{
+test('successful tool read permits a response without validating its factual claims',async()=>{
   const a=runModelWithPurchaseToolOutcome({filter:'full'},
     {data:[{customer_email:'mock@example.test',plan:'full'}],error:null})
-  assert.equal((await a.run()).result,'Verified: 42 purchases')
+  assert.equal((await a.run()).result,'Tool query completed; review the records')
   assert.equal(a.stats().modelCalls,2)
   assert.equal(a.stats().dbCalls,1)
 })
