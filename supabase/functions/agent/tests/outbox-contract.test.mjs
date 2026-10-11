@@ -254,3 +254,30 @@ test('model-invented notification tool cannot send outside encrypted outbox',asy
  assert.equal(urls.length,2)
  assert.ok(urls.every(url=>url.includes('api.anthropic.com')))
 })
+
+test('five incomplete model turns do not fabricate a stored result',async()=>{
+ const d=db()
+ const h=agent(d,env,async()=>{
+   d.stats.paid++
+   return Response.json({stop_reason:'tool_use',content:[{
+     type:'tool_use',id:'t'+d.stats.paid,name:'unavailable_tool',input:{}
+   }]})
+ })
+ const [status,body]=await send(h)
+ assert.equal(status,503)
+ assert.equal(body.error,'MODEL_INCOMPLETE')
+ assert.equal(d.stats.paid,5)
+ assert.equal(d.rows.size,0)
+})
+test('empty final model reply cannot become a paid success receipt',async()=>{
+ const d=db()
+ const h=agent(d,env,async()=>{
+   d.stats.paid++
+   return Response.json({stop_reason:'end_turn',content:[{type:'text',text:'   '}]})
+ })
+ const [status,body]=await send(h)
+ assert.equal(status,503)
+ assert.equal(body.error,'MODEL_INCOMPLETE')
+ assert.equal(d.stats.paid,1)
+ assert.equal(d.rows.size,0)
+})
