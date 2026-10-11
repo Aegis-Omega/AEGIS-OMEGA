@@ -7,6 +7,7 @@ on:
       - "sovereign-omega-v2/python/bridge.py"
       - "sovereign-omega-v2/python/tests/test_m2_layout_diagnostic.py"
       - "sovereign-omega-v2/python/tests/test_m2_runtime_replay.py"
+      - "sovereign-omega-v2/python/tests/run_m2_exact_head_replay.py"
       - "sovereign-omega-v2/python/tests/fixtures/m2_sequence_domain_contract.json"
       - ".github/workflows/m2-layout-diagnostic.yml"
   push:
@@ -15,6 +16,7 @@ on:
       - "sovereign-omega-v2/python/bridge.py"
       - "sovereign-omega-v2/python/tests/test_m2_layout_diagnostic.py"
       - "sovereign-omega-v2/python/tests/test_m2_runtime_replay.py"
+      - "sovereign-omega-v2/python/tests/run_m2_exact_head_replay.py"
       - "sovereign-omega-v2/python/tests/fixtures/m2_sequence_domain_contract.json"
       - ".github/workflows/m2-layout-diagnostic.yml"
 
@@ -45,4 +47,4 @@ jobs:
 
       - name: Run M2 layout diagnostic gate
         working-directory: sovereign-omega-v2/python
-        run: python -m unittest tests.test_m2_layout_diagnostic tests.test_m2_runtime_replay -v
+        run: python tests/run_m2_exact_head_replay.py
