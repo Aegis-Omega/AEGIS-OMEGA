@@ -370,6 +370,28 @@ class HolonContextTests(unittest.TestCase):
                  patch.object(ctx, "sh", return_value=""):
                 self.assertEqual(ctx.open_prs(quick=True), ([], "unavailable"))
 
+    def test_v2_empty_complete_snapshot_is_a_valid_quick_cache(self):
+        import tempfile
+        with tempfile.TemporaryDirectory() as directory:
+            pathlib.Path(directory, "aegis-open-prs.json").write_text(
+                json.dumps({"format": "AEGIS_PR_SNAPSHOT_V2",
+                            "complete": True, "prs": []}), encoding="utf-8")
+            with patch.object(ctx, "git_dir", return_value=directory), \
+                 patch.object(ctx, "sh", side_effect=AssertionError("unexpected network call")):
+                self.assertEqual(ctx.open_prs(quick=True), ([], "cache"))
+        self.assertEqual(ctx.holon_disposition("cache", "github", [], []),
+                         "HOLD_INCOMPLETE_SHARED_STATE")
+
+    def test_v2_empty_incomplete_snapshot_is_not_a_quick_cache(self):
+        import tempfile
+        with tempfile.TemporaryDirectory() as directory:
+            pathlib.Path(directory, "aegis-open-prs.json").write_text(
+                json.dumps({"format": "AEGIS_PR_SNAPSHOT_V2",
+                            "complete": False, "prs": []}), encoding="utf-8")
+            with patch.object(ctx, "git_dir", return_value=directory), \
+                 patch.object(ctx, "sh", side_effect=AssertionError("unexpected network call")):
+                self.assertEqual(ctx.open_prs(quick=True), ([], "unavailable"))
+
     def test_v2_complete_snapshot_can_support_bounded_hook(self):
         import tempfile
         valid = {"n": 734, "t": "existing", "h": "head", "b": "main",
