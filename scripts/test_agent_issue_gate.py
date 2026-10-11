@@ -158,6 +158,10 @@ class GateTests(unittest.TestCase):
         x = good(); x["issue"]["body"] += "\n" + BODY
         self.assertEqual(assess(x)["contract"], "INVALID")
 
+    def test_duplicate_json_key_fails_closed(self):
+        x = good(); x["issue"]["body"] = BODY.replace('"risk": "moderate"', '"risk": "moderate", "risk": "low"')
+        self.assertEqual(assess(x)["contract"], "INVALID")
+
     def test_missing_acceptance(self):
         x = good(); x["issue"]["body"] = BODY.replace('"acceptance": [{', '"acceptance": {')
         self.assertEqual(assess(x)["contract"], "INVALID")
