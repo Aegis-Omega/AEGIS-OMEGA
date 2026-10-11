@@ -18,6 +18,7 @@ TEST_DIR = Path(__file__).resolve().parent
 PYTHON_DIR = TEST_DIR.parent
 CORE_MATRIX_PATH = PYTHON_DIR / "core_matrix.py"
 BRIDGE_PATH = PYTHON_DIR / "bridge.py"
+GATE_PATH = PYTHON_DIR / "gate.py"
 CONTRACT_PATH = TEST_DIR / "fixtures" / "m2_sequence_domain_contract.json"
 
 
@@ -474,6 +475,141 @@ class TestM2LayoutDiagnosticGate(unittest.TestCase):
             events,
             ["M2", "GATE", ("RESPONSE", 200, {"status": "ACK", "sequence": 1})],
         )
+        self.assertEqual(scope["last_ack_sequence"], 1)
+
+    def test_real_gate_source_rejects_unhashable_proposal_before_mutation(self) -> None:
+        # Compile the real, unmodified frozen gate.py method bodies without
+        # importing bridge.py (which allocates a multi-GiB CoreMatrix arena).
+        # First reproduce the old partial-write witness in actual gate code;
+        # then assert the current bridge blocks that payload before that code.
+        import copy
+        import threading
+        from collections import deque
+        from contextlib import nullcontext
+        from math import isfinite
+        from types import SimpleNamespace
+        from typing import Dict
+
+        gate_tree = _tree(GATE_PATH)
+        original_gate = next(
+            node for node in gate_tree.body
+            if isinstance(node, ast.ClassDef) and node.name == "MutationGate"
+        )
+        class_node = copy.deepcopy(original_gate)
+        required = {"__init__", "record_signal", "_acceptance_rate"}
+        class_node.body = [
+            node for node in class_node.body
+            if isinstance(node, ast.FunctionDef) and node.name in required
+        ]
+        self.assertEqual(
+            {node.name for node in class_node.body}, required
+        )
+        scope = {
+            "threading": threading,
+            "deque": deque,
+            "Dict": Dict,
+            "GateSignal": SimpleNamespace,
+            "MutationVerdict": SimpleNamespace(
+                APPROVED="approved", REJECTED="rejected",
+            ),
+            "WINDOW_SIZE": 32,
+            "MIN_ACCEPTANCE_RATE": 0.5,
+        }
+        module = ast.fix_missing_locations(
+            ast.Module(body=[class_node], type_ignores=[])
+        )
+        exec(compile(module, str(GATE_PATH), "exec"), scope)
+        gate_class = scope["MutationGate"]
+
+        old_gate = gate_class()
+        with self.assertRaises(TypeError):
+            old_gate.record_signal(SimpleNamespace(
+                proposal_id=["invalid-json-array"], sequence=1,
+                accepted=True, lcb=0.5,
+            ))
+        # This is the regression witness: record_signal's dictionary key
+        # exception occurs *after* the gate counters/window have mutated.
+        self.assertEqual(old_gate._last_sequence, 1)
+        self.assertEqual(old_gate._total_signals, 1)
+        self.assertEqual(list(old_gate._window), [True])
+        self.assertEqual(old_gate._proposals, {})
+
+        handler = next(
+            node for node in self.bridge_tree.body
+            if isinstance(node, ast.ClassDef) and node.name == "BridgeHandler"
+        )
+        post = next(
+            node for node in handler.body
+            if isinstance(node, ast.FunctionDef) and node.name == "do_POST"
+        )
+        branch = next(
+            node for node in ast.walk(post)
+            if isinstance(node, ast.If)
+            and isinstance(node.test, ast.Compare)
+            and len(node.test.comparators) == 1
+            and isinstance(node.test.comparators[0], ast.Constant)
+            and node.test.comparators[0].value == "/gate_signal"
+        )
+        isolated = ast.parse(
+            "def _gate_branch(self, data):\n"
+            "    global last_ack_sequence\n"
+            "    pass\n"
+        ).body[0]
+        isolated.body = [isolated.body[0]] + copy.deepcopy(branch.body)
+        module = ast.fix_missing_locations(
+            ast.Module(body=[isolated], type_ignores=[])
+        )
+
+        guarded_gate = gate_class()
+        events = []
+        scope.update({
+            "_lock": nullcontext(),
+            "isfinite": isfinite,
+            "last_ack_sequence": -1,
+            "matrix": SimpleNamespace(
+                receive_gate_signal=lambda *args: events.append("M2")
+            ),
+            "gate": guarded_gate,
+            "GateSignal": lambda **fields: SimpleNamespace(**fields),
+        })
+        exec(compile(module, str(BRIDGE_PATH), "exec"), scope)
+        handler_stub = SimpleNamespace(
+            _respond=lambda code, body: events.append(
+                ("RESPONSE", code, body)
+            )
+        )
+        for invalid in (["invalid-json-array"], {"id": "dict"}):
+            events.clear()
+            scope["_gate_branch"](handler_stub, {
+                "sequence": 1, "accepted": True, "lcb": 0.5,
+                "proposal_id": invalid,
+            })
+            self.assertEqual(events, [("RESPONSE", 400, {
+                "status": "REJECTED", "reason": "INVALID_PROPOSAL_ID",
+            })])
+            self.assertEqual(guarded_gate._last_sequence, -1)
+            self.assertEqual(guarded_gate._total_signals, 0)
+            self.assertFalse(guarded_gate._window)
+            self.assertEqual(guarded_gate._proposals, {})
+            self.assertEqual(scope["last_ack_sequence"], -1)
+
+        # Valid control must preserve the unchanged frozen gate behavior.
+        events.clear()
+        scope["_gate_branch"](handler_stub, {
+            "sequence": 1, "accepted": True, "lcb": 0.5,
+            "proposal_id": "valid-proposal",
+        })
+        self.assertEqual(guarded_gate._last_sequence, 1)
+        self.assertEqual(list(guarded_gate._window), [True])
+        self.assertEqual(guarded_gate._total_signals, 1)
+        self.assertEqual(
+            guarded_gate._proposals["valid-proposal"], "approved"
+        )
+        self.assertEqual(events, [
+            "M2", ("RESPONSE", 200, {
+                "status": "ACK", "sequence": 1,
+            }),
+        ])
         self.assertEqual(scope["last_ack_sequence"], 1)
 
     def test_m2_record_constructed_before_single_buffer_write(self) -> None:
