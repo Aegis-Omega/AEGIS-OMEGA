@@ -7,6 +7,7 @@ Never modifies the repository or starts an AEGIS subsystem.
 from __future__ import annotations
 
 import hashlib
+import importlib.util
 import io
 import json
 import os
@@ -70,20 +71,27 @@ def main() -> int:
         for path in SOURCES:
             receipt["files_sha256"][path] = hashlib.sha256((ROOT / path).read_bytes()).hexdigest()
 
-        sys.path.insert(0, str(PYTHON))
-        cases = unittest.defaultTestLoader.loadTestsFromNames([
-            "tests.test_m2_layout_diagnostic",
-            "tests.test_m2_runtime_replay",
-        ])
+        # Load by exact checkout path; do not depend on a global "tests" package.
+        suite = unittest.TestSuite()
+        for index, name in enumerate(("test_m2_layout_diagnostic.py",
+                                      "test_m2_runtime_replay.py")):
+            path = PYTHON / "tests" / name
+            spec = importlib.util.spec_from_file_location(
+                "aegis_m2_exact_head_test_" + str(index), str(path))
+            if spec is None or spec.loader is None:
+                raise ImportError("Cannot load exact-head test file " + name)
+            module = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(module)
+            suite.addTests(unittest.defaultTestLoader.loadTestsFromModule(module))
         sink = io.StringIO()
-        result = unittest.TextTestRunner(stream=sink, verbosity=2).run(cases)
+        result = unittest.TextTestRunner(stream=sink, verbosity=2).run(suite)
         print(sink.getvalue(), file=sys.stderr)
         receipt["tests_run"] = result.testsRun
         receipt["failures"] = len(result.failures)
         receipt["errors"] = len(result.errors)
         receipt["disposition"] = "PASS" if result.wasSuccessful() and result.testsRun > 0 else "FAIL_TESTS"
         return 0 if receipt["disposition"] == "PASS" else 1
-    except (OSError, subprocess.SubprocessError, ValueError) as exc:
+    except Exception as exc:  # preserve machine-readable BLOCKED receipt on loader errors
         receipt["disposition"] = "BLOCKED_REPLAY_ERROR"
         receipt["error_type"] = type(exc).__name__
         return 2
