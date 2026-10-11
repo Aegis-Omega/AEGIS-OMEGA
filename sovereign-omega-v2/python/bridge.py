@@ -463,6 +463,21 @@ def _build_live_state_context() -> str:
         )
 
 
+def _gate_unique_json_members(pairs):
+    """I-JSON: reject ambiguous duplicate object names at any nesting depth."""
+    result = {}
+    for key, value in pairs:
+        if key in result:
+            raise ValueError("duplicate JSON member")
+        result[key] = value
+    return result
+
+
+def _gate_reject_non_json_constant(value):
+    # Python json accepts NaN/Infinity extensions, but RFC 8259 does not.
+    raise ValueError("non-JSON numeric literal")
+
+
 def _gate_peer_is_loopback(client_address) -> bool:
     """Fail closed for unauthenticated gate ingress, ignoring forwarded headers.
 
@@ -515,8 +530,12 @@ class BridgeHandler(BaseHTTPRequestHandler):
                 self._respond(413, {'status': 'REJECTED', 'reason': 'GATE_BODY_BOUNDS'})
                 return
             try:
-                data = json.loads(self.rfile.read(int(raw_length)))
-            except (ValueError, UnicodeDecodeError):
+                data = json.loads(
+                    self.rfile.read(int(raw_length)),
+                    object_pairs_hook=_gate_unique_json_members,
+                    parse_constant=_gate_reject_non_json_constant,
+                )
+            except (ValueError, UnicodeDecodeError, RecursionError):
                 self._respond(400, {'status': 'REJECTED', 'reason': 'GATE_JSON_INVALID'})
                 return
             if type(data) is not dict:
