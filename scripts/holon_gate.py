@@ -12,6 +12,8 @@ import re
 import os
 import stat
 from pathlib import Path, PurePosixPath
+from collections import defaultdict
+from itertools import combinations
 
 SHA = re.compile(r'^[0-9a-f]{40}$')
 DIGEST = re.compile(r'^[0-9a-f]{64}$')
@@ -177,22 +179,45 @@ def validate(snapshot):
     return by_id, sub_by_id
 
 
+def scope_collisions(by_id):
+    """Index normalized scope prefixes; preserve the legacy symmetric blockers.
+
+    This is *only* a faster detection of possible conflicts, not a grant of
+    authority. If two tasks share a scope or one scope is an ancestor of
+    another, block both when at least one is actively claimed.
+    """
+    active = {'CLAIMED', 'IN_PROGRESS', 'REVIEW'}
+    collision = {tid: set() for tid in by_id}
+    scope_owners = defaultdict(set)
+    for tid, task in by_id.items():
+        for path in task['paths']:
+            scope_owners[path_tokens(path)].add(tid)
+
+    def link(a, b):
+        if a != b and (by_id[a]['state'] in active or by_id[b]['state'] in active):
+            collision[a].add(b)
+            collision[b].add(a)
+
+    for scope, owners in scope_owners.items():
+        # Equal normalized scope: compare each distinct pair once.
+        for a, b in combinations(sorted(owners), 2):
+            link(a, b)
+        # Every other overlapping scope is an ancestor of this one or vice
+        # versa. The descendant scope will visit each proper ancestor.
+        for depth in range(1, len(scope)):
+            for a in owners:
+                for b in scope_owners.get(scope[:depth], ()):
+                    link(a, b)
+    return collision
+
+
 def evaluate(snapshot, root, actor):
     by_id, submissions = validate(snapshot)
     cycles = cycle_ids(by_id)
     # Scope collision is also a pre-claim hazard: OPEN work overlapping an
     # already active claim must be held before a second agent starts editing.
     # Two active collisions block both; path claims are never auto-authorized.
-    collision = {tid: set() for tid in by_id}
-    active_states = {'CLAIMED', 'IN_PROGRESS', 'REVIEW'}
-    all_tasks = sorted(by_id.items())
-    for n, (i, a) in enumerate(all_tasks):
-        for j, b in all_tasks[n + 1:]:
-            if a['state'] not in active_states and b['state'] not in active_states:
-                continue
-            if any(path_overlaps(x, y) for x in a['paths'] for y in b['paths']):
-                collision[i].add(j)
-                collision[j].add(i)
+    collision = scope_collisions(by_id)
     result = []
     for tid, t in sorted(by_id.items(), key=lambda it: (PRIORITY[it[1]['priority']], it[0])):
         reasons = []
