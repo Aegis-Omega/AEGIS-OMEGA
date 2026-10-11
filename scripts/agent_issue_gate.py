@@ -70,6 +70,7 @@ def contract_from_body(body):
     acceptance = c.get("acceptance")
     require(isinstance(acceptance, list) and 1 <= len(acceptance) <= 30, "ACCEPTANCE_MISSING")
     seen = set()
+    seen_checks = set()
     for item in acceptance:
         require(isinstance(item, dict) and set(item) >= {"id", "criterion", "method"},
                 "ACCEPTANCE_INVALID")
@@ -85,6 +86,8 @@ def contract_from_body(body):
         if method == "github_check":
             require(isinstance(item.get("check"), str) and item["check"].strip(),
                     "ACCEPTANCE_CHECK_MISSING")
+            require(item["check"] not in seen_checks, "ACCEPTANCE_CHECK_REUSED")
+            seen_checks.add(item["check"])
             require(type(item.get("app_id")) is int and item["app_id"] == 15368,
                     "CHECK_PUBLISHER_NOT_TRUSTED")
             required = item.get("required_step")
