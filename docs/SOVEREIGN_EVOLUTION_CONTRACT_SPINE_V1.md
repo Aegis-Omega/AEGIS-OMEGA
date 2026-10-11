@@ -102,20 +102,20 @@ claim that every system-wide module has been integrated.
 ### Proven failure in the prior contract binder
 
 The spine previously accepted a caller-authored workplane containing fabricated
-\`issue_route_shards\` as long as the caller recomputed the top-level JSON hash
+`issue_route_shards` as long as the caller recomputed the top-level JSON hash
 and preserved selected summary fields. A hash of attacker-supplied content is
 not proof that its derived data follows the canonical issue graph.
 
 The bounded **pre-patch local replay** submitted a forged
-\`delivered_roles=["finance","sales"]\` packet in the workplane and recomputed
-\`receipt_hash\`. The old binder returned
-\`LOCAL_CONTENT_CONSISTENCY_ONLY\` instead of rejecting it.
+`delivered_roles=["finance","sales"]` packet in the workplane and recomputed
+`receipt_hash`. The old binder returned
+`LOCAL_CONTENT_CONSISTENCY_ONLY` instead of rejecting it.
 
 ### Single fusion repair, no new service
 
-Existing \`evolution_contract_spine.py\` now checks the full allowed workplane
+Existing `evolution_contract_spine.py` now checks the full allowed workplane
 field set and **rederives** each of the following from the already-validated
-graph, exact \`source_head\` and existing trial reducer:
+graph, exact `source_head` and existing trial reducer:
 
 - issue evolution state;
 - every 32-event issue routing shard;
@@ -127,9 +127,9 @@ graph, exact \`source_head\` and existing trial reducer:
   closed, and a claimed observed lineage must match a supplied replayed
   AdaptiveLineage root.
 
-These computations reuse \`issue_evolution.py\`,
-\`dendrite_workplane._route_lessons\`, \`dendrite_route_evolution.search_routes\`
-and \`AdaptiveLineage\`. No independent second route graph, new model, contract
+These computations reuse `issue_evolution.py`,
+`dendrite_workplane._route_lessons`, `dendrite_route_evolution.search_routes`
+and `AdaptiveLineage`. No independent second route graph, new model, contract
 executor, workflow daemon, financial token, or privileged capability is created.
 
 Six new adversarial tests in the **existing** contract-spine suite deny
@@ -148,8 +148,8 @@ heads; no hosted PASS is claimed.
 The existing 37-issue example snapshot was re-bound to a **complete three-page
 GitHub read-only API observation**. Exactly five issue records had changed
 between the previous frozen snapshot and the checked API response:
-#734, #753, #754, #757, #758. The \`acquisition\` field now records
-\`GITHUB_READ_ONLY_API\` instead of \`EXPLICIT_OFFLINE_FIXTURE\`.
+#734, #753, #754, #757, #758. The `acquisition` field now records
+`GITHUB_READ_ONLY_API` instead of `EXPLICIT_OFFLINE_FIXTURE`.
 
 GitHub API retrieval authenticates neither arbitrary embedded assertions in
 issue bodies nor the independent validity of trial scores. It only supplies the
