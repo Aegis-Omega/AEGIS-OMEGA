@@ -149,7 +149,7 @@ export function DocsPage() {
         </aside>
 
         {/* Content */}
-        <main className="flex-1 min-w-0">
+        <div className="flex-1 min-w-0" role="region" aria-label="API reference sections">
           <Section id="overview" title="Overview">
             <p className="text-gray-400 leading-relaxed mb-4">
               The AEGIS-Ω Platform API provides access to 39 autonomous agent departments that collaborate
@@ -394,7 +394,7 @@ aegis collaborate "Enter EU fintech market Q4 2026" --mode gtm`} />
               </a>
             </p>
           </Section>
-        </main>
+        </div>
       </div>
     </div>
   )
