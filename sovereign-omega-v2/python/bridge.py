@@ -475,6 +475,12 @@ class BridgeHandler(BaseHTTPRequestHandler):
             proposal_id = data.get('proposal_id', '')
             lcb = float(data.get('lcb', 0.0))
 
+            # M2 is strict uint64. Reject invalid sequence before advancing
+            # last_ack_sequence or recording a gate mutation (issue #763).
+            if type(seq) is not int or not 0 <= seq < (1 << 64):
+                self._respond(400, {'status': 'REJECTED', 'reason': 'INVALID_SEQUENCE'})
+                return
+
             with _lock:
                 if seq <= last_ack_sequence:
                     self._respond(400, {'status': 'REJECTED', 'reason': 'SEQUENCE_DESYNC'})
