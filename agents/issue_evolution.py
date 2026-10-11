@@ -312,6 +312,85 @@ def evaluate_trial(trial: Mapping[str, Any]) -> dict[str, Any]:
     return {**body, "receipt_hash": digest(body)}
 
 
+
+def evolve_issues(graph: Mapping[str, Any], trials: list[Mapping[str, Any]]) -> dict[str, Any]:
+    """One bounded issue-wide learning round; retains losses, never promotes.
+
+    Candidate generation is metadata-only until an independently executed
+    implementation/benchmark exists. No model prompts or Git writes.
+    """
+    if (not isinstance(graph, Mapping) or graph.get("schema") != SCHEMA or
+        graph.get("receipt_hash") != digest({k:v for k,v in graph.items()
+                                             if k != "receipt_hash"})):
+        raise ValueError("EVOLUTION_GRAPH_INVALID")
+    if not isinstance(trials, list) or len(trials) > 256:
+        raise ValueError("EVOLUTION_TRIALS_INVALID")
+    nodes = graph.get("nodes")
+    if not isinstance(nodes, list):
+        raise ValueError("EVOLUTION_NODES_INVALID")
+    seen_issues = {node["key"] for node in nodes}
+    indexed: dict[str, list[dict[str, Any]]] = {k:[] for k in seen_issues}
+    seen_candidates = set()
+    for raw in trials:
+        verdict = evaluate_trial(raw)
+        if verdict["issue"] not in indexed:
+            raise ValueError("EVOLUTION_UNLINKED_ISSUE")
+        fingerprint = (verdict["issue"], raw["candidate"], raw["holdout_digest"])
+        if fingerprint in seen_candidates:
+            raise ValueError("EVOLUTION_DUPLICATE_CANDIDATE")
+        seen_candidates.add(fingerprint)
+        indexed[verdict["issue"]].append({
+            "candidate": raw["candidate"], "baseline": raw["baseline"],
+            "screen": verdict["candidate_screen"], "screen_receipt": verdict["receipt_hash"],
+            "holdout_digest": raw["holdout_digest"], "sign_test_p": verdict["sign_test_one_sided_p"],
+            "wins": verdict["wins"], "losses": verdict["losses"],
+            "safety_regressions": verdict["safety_regressions"],
+            "source_verification": "NOT_PERFORMED",
+            "authority_effect": "NONE",
+        })
+    states = []
+    for node in nodes:
+        # Each issue has its own evolving variant family, even when it has no
+        # experimental outcomes yet. Do not assert that these mutations ran.
+        variants = []
+        for name in node["evolution"]["candidate_variants"]:
+            payload = {"issue": node["key"], "kind": name,
+                       "baseline_issue_body_sha256": node["body_sha256"]}
+            variants.append({"proposal_id": digest(payload), "kind": name,
+                             "status": "NOT_EXECUTED", "recipe": payload})
+        records = sorted(indexed[node["key"]],
+                         key=lambda x: (x["candidate"], x["holdout_digest"]))
+        states.append({
+            "issue": node["key"], "topic": node["topic"],
+            "evolution_contract": node["evolution"],
+            "proposals": variants,
+            "history": records,  # negative outcomes preserved
+            "next_action": "EXTERNAL_REVIEW_REQUIRED" if any(
+                r["screen"] == "NEEDS_INDEPENDENT_VERIFICATION" for r in records
+            ) else "NO_VERIFIED_IMPROVEMENT",
+            "skill_tier_effect": "NONE", "authority_effect": "NONE",
+        })
+    # Cross-issue dendrites are explicit dependency/relationship edges only;
+    # feedback NEVER gains higher epistemic status by being forwarded.
+    shared = [
+        {"source_issue": edge["from"], "recipient_issue": edge["to"],
+         "relationship": edge["kind"],
+         "message_kind": "UNVERIFIED_EVOLUTION_LESSON_POINTER",
+         "source_trial_receipts": [r["screen_receipt"] for r in
+                                   indexed[edge["from"]]],
+         "authority_effect": "NONE"}
+        for edge in graph["edges"] if indexed[edge["from"]]
+    ]
+    body = {"schema": "AEGIS_ISSUE_EVOLUTION_ROUND_V1",
+            "graph_receipt_hash": graph["receipt_hash"], "issue_count": len(states),
+            "trial_count": len(trials), "issues": states,
+            "cross_issue_lessons": shared,
+            "outcome_verification": "NOT_PERFORMED",
+            "promotion": "DENIED",
+            "execution_effect": "NONE", "authority_effect": "NONE"}
+    return {**body, "receipt_hash": digest(body)}
+
+
 def main() -> None:
     p=argparse.ArgumentParser(description="AEGIS issue-wide evolution metadata (non-executing)")
     sub=p.add_subparsers(dest="command",required=True)
@@ -323,6 +402,9 @@ def main() -> None:
     graph.add_argument("--limit",type=int,default=32)
     evaluation=sub.add_parser("evaluate")
     evaluation.add_argument("--trial",type=Path,required=True)
+    rounds=sub.add_parser("round")
+    rounds.add_argument("--graph",type=Path,required=True)
+    rounds.add_argument("--trials",type=Path,required=True)
     args=p.parse_args()
     try:
         if args.command=="graph":
@@ -340,11 +422,19 @@ def main() -> None:
             if args.source_head:
                 result={"graph":result,"dendrite":spread_issue_graph(
                     result,source_head=args.source_head,start=args.start,limit=args.limit)}
-        else:
+        elif args.command=="evaluate":
             with args.trial.open("rb") as f:
                 raw=f.read(150_001)
             if len(raw)>150_000: raise ValueError("TRIAL_FILE_TOO_LARGE")
             result=evaluate_trial(json.loads(raw))
+        else:
+            with args.graph.open("rb") as f:
+                g=f.read(4_000_001)
+            with args.trials.open("rb") as f:
+                t=f.read(2_000_001)
+            if len(g)>4_000_000 or len(t)>2_000_000:
+                raise ValueError("EVOLUTION_ROUND_INPUT_TOO_LARGE")
+            result=evolve_issues(json.loads(g),json.loads(t))
     except (ValueError,TypeError,OSError,UnicodeError) as exc:
         p.error(type(exc).__name__+": "+str(exc))
     print(json.dumps(result,sort_keys=True,indent=2))
