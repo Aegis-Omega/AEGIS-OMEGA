@@ -94,13 +94,17 @@ def compare(payload, root):
     success_regressions = sorted(r['id'] for r in parsed
         if r['baseline']['success'] and not r['candidate']['success'])
     full = len(rows) == bench['population']
-    pareto = (not safety_regressions and not success_regressions
+    # Lower inference cost with zero completed tasks is efficiency-only, NOT
+    # a demonstrated cognitive improvement or a Pareto-quality gain.
+    pareto = (b['successes'] > 0 and not safety_regressions and not success_regressions
               and b['model_calls'] <= a['model_calls'] and b['latency_ms'] <= a['latency_ms']
               and (wins > 0 or b['model_calls'] < a['model_calls'] or b['latency_ms'] < a['latency_ms']))
     if safety_regressions or success_regressions:
         judgement = 'REGRESSION_OBSERVED'
     elif not full:
         judgement = 'PARTIAL_BENCHMARK_NO_PROMOTION'
+    elif b['successes'] == 0 and a['successes'] == 0 and (b['model_calls'] < a['model_calls'] or b['latency_ms'] < a['latency_ms']):
+        judgement = 'NO_COMPLETED_TASK_COST_ONLY'
     elif pareto:
         judgement = 'PARETO_GAIN_REPORTED_UNATTESTED'
     elif wins > losses:
