@@ -58,7 +58,7 @@
 .ef-pick button{display:inline-flex;align-items:center;gap:10px;min-height:44px;padding:10px 14px;
   background:rgba(14,31,49,.94);border:1px solid #405d7a;border-radius:7px;color:#c2d6eb;
   font-size:12px;line-height:1.4;cursor:pointer;text-align:left;transition:border-color .16s,background-color .16s}
-.ef-pick button span{color:#d3b582;font:10px 'JetBrains Mono',monospace}
+.ef-pick button span{color:#d3b582;font:10px 'JetBrains Mono',monospace;flex:none;white-space:nowrap}
 .ef-pick button[aria-pressed=true]{border-color:#ceb27a;background:#39362670;color:#fff1d5}
 .ef-pick button:hover{border-color:#9bc5ea}
 .ef-disclosure{margin:0;padding:15px clamp(18px,3vw,36px) 21px;
