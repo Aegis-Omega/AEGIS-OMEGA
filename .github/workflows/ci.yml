@@ -173,6 +173,7 @@ jobs:
         run: |
           python3 -m unittest discover -s ../scripts -p 'test_*holon*.py' -v
           python3 -m unittest discover -s ../scripts -p 'test_asset_inventory.py' -v
+          python3 -m unittest discover -s ../scripts -p 'test_shared_state_audit.py' -v
 
       - name: Run constitutional tests
         run: python python/tests/test_constitutional.py
