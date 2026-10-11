@@ -211,6 +211,47 @@ class TestM2LayoutDiagnosticGate(unittest.TestCase):
         self.assertTrue(seq_from_request)
         self.assertEqual(self.contract["event_router_sequence_forwarding"], "DISCARDED")
 
+    def test_bridge_rejects_invalid_gate_sequence_before_any_gate_mutation(self) -> None:
+        handler = next(
+            node for node in ast.walk(self.bridge_tree)
+            if isinstance(node, ast.ClassDef) and node.name == "BridgeHandler"
+        )
+        method = next(
+            node for node in handler.body
+            if isinstance(node, ast.FunctionDef) and node.name == "do_POST"
+        )
+        gate_branch = next(
+            node for node in ast.walk(method)
+            if isinstance(node, ast.If)
+            and isinstance(node.test, ast.Compare)
+            and len(node.test.comparators) == 1
+            and isinstance(node.test.comparators[0], ast.Constant)
+            and node.test.comparators[0].value == "/gate_signal"
+        )
+        guard = next(
+            node for node in gate_branch.body
+            if isinstance(node, ast.If)
+            and "type(seq) is not int" in ast.unparse(node.test)
+            and "1 << 64" in ast.unparse(node.test)
+        )
+        ack_writes = [
+            node for node in ast.walk(gate_branch)
+            if isinstance(node, ast.Assign)
+            and any(_is_name(target, "last_ack_sequence") for target in node.targets)
+        ]
+        gate_calls = [
+            node for node in ast.walk(gate_branch)
+            if isinstance(node, ast.Call)
+            and isinstance(node.func, ast.Attribute)
+            and node.func.attr == "record_signal"
+        ]
+        self.assertEqual(len(ack_writes), 1)
+        self.assertEqual(len(gate_calls), 1)
+        self.assertLess(guard.lineno, ack_writes[0].lineno)
+        self.assertLess(guard.lineno, gate_calls[0].lineno)
+        self.assertTrue(any(isinstance(child, ast.Return) for child in guard.body))
+        self.assertIn("INVALID_SEQUENCE", ast.unparse(guard))
+
     def test_unadmitted_policy_cannot_be_promoted_by_contract_toggle(self) -> None:
         self.assertEqual(self.contract["schema"], "aegis.m2.sequence-domain-contract.v2")
         self.assertEqual(self.contract["implementation_status"], "CANDIDATE_NOT_ADMITTED")
