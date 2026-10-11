@@ -142,6 +142,16 @@ class DendriteTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "INVALID_RECORD_HASH"):
             propagate_pipeline(p, source_head=HEAD)
 
+    def test_real_offline_cognitive_pipeline_bridge(self):
+        import asyncio
+        from agents.cognitive_pipeline import run_pipeline
+        p = asyncio.run(run_pipeline("Dendrite routing offline fixture"))
+        self.assertTrue(p.chain_valid)
+        routed = propagate_pipeline(p, source_head=HEAD, ttl=4)
+        self.assertEqual(len(routed["events"]), len(p.arbitration))
+        self.assertEqual(routed["pipeline_root"], p.kan_terminal_hash)
+        self.assertTrue(all(e["authority_effect"] == "NONE" for e in routed["events"]))
+
     def test_no_live_side_effects(self):
         r = default_mesh().propagate(event())
         self.assertNotIn("authorized", str(r).lower())
