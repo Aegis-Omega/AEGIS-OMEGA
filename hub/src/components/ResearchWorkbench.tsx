@@ -26,6 +26,9 @@ export function ResearchWorkbench(){
   const [active,setActive]=useState(SOURCES[0]!.id)
   const shown=useMemo(()=>SOURCES.filter(x=>(area==='all'||x.area===area)&&`${x.title} ${x.kind} ${x.description} ${x.question}`.toLowerCase().includes(term.trim().toLowerCase())),[area,term])
   const detail=shown.find(x=>x.id===active)||shown[0]
+  const [compareId,setCompareId]=useState<string|null>(null)
+  const comparison=shown.find(x=>x.id===compareId)
+  const compareDistinct=Boolean(detail&&comparison&&detail.id!==comparison.id)
   return <div className="rw-shell">
     <div className="rw-ruler"><span>AEGIS Ω / RESEARCHOS</span><span>CURATED SOURCE MAP · NOT A LIVE INDEX</span></div>
     <header className="rw-hero"><div><span className="rw-eyebrow">EVIDENCE FABRIC / 01</span><h1>Questions before <em>claims.</em></h1><p>One research surface across formal mathematics, physical simulation, genomics and cognitive evaluation. Every entry points to its actual access boundary.</p></div><div className="rw-side"><span>DISCOVERY PRINCIPLE</span><strong>Recover → Reproduce<br/>→ Challenge → Admit</strong><small>Access does not imply a verified result.</small></div></header>
@@ -33,6 +36,23 @@ export function ResearchWorkbench(){
     <SovereignField sources={shown} selectedId={detail?.id ?? null} onSelect={setActive} />
     <div className="rw-body"><section className="rw-index" aria-label="Research source list"><div className="rw-column-title"><span>SOURCE REGISTER</span><span>{shown.length} ENTRIES</span></div>{shown.length===0?<div className="rw-zero">No matching source in this curated map. Nothing has been inferred.</div>:shown.map(s=><button className={'rw-entry '+(detail?.id===s.id?'rw-entry-active':'')} key={s.id} onClick={()=>setActive(s.id)} type="button" aria-pressed={detail?.id===s.id}><span className="rw-entry-n">{s.index}</span><div><small>{s.kind}</small><strong>{s.title}</strong><p>{s.description}</p></div><span className="rw-entry-arrow" aria-hidden="true">↗</span></button>)}</section>
     <section className="rw-inspector" aria-label="Selected research source">{detail?<><div className="rw-inspector-top"><span>RESEARCH RECORD / {detail.index}</span><span className="rw-inspector-status">{detail.status}</span></div><div className="rw-inspector-main"><span className="rw-eyebrow">{detail.area.toUpperCase()} / SOURCE INSPECTION</span><h2>{detail.title}</h2><p>{detail.description}</p><div className="rw-question"><small>THE OPEN QUESTION</small><strong>{detail.question}</strong></div><div className="rw-limits"><small>BOUNDARIES · DO NOT PROMOTE</small>{detail.boundaries.map((x,i)=><div key={i}><span>{String(i+1).padStart(2,'0')}</span><p>{x}</p></div>)}</div><div className="rw-open">{detail.href?<a href={detail.href} target={detail.href.startsWith('http')?'_blank':undefined} rel={detail.href.startsWith('http')?'noopener noreferrer':undefined}>{detail.action}<span aria-hidden="true">↗</span></a>:<span className="rw-not-published">{detail.action} · NOT PUBLIC</span>}</div></div></>:<div className="rw-zero">Select a published source to inspect its limits.</div>}</section></div>
+    <section className="rw-compare" aria-labelledby="rw-compare-title">
+      <header className="rw-compare-head"><div><span className="rw-eyebrow">EVIDENCE COMPARISON / SOURCE BOUNDED</span><h2 id="rw-compare-title">Compare the <em>unknowns.</em></h2><p>Two recorded research entries, side by side. This comparison makes no claim that one proves or depends on the other.</p></div>
+        <label htmlFor="rw-compare-select">SECOND RECORD
+          <select id="rw-compare-select" value={compareId??''} onChange={event=>setCompareId(event.target.value||null)}>
+            <option value="">Choose a source</option>{shown.filter(x=>x.id!==detail?.id).map(x=><option key={x.id} value={x.id}>{x.title}</option>)}
+          </select>
+        </label>
+      </header>
+      {compareDistinct?<div className="rw-compare-grid">{[detail!,comparison!].map((record,index)=><article key={record.id} className="rw-compare-record">
+        <span>{String(index+1).padStart(2,'0')} / {record.area.toUpperCase()} / {record.kind}</span>
+        <h3>{record.title}</h3><div className="rw-compare-verdict"><small>REPORTED STATUS</small><strong>{record.status}</strong></div>
+        <div className="rw-compare-question"><small>OPEN QUESTION</small><p>{record.question}</p></div>
+        <div className="rw-compare-limits"><small>DECLARED BOUNDARIES · {record.boundaries.length}</small><ol>{record.boundaries.map((limit,i)=><li key={i}>{limit}</li>)}</ol></div>
+        {record.href?<a href={record.href} target={record.href.startsWith('http')?'_blank':undefined} rel={record.href.startsWith('http')?'noopener noreferrer':undefined}>Inspect original source ↗</a>:<span className="rw-compare-private">SOURCE NOT PUBLIC</span>}
+      </article>)}</div>:<div className="rw-compare-empty" role="status">{shown.length<2?'At least two visible source records are needed. Adjust filters to compare.':'Select a second visible source to compare its question, evidence boundaries and access.'}</div>}
+      <p className="rw-compare-disclosure">Comparison uses the curated source register only. It does not infer dependency, verification, scientific equivalence, provider availability or execution authority.</p>
+    </section>
     <section className="rw-gate"><div><span className="rw-eyebrow">NEXT ACTION / EVIDENCE GATE</span><h2>Bring a claim. Leave with a test.</h2><p>Start from real code or a reproducible experiment, not a synthesized achievement metric.</p></div><div className="rw-gate-actions"><a href="/console">Operator console <span aria-hidden="true">↗</span></a><a href="https://github.com/Aegis-Omega/AEGIS-OMEGA" target="_blank" rel="noopener noreferrer">Source repository <span aria-hidden="true">↗</span></a></div></section>
     <footer className="rw-footer">RESEARCHOS / CURATED ENTRYPOINTS <span>NO PRIVATE DATA IS EXPOSED · NO SCIENTIFIC PRIORITY CLAIM</span></footer>
   </div>
