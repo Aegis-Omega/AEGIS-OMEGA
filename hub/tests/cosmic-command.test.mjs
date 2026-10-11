@@ -6,6 +6,7 @@ const read=p=>readFileSync(new URL(p,import.meta.url),'utf8')
 const shell=read('../src/HolonGlass.tsx')
 const hero=read('../src/components/CosmicCommand.tsx')
 const jump=read('../src/components/CommandJump.tsx')
+const jumpModel=read('../src/lib/commandPaletteModel.ts')
 const css=read('../src/components/cosmic-command.css')
 const app=read('../src/App.tsx')
 const valid=new Set(['/',...Array.from(app.matchAll(/case '([^']+)'/g),m=>m[1])])
@@ -34,7 +35,7 @@ test('sidebar destinations are real and do not duplicate global top navigation o
   assert.match(css,/\.hg-site \.hg-links\{display:none\}/)
 })
 test('route command search indexes published routes only and supports escape',()=>{
-  const block=jump.match(/const ROUTES = \[([\s\S]*?)\] as const/)?.[1]??''
+  const block=jumpModel.match(/const COMMAND_ROUTES = \[([\s\S]*?)\] as const/)?.[1]??''
   const urls=[...block.matchAll(/href:'([^']+)'/g)].map(m=>m[1])
   assert.equal(urls.length,9)
   assert.equal(new Set(urls).size,urls.length)
@@ -42,6 +43,9 @@ test('route command search indexes published routes only and supports escape',()
   assert.match(jump,/e\.metaKey\|\|e\.ctrlKey/)
   assert.match(jump,/e\.key==='Escape'/)
   assert.match(jump,/root\.current\?\.contains\(e\.target\)/)
+  assert.match(jump,/trigger\.current\?\.focus\(\)/)
+  assert.match(jump,/nextPaletteIndex\(/)
+  assert.match(jump,/filterCommandRoutes\(/)
   assert.doesNotMatch(jump,/fetch\(|localStorage|sessionStorage/)
 })
 test('no fake metrics, activity, health, proof, or agent status in authored scene',()=>{
