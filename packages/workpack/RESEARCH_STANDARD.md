@@ -99,3 +99,9 @@ POSIX parent components and final name, private mode `0600`, and a controlled
 `NOT_WRITTEN` error on conflicts. Preserve previously issued evidence; never
 conflate local CLI exit status with domain truth or human-approved admission.
 POSIX race confinement is tested, non-POSIX remains unverified.
+
+## v0.14 — do not confuse create-only with atomic evidence publication
+
+Adversarial experiment: inject a storage error at the file `fsync()` of v0.13. The CLI reports export failure but the final receipt name already exists; a concurrent reader or failed process can expose incomplete evidence. The corrected POSIX protocol writes and file-syncs a private temporary sibling, atomically publishes via exclusive `linkat` semantics, unlinks the temporary name, then syncs the directory. An error **before** publication must leave the target absent; an error **after** publication must report `WRITTEN_DURABILITY_UNVERIFIED`, not the false assertion `NOT_WRITTEN`. Existing receipt names may never be overwritten, even in concurrent races. Run injected failures and double-writer tests. All successful local files remain `NOT_ADMITTED` until an independent domain/provenance gate is operational.
+
+External patterns compared: `os.replace()` offers atomic replacement but violates our create-only/no-overwrite contract; plain `open(... O_EXCL)` avoids clobber but exposes partial content; write+sync+exclusive `link()` provides the narrower atomic-visibility property desired on local POSIX filesystems. Uncertain durability on directory-sync errors and orphan temps after process crashes remain explicitly unresolved. POSIX reference: https://www.man7.org/linux/man-pages/man3/linkat.3p.html ; Python: https://docs.python.org/3/library/os.html#os.link .

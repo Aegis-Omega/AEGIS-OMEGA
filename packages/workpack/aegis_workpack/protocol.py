@@ -13,6 +13,7 @@ import math
 import os
 from pathlib import Path
 import re
+import secrets
 import stat
 import sys
 
@@ -428,19 +429,29 @@ def verify(root, manifest):
 
 
 
-def _write_receipt_create_only(path, rendered):
-    """Explicit local receipt export: create-only and no symlink traversal.
+class ReceiptDurabilityUnverified(OSError):
+    """The output name was published but persistent storage is unconfirmed."""
 
-    Separate from verify() (which remains read-only). This never overwrites an
-    existing path, including a manifest, artifact or symlink. POSIX uses dirfd
-    for every parent and O_EXCL|O_NOFOLLOW on the final output path. Windows
-    can only offer a best-effort parent precheck; avoid untrusted mutable roots.
+
+def _write_receipt_create_only(path, rendered):
+    """Create a new local receipt, with atomic visibility on local POSIX FS.
+
+    POSIX: write to a uniquely-created private sibling, fsync it, then publish
+    by atomic hard link (which fails if destination exists). Fsync the parent
+    after unlinking the temporary name. The original contents of existing
+    output names are never modified. No directory symlinks are followed.
+
+    If writing fails before the link, the destination path is NOT created.
+    If post-link cleanup/directory-sync fails, callers get a distinct
+    ReceiptDurabilityUnverified exception: output may already be visible.
+    Network FS durability, crashes leaving orphan temporary names, and the
+    non-POSIX fallback are NOT claimed safe for adversarial usage.
     """
     require(isinstance(path, str) and path and "\x00" not in path,
             "OUTPUT_PATH_INVALID")
     name = Path(path)
     require(".." not in name.parts, "OUTPUT_TRAVERSAL_FORBIDDEN")
-    absolute = name.absolute()  # intentionally does not resolve symlinks
+    absolute = name.absolute()  # deliberately does not follow symlinks
     require(absolute.name not in ("", ".", ".."), "OUTPUT_PATH_INVALID")
     if os.name == "posix" and hasattr(os, "O_NOFOLLOW"):
         require(absolute.anchor == "/", "OUTPUT_PATH_INVALID")
@@ -452,20 +463,43 @@ def _write_receipt_create_only(path, rendered):
                                   dir_fd=directory)
                 os.close(directory)
                 directory = next_fd
-            fd = os.open(parts[-1], os.O_WRONLY | os.O_CREAT | os.O_EXCL |
-                         os.O_NOFOLLOW, 0o600, dir_fd=directory)
+            temp_name = "." + parts[-1] + "." + secrets.token_hex(16) + ".workpack-tmp"
+            temp_created = False
+            published = False
             try:
-                with os.fdopen(fd, "w", encoding="utf-8", closefd=False) as out:
-                    out.write(rendered)
-                    out.flush()
-                    os.fsync(out.fileno())
+                fd = os.open(temp_name, os.O_WRONLY | os.O_CREAT | os.O_EXCL |
+                             os.O_NOFOLLOW, 0o600, dir_fd=directory)
+                temp_created = True
+                try:
+                    with os.fdopen(fd, "w", encoding="utf-8", closefd=False) as out:
+                        out.write(rendered)
+                        out.flush()
+                        os.fsync(out.fileno())
+                finally:
+                    os.close(fd)
+                # Unlike os.rename/os.replace, hard-link publication cannot
+                # overwrite an existing receipt and is atomic on local POSIX.
+                os.link(temp_name, parts[-1], src_dir_fd=directory,
+                        dst_dir_fd=directory, follow_symlinks=False)
+                published = True
+                os.unlink(temp_name, dir_fd=directory)
+                temp_created = False
+                os.fsync(directory)
+            except OSError as exc:
+                if published:
+                    raise ReceiptDurabilityUnverified("OUTPUT_DURABILITY_UNVERIFIED") from exc
+                raise
             finally:
-                os.close(fd)
+                if temp_created:
+                    try:
+                        os.unlink(temp_name, dir_fd=directory)
+                    except OSError:
+                        pass  # orphaned hidden temp may require operator cleanup
         finally:
             os.close(directory)
     else:
-        # Best-effort non-POSIX fallback. A concurrently mutated parent path
-        # can race lstat(): no native Windows security guarantee is claimed.
+        # Non-POSIX fallback is exclusive-creation only, NOT atomic visibility
+        # or a proven defense against concurrent parent-path replacements.
         current = Path(absolute.anchor)
         for part in absolute.parts[1:-1]:
             current = current / part
@@ -501,10 +535,14 @@ def cli(argv=None):
         try:
             _write_receipt_create_only(ns.output, rendered)
         except (Invalid, OSError, ValueError) as e:
-            # A failed user-requested export is never a silent success, and
-            # failure must not alter the input workspace or external files.
-            result["output_status"] = "NOT_WRITTEN"
-            result["output_error"] = (str(e) if isinstance(e, Invalid)
+            # The final link may have succeeded even if a later directory
+            # fsync failed. Never falsely assert NOT_WRITTEN in that case.
+            result["output_status"] = ("WRITTEN_DURABILITY_UNVERIFIED"
+                                       if isinstance(e, ReceiptDurabilityUnverified)
+                                       else "NOT_WRITTEN")
+            result["output_error"] = ("OUTPUT_DURABILITY_UNVERIFIED"
+                                      if isinstance(e, ReceiptDurabilityUnverified)
+                                      else str(e) if isinstance(e, Invalid)
                                       else "OUTPUT_UNSAFE_OR_ALREADY_EXISTS")
             print(json.dumps(result, indent=2, sort_keys=True) + "\n", end="")
             return 2

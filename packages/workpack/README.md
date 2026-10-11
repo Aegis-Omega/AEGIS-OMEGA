@@ -185,3 +185,15 @@ check; unlike POSIX `dir_fd`, it does **not** close concurrent symlink races.
 Run on an immutable/trusted parent on Windows; native Windows testing is open.
 No background external write, network, deploy, authority or trusted reviewer
 is implemented. The write path is operator-directed only.
+
+## v0.14 — atomic, create-only POSIX receipt publication
+
+**Reproduced v0.13 bug:** `--output` opened its final path with `O_EXCL`, wrote bytes and then called `fsync()`. An injected `ENOSPC`/`EIO` at the file-sync boundary left a visible receipt at the final path despite CLI export failure. If a process crashed during writing, the final name could expose truncated evidence.
+
+The POSIX writer now creates a random, private (`0600`) *temporary sibling* without following directory symlinks; writes, flushes and `fsync()`s it; then uses `os.link(..., src_dir_fd=..., dst_dir_fd=...)` for **atomic no-overwrite publication**, removes the temporary name and `fsync()`s the parent directory. Unlike `rename`/`replace`, `link()` cannot overwrite an existing receipt. The final path never names a partially written file under the local-POSIX-filesystem assumptions.
+
+Post-publication directory-sync failure has a **different outcome** (`WRITTEN_DURABILITY_UNVERIFIED` / `OUTPUT_DURABILITY_UNVERIFIED`, CLI exit 2) because claiming `NOT_WRITTEN` after a successful link would be false. Before the link, failures leave no final receipt; best-effort cleanup removes the hidden temporary file. Six deterministic regression tests cover injected pre-link `fsync`/`link` failures, post-link sync failure, existing-file exclusion, complete and private export, and two concurrent writers. Normal delivery remains `NOT_ADMITTED`; successful `--output` does not grant authority.
+
+**Limits:** file/directory sync durability assumes a conforming local POSIX filesystem; network filesystem, power loss hardware guarantees, Windows-native atomicity and crash-time orphaned hidden temps are not certified. The fallback on non-POSIX platforms remains create-only but *not* atomic-visibility guaranteed. Evidence authenticity and domain correctness remain unverified.
+
+Reference: POSIX `linkat` atomic new-name creation and `EEXIST` behavior; Python `os.link` dirfd support, and filesystem crash-durability patterns.
