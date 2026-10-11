@@ -147,7 +147,9 @@ Return JSON:
     cycle_id: id,
     objective,
     mode,
-    departments_collaborated: DEPARTMENTS.length,
+    departments_requested: DEPARTMENTS.length,
+    departments_collaborated: artifacts.length, // count only artifacts actually returned by provider
+    coverage_note: artifacts.length === DEPARTMENTS.length ? 'requested_count_matched' : 'partial_model_output',
     artifacts,
     projection: { summary: parsed['summary'] ?? 'Constitutional analysis complete.' },
     // The model's own words about its output. Relabelled so it is not read as
