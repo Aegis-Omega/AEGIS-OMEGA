@@ -203,13 +203,22 @@ except AdmissionDenied as exc:
                 str(endorsementsfile),self.ledger,self.now.isoformat()]
         with concurrent.futures.ThreadPoolExecutor(max_workers=4) as pool:
             done=list(pool.map(lambda _:subprocess.run(args,text=True,capture_output=True,
-                    timeout=15),range(4)))
+                    timeout=15, env={**os.environ, "PYTHONPATH": str(Path(__file__).parent)}),range(4)))
         self.assertTrue(all(x.returncode==0 for x in done),[x.stderr for x in done])
         outcomes=[x.stdout.strip() for x in done]
         self.assertEqual(outcomes.count('ACCEPTED'),1)
         self.assertEqual(outcomes.count('CHALLENGE_ALREADY_CONSUMED'),3)
 
-    def test_21_malformed_nonce_rejected(self):
+    def test_21_new_nonce_cannot_reconsume_same_capture(self):
+        # A second nonce issued before the snapshot does not reset a spent
+        # evidence fingerprint, even if its endorsement MAC is otherwise valid.
+        earlier = self.issue(verified_now=self.issued)
+        self.admit()
+        newer_mac = self.endorse(self.packet, challenge=earlier)
+        with self.assertRaisesRegex(AdmissionDenied, 'EVIDENCE_ALREADY_CONSUMED'):
+            self.admit(challenge=earlier, endorsements=newer_mac)
+
+    def test_22_malformed_nonce_rejected(self):
         forged=copy.deepcopy(self.challenge)
         forged['challenge_nonce']='AAAA'
         with self.assertRaisesRegex(AdmissionDenied,'INVALID_CHALLENGE_NONCE'):
