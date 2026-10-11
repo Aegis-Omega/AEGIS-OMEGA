@@ -402,6 +402,18 @@ class HolonContextTests(unittest.TestCase):
         self.assertEqual(ctx.holon_disposition("github", "github", [], []),
                          "ISSUE_ASSIGNMENT_AND_REVIEW_REQUIRED")
 
+    def test_nonbilling_failed_check_is_not_evidence_that_billing_is_unlocked(self):
+        pr = [{"n": 732, "t": "holon", "h": "head", "b": "main",
+               "s": "a" * 40}]
+        with patch.object(ctx, "sh", side_effect=["114260308704", "[]"]):
+            self.assertIsNone(ctx.billing_locked(pr))
+
+    def test_sampled_nonbilling_annotations_cannot_certify_global_ci_health(self):
+        pr = [{"n": 732, "t": "holon", "h": "head", "b": "main",
+               "s": "a" * 40}]
+        with patch.object(ctx, "sh", side_effect=["11\n12\n13", "[]", "[]", "[]"]):
+            self.assertIsNone(ctx.billing_locked(pr))
+
     def test_unavailable_billing_annotations_are_unknown(self):
         pr = [{"n": 735, "t": "task", "h": "head", "b": "main",
                "s": "a" * 40}]
