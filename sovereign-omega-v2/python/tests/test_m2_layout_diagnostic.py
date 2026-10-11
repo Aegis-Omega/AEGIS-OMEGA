@@ -866,6 +866,36 @@ class TestM2LayoutDiagnosticGate(unittest.TestCase):
         ])
         self.assertEqual(scope["last_ack_sequence"], 1)
 
+        # Lost HTTP response followed by the same sequence: the original
+        # signal is already in frozen gate.py. Duplicate must not mutate
+        # M2, increment gate counts, or assert that first write was undone.
+        events.clear()
+        scope["_gate_branch"](handler_stub, {
+            "sequence": 1, "accepted": True, "lcb": 0.5,
+            "proposal_id": "valid-proposal",
+        })
+        self.assertEqual(events, [("RESPONSE", 409, {
+            "status": "UNCONFIRMED",
+            "reason": "DUPLICATE_SEQUENCE_UNCONFIRMED",
+            "retry_safe": False,
+        })])
+        self.assertEqual(guarded_gate._last_sequence, 1)
+        self.assertEqual(guarded_gate._total_signals, 1)
+        self.assertEqual(guarded_gate._proposals["valid-proposal"], "approved")
+        self.assertEqual(scope["last_ack_sequence"], 1)
+
+        # Strictly older sequences remain invalid, also before M2/gate.
+        events.clear()
+        scope["_gate_branch"](handler_stub, {
+            "sequence": 0, "accepted": True, "lcb": 0.5,
+            "proposal_id": "valid-proposal",
+        })
+        self.assertEqual(events, [("RESPONSE", 400, {
+            "status": "REJECTED", "reason": "SEQUENCE_DESYNC",
+        })])
+        self.assertEqual(guarded_gate._total_signals, 1)
+        self.assertEqual(scope["last_ack_sequence"], 1)
+
     def test_actual_http_gate_handler_rejects_remote_and_unbounded_input(self) -> None:
         # Execute source-extracted do_POST and peer guard, not a separately
         # reimplemented request parser. No network listener or CoreMatrix boot.
