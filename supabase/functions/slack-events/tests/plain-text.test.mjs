@@ -35,7 +35,7 @@ test('untrusted result cannot trigger Slack mrkdwn, mentions or link expansion',
   async function mockFetch(url,opts){
     if(String(url)==='https://slack.com/api/chat.postMessage'){
       messages.push(JSON.parse(opts.body))
-      return Response.json({ok:true})
+      return Response.json({ok:true,channel:CHANNEL,ts:'1760000000.000001'})
     }
     if(String(url).endsWith('/functions/v1/agent')){
       const request=JSON.parse(opts.body)
