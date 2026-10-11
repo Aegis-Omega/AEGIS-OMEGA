@@ -206,6 +206,48 @@ class EvolutionContractSpineTests(unittest.TestCase):
         self.assertEqual(r["authority_observation"]["decision"], "DENIED")
         self.assertEqual(r["improvement_admission"], "DENIED")
 
+    def test_binds_existing_workplane_without_new_dispatcher(self):
+        from agents.dendrite_workplane import compose as compose_workplane
+        items = [
+            issue(734, "Firm of agents"),
+            issue(757, "Evaluation", "Parent: #734"),
+            issue(758, "Evolution", "Depends on #757"),
+        ]
+        snapshot = {"repository": REPO, "issues": items, "complete_pages": True,
+                    "acquisition": "EXPLICIT_OFFLINE_FIXTURE", "pages": 1}
+        graph = compile_graph(snapshot)
+        trials = [positive_trial()]
+        plan = compose_workplane(snapshot, source_head=OLD, trials=trials)
+        bound = compose_spine(graph=graph, trials=trials, source_head=OLD, workplane=plan)
+        self.assertEqual(bound["workplane_receipt"], plan["receipt_hash"])
+        self.assertEqual(bound["workplane_binding"], "LOCAL_CONTENT_CONSISTENCY_ONLY")
+        self.assertTrue(all(x["workplane_receipt"] == plan["receipt_hash"]
+                            for x in bound["issue_contract_tokens"]))
+
+    def test_stale_workplane_evolution_denied(self):
+        from agents.dendrite_workplane import compose as compose_workplane
+        items = [issue(758, "Evolution")]
+        snap = {"repository": REPO, "issues": items, "complete_pages": True,
+                "acquisition": "EXPLICIT_OFFLINE_FIXTURE", "pages": 1}
+        graph = compile_graph(snap)
+        plan = compose_workplane(snap, source_head=OLD, trials=[])
+        with self.assertRaisesRegex(ValueError, "WORKPLANE_CONTRACT_BINDING_INVALID"):
+            compose_spine(graph=graph, trials=[positive_trial()],
+                          source_head=OLD, workplane=plan)
+
+    def test_forged_workplane_authority_denied(self):
+        from agents.dendrite_workplane import compose as compose_workplane
+        items = [issue(758, "Evolution")]
+        snap = {"repository": REPO, "issues": items, "complete_pages": True,
+                "acquisition": "EXPLICIT_OFFLINE_FIXTURE", "pages": 1}
+        graph = compile_graph(snap)
+        plan = compose_workplane(snap, source_head=OLD)
+        plan["production_admission"] = "ADMITTED"
+        plan["receipt_hash"] = digest({k: v for k, v in plan.items()
+                                       if k != "receipt_hash"})
+        with self.assertRaisesRegex(ValueError, "WORKPLANE_CONTRACT_BINDING_INVALID"):
+            compose_spine(graph=graph, trials=[], source_head=OLD, workplane=plan)
+
     def test_bounded_json_input(self):
         with tempfile.TemporaryDirectory() as d:
             p = Path(d) / "large.json"
