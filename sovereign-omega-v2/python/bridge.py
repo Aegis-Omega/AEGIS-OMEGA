@@ -508,6 +508,25 @@ def _gate_json_depth_is_bounded(raw: bytes, max_depth: int = 32) -> bool:
     return not quoted and depth == 0
 
 
+def _gate_has_unicode_noncharacter(root) -> bool:
+    """Reject RFC 7493 noncharacters in decoded JSON keys and strings."""
+    pending = [root]
+    while pending:
+        item = pending.pop()
+        if isinstance(item, str):
+            for char in item:
+                codepoint = ord(char)
+                if (0xFDD0 <= codepoint <= 0xFDEF
+                        or (codepoint & 0xFFFE) == 0xFFFE):
+                    return True
+        elif isinstance(item, dict):
+            pending.extend(item.keys())
+            pending.extend(item.values())
+        elif isinstance(item, list):
+            pending.extend(item)
+    return False
+
+
 def _gate_peer_is_loopback(client_address) -> bool:
     """Fail closed for unauthenticated gate ingress, ignoring forwarded headers.
 
@@ -577,6 +596,8 @@ class BridgeHandler(BaseHTTPRequestHandler):
                 # unescaped UTF-8 round-trip with allow_nan=False rejects
                 # both at any nesting depth, including object member names.
                 json.dumps(data, ensure_ascii=False, allow_nan=False).encode('utf-8')
+                if _gate_has_unicode_noncharacter(data):
+                    raise ValueError("gate JSON has a Unicode noncharacter")
             except (ValueError, UnicodeError, RecursionError):
                 self._respond(400, {'status': 'REJECTED', 'reason': 'GATE_JSON_INVALID'})
                 return
