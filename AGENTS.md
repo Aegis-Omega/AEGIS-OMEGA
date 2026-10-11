@@ -71,6 +71,12 @@ Current reference patterns to compare, not copy blindly:
   https://docs.temporal.io/workflow-definition
 - OpenTelemetry GenAI workflow/agent/tool trace semantics (development status):
   https://github.com/open-telemetry/semantic-conventions-genai/blob/main/docs/gen-ai/gen-ai-agent-spans.md
+- A2A open protocol for agent discovery, capabilities, and task lifecycle:
+  https://a2a-protocol.org/
+- MCP transport authorization and protected-resource metadata (specification version must be recorded):
+  https://modelcontextprotocol.io/specification
+- NIST AI RMF, GenAI Profile and GOVERN/MAP/MEASURE/MANAGE risk review:
+  https://www.nist.gov/itl/ai-risk-management-framework
 
 ### Runnable comparison receipt (advisory; reuses existing evaluation)
 
@@ -82,13 +88,21 @@ JSON receipt (schema in `scripts/frontier_review.py`, sample fields in
 python3 scripts/frontier_review.py --input comparison.json --root .
 ```
 
-The receipt requires two distinct external HTTPS source hostnames, inspection
-claims, retrieval dates, an explicit ADOPT/ADAPT/REJECT/INVESTIGATE decision,
+The receipt requires two distinct external HTTPS source hostnames **and
+structurally distinct publisher groups**, inspection claims, retrieval dates,
+an explicit ADOPT/ADAPT/REJECT/INVESTIGATE decision,
 Operator-value rationale, and a concrete independent falsifier. ADOPT/ADAPT
 cannot be a review candidate without a SHA-256-bound `holon_eval.py` paired
 outcome manifest at the exact baseline and candidate commits. The existing
 paired evaluator determines safety regressions and baseline coverage; this
 script does **not** duplicate those measurements.
+
+Do not mistake mirror URLs for independent research: `github.com/org`,
+`raw.githubusercontent.com/org`, and `org.github.io` are the same apparent
+GitHub publisher. `frontier_review.py` now groups these conservatively.
+Ownership across arbitrary domains, upstream forks and organizations is NOT
+authenticated by that heuristic; reviewers must still verify independent
+publisher ownership and substance rather than count URLs.
 
 Inspecting URLs and authenticating reviewers are **external responsibilities**:
 the validator never browses, authenticates content, trusts `Agent:` labels,
