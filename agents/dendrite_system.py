@@ -221,7 +221,8 @@ def main() -> None:
     parser.add_argument("record", type=Path, help="JSON source information record")
     parser.add_argument("--ttl", type=int, default=5)
     args = parser.parse_args()
-    raw = args.record.read_bytes()
+    with args.record.open("rb") as handle:
+        raw = handle.read(8193)
     if len(raw) > 8192:
         parser.error("record exceeds 8192 bytes")
     try:
