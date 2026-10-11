@@ -5,6 +5,10 @@
 -- purge stored encrypted payloads without deleting the once-only dispatch
 -- claim and accidentally permitting a second paid inference.
 --
+-- SECURITY INVOKER requires the service role's actual SQL DELETE privilege.
+-- This does not grant browser/anonymous users any table access.
+grant delete on public.aegis_agent_result_outbox_v1 to service_role;
+
 -- Expired SENDING rows are also deleted: privacy retention supersedes
 -- availability after expiry. The unresolved count is returned for audit.
 -- Backups and WAL follow the Supabase provider's separate retention policies.
