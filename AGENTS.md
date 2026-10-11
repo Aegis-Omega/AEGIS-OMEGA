@@ -132,6 +132,34 @@ verification and protected-branch process. The inventory is an **advisory pilot
 until #741/#753/#757 are independently validated and admitted**, not a new
 dispatcher, authority grant, promotion gate, or replacement for #734.
 
+## 1d. Total experience means all modalities and product outcomes
+
+The Operator's quality bar is not restricted to correct code. Inspect and
+improve the **whole experience**: appearance, typography, animation,
+sound/silence, voice, story/narrative, product utility, learnability,
+interaction, accessibility, speed, privacy, rights, reliability and genuine
+customer value. For other media and disciplines add relevant dimensions.
+Start from existing art, component design tokens, research, user-owned
+references, historical product learnings and test artifacts. **Do not replace
+an existing asset before finding out whether it already solves the task.**
+
+Run the **advisory** cross-modal contract check:
+
+\`\`\`bash
+python3 -m unittest -q scripts/test_experience_eval.py
+python3 scripts/experience_eval.py experience-manifest.json
+\`\`\`
+
+See [docs/TOTAL_EXPERIENCE_EVIDENCE_V1.md](docs/TOTAL_EXPERIENCE_EVIDENCE_V1.md)
+for all 13 mandatory-disposition axes, versioned standards, real-user and
+accessibility falsifiers, and \`ext.*\` extensions. A structurally valid
+manifest is **NOT** measured quality, authenticated reviewer approval,
+standard certification, artistic excellence, production admission or SOTA.
+Use \`UNMEASURED\` / \`NOT_APPLICABLE\` honestly, including when silence
+is more useful than sound. Do not add animations, narration, audio, glowing
+ornaments or artificial narrative simply to fill a checklist. Follow
+the independent evidence and protected-main boundaries in #734/#746/#757/#760.
+
 ## 2. The task board is GitHub Issues
 
 - One task = one issue. No issue → open one first (search for duplicates before).
