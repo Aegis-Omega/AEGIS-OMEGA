@@ -101,6 +101,38 @@ class FrontierReviewTests(unittest.TestCase):
             with self.subTest(url=url), self.assertRaises(f.InvalidFrontier):
                 self.audit()
 
+    def test_iana_special_use_https_names_are_not_public_evidence(self):
+        # IANA registry and RFC 6761 reserve these and all subdomains.
+        invalid = [
+            'https://docs.example',
+            'https://a.research.invalid',
+            'https://a.test',
+            'https://a.onion',
+            'https://a.alt',
+            'https://workflow.home.arpa',
+            'https://sample.example.com',
+            'https://sample.example.net',
+            'https://sample.example.org',
+            'https://localhost.localdomain',
+        ]
+        for url in invalid:
+            with self.subTest(url=url), self.assertRaises(f.InvalidFrontier):
+                f.public_https(url)
+
+    def test_real_external_domain_remains_syntactically_valid(self):
+        # This proves only URL structure, never that the page was inspected.
+        self.assertEqual(
+            f.public_https('https://docs.temporal.io/workflow-definition'),
+            'docs.temporal.io')
+        self.assertEqual(
+            f.public_https('https://learn.microsoft.com/en-us/agent-framework/'),
+            'learn.microsoft.com')
+
+    def test_frontier_receipt_rejects_special_use_second_source(self):
+        self.data['sources'][1]['url'] = 'https://research.invalid/claims'
+        with self.assertRaises(f.InvalidFrontier):
+            self.audit()
+
     def test_future_retrieval_date_is_not_accepted(self):
         self.data['sources'][0]['retrieved_on'] = (self.today + timedelta(days=1)).isoformat()
         with self.assertRaises(f.InvalidFrontier):
