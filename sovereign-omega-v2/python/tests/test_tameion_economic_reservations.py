@@ -42,9 +42,11 @@ class AtomicReservationLab(unittest.TestCase):
         self.assertEqual(reopened.snapshot("treasury.testnet.case1").generation, 1)
 
     def test_deterministic_receipts(self):
-        a = self.reserve()
-        self.assertEqual(a.root, a.root)
-        self.assertEqual(len(a.root), 64)
+        self.reserve()
+        replay_a = self.reserve()
+        replay_b = self.reserve()
+        self.assertEqual(replay_a.root, replay_b.root)
+        self.assertEqual(len(replay_a.root), 64)
 
     def test_identical_retry_is_not_second_reservation(self):
         first = self.reserve()
