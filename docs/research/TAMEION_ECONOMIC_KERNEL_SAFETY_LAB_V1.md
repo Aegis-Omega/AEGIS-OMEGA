@@ -109,3 +109,22 @@ shim**. Existing native SQLite 24/24 PASS. Prior compatibility suite 29/29
 PASS with stubs. Full GitHub repository / true Circle module replay remains
 UNVERIFIED until an exact-head hosted job provides actual executed steps/logs.
 No signer, CCTP burn/mint, settlement, wallet, custody, or production authority.
+
+
+## V0.3 hardening — atomic source-claim uniqueness
+
+Code review found that deriving distinct correlation roots for distinct
+reservations is **not sufficient** to prevent the same Circle source transaction
+being assigned twice. `EconomicReservationLedger.record_circle_correlation`
+now performs a SQLite `BEGIN IMMEDIATE` claim and state transition in a single
+transaction. `external_claims` imposes a UNIQUE provider/domain/source-tx
+constraint globally across scopes and a UNIQUE scope/attempt constraint.
+A pending source claim is retained, not released. The source cannot be switched
+after a pending observation. A completed observation does not unlock budget.
+
+Local simulation now covers 25 Circle correlation tests including concurrent
+claim attempts, cross-scope duplicates, pending-to-complete transitions,
+source replacement, exact-pin tampering and conservative ambiguity denial.
+Run with the **actual upstream Circle module** in an authenticated full checkout
+to validate native compatibility. Local shim results are not proof of provider
+authenticity or mainnet settlement.
