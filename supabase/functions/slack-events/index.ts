@@ -80,7 +80,8 @@ async function slackReply(channel: string, text: string, thread_ts?: string): Pr
   const res = await fetch('https://slack.com/api/chat.postMessage', {
     method: 'POST',
     headers: { 'Authorization': `Bearer ${SLACK_BOT_TOKEN}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ channel, text, thread_ts }),
+    // Untrusted LLM content is readable plain text, never executable Slack mrkdwn.
+    body: JSON.stringify({ channel, text, thread_ts, mrkdwn: false, parse: 'none', link_names: false }),
   })
   // Slack may return HTTP 200 with {ok:false, error:...}. HTTP success alone
   // must never count as verified delivery of an already-paid inference result.
@@ -137,7 +138,7 @@ async function deliverStoredResult(dispatchId: string, channel: string,
     throw new Error('RESULT_OUTBOX_INVALID')
   }
   try {
-    await slackReply(channel, `*AEGIS-Ω:* ${data.result}`, threadTs)
+    await slackReply(channel, `AEGIS Ω — ${data.result}`, threadTs)
   } catch (error) {
     // Only an EXPLICIT Slack ok:false means the provider definitively refused.
     // All network/HTTP/JSON ambiguity remains SENDING for manual reconciliation.
