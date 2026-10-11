@@ -70,6 +70,12 @@ export function SovereignField({ sources, selectedId, onSelect }: Props) {
           {selected && <SovereignMatter sourceId={selected.id} limitCount={selected.boundaries.length} motionOverride={false} conceptArt />}
           <div className="sf-coordinate sf-coordinate-top" aria-hidden="true">RELATIONAL COORDINATES <span>·</span> OBSERVED CATALOG</div>
           <div className="sf-coordinate sf-coordinate-bottom" aria-hidden="true">DRAG BACKGROUND TO ORBIT <span>·</span> NO SIMULATED TELEMETRY</div>
+          <div className="sf-compact-list" aria-label="Accessible source navigator">
+            {sources.map(source => <button type="button" key={source.id}
+              aria-pressed={selected?.id === source.id} onClick={() => { onSelect(source.id); setCopiedId(null) }}>
+              <span>{source.index}</span><strong>{source.title}</strong><span aria-hidden="true">↗</span>
+            </button>)}
+          </div>
           <div className="sf-orbit-region" onPointerDown={onPointerDown} onPointerMove={onPointerMove}
             onPointerUp={onPointerEnd} onPointerCancel={onPointerEnd}>
             <svg className="sf-engraving" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
