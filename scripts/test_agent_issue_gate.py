@@ -24,10 +24,11 @@ def good():
     digest = contract_digest(contract_from_body(BODY))
     proof = "AEGIS-WORK-CONTRACT-SHA256: " + digest
     return {"repo": "Aegis-Omega/AEGIS-OMEGA",
-            "pr": {"number": 999, "body": "AEGIS-WORK-ISSUE: #888\n" + proof, "base": {"ref": "main"},
+            "pr": {"number": 999, "body": "AEGIS-WORK-ISSUE: #888\n" + proof, "base": {"ref": "main", "sha": "b" * 40}, "commits": 1, "changed_files": 1,
                    "head": {"sha": HEAD}, "user": {"login": "builder", "id": 10}, "draft": False, "state": "open"},
             "issue": {"number": 888, "state": "open", "body": BODY},
             "changed_files": ["scripts/agent_issue_gate.py"], "files_complete": True,
+            "file_records_count": 1,
             "check_runs": [{"id": 999, "name": "aegis / issue-gate-tests", "head_sha": HEAD,
                             "status": "completed", "conclusion": "success", "app": {"id": 15368}}],
             "checks_complete": True, "check_origins": {"999": True}, "commits": [{"sha": HEAD, "commit": {"verification": {"verified": True}}}],
@@ -372,6 +373,85 @@ class GateTests(unittest.TestCase):
         from agent_issue_gate import _trusted_check_origin
         x = good(); x["check_runs"][0]["details_url"] = "https://evil.invalid/check/999"
         self.assertFalse(_trusted_check_origin(x["repo"], x["pr"], x["check_runs"][0], "", "Run stdlib falsifiers"))
+
+    def test_pr_commit_count_cannot_be_truncated_in_reducer(self):
+        x = good(); x["pr"]["commits"] = 2
+        self.fail_gate(x, "signed_commits")
+
+    def test_pr_file_count_cannot_be_truncated_in_reducer(self):
+        x = good(); x["pr"]["changed_files"] = 2
+        self.fail_gate(x, "declared_scope")
+
+    def test_live_truncated_commit_page_cannot_admit(self):
+        import unittest.mock
+        from agent_issue_gate import live_snapshot
+        x = good(); x["pr"]["head"]["repo"] = {"full_name": x["repo"]}
+        x["pr"]["commits"] = 2
+        checks = {"total_count": 1, "check_runs": x["check_runs"]}
+        replies = [x["pr"], x["issue"], checks, x["reviews"], x["commits"],
+                   [{"filename": x["changed_files"][0]}], x["pr"], x["issue"], x["reviews"], checks]
+        with unittest.mock.patch("agent_issue_gate._api", side_effect=replies), \
+             unittest.mock.patch("agent_issue_gate._trusted_check_origin", return_value=True):
+            snap = live_snapshot(x["repo"], 999, "")
+        self.assertFalse(snap["commits_complete"])
+        self.fail_gate(snap, "signed_commits")
+
+    def test_live_truncated_files_page_cannot_admit(self):
+        import unittest.mock
+        from agent_issue_gate import live_snapshot
+        x = good(); x["pr"]["head"]["repo"] = {"full_name": x["repo"]}
+        x["pr"]["changed_files"] = 2
+        checks = {"total_count": 1, "check_runs": x["check_runs"]}
+        replies = [x["pr"], x["issue"], checks, x["reviews"], x["commits"],
+                   [{"filename": x["changed_files"][0]}], x["pr"], x["issue"], x["reviews"], checks]
+        with unittest.mock.patch("agent_issue_gate._api", side_effect=replies), \
+             unittest.mock.patch("agent_issue_gate._trusted_check_origin", return_value=True):
+            snap = live_snapshot(x["repo"], 999, "")
+        self.assertFalse(snap["files_complete"])
+        self.fail_gate(snap, "declared_scope")
+
+    def test_rename_old_out_of_scope_path_denied(self):
+        import unittest.mock
+        from agent_issue_gate import live_snapshot
+        x = good(); x["pr"]["head"]["repo"] = {"full_name": x["repo"]}
+        checks = {"total_count": 1, "check_runs": x["check_runs"]}
+        rename = {"filename": x["changed_files"][0], "previous_filename": "secrets/creds.txt",
+                  "status": "renamed"}
+        replies = [x["pr"], x["issue"], checks, x["reviews"], x["commits"],
+                   [rename], x["pr"], x["issue"], x["reviews"], checks]
+        with unittest.mock.patch("agent_issue_gate._api", side_effect=replies), \
+             unittest.mock.patch("agent_issue_gate._trusted_check_origin", return_value=True):
+            snap = live_snapshot(x["repo"], 999, "")
+        self.assertTrue(snap["files_complete"])
+        self.assertIn("secrets/creds.txt", snap["changed_files"])
+        self.fail_gate(snap, "declared_scope")
+
+    def test_missing_renamed_from_is_incomplete(self):
+        import unittest.mock
+        from agent_issue_gate import live_snapshot
+        x = good(); x["pr"]["head"]["repo"] = {"full_name": x["repo"]}
+        checks = {"total_count": 1, "check_runs": x["check_runs"]}
+        replies = [x["pr"], x["issue"], checks, x["reviews"], x["commits"],
+                   [{"filename": x["changed_files"][0], "status": "renamed"}],
+                   x["pr"], x["issue"], x["reviews"], checks]
+        with unittest.mock.patch("agent_issue_gate._api", side_effect=replies), \
+             unittest.mock.patch("agent_issue_gate._trusted_check_origin", return_value=True):
+            snap = live_snapshot(x["repo"], 999, "")
+        self.assertFalse(snap["files_complete"])
+        self.fail_gate(snap, "declared_scope")
+
+    def test_base_sha_change_mid_snapshot_fails_closed(self):
+        import unittest.mock
+        from agent_issue_gate import live_snapshot
+        x = good(); x["pr"]["head"]["repo"] = {"full_name": x["repo"]}
+        checks = {"total_count": 1, "check_runs": x["check_runs"]}
+        changed = {**x["pr"], "base": {"ref": "main", "sha": "c" * 40}}
+        replies = [x["pr"], x["issue"], checks, x["reviews"], x["commits"],
+                   [{"filename": x["changed_files"][0]}], changed, x["issue"], x["reviews"], checks]
+        with unittest.mock.patch("agent_issue_gate._api", side_effect=replies), \
+             unittest.mock.patch("agent_issue_gate._trusted_check_origin", return_value=True):
+            with self.assertRaisesRegex(Invalid, "PR_CHANGED_DURING_SNAPSHOT"):
+                live_snapshot(x["repo"], 999, "")
 
     def test_stacked_branch(self):
         x = good(); x["pr"]["base"]["ref"] = "feat/old"
