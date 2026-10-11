@@ -105,6 +105,10 @@ async function runAgent(task: string, context?: string): Promise<{ result: strin
         toolResults.push({ type: 'tool_result', tool_use_id: block.id, content: output })
       }
       messages.push({ role: 'user', content: toolResults })
+    } else {
+      // max_tokens/refusal/unknown stop reasons are not completed tasks.
+      // Do not issue four additional paid requests for the same partial output.
+      throw new Error('MODEL_INCOMPLETE')
     }
   }
 
