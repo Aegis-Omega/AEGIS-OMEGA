@@ -87,6 +87,11 @@ def contract_from_body(body):
                     "ACCEPTANCE_CHECK_MISSING")
             require(type(item.get("app_id")) is int and item["app_id"] == 15368,
                     "CHECK_PUBLISHER_NOT_TRUSTED")
+            required = item.get("required_step")
+            require(isinstance(required, str) and 5 <= len(required.strip()) <= 120
+                    and required == required.strip()
+                    and required not in {"Set up job", "Complete job"},
+                    "ACCEPTANCE_REQUIRED_STEP_MISSING")
         else:
             require("check" not in item, "ACCEPTANCE_CHECK_IN_WRONG_METHOD")
     return c
@@ -242,7 +247,7 @@ def _api(repo, route, token):
         return json.load(response)
 
 
-def _trusted_check_origin(repo, pr, check, token):
+def _trusted_check_origin(repo, pr, check, token, required_step):
     """Bound an Actions check to a successful run and unchanged trusted-base YAML.
 
     Check-run app IDs alone are insufficient: a PR-authored workflow can publish
@@ -279,9 +284,7 @@ def _trusted_check_origin(repo, pr, check, token):
                 and isinstance(steps, list) and any(
                     isinstance(step, dict) and step.get("status") == "completed"
                     and step.get("conclusion") == "success"
-                    and isinstance(step.get("name"), str)
-                    and step["name"].strip()
-                    and step["name"] not in {"Set up job", "Complete job"}
+                    and step.get("name") == required_step
                     for step in steps)):
             return False
         base = _api(repo, f"contents/{path}?ref={base_sha}", token)
@@ -311,12 +314,13 @@ def live_snapshot(repo, number, token):
     # Provenance is checked for each candidate matching declared acceptance.
     # A successful self-authored Actions YAML cannot serve as trusted evidence.
     contract = contract_from_body(issue.get("body"))
-    accepted_names = {item["check"] for item in contract["acceptance"]
-                      if item["method"] == "github_check"}
+    accepted_steps = {item["check"]: item["required_step"]
+                      for item in contract["acceptance"] if item["method"] == "github_check"}
     origins = {}
     for check in data.get("check_runs", []):
-        if isinstance(check, dict) and check.get("name") in accepted_names:
-            origins[str(check.get("id"))] = _trusted_check_origin(repo, pr, check, token)
+        if isinstance(check, dict) and check.get("name") in accepted_steps:
+            origins[str(check.get("id"))] = _trusted_check_origin(
+                repo, pr, check, token, accepted_steps[check["name"]])
     # Detect a moving PR head, altered acceptance contract or changed approval surface.
     # A read-only API sequence is not an atomic snapshot; fail closed on observable drift.
     latest_pr = _api(repo, f"pulls/{number}", token)
