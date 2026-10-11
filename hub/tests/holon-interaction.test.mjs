@@ -42,7 +42,8 @@ test('negative: Escape without focus restoration is detected', () => {
     css).menuEscapeRestoresFocus, false)
 })
 test('negative: unpaused auto-playing motion is detected', () => {
-  assert.equal(inspect(jsx.replace('useState(false)', 'useState(true)'),
+  assert.equal(inspect(jsx.replace('const [motionEnabled,setMotionEnabled] = useState(false)',
+    'const [motionEnabled,setMotionEnabled] = useState(true)'),
     css).motionDefaultIsPaused, false)
 })
 test('negative: control without real state transition is detected', () => {
