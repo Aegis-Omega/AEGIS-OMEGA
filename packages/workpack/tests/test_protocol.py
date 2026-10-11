@@ -52,6 +52,26 @@ class WorkpackTests(unittest.TestCase):
         for name in ['../x','a/../../b','/etc/passwd','a//b','a\\b','.','a/./b']:
             with self.subTest(name=name):
                 d=manifest(name);self.assertEqual(self.status(d)['disposition'],'NOT_ADMITTED')
+    def test_invalid_manifest_cli_returns_receipt_not_exception(self):
+        from aegis_workpack.protocol import cli
+        import contextlib
+        import io
+        (self.root / 'manifest.json').write_text('{not-json')
+        with contextlib.redirect_stdout(io.StringIO()) as captured:
+            code = cli([str(self.root)])
+        self.assertEqual(code, 1)
+        self.assertEqual(json.loads(captured.getvalue())['disposition'], 'NOT_ADMITTED')
+
+    def test_invalid_utf8_manifest_cli_fails_closed(self):
+        from aegis_workpack.protocol import cli
+        import contextlib
+        import io
+        (self.root / 'manifest.json').write_bytes(b'\xff')
+        with contextlib.redirect_stdout(io.StringIO()) as captured:
+            code = cli([str(self.root)])
+        self.assertEqual(code, 1)
+        self.assertEqual(json.loads(captured.getvalue())['disposition'], 'NOT_ADMITTED')
+
     def test_manifest_symlink_parent_fails(self):
         from aegis_workpack.protocol import cli
         import contextlib
