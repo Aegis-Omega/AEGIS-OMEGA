@@ -127,6 +127,43 @@ class TestM2LayoutDiagnosticGate(unittest.TestCase):
         cls.core_tree = _tree(CORE_MATRIX_PATH)
         cls.bridge_tree = _tree(BRIDGE_PATH)
 
+    def test_gate_ingress_and_effect_branches_are_distinct(self) -> None:
+        handler = next(
+            node for node in self.bridge_tree.body
+            if isinstance(node, ast.ClassDef) and node.name == "BridgeHandler"
+        )
+        post = next(
+            node for node in handler.body
+            if isinstance(node, ast.FunctionDef) and node.name == "do_POST"
+        )
+        candidates = [
+            node for node in ast.walk(post)
+            if isinstance(node, ast.If)
+            and isinstance(node.test, ast.Compare)
+            and len(node.test.comparators) == 1
+            and isinstance(node.test.comparators[0], ast.Constant)
+            and node.test.comparators[0].value == "/gate_signal"
+        ]
+        # Reproduces the old broken AST selector: candidates[0] used to be
+        # treated as the effectful branch after ingress validation was added.
+        self.assertEqual(len(candidates), 2)
+        selected = _gate_effect_branch(post)
+        self.assertIs(selected, candidates[1])
+        self.assertFalse(any(
+            _is_matrix_method_call(child, "receive_gate_signal")
+            for child in ast.walk(candidates[0])
+        ))
+        self.assertTrue(any(
+            isinstance(child, ast.Call)
+            and isinstance(child.func, ast.Name)
+            and child.func.id == "_gate_peer_is_loopback"
+            for child in ast.walk(candidates[0])
+        ))
+        self.assertTrue(any(
+            _is_matrix_method_call(child, "receive_gate_signal")
+            for child in ast.walk(selected)
+        ))
+
     def test_current_source_formula_is_bound_to_diagnostic_contract(self) -> None:
         expected = ast.parse(self.contract["current_offset_formula"], mode="eval").body
         actual = _m2_offset_expr(self.core_tree)
