@@ -24,6 +24,14 @@ A locally positive research packet remains unauthenticated:
 - For factual promotion a **second, independent agent** must re-open the live links, compare source text and publication/capture dates, verify evaluator methods and validate the domain result.
 - An Issue may only close after its own acceptance and protected-main criteria; a local packet is not admission.
 
+## v0.3 — executed-experiment replay vs unsupported claims
+
+An `evaluation.outcome` string is **not** execution evidence. Claims of `SUPPORTED`, `FALSIFIED` or `INCONCLUSIVE` must now be recomputed from a SHA-256-bound, local `aegis.exact-match-eval.v1` dataset with 3–100 distinct test cases. The verifier checks the exact-match baseline and candidate scores, rejects a forged outcome that disagrees with the cases, and performs no shell/model/network execution. A packet remains blocked if it has no evaluation artifact or a modified dataset. The only supported automatic measure is `case_exact_match`; the text descriptions of metric, baseline, target and falsification remain context, not validated metrics.
+
+A successful replay proves a **bounded computation over submitted bytes** only. Without a separately authenticated evaluator, independently held-out reference set and trustworthy origin record, the dataset may be self-authored, a false benchmark, or a compromised oracle. Therefore the receipt **always** retains `source_authenticity=UNVERIFIED`, `improvement=UNPROVEN` and `domain_quality=UNVERIFIED`.
+
+Do not introduce a general online crawler into the offline verifier: evidence collection belongs to approved agent/browser integrations behind explicit authority. This avoids secret leakage, SSRF, executing malicious webpage instructions, and conflating local integrity with live web provenance.
+
 ## Mandatory safety
 
 No automatic signing, auto-merge, billing, secrets, direct production writes or unapproved external side effects. Respect robots/access controls and service terms; do not bypass restricted websites. No unbounded repeated searches, infinite loops or background promises. Search only when meaningful to the task, and report `UNAVAILABLE` honestly instead of faking it. Use small bounded research budgets and prioritize primary sources and independent replications.
