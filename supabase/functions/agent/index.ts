@@ -121,6 +121,12 @@ async function runAgent(task: string, context?: string, actorId?: string, teamId
       const toolResults = []
       for (const block of msg.content) {
         if (block.type !== 'tool_use') continue
+        // Do not let malformed/provider-invented tool requests consume more
+        // paid turns or create a fake successful answer.
+        if (block.name !== 'query_purchases' || !hasPurchaseReaderScope(actorId, teamId) ||
+            typeof block.id !== 'string' || !block.id.trim()) {
+          throw new Error('MODEL_INCOMPLETE')
+        }
         actions.push(`${block.name}(${JSON.stringify(block.input)})`)
         const output = await runTool(block.name, block.input, actorId, teamId)
         toolResults.push({ type: 'tool_result', tool_use_id: block.id, content: output })
