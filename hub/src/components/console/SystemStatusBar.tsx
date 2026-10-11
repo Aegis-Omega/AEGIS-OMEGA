@@ -18,7 +18,7 @@ export function SystemStatusBar({ snap }: { snap: ConsoleSnapshot }) {
           boxShadow: `0 0 10px ${dot}`, display: 'inline-block',
         }} />
         <span style={{ fontFamily: MONO, fontSize: 12, color: live ? T.green : T.amber, letterSpacing: '0.1em' }}>
-          {live ? '● LIVE' : '○ DEMO'}
+          {live ? '● REMOTE OBSERVATION' : '○ UNAVAILABLE'}
         </span>
         <span style={{ fontSize: 12, color: T.muted }}>{snap.reason}</span>
       </div>
