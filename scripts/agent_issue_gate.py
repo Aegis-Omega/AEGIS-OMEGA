@@ -344,6 +344,9 @@ def main(argv=None):
     except (Invalid, OSError, HTTPError, URLError, ValueError, TypeError, KeyError) as exc:
         result = {"schema": "aegis.issue-gate.report.v1", "disposition": "NOT_ADMITTED",
                   "contract": "UNKNOWN", "authority_effect": "NONE", "reason": type(exc).__name__}
+    if args.snapshot:
+        result["simulated_reducer_disposition"] = result["disposition"]
+        result["disposition"] = "OFFLINE_SIMULATION_ONLY"
     out = json.dumps(result, indent=2, sort_keys=True) + "\n"
     if args.output:
         with open(args.output, "w", encoding="utf-8") as f:
