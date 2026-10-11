@@ -18,6 +18,10 @@ If one overlaps: coordinate with the active agent and extend that work, or
 explain the distinct evidence-backed contribution. Never rebuild it.
 The preflight's `holon_disposition` is **advisory, never authorization**:
 `HOLD_INCOMPLETE_SHARED_STATE` means the board was not verifiably read.
+Every model MUST inspect **all** `holon_blockers`, not just the single
+`holon_disposition`: an unknown main, claimed task and `needs-operator`
+obligation may coexist. The absence of blockers is never permission to merge,
+spend money, deploy or change authority.
 "No title match" does **not** prove that paths or semantics cannot conflict.
 
 ## 2. The task board is GitHub Issues
