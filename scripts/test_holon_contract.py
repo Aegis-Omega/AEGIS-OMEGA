@@ -19,6 +19,7 @@ def state(labels=None, **other):
     s={"main_freshness":{"state":"FRESH","sha":"a"*40},"source":"github",
        "issue_source":"github","ci_billing_locked":False,
        "holon_disposition":"ISSUE_ASSIGNMENT_AND_REVIEW_REQUIRED",
+       "holon_blockers":[],"coordination_blockers":[],
        "issue_matches":[{"number":734,"title":"Holon","labels":labels or ["task"]}],"overlaps":[]}
     s.update(other)
     return s
@@ -55,6 +56,27 @@ class HolonContractTests(unittest.TestCase):
                 self.assertEqual(result["disposition"], "HOLD")
                 self.assertIn("UPSTREAM_COORDINATION_NOT_CLEAR", result["blockers"])
                 self.assertEqual(result["authorization"], "NOT_VERIFIED")
+
+    def test_all_independent_upstream_blockers_propagate(self):
+        for field in ("holon_blockers", "coordination_blockers"):
+            with self.subTest(field=field):
+                receipt = assess(task(), state(**{field: ["OPERATOR_ACTION_REQUIRED"]}))
+                self.assertEqual(receipt["disposition"], "HOLD")
+                self.assertIn("UPSTREAM_BLOCKERS_PRESENT", receipt["blockers"])
+
+    def test_missing_blocker_channel_fails_closed(self):
+        for field in ("holon_blockers", "coordination_blockers"):
+            context = state()
+            del context[field]
+            with self.subTest(field=field):
+                receipt = assess(task(), context)
+                self.assertIn("UPSTREAM_BLOCKER_LIST_NOT_VERIFIED", receipt["blockers"])
+
+    def test_malformed_blocker_lists_cannot_become_ready(self):
+        for invalid in (None, "", "OK", [123], [""], [False], ["x" * 200]):
+            with self.subTest(invalid=invalid):
+                receipt = assess(task(), state(holon_blockers=invalid))
+                self.assertEqual(receipt["disposition"], "HOLD")
 
     def test_missing_unknown_or_malformed_upstream_disposition_holds(self):
         for value in (None, "", "READY", 1, True, [], {}):
