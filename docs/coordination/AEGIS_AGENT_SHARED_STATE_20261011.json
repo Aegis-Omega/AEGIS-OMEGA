@@ -54,21 +54,23 @@
       "url": "https://github.com/Aegis-Omega/AEGIS-OMEGA/pull/732",
       "admission": "NOT_VERIFIED",
       "deployment": "NOT_VERIFIED",
-      "actor": "UNASSIGNED_NOT_AUTHENTICATED"
+      "actor": "UNASSIGNED_NOT_AUTHENTICATED",
+      "head_update": "SELF_REFERENTIAL_HEAD_REQUIRES_FRESH_FETCH"
     },
     {
       "repo": "Aegis-Omega/AEGIS-OMEGA",
       "pr": 745,
       "issue": 760,
-      "sha": "95146693e2f4c8cd53195225f3240118f7fbbc1b",
+      "sha": "40a1033a0b93c39b4bb61a1af146d95b8b63a208",
       "lane": "product UI Holon Glass",
       "artifact": "hub/src/HolonGlass.tsx; AEGIS_HOLON_VISUAL_SYSTEM_HANDOFF_2026-10-11.json",
       "status": "DRAFT_BRANCH_NOT_DEPLOYMENT_VERIFIED",
-      "observed_head_before_coordination_commit": "95146693e2f4c8cd53195225f3240118f7fbbc1b",
+      "observed_head_before_coordination_commit": "40a1033a0b93c39b4bb61a1af146d95b8b63a208",
       "url": "https://github.com/Aegis-Omega/AEGIS-OMEGA/pull/745",
       "admission": "NOT_VERIFIED",
       "deployment": "NOT_VERIFIED",
-      "actor": "UNASSIGNED_NOT_AUTHENTICATED"
+      "actor": "UNASSIGNED_NOT_AUTHENTICATED",
+      "head_update": "OBSERVED_CHANGED_SINCE_INITIAL_SNAPSHOT"
     },
     {
       "repo": "Aegis-Omega/AEGIS-OMEGA",
@@ -158,15 +160,16 @@
       "repo": "Aegis-Omega/AEGIS-OMEGA",
       "pr": 743,
       "issue": null,
-      "sha": "afd42c909a3bd2bb0bea0e375952d863eecb16b5",
+      "sha": "6cc23e81f4b1259fee624709e4d6782dd961a8de",
       "lane": "verified output receipts",
       "artifact": "AEGIS Verified Output v0 SDK",
       "status": "DRAFT_BRANCH_NOT_ADMITTED",
-      "observed_head_before_coordination_commit": "afd42c909a3bd2bb0bea0e375952d863eecb16b5",
+      "observed_head_before_coordination_commit": "6cc23e81f4b1259fee624709e4d6782dd961a8de",
       "url": "https://github.com/Aegis-Omega/AEGIS-OMEGA/pull/743",
       "admission": "NOT_VERIFIED",
       "deployment": "NOT_VERIFIED",
-      "actor": "UNASSIGNED_NOT_AUTHENTICATED"
+      "actor": "UNASSIGNED_NOT_AUTHENTICATED",
+      "head_update": "OBSERVED_CHANGED_SINCE_INITIAL_SNAPSHOT"
     },
     {
       "repo": "Aegis-Omega/AEGIS-OMEGA",
@@ -217,12 +220,15 @@
       "sha": "f9b1fbc7817ff2556b5131cf1455e05acc00743a",
       "lane": "RH proof fusion",
       "artifact": "AEGISOverlay/RHExistingProofFusionV1.lean",
-      "status": "DRAFT_CONDITIONAL_PROOF_RH_OPEN",
+      "status": "MERGED_PROOF_FUSION_RH_STILL_UNPROVED",
       "observed_head_before_coordination_commit": "f9b1fbc7817ff2556b5131cf1455e05acc00743a",
       "url": "https://github.com/tarikskalic33/formal-conjectures/pull/79",
-      "admission": "NOT_VERIFIED",
-      "deployment": "NOT_VERIFIED",
-      "actor": "UNASSIGNED_NOT_AUTHENTICATED"
+      "admission": "MERGED_AT_REPOSITORY_LEVEL_ONLY",
+      "deployment": "NOT_APPLICABLE",
+      "actor": "UNASSIGNED_NOT_AUTHENTICATED",
+      "merged_at": "2026-10-11T18:43:24Z",
+      "merge_commit_sha": "e9dd3abf717dc0f844f460b66b3a01c602fc8b43",
+      "head_update": "SAME_PR_HEAD_BUT_LIFECYCLE_ADVANCED"
     }
   ],
   "overlaps": [
@@ -289,5 +295,7 @@
       "pr": 745,
       "objective": "verify actual UI integration and legal asset rights; no deployment claim"
     }
-  ]
+  ],
+  "snapshot_refresh_note": "11 October 2026 late observation: #745 and #743 head changed, #79 merged without changing its PR head. Git SHA parity alone does NOT verify PR state, merge, axiom audit, or scientific proof. #732 is self-referential and must be fetched live.",
+  "scope_expanded_by_refresh": false
 }
