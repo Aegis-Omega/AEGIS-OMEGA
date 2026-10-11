@@ -85,28 +85,6 @@ function Nav({ path = '/' }: { path?: string }) {
   </div></header></>
 }
 
-function Orbit() {
-  return <div className="hg-orbit" aria-hidden="true">
-    <div className="hg-orbit-glow"/><div className="hg-orbit-grid"/>
-    <svg viewBox="0 0 580 580" className="hg-orbit-svg"><defs>
-      <linearGradient id="hg-curve" x1="0" y1="0" x2="1" y2="1"><stop stopColor="#476EFA"/><stop offset=".37" stopColor="#C5F2FF"/><stop offset=".69" stopColor="#61A6F4"/><stop offset="1" stopColor="#AC81FE"/></linearGradient>
-      <radialGradient id="hg-core"><stop stopColor="#ACDAFF" stopOpacity=".5"/><stop offset=".4" stopColor="#16589C" stopOpacity=".28"/><stop offset="1" stopColor="#060D1B" stopOpacity="0"/></radialGradient>
-      <filter id="hg-glow"><feGaussianBlur stdDeviation="5"/></filter>
-    </defs>
-    <circle cx="290" cy="290" r="242" fill="url(#hg-core)"/>
-    {[83,133,184,232].map((r,i)=><circle key={r} cx="290" cy="290" r={r} fill="none" stroke="#72A8EC" strokeWidth=".9" strokeOpacity={.26-i*.025} strokeDasharray={i%2?'2 11':undefined}/>)}
-    <g className="hg-orbit-turn hg-orbit-turn-a"><ellipse cx="290" cy="290" rx="238" ry="93" stroke="url(#hg-curve)" strokeWidth="1.8"/><ellipse cx="290" cy="290" rx="223" ry="129" stroke="#6FBEF9" strokeOpacity=".42" strokeWidth="1"/></g>
-    <g className="hg-orbit-turn hg-orbit-turn-b"><ellipse cx="290" cy="290" rx="252" ry="89" stroke="url(#hg-curve)" strokeWidth="1.25" transform="rotate(60 290 290)"/><ellipse cx="290" cy="290" rx="238" ry="123" stroke="#97B6FF" strokeOpacity=".45" strokeWidth=".8" transform="rotate(-42 290 290)"/></g>
-    <g stroke="#74B7EF" strokeOpacity=".4" strokeWidth=".9"><path d="M92 331 176 171 320 223 461 152M92 331l148 103 80-211 103 177M176 171l64 263 221-282"/></g>
-    <path d="M92 331 176 171 320 223 461 152" stroke="#8BCDFD" strokeWidth="5" opacity=".55" filter="url(#hg-glow)"/>
-    <g fill="#BAE9FF" stroke="#448FEC" strokeWidth="1">{[[92,331],[176,171],[320,223],[461,152],[240,434],[423,400]].map(([x,y],i)=><circle key={i} cx={x} cy={y} r={i%2?5:4}/>)}</g>
-    <g className="hg-orbit-center"><path d="M290 205 360 341H334l-44-86-44 86h-26z" fill="#86C5FE" fillOpacity=".12" stroke="url(#hg-curve)" strokeWidth="2.1"/><path d="M249 322h82" stroke="#AEDFFF" strokeWidth="2"/><circle cx="290" cy="287" r="11" fill="#D5F4FF" opacity=".8" filter="url(#hg-glow)"/></g>
-    <g stroke="#8BBDE9" strokeOpacity=".35"><path d="M290 12v43M290 528v39M12 290h43M525 290h43"/></g>
-    </svg>
-    <div className="hg-orbit-caption hg-caption-top">HOLON / ∞<br/>MULTISCALE COHERENCE</div><div className="hg-orbit-caption hg-caption-bottom">MATHEMATICS · BIOLOGY · INTELLIGENCE</div>
-  </div>
-}
-
 const DOMAINS = [
   { id: '01', glyph: 'neural', title: 'Sovereign runtime', detail: 'Authority-bounded execution, governed agents and a verifiable decision trail.', tag: 'SYSTEM / GOVERNANCE', href: '/runtime' },
   { id: '02', glyph: 'math', title: 'Frontier mathematics', detail: 'Formal conjectures, falsifiable propositions and proof-producing research.', tag: 'SCIENCE / FORMAL', href: 'https://github.com/tarikskalic33/formal-conjectures' },
