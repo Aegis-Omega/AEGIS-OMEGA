@@ -6,11 +6,12 @@ The connected agent/harness must obtain current web evidence independently.
 """
 from datetime import datetime, timezone, timedelta
 import hashlib
+import json
 import ipaddress
 import re
 from urllib.parse import urlsplit
 
-from .protocol import _artifact_bytes, Invalid, require, SHA256
+from .protocol import _artifact_bytes, Invalid, require, SHA256, _strict_pairs
 
 SCHEMA = "aegis.research-cycle.v1"
 IDENT = re.compile(r"[A-Za-z][A-Za-z0-9_-]{1,39}\Z")
@@ -64,6 +65,48 @@ def _publisher_key(hostname):
 
 def _nontrivial(value, min_len=15, max_len=2000):
     return isinstance(value, str) and min_len <= len(value.strip()) <= max_len
+
+
+def _evidence_exact_match(workspace, evaluation):
+    """Recompute a bounded exact-match comparison; never execute agent code.
+
+    Cases and their reference strings are NOT authenticated ground truth. They
+    can be forged by the same model; the only claim is replay consistency.
+    """
+    require(evaluation.get("metric_kind") == "case_exact_match", "EVALUATOR_KIND_UNSUPPORTED")
+    path = evaluation.get("evidence_artifact")
+    digest = evaluation.get("evidence_sha256")
+    require(isinstance(digest, str) and SHA256.fullmatch(digest), "EVALUATION_HASH_REQUIRED")
+    raw = _artifact_bytes(workspace, path, cap=256 * 1024)
+    require(hashlib.sha256(raw).hexdigest() == digest, "EVALUATION_ARTIFACT_TAMPERED")
+    try:
+        dataset = json.loads(raw.decode("utf-8"), object_pairs_hook=_strict_pairs,
+                             parse_constant=lambda _: (_ for _ in ()).throw(Invalid("EVALUATION_NONFINITE")))
+    except (UnicodeError, json.JSONDecodeError) as exc:
+        raise Invalid("EVALUATION_ARTIFACT_INVALID_JSON") from exc
+    require(isinstance(dataset, dict) and dataset.get("schema") == "aegis.exact-match-eval.v1",
+            "EVALUATION_SCHEMA_INVALID")
+    cases = dataset.get("cases")
+    require(isinstance(cases, list) and 3 <= len(cases) <= 100, "EVALUATION_CASE_COUNT")
+    seen, base, candidate = set(), 0, 0
+    for case in cases:
+        require(isinstance(case, dict) and set(case) == {"id", "expected", "baseline", "candidate"},
+                "EVALUATION_CASE_FIELDS")
+        ident = case.get("id")
+        require(isinstance(ident, str) and IDENT.fullmatch(ident) and ident not in seen,
+                "EVALUATION_CASE_ID_INVALID_OR_DUPLICATE")
+        seen.add(ident)
+        for k in ("expected", "baseline", "candidate"):
+            require(isinstance(case[k], str) and len(case[k]) <= 500,
+                    "EVALUATION_CASE_VALUE_INVALID")
+        base += int(case["baseline"] == case["expected"])
+        candidate += int(case["candidate"] == case["expected"])
+    derived = "SUPPORTED" if candidate > base else "FALSIFIED" if candidate < base else "INCONCLUSIVE"
+    require(evaluation["outcome"] == derived, "EVALUATION_OUTCOME_DISAGREES_WITH_REPLAY")
+    return {"kind": "case_exact_match", "case_count": len(cases),
+            "baseline_matches": base, "candidate_matches": candidate,
+            "calculated_outcome": derived, "evidence_sha256": digest,
+            "authenticity": "UNVERIFIED", "holdout_integrity": "UNVERIFIED"}
 
 
 def audit_research(workspace, record, *, now=None):
@@ -152,6 +195,8 @@ def audit_research(workspace, record, *, now=None):
                 _nontrivial(evaluation.get("falsification_test")) and
                 evaluation.get("outcome") in ("NOT_RUN", "FALSIFIED", "INCONCLUSIVE", "SUPPORTED"),
                 "EVALUATION_MISSING")
+        if evaluation["outcome"] != "NOT_RUN":
+            result["evaluation_replay"] = _evidence_exact_match(workspace, evaluation)
         learning = record.get("learning")
         require(isinstance(learning, dict) and
                 _nontrivial(learning.get("observed")) and
