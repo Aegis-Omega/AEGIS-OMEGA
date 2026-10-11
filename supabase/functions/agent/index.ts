@@ -152,16 +152,16 @@ function b64(bytes: Uint8Array): string {
 function unb64(text: string): Uint8Array {
   return Uint8Array.from(atob(text), c => c.charCodeAt(0))
 }
-async function sealResult(plain: string, key: string): Promise<{ciphertext_b64:string, iv_b64:string}> {
+async function sealResult(plain: string, key: string, aad: Uint8Array): Promise<{ciphertext_b64:string, iv_b64:string}> {
   const iv = crypto.getRandomValues(new Uint8Array(12))
-  const encrypted = await crypto.subtle.encrypt({name:'AES-GCM',iv}, await aesResultKey(key),
+  const encrypted = await crypto.subtle.encrypt({name:'AES-GCM',iv,additionalData:aad}, await aesResultKey(key),
     new TextEncoder().encode(plain))
   return {ciphertext_b64:b64(new Uint8Array(encrypted)), iv_b64:b64(iv)}
 }
-async function openResult(ciphertext_b64: string, iv_b64: string, key: string): Promise<string> {
+async function openResult(ciphertext_b64: string, iv_b64: string, key: string, aad: Uint8Array): Promise<string> {
   const iv = unb64(iv_b64)
   if (iv.length !== 12) throw new Error('BAD_RESULT_IV')
-  const plain = await crypto.subtle.decrypt({name:'AES-GCM',iv}, await aesResultKey(key),
+  const plain = await crypto.subtle.decrypt({name:'AES-GCM',iv,additionalData:aad}, await aesResultKey(key),
     unb64(ciphertext_b64))
   return new TextDecoder().decode(plain)
 }
@@ -240,6 +240,7 @@ Deno.serve(async (req) => {
   }
   const event_digest = await taggedDigest('AEGIS_AGENT_DISPATCH_V1',dispatch_id)
   const destination_digest = await taggedDigest('AEGIS_SLACK_DESTINATION_V1',channel_id)
+  const result_aad = new TextEncoder().encode('AEGIS_OUTBOX_V1\0' + event_digest + '\0' + destination_digest)
   const store = createClient(SUPABASE_URL,SERVICE_KEY)
   const action = operation ?? 'dispatch'
   const response = (code: number,data: Record<string,unknown>) => new Response(
@@ -256,7 +257,7 @@ Deno.serve(async (req) => {
     const row = Array.isArray(data) ? data[0] : null
     if (!row) return response(409,{error:'OUTBOX_NOT_AVAILABLE'})
     try {
-      const result = await openResult(row.ciphertext_b64,row.iv_b64,encryptionKey)
+      const result = await openResult(row.ciphertext_b64,row.iv_b64,encryptionKey,result_aad)
       return response(200,{ok:true,result,status:'DELIVERY_LEASED'})
     } catch {
       // Never unlock ambiguous claimed output automatically.
@@ -301,7 +302,7 @@ Deno.serve(async (req) => {
     if (typeof result !== 'string' || result.length > 20000) {
       return response(503,{error:'RESULT_EXCEEDS_OUTBOX_LIMIT'})
     }
-    const sealed = await sealResult(result,encryptionKey)
+    const sealed = await sealResult(result,encryptionKey,result_aad)
     const {error:writeError} = await store.from('aegis_agent_result_outbox_v1')
       .insert({event_digest,destination_digest,...sealed})
     if (writeError) {
