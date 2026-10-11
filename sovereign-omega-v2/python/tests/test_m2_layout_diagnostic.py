@@ -330,8 +330,8 @@ class TestM2LayoutDiagnosticGate(unittest.TestCase):
             node for node in ast.walk(gate_branch)
             if _is_matrix_method_call(node, "receive_gate_signal")
         )
-        self.assertLess(gate_write.lineno, m2_write.lineno)
-        self.assertLess(m2_write.lineno, ack.lineno)
+        self.assertLess(m2_write.lineno, gate_write.lineno)
+        self.assertLess(gate_write.lineno, ack.lineno)
         locks = [
             node for node in ast.walk(gate_branch)
             if isinstance(node, ast.With) and any(
@@ -344,6 +344,75 @@ class TestM2LayoutDiagnosticGate(unittest.TestCase):
             lock.lineno < gate_write.lineno < ack.lineno <= lock.end_lineno
             for lock in locks
         ))
+
+    def test_bridge_m2_failure_does_not_apply_governance_or_ack(self) -> None:
+        # Execute the checked-in gate_signal branch, not a reconstructed
+        # surrogate. Stub only the external gate, matrix, and HTTP response.
+        import copy
+        from contextlib import nullcontext
+        from types import SimpleNamespace
+
+        handler = next(
+            node for node in ast.walk(self.bridge_tree)
+            if isinstance(node, ast.ClassDef) and node.name == "BridgeHandler"
+        )
+        post = next(
+            node for node in handler.body
+            if isinstance(node, ast.FunctionDef) and node.name == "do_POST"
+        )
+        branch = next(
+            node for node in ast.walk(post)
+            if isinstance(node, ast.If)
+            and isinstance(node.test, ast.Compare)
+            and len(node.test.comparators) == 1
+            and isinstance(node.test.comparators[0], ast.Constant)
+            and node.test.comparators[0].value == "/gate_signal"
+        )
+        isolated = ast.parse(
+            "def _replay_gate(self, data):\\n"
+            "    global last_ack_sequence\\n"
+            "    pass\\n"
+        ).body[0]
+        isolated.body = [isolated.body[0]] + copy.deepcopy(branch.body)
+        unit = ast.fix_missing_locations(ast.Module(body=[isolated], type_ignores=[]))
+        events = []
+
+        def fail_m2(*args):
+            events.append("M2")
+            raise RuntimeError("injected M2 failure")
+
+        scope = {
+            "_lock": nullcontext(),
+            "last_ack_sequence": -1,
+            "matrix": SimpleNamespace(receive_gate_signal=fail_m2),
+            "gate": SimpleNamespace(record_signal=lambda signal: events.append("GATE")),
+            "GateSignal": lambda **fields: fields,
+        }
+        exec(compile(unit, str(BRIDGE_PATH), "exec"), scope)
+        fake_http = SimpleNamespace(
+            _respond=lambda code, body: events.append(("RESPONSE", code, body))
+        )
+        with self.assertRaisesRegex(RuntimeError, "injected M2 failure"):
+            scope["_replay_gate"](
+                fake_http, {"sequence": 1, "accepted": True, "lcb": 0.1}
+            )
+        self.assertEqual(events, ["M2"])
+        self.assertEqual(scope["last_ack_sequence"], -1)
+
+        # Positive control: when M2 succeeds, only then is gate applied
+        # and the request ACKed, in precisely that order.
+        events.clear()
+        scope["matrix"] = SimpleNamespace(
+            receive_gate_signal=lambda *args: events.append("M2")
+        )
+        scope["_replay_gate"](
+            fake_http, {"sequence": 1, "accepted": True, "lcb": 0.1}
+        )
+        self.assertEqual(
+            events,
+            ["M2", "GATE", ("RESPONSE", 200, {"status": "ACK", "sequence": 1})],
+        )
+        self.assertEqual(scope["last_ack_sequence"], 1)
 
     def test_m2_record_constructed_before_single_buffer_write(self) -> None:
         m2 = _named_function(self.core_tree, "M2")
