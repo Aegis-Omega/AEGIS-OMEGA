@@ -132,6 +132,29 @@ class FormalSourceGateTests(unittest.TestCase):
         self.assertEqual(len(read_formal_verified(self.spool, "cybersecurity",
                          {"test_relay": KEY}, repo=self.repo)), 1)
 
+    def test_valid_relay_mac_cannot_promote_forged_source_excerpt(self):
+        # Even a sender holding the relay key cannot turn fabricated text
+        # into locally source-matched knowledge.
+        from agents.dendrite_system import from_source_record
+        from agents.dendrite_attestation import publish_attested
+        forged = dict(self.record, text=self.record["text"].replace("trivial", "sorry"))
+        publish_attested(from_source_record(forged), self.spool,
+                         key_id="test_relay", key=KEY)
+        with self.assertRaisesRegex(ValueError, "FORMAL_SOURCE_EXCERPT_MISMATCH"):
+            read_formal_verified(self.spool, "engineering", {"test_relay": KEY},
+                                 repo=self.repo)
+
+    def test_reader_rejects_head_change_after_publish(self):
+        publish_formal_verified(self.record, self.spool, repo=self.repo,
+                                key_id="test_relay", key=KEY)
+        self.source.write_text("theorem different : True := by trivial\n")
+        self.git("add", ".")
+        self.git("-c", "user.name=AEGIS Fixture", "-c", "user.email=fixture@example.invalid",
+                 "commit", "-qm", "new checked-out head")
+        with self.assertRaisesRegex(ValueError, "FORMAL_HEAD_MISMATCH"):
+            read_formal_verified(self.spool, "engineering", {"test_relay": KEY},
+                                 repo=self.repo)
+
     def test_path_traversal_denied(self):
         with self.assertRaisesRegex(ValueError, "FORMAL_PATH_INVALID"):
             verify_formal_source(self.record, repo=self.repo, path="../secret.lean")
