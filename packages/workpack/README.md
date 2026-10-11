@@ -48,7 +48,7 @@ The containing AEGIS-OMEGA repository is licensed AGPL-3.0. The protocol uses po
 - Paths must be relative and component-safe. Symlinks, duplicate manifest keys, NaN, oversized files, missing assets, undeclared artifacts, unexpected check types, and malformed CSV/JSON reject by default.
 - The local verifier only **reads** workspaces and cannot run arbitrary `command` strings from manifests. `--output` is an explicitly requested local receipt write, not an external side effect.
 - File bytes and hashes can be forged together by the same agent; integrity **does not** mean independent authenticity. `domain_quality` stays `UNVERIFIED` even after structural success.
-- Concurrent filesystem mutation between `lstat` and file read is a documented TOCTOU limitation: run on a fixed, immutable checkout when adversarial writers exist. For stronger guarantees add dirfd/openat-based traversal and signed provenance.
+- POSIX artifact and CLI manifest reads use `dir_fd` + `O_NOFOLLOW` on each component to resist symlink replacement; on non-POSIX systems a precheck fallback cannot guarantee race-free traversal. For untrusted concurrent writers use immutable workspaces. Signed provenance remains out of scope.
 - Never infer authorization to charge money, access secrets, merge a PR, send emails, write production data or claim a mathematics conjecture is proved.
 
 ## Methodology compared with frontier
