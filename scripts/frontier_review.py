@@ -96,6 +96,12 @@ def source_publisher_group(url: str) -> str:
     publisher ownership still requires independent human/source review.
     """
     host = public_https(url)
+    # The official GitHub Docs and GitHub Blog are not independent of the
+    # GitHub-owned repository 'github/*'. Grounded, narrow aliases only:
+    # https://github.com/github/docs (docs.github.com)
+    # https://github.blog/ (GitHub Blog)
+    if host in ('docs.github.com', 'github.blog'):
+        return 'github-owner:github'
     parsed = urlsplit(url)
     pieces = [unquote(x) for x in parsed.path.split('/') if x]
     if host in ('github.com', 'raw.githubusercontent.com',
