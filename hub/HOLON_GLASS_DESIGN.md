@@ -80,3 +80,14 @@ The open mobile disclosure also dismisses when a user taps/clicks outside it or 
 **Smallest reused implementation:** `src/lib/disclosure.ts` exports only `shouldDismissDisclosure`, a typed pure containment function; `HolonGlass.tsx` uses it instead of a second navigation system. `tests/disclosure.test.mjs` covers six runtime behaviors (inside/outside, toggle, missing refs). `tests/holon-interaction.test.mjs` includes five additional integration/negative source checks. Combined command: `cd hub && npm run test:experience` (21 source-level and 6 pure function cases).
 
 The pure helper has been tested **locally** with Node 22 and the equivalent typed source passed local strict TypeScript compilation. Independent GitHub source-level V8 checks verified 21/21 predicates bound to the exact associated Git blobs; these are not equivalent to a deployed React keyboard/browser test. No autoplay media, sound, consent tracking, payment behavior, security boundary or protected-main behavior changed. Production release remains blocked pending actual browser/device user flow QA, complete build and signed admission.
+
+
+## 2026-10-11 mobile legibility repair — measured scope
+
+This changes the **existing** Holon Glass CSS, not the identity, narrative or pricing logic. At <=600 CSS pixels, restore legibility for the hero note, orbit explanatory captions, domain and footer labels by overriding 7–9px mobile copy with 10–11px scoped rules. At <=360px hide only the decorative **brand subline** (the visible AEGIS wordmark and the home link's accessible label remain), instead of forcing tiny text or overflowing navigation. Long editorial labels wrap.
+
+**Executable source checks:** `node --test tests/holon-legibility.test.mjs` (also in existing `npm run test:experience`); eight checks: five required source contracts and three negative mutations. The committed test file is a source-text guard, *not a WCAG certification*.
+
+**Local verification scope:** locally replayed the exact eight-test Node source (Git blob `57e969957b2dbcd35fb54728c97e55aac4ff3e19`) against a **synthetic fixture containing the same responsive rules**; 8/8 PASS. Browser engine Chromium at 320/390/600 CSS px showed computed labels 10/11px, with the 320px subline hidden and zero horizontal overflow **in the isolated fixture only**. This does not certify a full-page layout, loaded typefaces, device pixel scaling, screen-reader usability or any deployed website. Separately, the six exact-head pure `disclosure.ts` tests passed Node replay (both source and test Git blob SHAs verified); they are not DOM integration QA.
+
+**Open before admission:** trusted Node replay against **full** exact-head React/CSS checkout, `npm run build`, Playwright actual rendered app, physical mobile touch and zoom tests at 200%, horizontal reflow at 320 CSS px, contrast, reduced-motion and feedback from real users. Pre-existing draft/unsigned/protected-main gates still apply.
