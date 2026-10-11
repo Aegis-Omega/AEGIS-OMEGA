@@ -350,6 +350,7 @@ class TestM2LayoutDiagnosticGate(unittest.TestCase):
         # surrogate. Stub only the external gate, matrix, and HTTP response.
         import copy
         from contextlib import nullcontext
+        from math import isfinite
         from types import SimpleNamespace
 
         handler = next(
@@ -383,6 +384,7 @@ class TestM2LayoutDiagnosticGate(unittest.TestCase):
 
         scope = {
             "_lock": nullcontext(),
+            "isfinite": isfinite,
             "last_ack_sequence": -1,
             "matrix": SimpleNamespace(receive_gate_signal=fail_m2),
             "gate": SimpleNamespace(record_signal=lambda signal: events.append("GATE")),
@@ -412,6 +414,49 @@ class TestM2LayoutDiagnosticGate(unittest.TestCase):
                 [("RESPONSE", 400, {
                     "status": "REJECTED", "reason": "INVALID_ACCEPTED",
                 })],
+            )
+            self.assertEqual(scope["last_ack_sequence"], -1)
+
+        # The real gate.py increments its accepted-signal window before
+        # indexing proposal_id in its verdict dict. An unhashable JSON array
+        # would leave partial mutation unless the bridge rejects it first.
+        bad_inputs = [
+            ({"proposal_id": ["unhashable"]}, "INVALID_PROPOSAL_ID"),
+            ({"proposal_id": {"id": "not-string"}}, "INVALID_PROPOSAL_ID"),
+            ({"proposal_id": 3}, "INVALID_PROPOSAL_ID"),
+            ({"proposal_id": None}, "INVALID_PROPOSAL_ID"),
+            ({"lcb": float("nan")}, "INVALID_LCB"),
+            ({"lcb": float("inf")}, "INVALID_LCB"),
+            ({"lcb": float("-inf")}, "INVALID_LCB"),
+            ({"lcb": "0.7"}, "INVALID_LCB"),
+            ({"lcb": None}, "INVALID_LCB"),
+            ({"lcb": True}, "INVALID_LCB"),
+            ({"sequence": 1, "accepted": None}, "INVALID_ACCEPTED"),
+        ]
+        for changes, reason in bad_inputs:
+            payload = {"sequence": 1, "accepted": True, "lcb": 0.1}
+            payload.update(changes)
+            events.clear()
+            scope["_replay_gate"](fake_http, payload)
+            self.assertEqual(
+                events,
+                [("RESPONSE", 400, {
+                    "status": "REJECTED", "reason": reason,
+                })],
+                msg=f"untrusted gate input: {changes!r}",
+            )
+            self.assertEqual(scope["last_ack_sequence"], -1)
+
+        for missing_field, reason in (
+            ("accepted", "INVALID_ACCEPTED"),
+            ("lcb", "INVALID_LCB"),
+        ):
+            payload = {"sequence": 1, "accepted": True, "lcb": 0.1}
+            del payload[missing_field]
+            events.clear()
+            scope["_replay_gate"](fake_http, payload)
+            self.assertEqual(
+                events, [("RESPONSE", 400, {"status": "REJECTED", "reason": reason})]
             )
             self.assertEqual(scope["last_ack_sequence"], -1)
 
