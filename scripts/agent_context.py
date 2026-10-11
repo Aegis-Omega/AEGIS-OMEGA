@@ -47,6 +47,19 @@ def verify_main_freshness(quick=False):
     """
     if quick:
         return {"state": "UNVERIFIED_QUICK", "sha": None}
+    # Never blend a GitHub API inventory from REPO with local commits fetched
+    # from an unrelated or attacker-controlled 'origin' remote.
+    origin_url = sh("git", "remote", "get-url", "origin").strip()
+    valid_origins = {
+        f"https://github.com/{REPO}",
+        f"https://github.com/{REPO}.git",
+        f"git@github.com:{REPO}",
+        f"git@github.com:{REPO}.git",
+        f"ssh://git@github.com/{REPO}",
+        f"ssh://git@github.com/{REPO}.git",
+    }
+    if origin_url not in valid_origins:
+        return {"state": "REMOTE_IDENTITY_UNVERIFIED", "sha": None}
     try:
         result = subprocess.run(
             ["git", "fetch", "-q", "origin", "main"],
