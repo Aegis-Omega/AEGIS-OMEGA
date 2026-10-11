@@ -305,7 +305,7 @@ def existing_code(query, limit=8):
 
 
 def billing_locked(prs):
-    """True if annotated billing lock, False if checked, None if indeterminate."""
+    """True only on verified billing annotation; otherwise status is unknown."""
     newest = max((p for p in prs if _valid_pr_record(p)),
                  key=lambda p: p["n"], default=None)
     if newest is None:
@@ -321,7 +321,7 @@ def billing_locked(prs):
             return None
         if "locked due to a billing issue" in annotation.lower():
             return True
-    return False if len(run_ids) <= 3 else None
+    return None  # Sampled failure checks cannot prove billing is unlocked.
 
 
 def words(s):
