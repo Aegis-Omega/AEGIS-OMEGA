@@ -54,6 +54,10 @@ def _bounded_json_nesting(text):
     """
     require(isinstance(text, str), "JSON_INPUT_INVALID")
     depth = 0
+    # Conservative lexical lower bound for parsed container/value nodes.
+    # It prevents giant flat lists from reaching json.loads at all; the exact
+    # iterative decoded-tree count below handles remaining edge cases.
+    min_nodes = 0
     inside = False
     escaped = False
     for char in text:
@@ -68,13 +72,18 @@ def _bounded_json_nesting(text):
             inside = True
         elif char in '{[':
             depth += 1
+            min_nodes += 1
             require(depth <= MAX_JSON_DEPTH, "JSON_DEPTH_LIMIT")
+            require(min_nodes <= MAX_JSON_NODES, "JSON_NODE_LIMIT")
+        elif char == ',':
+            min_nodes += 1
+            require(min_nodes <= MAX_JSON_NODES, "JSON_NODE_LIMIT")
         elif char in '}]':
             depth -= 1
     # Leave malformed syntax to json.loads for consistent error reporting.
 
 
-def _bounded_json_tree(value):
+def _bounded_json_tree(value, *, max_text_bytes=MAX_MANIFEST_BYTES):
     """Guard direct Python API input against deep/cyclic/non-JSON graphs.
 
     A decoded JSON value is acyclic. Programmatic input may not be. Iterative
@@ -110,7 +119,7 @@ def _bounded_json_tree(value):
                 require(node.bit_length() <= 340, "JSON_INTEGER_TOO_LONG")
         else:
             raise Invalid("JSON_VALUE_TYPE_INVALID")
-        require(text_size <= MAX_MANIFEST_BYTES, "JSON_TEXT_SIZE_LIMIT")
+        require(text_size <= max_text_bytes, "JSON_TEXT_SIZE_LIMIT")
 
 
 def _bounded_json_integer(value):
@@ -135,10 +144,16 @@ def _finite_json_float(value):
 def _strict_json_loads(raw):
     _bounded_json_nesting(raw)
     try:
-        return json.loads(raw, object_pairs_hook=_strict_pairs,
-                          parse_constant=_reject_nonfinite_constant,
-                          parse_int=_bounded_json_integer,
-                          parse_float=_finite_json_float)
+        decoded = json.loads(raw, object_pairs_hook=_strict_pairs,
+                             parse_constant=_reject_nonfinite_constant,
+                             parse_int=_bounded_json_integer,
+                             parse_float=_finite_json_float)
+        # The direct-Python canonicalizer enforces MAX_JSON_NODES, but the
+        # parsed-file path previously bypassed it entirely. Apply the same
+        # exact iterative bound to the decoded tree, without imposing the
+        # 256-KiB MANIFEST text cap on legitimate 8-MiB JSON artifacts.
+        _bounded_json_tree(decoded, max_text_bytes=MAX_ARTIFACT_BYTES)
+        return decoded
     except RecursionError as exc:
         raise Invalid("JSON_DEPTH_LIMIT") from exc
 

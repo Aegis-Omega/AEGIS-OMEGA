@@ -74,3 +74,7 @@ In the POSIX helper, use `Path.absolute()` (not `resolve()`), forbid `..` and wa
 ## v0.9 — parse resource budgets, not only file budgets
 
 Before any agent-supplied JSON is parsed, cap nesting; before direct Python objects are canonicalized, reject cycles, deep graphs and excessive nodes. Parsing errors must become deterministic `NOT_ADMITTED`/`BLOCKED` receipts rather than unhandled exceptions. Oversized JSON numbers must not reach Python's own integer string limit. This is a local input-validation invariant; it does not attest sources, real-world task performance, or independent reference answers. References: Python `json` implementation limitations and OWASP Input Validation Cheat Sheet.
+
+## v0.10 — false-positive budget audit
+
+A fixed byte limit and a maximum nesting depth do not enforce a maximum JSON **node count**. In v0.9 a flat `payload` array with 50,001 elements occupied only ~100 KB and still earned `json_keys: PASS`. v0.10 enforces both lexical complexity before `json.loads` and an exact iterative decoded-tree count, preserving the declared 8 MiB artifact text limit. Treat those positive parser tests as scope-limited security evidence; do not conflate them with research authenticity, model effectiveness, or product admission.

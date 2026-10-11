@@ -344,4 +344,45 @@ class WorkpackTests(unittest.TestCase):
         self.assertEqual(r['checks'][1]['result'],'FAIL')
         self.assertEqual(r['checks'][1]['reason'],'JSON_DEPTH_LIMIT')
 
+    def test_large_flat_json_artifact_rejected_by_node_budget(self):
+        from aegis_workpack.protocol import MAX_JSON_NODES
+        raw=json.dumps({'status':'ok','payload':[0]*(MAX_JSON_NODES+1)},
+                       separators=(',',':')).encode()
+        self.assertLess(len(raw),MAX_JSON_NODES*4)
+        (self.root/'large.json').write_bytes(raw)
+        d=manifest('large.json',raw)
+        d['checks'].append({'id':'A2','kind':'json_keys','artifact':'large.json',
+                            'keys':['status']})
+        r=verify(self.root,d)
+        self.assertEqual(r['artifact_integrity'],'PASS')
+        self.assertEqual(r['checks'][1]['result'],'FAIL')
+        self.assertEqual(r['checks'][1]['reason'],'JSON_NODE_LIMIT')
+        self.assertEqual(r['local_result'],'LOCAL_CHECKS_FAILED')
+
+    def test_read_json_rejects_oversized_node_graph_within_byte_cap(self):
+        from aegis_workpack.protocol import MAX_JSON_NODES
+        raw=json.dumps({'payload':[0]*(MAX_JSON_NODES+1)},
+                       separators=(',',':')).encode()
+        p=self.root/'many.json';p.write_bytes(raw)
+        with self.assertRaisesRegex(Invalid,'JSON_NODE_LIMIT'):
+            read_json(p)
+
+    def test_comma_rich_string_is_not_mistaken_for_json_node_budget(self):
+        from aegis_workpack.protocol import _strict_json_loads,MAX_JSON_NODES
+        text='a,'*(MAX_JSON_NODES+1)
+        data=_strict_json_loads(json.dumps({'message':text}))
+        self.assertEqual(data['message'],text)
+
+    def test_large_single_string_json_artifact_still_passes_structural_check(self):
+        # JSON artifact limit is 8 MiB. Do not accidentally impose the much
+        # smaller manifest limit on structural validation of document content.
+        raw=json.dumps({'status':'ok','text':'x'*300000}).encode()
+        (self.root/'long.json').write_bytes(raw)
+        d=manifest('long.json',raw)
+        d['checks'].append({'id':'A2','kind':'json_keys','artifact':'long.json',
+                            'keys':['status','text']})
+        r=verify(self.root,d)
+        self.assertEqual(r['checks'][1]['result'],'PASS')
+        self.assertEqual(r['local_result'],'LOCAL_INTEGRITY_AND_STRUCTURE_VERIFIED')
+
 if __name__=='__main__':unittest.main()
