@@ -132,6 +132,29 @@ class FrontierReviewTests(unittest.TestCase):
                          ['github-owner:google', 'github-owner:openai'])
         self.assertIs(result['source_publisher_ownership_authenticated'], False)
 
+    def test_github_gist_and_api_mirrors_are_not_independent_publishers(self):
+        self.data['sources'][0]['url'] = 'https://github.com/openai/openai-agents-python'
+        self.paired()
+        aliases = [
+            'https://gist.github.com/openai/abcde',
+            'https://gist.githubusercontent.com/openai/abcde/raw/readme.md',
+            'https://api.github.com/repos/openai/openai-agents-python',
+        ]
+        for url in aliases:
+            self.data['sources'][1]['url'] = url
+            with self.subTest(url=url), self.assertRaisesRegex(
+                    f.InvalidFrontier, 'publisher groups'):
+                self.audit()
+
+    def test_other_github_api_owner_still_counts_as_distinct_claim(self):
+        self.data['sources'][0]['url'] = 'https://github.com/openai/openai-agents-python'
+        self.data['sources'][1]['url'] = 'https://api.github.com/repos/google/adk'
+        self.paired()
+        result = self.audit()
+        self.assertEqual(result['source_publisher_groups'],
+                         ['github-owner:google', 'github-owner:openai'])
+        self.assertFalse(result['source_publisher_ownership_authenticated'])
+
     def test_distinct_domains_required(self):
         self.data['sources'][1]['url'] = 'https://openai.github.io/other'
         with self.assertRaises(f.InvalidFrontier):
