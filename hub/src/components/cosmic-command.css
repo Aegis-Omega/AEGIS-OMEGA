@@ -36,7 +36,7 @@
 }
 .hg-nav{max-width:none;height:75px;padding-inline:clamp(16px,2.3vw,32px);gap:15px}
 .hg-brand-word strong{letter-spacing:.23em;color:#eaf4ff;font-weight:550}
-.hg-brand-word em{color:#a994ff}
+.hg-brand-word em{color:var(--aegis-phi,#C8A96E)}
 .hg-brand-word small{color:#b7cce9;letter-spacing:.17em}
 .hg-brand svg{filter:drop-shadow(0 0 8px #5687ef77)}
 .hg-links a{color:#adc4e5}
