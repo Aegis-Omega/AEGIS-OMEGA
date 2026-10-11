@@ -342,9 +342,15 @@ class HolonContextTests(unittest.TestCase):
 
     def test_git_dir_lookup_is_bounded(self):
         with patch.object(ctx, "sh", return_value="/tmp/.git") as sh:
-            self.assertEqual(ctx.git_dir(), "/tmp/.git")
+            self.assertEqual(ctx.git_dir(quick=True), "/tmp/.git")
         sh.assert_called_once_with("git", "rev-parse",
                                    "--absolute-git-dir", timeout=2)
+
+    def test_full_git_dir_keeps_original_timeout(self):
+        with patch.object(ctx, "sh", return_value="/tmp/.git") as sh:
+            self.assertEqual(ctx.git_dir(quick=False), "/tmp/.git")
+        sh.assert_called_once_with("git", "rev-parse",
+                                   "--absolute-git-dir", timeout=30)
 
     def test_quick_uses_bounded_local_git_timeout(self):
         output = io.StringIO()
