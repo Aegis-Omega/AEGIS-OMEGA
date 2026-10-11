@@ -22,6 +22,19 @@ class InvalidSnapshot(ValueError):
     pass
 
 
+def unique_json_object(pairs):
+    out = {}
+    for key, value in pairs:
+        if key in out:
+            raise InvalidSnapshot('duplicate JSON key: ' + key)
+        out[key] = value
+    return out
+
+
+def reject_json_constant(name):
+    raise InvalidSnapshot('unsupported JSON constant: ' + name)
+
+
 def check(condition, msg):
     if not condition:
         raise InvalidSnapshot(msg)
@@ -200,8 +213,11 @@ def main(argv=None):
     ap.add_argument('--actor', required=True, help='caller/model claim, not verified identity')
     args = ap.parse_args(argv)
     try:
+        if Path(args.input).stat().st_size > 1024 * 1024:
+            raise InvalidSnapshot('input exceeds 1 MiB')
         with open(args.input, encoding='utf-8') as f:
-            data = json.load(f)
+            data = json.load(f, object_pairs_hook=unique_json_object,
+                             parse_constant=reject_json_constant)
         out = evaluate(data, Path(args.root), args.actor)
         print(json.dumps(out, indent=2, sort_keys=True, ensure_ascii=False))
         return 0
