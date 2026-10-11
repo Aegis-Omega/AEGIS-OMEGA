@@ -34,3 +34,18 @@ export async function verifyArtifactBytes(
     verdict: expected === null ? 'computed' : digest === expected ? 'matched' : 'mismatch',
   }
 }
+
+/** A clipboard result may be displayed only for the input revision it copied.
+ * The clipboard API itself is not cancelable; stale completion must not claim
+ * that a newly selected artifact was copied. No permission or authority grant.
+ */
+export async function copyDigestIfCurrent(
+  digest: string,
+  revisionAtClick: number,
+  currentRevision: () => number,
+  writeText: (value: string) => Promise<void>,
+): Promise<'copied' | 'stale'> {
+  if (currentRevision() !== revisionAtClick) return 'stale'
+  await writeText(digest)
+  return currentRevision() === revisionAtClick ? 'copied' : 'stale'
+}
