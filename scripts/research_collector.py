@@ -18,6 +18,7 @@ from pathlib import Path
 import re
 import subprocess
 import sys
+import tempfile
 import socket
 import ssl
 from urllib.parse import urlsplit
@@ -384,6 +385,45 @@ def _capture_bounded(args, hosts: tuple[str, ...]) -> dict:
     return result
 
 
+
+def _publish_complete_result(destination: str, encoded: str) -> None:
+    """Exclusive atomic publication: no visible partial capture JSON.
+
+    Stage in the same directory, flush/fsync, then hard-link to a NEW final
+    filename (never overwrite an existing evidence record). Fail closed if
+    filesystem hard links are unsupported; do not silently fall back to copy.
+    """
+    final = Path(destination)
+    parent = final.parent
+    # The final path must be a name, not a directory alias or a parent walk.
+    if final.name in ('', '.', '..'):
+        raise CaptureDenied('INVALID_OUTPUT_PATH')
+    fd, staging = tempfile.mkstemp(prefix='.aegis-capture-', suffix='.partial',
+                                   dir=str(parent))
+    try:
+        with os.fdopen(fd, 'w', encoding='utf-8') as stream:
+            stream.write(encoded)
+            stream.flush()
+            os.fsync(stream.fileno())
+        # POSIX hard-link creation is atomic and fails if the destination exists,
+        # including when it is a symlink. Both names share the same filesystem.
+        os.link(staging, final)
+        # Best-effort sync of the directory entry on POSIX. Some filesystems
+        # may not support this; don't claim power-loss durability on all media.
+        if os.name == 'posix':
+            directory_fd = os.open(str(parent), os.O_RDONLY | getattr(os, 'O_DIRECTORY', 0))
+            try:
+                os.fsync(directory_fd)
+            finally:
+                os.close(directory_fd)
+    finally:
+        # Never leave a leaked staging name on any ordinary exception path.
+        try:
+            os.unlink(staging)
+        except FileNotFoundError:
+            pass
+
+
 def main(argv=None):
     a = argparse.ArgumentParser(description='Opt-in bounded HTTPS-only public research capture')
     a.add_argument('url')
@@ -416,8 +456,10 @@ def main(argv=None):
         a.exit(2, 'DENIED: ' + str(exc) + '\n')
     encoded = json.dumps(result, sort_keys=True, indent=2, ensure_ascii=False) + '\n'
     if args.output:
-        with open(args.output, 'x', encoding='utf-8') as f:
-            f.write(encoded)
+        try:
+            _publish_complete_result(args.output, encoded)
+        except (OSError, CaptureDenied):
+            a.exit(2, 'DENIED: OUTPUT_PUBLICATION_FAILED\n')
     else:
         print(encoded, end='')
     return 0
