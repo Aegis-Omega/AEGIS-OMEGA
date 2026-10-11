@@ -6,6 +6,19 @@ value**: shipped functionality, independent falsifications, reusable research,
 closed verification debt and measurable benefit. Track merged work separately
 from valuable but not-yet-admitted evidence; never equate activity with value.
 
+## Shared cross-model state and artifact reconciliation
+
+Before duplicating a task, inspect
+[the coordination handoff](docs/coordination/AEGIS_AGENT_SHARED_HANDOFF.md)
+and [its dated machine-readable PR/Library snapshot](docs/coordination/AEGIS_AGENT_SHARED_STATE_20261011.json).
+**The snapshot is a locator, never live authority or evidence of deployment.**
+Refresh actual issue/PR heads, changed paths, source blobs and executed CI jobs
+via `scripts/agent_context.py` and GitHub before relying on any row.
+If the recorded SHA differs or evidence is unavailable, mark the lane
+`STALE_OR_UNKNOWN` and resolve it on the existing Issue/PR. The coordination
+files are currently a **draft PR #732 candidate**; agents on protected main
+do not automatically receive them. This step confers no authorization.
+
 ## 1. Before you write anything
 
 ```bash
