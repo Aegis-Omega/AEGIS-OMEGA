@@ -11,6 +11,7 @@ import datetime as dt
 import hashlib
 import hmac
 import json
+import re
 import secrets
 import sqlite3
 
@@ -22,6 +23,39 @@ SCHEMA = 'aegis.research.challenge.v1'
 RESPONSE_SCHEME = 'aegis.research.challenge.response.hmac-sha256.v1'
 DOMAIN = b'AEGIS-UWP13-CHALLENGE-ENDORSEMENT-V1\0'
 MAX_TTL_SECONDS = 300
+_SHA256 = re.compile(r'^[0-9a-f]{64}$')
+
+
+def _central_authority_decision(*, ledger_path, task_id, repo_head, source_ids, ttl_seconds):
+    """Ask existing Automaton-3; no independent research approval mechanism.
+
+    This must execute in a control-plane process whose identity/environment
+    untrusted research tasks cannot modify. The capability is intentionally NOT
+    added to the authority registry in this PR: deployment denies until it is
+    explicitly and independently approved in that existing system.
+    """
+    try:
+        from harness.sdk.authority_client import authorize_from_environment
+        return authorize_from_environment(
+            action_class='D2',
+            authority_domain='research:challenge:issue',
+            requested_capability='research.challenge.issue',
+            tool='scripts.research_challenge:issue_challenge',
+            target=f'{task_id}@{repo_head}',
+            action={
+                'operation': 'issue-research-challenge-v1',
+                'task_id': task_id,
+                'repo_head': repo_head,
+                'source_ids': list(source_ids),
+                'ttl_seconds': ttl_seconds,
+                'ledger_path_sha256': hashlib.sha256(
+                    ledger_path.encode('utf-8')).hexdigest(),
+            },
+        )
+    except Exception:  # no SDK, invalid identity, policy or workspace => deny
+        return {'outcome': 'DENIED', 'denial_codes': ['AUTHORITY_UNAVAILABLE']}
+
+
 
 
 def _clock(now):
@@ -57,6 +91,15 @@ def issue_challenge(*, ledger_path, task_id, repo_head, source_ids,
     if type(ttl_seconds) is not int or not (1 <= ttl_seconds <= MAX_TTL_SECONDS):
         raise AdmissionDenied('INVALID_CHALLENGE_TTL')
     now = _clock(verified_now)
+    # Signing a nonce is a consequential local ledger mutation: exact action,
+    # identity, source head and target must pass central Automaton-3 *first*.
+    decision = _central_authority_decision(
+        ledger_path=ledger_path, task_id=task_id, repo_head=repo_head,
+        source_ids=ids, ttl_seconds=ttl_seconds)
+    if (type(decision) is not dict or decision.get('outcome') != 'ADMITTED' or
+            type(decision.get('decision_root')) is not str or
+            not _SHA256.fullmatch(decision['decision_root'])):
+        raise AdmissionDenied('CENTRAL_AUTHORITY_DENIED')
     expires = now + dt.timedelta(seconds=ttl_seconds)
     nonce = secrets.token_hex(32)  # CSPRNG 256-bit unpredictable challenge.
     nonce_hash = hashlib.sha256(bytes.fromhex(nonce)).hexdigest()
