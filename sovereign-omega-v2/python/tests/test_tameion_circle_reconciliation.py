@@ -206,6 +206,18 @@ class CircleReconciliationLab(unittest.TestCase):
         self.assertEqual(results.count('RECORDED'), 1, results)
         self.assertTrue(any('CIRCLE_SOURCE_ALREADY_CLAIMED' in x for x in results), results)
 
+    def test_circle_source_claim_is_global_across_scopes(self):
+        second_scope = 'treasury.testnet.other'
+        self.ledger.open_scope(scope=second_scope, policy_root=H1, budget_microunits=500)
+        self.ledger.reserve(scope=second_scope, policy_root=H1, attempt_id='other',
+                            intent_root=H2, boundary_root=H3,
+                            amount_microunits=100, expected_generation=0)
+        self.correlate()
+        b = replace(self.binding, scope=second_scope, attempt_id='other')
+        with self.assertRaisesRegex(ReservationDenied, 'CIRCLE_SOURCE_ALREADY_CLAIMED'):
+            self.correlate(binding=b, pinned_binding_root=b.root, expected_generation=1)
+        self.assertEqual(self.ledger.snapshot(second_scope).reserved_microunits, 100)
+
     def test_get_attempt_is_read_only(self):
         original = self.ledger.snapshot(SCOPE).root
         x = self.ledger.get_attempt(scope=SCOPE, attempt_id=ATTEMPT)
