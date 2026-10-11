@@ -10,7 +10,7 @@
     "preview": "vite preview",
     "test:integrity": "node --experimental-strip-types --test tests/artifact-integrity.test.mjs tests/clipboard-revision.test.mjs",
     "test:console": "node --test tests/console-observation.test.mjs",
-    "test:experience": "node --experimental-strip-types --test tests/holon-interaction.test.mjs tests/disclosure.test.mjs tests/holon-legibility.test.mjs tests/navigation-contract.test.mjs"
+    "test:experience": "node --experimental-strip-types --test tests/holon-interaction.test.mjs tests/disclosure.test.mjs tests/holon-legibility.test.mjs tests/navigation-contract.test.mjs tests/evidence-filament.test.mjs"
   },
   "dependencies": {
     "react": "^19.2.6",
