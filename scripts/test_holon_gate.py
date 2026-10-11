@@ -186,7 +186,7 @@ class UniversalHolonTests(unittest.TestCase):
         self.assertEqual(json.dumps(self.audit(), sort_keys=True),json.dumps(self.audit(),sort_keys=True))
 
     def test_large_dependency_graph_cannot_crash_recursion(self):
-        self.base['tasks'] = [task(str(i), deps=[str(i-1)] if i else []) for i in range(1300)]
+        self.base['tasks'] = [task(str(i), paths=[f'docs/n{i}.md'], deps=[str(i-1)] if i else []) for i in range(1300)]
         r = self.audit()['tasks']
         self.assertEqual(len(r), 1300)
         self.assertEqual(len([x for x in r if x['readiness'] == 'AVAILABLE']), 1)
