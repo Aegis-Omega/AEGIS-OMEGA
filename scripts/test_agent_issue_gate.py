@@ -292,6 +292,34 @@ class GateTests(unittest.TestCase):
             with self.assertRaisesRegex(Invalid, "CHECKS_CHANGED_DURING_SNAPSHOT"):
                 live_snapshot(x["repo"], 999, "")
 
+    def test_workflow_has_read_only_actions_permission(self):
+        workflow = Path(__file__).resolve().parents[1] / ".github/workflows/agent-issue-gate.yml"
+        self.assertIn("  actions: read\n", workflow.read_text(encoding="utf-8"))
+        self.assertNotIn("  actions: write\n", workflow.read_text(encoding="utf-8"))
+
+    def test_integration_live_snapshot_and_assess(self):
+        import unittest.mock
+        from agent_issue_gate import live_snapshot
+        x = good()
+        x["pr"]["head"]["repo"] = {"full_name": x["repo"]}
+        x["pr"]["base"]["sha"] = "b" * 40
+        x["check_runs"][0]["details_url"] = "https://github.com/Aegis-Omega/AEGIS-OMEGA/actions/runs/333/job/999"
+        run = {"path": ".github/workflows/agent-issue-gate.yml", "head_sha": HEAD,
+               "status": "completed", "conclusion": "failure", "event": "pull_request", "workflow_id": 22}
+        job = {"id": 999, "run_id": 333, "head_sha": HEAD, "status": "completed",
+               "conclusion": "success", "steps": [{"name": "Run stdlib falsifiers",
+                                               "status": "completed", "conclusion": "success"}]}
+        checks = {"total_count": 1, "check_runs": x["check_runs"]}
+        files = [{"filename": p} for p in x["changed_files"]]
+        responses = [x["pr"], x["issue"], checks, x["reviews"], x["commits"], files,
+                     run, job, {"type": "file", "sha": "c"*40}, {"type": "file", "sha": "c"*40},
+                     x["pr"], x["issue"], x["reviews"], checks]
+        with unittest.mock.patch("agent_issue_gate._api", side_effect=responses) as api:
+            snapshot = live_snapshot(x["repo"], 999, "READ_ONLY_TEST_TOKEN")
+        self.assertEqual(api.call_count, len(responses))
+        self.assertEqual(snapshot["check_origins"], {"999": True})
+        self.assertEqual(assess(snapshot)["disposition"], "EVIDENCE_COMPLETE_NOT_ADMITTED")
+
     def test_origin_verifier_rejects_fake_job_details_url(self):
         from agent_issue_gate import _trusted_check_origin
         x = good(); x["check_runs"][0]["details_url"] = "https://evil.invalid/check/999"
