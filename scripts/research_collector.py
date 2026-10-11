@@ -164,16 +164,53 @@ def acquire(url: str, allow_hosts: tuple[str, ...], *, resolver=socket.getaddrin
 
 
 def packet_source(snapshot: dict, source_id: str) -> dict:
-    """Produce data accepted by the existing offline scout; no source authentication claim."""
-    if not re.fullmatch(r'[A-Za-z][A-Za-z0-9_.-]{0,63}', source_id):
+    """Convert coherent capture metadata to offline-scout input.
+
+    Local coherence does NOT prove publisher authenticity. A malicious caller can
+    fabricate a complete, self-consistent capture; signed collector attestations
+    and independent publisher verification remain separate admission gates.
+    """
+    if not isinstance(source_id, str) or not re.fullmatch(r'[A-Za-z][A-Za-z0-9_.-]{0,63}', source_id):
         raise CaptureDenied('INVALID_SOURCE_ID')
-    if snapshot.get('schema') != 'aegis.research.capture.v1' or snapshot.get('authority_effect') != 'NONE':
+    if type(snapshot) is not dict or snapshot.get('schema') != 'aegis.research.capture.v1' or snapshot.get('authority_effect') != 'NONE':
         raise CaptureDenied('INVALID_CAPTURE')
+
+    # The URL is the identity used for research-source grouping. It must not
+    # be silently rebound to another publisher after the HTTPS observation.
+    hostname = snapshot.get('hostname')
+    if not isinstance(hostname, str):
+        raise CaptureDenied('CAPTURE_ORIGIN_MISMATCH')
+    try:
+        observed_host, _path = target(snapshot.get('url'), (hostname,))
+    except CaptureDenied as exc:
+        raise CaptureDenied('CAPTURE_ORIGIN_MISMATCH') from exc
+    if observed_host != hostname:
+        raise CaptureDenied('CAPTURE_ORIGIN_MISMATCH')
+
+    try:
+        ip = ipaddress.ip_address(snapshot.get('resolved_ip'))
+    except (ValueError, TypeError) as exc:
+        raise CaptureDenied('CAPTURE_EVIDENCE_INVALID') from exc
+    if not ip.is_global or (ip.version == 6 and ip.ipv4_mapped is not None):
+        raise CaptureDenied('CAPTURE_EVIDENCE_INVALID')
+    if (snapshot.get('http_status') != 200 or
+            any(type(snapshot.get(field)) is not str or
+                re.fullmatch(r'[a-f0-9]{64}', snapshot[field]) is None
+                for field in ('tls_peer_cert_sha256', 'full_body_sha256', 'excerpt_sha256'))):
+        raise CaptureDenied('CAPTURE_EVIDENCE_INVALID')
+
     value = snapshot.get('excerpt', '')
     if not isinstance(value, str) or not value or len(value) > 20000:
         raise CaptureDenied('INVALID_EXCERPT')
-    if hashlib.sha256(value.encode('utf-8')).hexdigest() != snapshot.get('excerpt_sha256'):
+    if hashlib.sha256(value.encode('utf-8')).hexdigest() != snapshot['excerpt_sha256']:
         raise CaptureDenied('CAPTURE_TAMPERED')
+    body_size = snapshot.get('full_bytes')
+    excerpt_size = len(value.encode('utf-8'))
+    if (type(body_size) is not int or body_size < 1 or body_size > MAX_RESPONSE or
+            excerpt_size > min(MAX_EXCERPT, body_size) or
+            type(snapshot.get('truncated')) is not bool or
+            snapshot['truncated'] != (excerpt_size != body_size)):
+        raise CaptureDenied('CAPTURE_EVIDENCE_INVALID')
     return {'id': source_id, 'url': snapshot['url'],
             'captured_at': snapshot['captured_at'],
             'content': value, 'sha256': snapshot['excerpt_sha256'],
