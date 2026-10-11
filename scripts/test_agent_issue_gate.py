@@ -7,7 +7,7 @@ import unittest
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent))
-from agent_issue_gate import assess, contract_from_body, Invalid
+from agent_issue_gate import assess, contract_from_body, contract_digest, Invalid
 
 HEAD = "a" * 40
 BODY = '<!-- AEGIS_WORK_V1\n' + json.dumps({
@@ -21,8 +21,10 @@ BODY = '<!-- AEGIS_WORK_V1\n' + json.dumps({
 
 
 def good():
+    digest = contract_digest(contract_from_body(BODY))
+    proof = "AEGIS-WORK-CONTRACT-SHA256: " + digest
     return {"repo": "Aegis-Omega/AEGIS-OMEGA",
-            "pr": {"number": 999, "body": "AEGIS-WORK-ISSUE: #888", "base": {"ref": "main"},
+            "pr": {"number": 999, "body": "AEGIS-WORK-ISSUE: #888\n" + proof, "base": {"ref": "main"},
                    "head": {"sha": HEAD}, "user": {"login": "builder"}, "draft": False, "state": "open"},
             "issue": {"number": 888, "state": "open", "body": BODY},
             "changed_files": ["scripts/agent_issue_gate.py"], "files_complete": True,
@@ -30,7 +32,7 @@ def good():
                             "status": "completed", "conclusion": "success", "app": {"id": 15368}}],
             "checks_complete": True, "commits": [{"sha": HEAD, "commit": {"verification": {"verified": True}}}],
             "commits_complete": True,
-            "reviews": [{"user": {"login": "independent"}, "state": "APPROVED", "commit_id": HEAD}],
+            "reviews": [{"user": {"login": "independent"}, "state": "APPROVED", "commit_id": HEAD, "body": proof}],
             "reviews_complete": True}
 
 
@@ -80,6 +82,23 @@ class GateTests(unittest.TestCase):
     def test_reviewer_same_account(self):
         x = good(); x["reviews"][0]["user"]["login"] = "builder"
         self.fail_gate(x, "independent_identity_review")
+
+    def test_missing_contract_pin(self):
+        x = good(); x["pr"]["body"] = "AEGIS-WORK-ISSUE: #888"
+        self.fail_gate(x, "contract_binding")
+
+    def test_issue_contract_change_after_review(self):
+        x = good(); x["issue"]["body"] = BODY.replace('"risk": "moderate"', '"risk": "low"')
+        self.fail_gate(x, "contract_binding")
+
+    def test_review_did_not_bind_contract(self):
+        x = good(); x["reviews"][0]["body"] = "LGTM"
+        self.fail_gate(x, "independent_identity_review")
+
+    def test_duplicate_pr_digest(self):
+        x = good(); digest = contract_digest(contract_from_body(BODY))
+        x["pr"]["body"] += "\nAEGIS-WORK-CONTRACT-SHA256: " + digest
+        self.fail_gate(x, "contract_binding")
 
     def test_stale_review(self):
         x = good(); x["reviews"][0]["commit_id"] = "c" * 40
