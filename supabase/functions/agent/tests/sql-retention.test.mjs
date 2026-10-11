@@ -21,9 +21,9 @@ test('purge is bounded and concurrent invocations skip locked records', () => {
   assert.match(sql, /limit p_batch_limit/i)
   assert.match(sql, /for update skip locked/i)
 })
-test('SQL SECURITY INVOKER has actual service-role DELETE table permission', () => {
-  assert.match(sql, /language sql security invoker set search_path = ''/i)
-  assert.match(sql, /grant delete on public\.aegis_agent_result_outbox_v1 to service_role/i)
+test('privileged deletion is restricted to the bounded SECURITY DEFINER function', () => {
+  assert.match(sql, /language sql security definer set search_path = ''/i)
+  assert.doesNotMatch(sql, /grant delete on public\.aegis_agent_result_outbox_v1 to service_role/i)
 })
 test('anon and authenticated do not receive EXECUTE permission', () => {
   assert.match(sql, /revoke all on function public\.aegis_outbox_purge_expired_v1\(integer\)\s+from public, anon, authenticated/i)
