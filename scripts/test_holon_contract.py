@@ -18,6 +18,7 @@ def task(domain="engineering", mode="contribute", issue=734, **extra):
 def state(labels=None, **other):
     s={"main_freshness":{"state":"FRESH","sha":"a"*40},"source":"github",
        "issue_source":"github","ci_billing_locked":False,
+       "holon_disposition":"ISSUE_ASSIGNMENT_AND_REVIEW_REQUIRED",
        "issue_matches":[{"number":734,"title":"Holon","labels":labels or ["task"]}],"overlaps":[]}
     s.update(other)
     return s
@@ -42,6 +43,35 @@ class HolonContractTests(unittest.TestCase):
     def test_missing_main_sha(self):
         r=assess(task(),state(main_freshness={"state":"FRESH","sha":"not-a-sha"}))
         self.assertIn("MAIN_EXACT_HEAD_NOT_VERIFIED",r["blockers"])
+
+    def test_upstream_hold_is_not_ready_even_if_individual_fields_look_good(self):
+        for disposition in (
+            "HOLD_INCOMPLETE_SHARED_STATE", "HOLD_UNVERIFIED_MAIN",
+            "OPERATOR_ACTION_REQUIRED", "HOLD_CLAIMED_WORK_COORDINATE",
+            "REVIEW_EXISTING_PR_FIRST",
+        ):
+            with self.subTest(disposition=disposition):
+                result = assess(task(), state(holon_disposition=disposition))
+                self.assertEqual(result["disposition"], "HOLD")
+                self.assertIn("UPSTREAM_COORDINATION_NOT_CLEAR", result["blockers"])
+                self.assertEqual(result["authorization"], "NOT_VERIFIED")
+
+    def test_missing_unknown_or_malformed_upstream_disposition_holds(self):
+        for value in (None, "", "READY", 1, True, [], {}):
+            with self.subTest(value=value):
+                result = assess(task(), state(holon_disposition=value))
+                self.assertEqual(result["disposition"], "HOLD")
+                self.assertIn("UPSTREAM_COORDINATION_NOT_CLEAR", result["blockers"])
+        data = state()
+        del data["holon_disposition"]
+        result = assess(task(), data)
+        self.assertEqual(result["disposition"], "HOLD")
+
+    def test_legitimate_assignment_review_remains_non_authorizing(self):
+        result = assess(task(), state(holon_disposition="ISSUE_ASSIGNMENT_AND_REVIEW_REQUIRED"))
+        self.assertEqual(result["disposition"], "READY_FOR_ASSIGNMENT_REVIEW")
+        self.assertEqual(result["admission"], "NOT_ADMITTED")
+        self.assertEqual(result["authorization"], "NOT_VERIFIED")
 
     def test_stale_or_quick_main(self):
         for status in ("UNVERIFIED_QUICK","FETCH_FAILED","REF_DIVERGED","STALE"):
