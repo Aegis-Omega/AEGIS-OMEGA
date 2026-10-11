@@ -28,7 +28,7 @@ export interface PlatformStatus {
 }
 export interface SystemCheck { label: string; ok: boolean; reason: string }
 export interface ConsoleSnapshot {
-  source: 'live' | 'demo'
+  source: 'live' | 'unavailable'
   reason: string
   checked_at: string | null
   status: PlatformStatus
@@ -47,7 +47,7 @@ export const EMPTY_PLATFORM: PlatformStatus = {
   version: 'unknown', contract_version: 'unknown', total_agents: 0,
   chain_valid: null, audit_chain_hash: null, available: false,
 }
-export function deriveChecks(source: 'live'|'demo', status: PlatformStatus, cal: CalibrationStatus): SystemCheck[] {
+export function deriveChecks(source: 'live'|'unavailable', status: PlatformStatus, cal: CalibrationStatus): SystemCheck[] {
   const live = source === 'live'
   return [
     { label: 'Remote API observation', ok: live, reason: live ? 'HTTP payload received; not independent admission' : 'UNKNOWN — no complete remote observation' },
@@ -57,13 +57,13 @@ export function deriveChecks(source: 'live'|'demo', status: PlatformStatus, cal:
   ]
 }
 export const UNAVAILABLE_SNAPSHOT: ConsoleSnapshot = {
-  source: 'demo',
+  source: 'unavailable',
   reason: 'Remote platform data unavailable. No demo substitute is presented as evidence.',
   checked_at: null,
   status: EMPTY_PLATFORM,
   calibration: EMPTY_CALIBRATION,
   tools: [],
-  checks: deriveChecks('demo', EMPTY_PLATFORM, EMPTY_CALIBRATION),
+  checks: deriveChecks('unavailable', EMPTY_PLATFORM, EMPTY_CALIBRATION),
 }
 
 async function fetchEnvelope<T>(path: string, signal: AbortSignal): Promise<T | null> {
