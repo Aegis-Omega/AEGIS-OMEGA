@@ -1,10 +1,7 @@
-import copy
 import importlib.util
 import json
-import math
 import subprocess
 import sys
-import tempfile
 import unittest
 from pathlib import Path
 
@@ -88,6 +85,13 @@ class Tests(unittest.TestCase):
     def test_additional_undocumented_axis(self):
         s = sample(); s['axes'][0]['id'] = 'magical_mood'
         with self.assertRaises(ValueError): engine.evaluate(s)
+
+    def test_namespaced_additional_domain_axis(self):
+        s = sample()
+        extra = dict(s['axes'][0]); extra['id'] = 'ext.haptics'
+        s['axes'].append(extra)
+        r = engine.evaluate(s)
+        self.assertIn('ext.haptics', r['unresolved_or_regressed_axes'])
 
     def test_source_revision_sha(self):
         s = sample(); s['candidate_sha256'] = 'not-a-hash'
