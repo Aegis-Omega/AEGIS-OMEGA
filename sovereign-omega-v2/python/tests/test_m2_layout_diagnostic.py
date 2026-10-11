@@ -1,9 +1,8 @@
 """Diagnostic-only machine checks for AEGIS-OMEGA issue #531.
 
-This test intentionally does not import or instantiate CoreMatrix. It reads the
-checked-in Python source as AST, proves concrete arithmetic witnesses for the
-current M2 address formula, and freezes runtime semantics until an explicit
-sequence-domain policy is selected.
+This test reads the checked-in source AST and preserves regression witnesses
+for the legacy M2 address defect, while validating the v2 candidate contract.
+It never instantiates the 4 GiB CoreMatrix arena.
 """
 
 from __future__ import annotations
@@ -108,14 +107,14 @@ class TestM2LayoutDiagnosticGate(unittest.TestCase):
         actual = _m2_offset_expr(self.core_tree)
         self.assertEqual(_expr_dump(actual), _expr_dump(expected))
 
-    def test_unaligned_offset_witness_is_nine_for_real_profiles(self) -> None:
+    def test_legacy_unaligned_offset_witness_is_nine_for_real_profiles(self) -> None:
         # Issue #531's two checked profiles: default 4 GiB arena and checked-in Cloud arena.
         for region_len in (1_288_490_188, 80_530_636):
             offset = _current_offset(sequence=1, verifier_len=1, region_len=region_len)
             self.assertEqual(offset, 9)
             self.assertNotEqual(offset % 8, 0)
 
-    def test_current_offset_domain_is_floor_region_len_over_eight(self) -> None:
+    def test_legacy_offset_domain_is_floor_region_len_over_eight(self) -> None:
         for region_len in (1_288_490_188, 80_530_636, 140):
             slot_count = region_len // 8
             self.assertEqual(region_len % 8, 4)
@@ -125,7 +124,7 @@ class TestM2LayoutDiagnosticGate(unittest.TestCase):
                 self.assertLess(offset, slot_count)
             self.assertLess(slot_count, region_len)
 
-    def test_small_phase_wrap_witness_overlaps_eight_byte_windows(self) -> None:
+    def test_legacy_phase_wrap_witness_overlaps_eight_byte_windows(self) -> None:
         # Small analogue with the same L mod 8 = 4 shape as both real profiles.
         # floor(140 / 8) = 17, so verifier_len=1 yields:
         # seq 1 -> 9, seq 2 -> 0 (phase wrap), seq 3 -> 8.
@@ -150,6 +149,10 @@ class TestM2LayoutDiagnosticGate(unittest.TestCase):
         self.assertGreaterEqual(len(gate_call.args), 4)
         self.assertTrue(_is_self_attr(event_call.args[3], "_sequence"))
         self.assertTrue(_is_name(gate_call.args[3], "sequence"))
+        self.assertEqual([(k.arg, getattr(k.value, "value", None)) for k in event_call.keywords],
+                         [("source", "event")])
+        self.assertEqual([(k.arg, getattr(k.value, "value", None)) for k in gate_call.keywords],
+                         [("source", "gate_signal")])
 
         declared = {
             item["writer"]: item["sequence_argument"]
@@ -208,24 +211,28 @@ class TestM2LayoutDiagnosticGate(unittest.TestCase):
         self.assertTrue(seq_from_request)
         self.assertEqual(self.contract["event_router_sequence_forwarding"], "DISCARDED")
 
-    def test_runtime_change_remains_fail_closed_until_policy_is_selected(self) -> None:
-        policy = self.contract["policy"]
-        allowed = {
-            "shared_key",
-            "overwrite_update",
-            "disjoint_source_namespaces",
-        }
-        self.assertEqual(set(policy["allowed"]), allowed)
+    def test_unadmitted_policy_cannot_be_promoted_by_contract_toggle(self) -> None:
+        self.assertEqual(self.contract["schema"], "aegis.m2.sequence-domain-contract.v2")
+        self.assertEqual(self.contract["implementation_status"], "CANDIDATE_NOT_ADMITTED")
+        self.assertEqual(self.contract["authority_effect"], "NONE")
+        self.assertEqual(self.contract["production_admission"],
+                         "BLOCKED_PENDING_REVIEW_AND_EXACT_HEAD_CI")
+        self.assertFalse(self.contract["runtime_semantics_change_allowed"])
 
-        if policy["status"] == "DEFERRED":
-            self.assertIsNone(policy["selected"])
-            self.assertFalse(self.contract["runtime_semantics_change_allowed"])
-            expected = ast.parse(self.contract["current_offset_formula"], mode="eval").body
-            self.assertEqual(_expr_dump(_m2_offset_expr(self.core_tree)), _expr_dump(expected))
-        else:
-            self.assertEqual(policy["status"], "SELECTED")
-            self.assertIn(policy["selected"], allowed)
-            self.assertTrue(self.contract["runtime_semantics_change_allowed"])
+        policy = self.contract["policy"]
+        self.assertEqual(policy["status"], "SELECTED_CANDIDATE")
+        self.assertEqual(policy["selected"], "disjoint_source_namespaces")
+        self.assertEqual(set(policy["allowed"]), {
+            "shared_key", "overwrite_update", "disjoint_source_namespaces",
+        })
+        self.assertEqual(self.contract["record"]["width_bytes"], 8)
+
+        expected = ast.parse(self.contract["current_offset_formula"], mode="eval").body
+        self.assertEqual(_expr_dump(_m2_offset_expr(self.core_tree)), _expr_dump(expected))
+        self.assertEqual(
+            [item["source_keyword"] for item in self.contract["writers"]],
+            ["event", "gate_signal"],
+        )
 
 
 if __name__ == "__main__":
