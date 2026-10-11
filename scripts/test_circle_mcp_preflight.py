@@ -75,6 +75,12 @@ class CirclePreflightTests(unittest.TestCase):
             call.return_value.stdout = 'codex 9.9'
             self.assertEqual(m.cli_version('codex')['status'], 'UNVERIFIED')
 
+    def test_official_codex_cli_version_prefix(self):
+        with patch.object(m.subprocess, 'run') as call:
+            call.return_value.returncode = 0
+            call.return_value.stdout = 'codex-cli 0.158.0\n'
+            self.assertEqual(m.cli_version('codex')['status'], 'VERSION_CONFIRMED')
+
     def test_cli_wrong_output_not_pass(self):
         with patch.object(m.subprocess, 'run') as call:
             call.return_value.returncode = 0
