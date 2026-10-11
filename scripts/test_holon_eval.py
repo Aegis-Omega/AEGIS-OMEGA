@@ -52,6 +52,15 @@ class PairedProgressTests(unittest.TestCase):
             result = self.run_eval()
         self.assertEqual(result['disposition'], 'NO_COMPLETED_TASK_COST_ONLY')
 
+    def test_same_root_symlink_cannot_supply_paired_outcome_artifact(self):
+        # A matching content hash is insufficient when the submitted path
+        # traverses an attacker-controlled symlink.
+        (self.root / 'baseline-alias.log').symlink_to('baseline.log')
+        d = copy.deepcopy(self.data)
+        d['cases'][0]['baseline']['artifact_file'] = 'baseline-alias.log'
+        with self.assertRaises(e.InvalidEvaluation):
+            self.run_eval(d)
+
     def test_benchmark_digest_mismatch_cannot_enter_comparator(self):
         (self.root / 'benchmark.json').write_text('{"case_ids":["changed"]}')
         with self.assertRaises(e.InvalidEvaluation):
