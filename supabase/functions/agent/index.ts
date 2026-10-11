@@ -16,6 +16,8 @@ You have tools to: query purchases from the database, send notifications via ema
 Be concise. Report what you did and any findings. If something needs human attention, say so clearly.`
 
 // ── Tool definitions ──────────────────────────────────────────────────────────
+// ONLY read-only model tools here. Outbound notifications and result delivery
+// are governed by the encrypted outbox, not by unverified model tool calls.
 const TOOLS = [
   {
     name: 'query_purchases',
@@ -28,19 +30,7 @@ const TOOLS = [
       },
     },
   },
-  {
-    name: 'send_notification',
-    description: 'Send an email or Slack message to Tarik.',
-    input_schema: {
-      type: 'object',
-      required: ['channel', 'text'],
-      properties: {
-        channel: { type: 'string', enum: ['email', 'slack', 'both'] },
-        subject: { type: 'string', description: 'Email subject (optional)' },
-        text:    { type: 'string', description: 'Message body' },
-      },
-    },
-  },
+
 ]
 
 // ── Tool execution ────────────────────────────────────────────────────────────
@@ -62,17 +52,9 @@ async function runTool(name: string, input: Record<string, unknown>): Promise<st
     return JSON.stringify(data ?? [])
   }
 
-  if (name === 'send_notification') {
-    const notifyUrl = `${SUPABASE_URL}/functions/v1/notify`
-    const res = await fetch(notifyUrl, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'x-notify-secret': NOTIFY_SECRET },
-      body: JSON.stringify(input),
-    })
-    return res.ok ? 'Notification sent' : `Notify failed: ${res.status}`
-  }
 
-  return `Unknown tool: ${name}`
+  // The model cannot gain authority by inventing tool names in its response.
+  return 'TOOL_NOT_AUTHORIZED'
 }
 
 // ── Agentic loop (max 5 turns) ────────────────────────────────────────────────
