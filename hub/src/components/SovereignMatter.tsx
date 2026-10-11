@@ -127,6 +127,7 @@ export function SovereignMatter({ sourceId, limitCount }: {
   const [reduced, setReduced] = useState(false)
   const [available, setAvailable] = useState(false)
   const [visible, setVisible] = useState(true)
+  const [contextEpoch, setContextEpoch] = useState(0)
 
   useEffect(() => {
     const query = window.matchMedia('(prefers-reduced-motion: reduce)')
@@ -156,15 +157,16 @@ export function SovereignMatter({ sourceId, limitCount }: {
     let last = -1000
     let pause = false
     let lost = false
+    let onReturn: (() => void) | null = null
     const onLoss = (event: Event) => { event.preventDefault(); lost = true; setAvailable(false) }
-    const onRestore = () => { lost = false; setAvailable(false) }
+    const onRestore = () => { lost = false; setAvailable(false); setContextEpoch(value => value + 1) }
     target.addEventListener('webglcontextlost', onLoss)
     target.addEventListener('webglcontextrestored', onRestore)
     try {
       gl = target.getContext('webgl2', {
         alpha: false, antialias: false, powerPreference: 'low-power',
       })
-      if (!gl) return
+      if (!gl) throw new Error('WebGL2 unavailable')
       vs = compile(gl, gl.VERTEX_SHADER, VERTEX)
       fs = compile(gl, gl.FRAGMENT_SHADER, FRAGMENT)
       program = gl.createProgram()
@@ -185,12 +187,14 @@ export function SovereignMatter({ sourceId, limitCount }: {
       gl.uniform1f(gl.getUniformLocation(program, 'u_domain'), DOMAIN[sourceId] ?? 4)
       gl.uniform1f(gl.getUniformLocation(program, 'u_limits'), Math.min(6, Math.max(0, limitCount)))
       const start = performance.now()
+      onReturn = () => { if (!document.hidden && motion && !reduced && visible) frame = window.requestAnimationFrame(draw) }
+      document.addEventListener('visibilitychange', onReturn)
       const draw = (now: number) => {
         if (!gl || lost || pause) return
-        if (now - last >= 1000 / 30) {
+        if (now - last >= 1000 / 24) {
           last = now
           const rect = target.getBoundingClientRect()
-          const scale = Math.min(1.5, window.devicePixelRatio || 1)
+          const scale = Math.min(motion ? 1 : 1.25, window.devicePixelRatio || 1)
           const w = Math.max(1, Math.round(rect.width * scale))
           const h = Math.max(1, Math.round(rect.height * scale))
           if (target.width !== w || target.height !== h) {
@@ -213,6 +217,7 @@ export function SovereignMatter({ sourceId, limitCount }: {
       window.cancelAnimationFrame(frame)
       target.removeEventListener('webglcontextlost', onLoss)
       target.removeEventListener('webglcontextrestored', onRestore)
+      if (onReturn) document.removeEventListener('visibilitychange', onReturn)
       if (gl && !lost) {
         if (buffer) gl.deleteBuffer(buffer)
         if (program) gl.deleteProgram(program)
@@ -220,7 +225,7 @@ export function SovereignMatter({ sourceId, limitCount }: {
         if (fs) gl.deleteShader(fs)
       }
     }
-  }, [sourceId, limitCount, motion, reduced, visible])
+  }, [sourceId, limitCount, motion, reduced, visible, contextEpoch])
 
   return <div className="sm-stage">
     <div className="sm-fallback" aria-hidden="true">
