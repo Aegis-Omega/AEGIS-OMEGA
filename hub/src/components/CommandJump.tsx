@@ -25,7 +25,7 @@ export function CommandJump() {
       }
       if(e.key==='Escape')setOpen(false)
     }
-    function onPointer(e:globalThis.PointerEvent){
+    function onPointer(e:PointerEvent){
       if(e.target instanceof Node&&!root.current?.contains(e.target))setOpen(false)
     }
     document.addEventListener('keydown',onKey)
