@@ -99,3 +99,22 @@ test('successful purchase read returns bounded machine-observed rows, not invent
   assert.equal(a.stats().modelCalls,1)
   assert.equal(a.stats().dbCalls,1)
 })
+
+test('null DB result without error must not be treated as verified zero purchases',async()=>{
+  const a=runModelWithPurchaseToolOutcome({limit:10},{data:null,error:null})
+  await assert.rejects(a.run(),/TOOL_VERIFICATION_FAILED/)
+  assert.equal(a.stats().modelCalls,1)
+})
+test('undefined DB result without error must not be treated as verified zero purchases',async()=>{
+  const a=runModelWithPurchaseToolOutcome({limit:10},{data:undefined,error:null})
+  await assert.rejects(a.run(),/TOOL_VERIFICATION_FAILED/)
+  assert.equal(a.stats().modelCalls,1)
+})
+test('valid empty database rows remain a verified bounded empty sample',async()=>{
+  const a=runModelWithPurchaseToolOutcome({limit:10},{data:[],error:null})
+  const result=JSON.parse((await a.run()).result)
+  assert.equal(result.returned_row_count,0)
+  assert.deepEqual(result.rows,[])
+  assert.equal(result.is_global_total,false)
+  assert.equal(a.stats().modelCalls,1)
+})
