@@ -7,7 +7,7 @@ import {webcrypto} from 'node:crypto';
 const src=stripTypeScriptTypes(fs.readFileSync(new URL('../index.ts',import.meta.url),'utf8').replace(/^import .*$/gm,''),{mode:'strip'});
 function setup(permission='T12345:UOPERATOR'){
  const stats={db:0,requests:[]};
- const q={ select(){return q;}, eq(){return q;}, order(){return q;}, limit(){return Promise.resolve({data:[{customer_email:'example@mock.invalid',plan:'full'}],error:null})} };
+ const q={ select(){return q;}, eq(){return q;}, order(){return q;}, limit(){return Promise.resolve({data:[{customer_email:'example@mock.invalid',plan:'full',ls_order_id:'ord_2',updated_at:'2026-10-11T05:00:00Z'}],error:null})} };
  const createClient=()=>{stats.db++;return {from:()=>q}};
  const Deno={env:{get:n=>n==='AEGIS_PURCHASE_READERS'?permission:''},serve(){}};
  const obj=new Function('Deno','fetch','crypto','createClient','CORS','console','atob','btoa',src+'\nreturn {runTool};')(Deno,()=>{throw Error('PAID_NETWORK')},webcrypto,createClient,{},console,atob,btoa);
@@ -90,12 +90,12 @@ test('invalid model filter cannot be promoted to verified answer',async()=>{
 })
 test('successful purchase read returns bounded machine-observed rows, not invented prose',async()=>{
   const a=runModelWithPurchaseToolOutcome({filter:'full'},
-    {data:[{customer_email:'mock@example.test',plan:'full'}],error:null})
+    {data:[{customer_email:'mock@example.test',plan:'full',ls_order_id:'ord_3',updated_at:'2026-10-11T05:00:00Z'}],error:null})
   const result=JSON.parse((await a.run()).result)
   assert.equal(result.status,'OBSERVED_DB_ROWS')
   assert.equal(result.returned_row_count,1)
   assert.equal(result.is_global_total,false)
-  assert.deepEqual(result.rows,[{customer_email:'mock@example.test',plan:'full'}])
+  assert.deepEqual(result.rows,[{customer_email:'mock@example.test',plan:'full',ls_order_id:'ord_3',updated_at:'2026-10-11T05:00:00Z'}])
   assert.equal(a.stats().modelCalls,1)
   assert.equal(a.stats().dbCalls,1)
 })
