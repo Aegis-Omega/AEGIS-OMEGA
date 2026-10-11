@@ -74,3 +74,18 @@ Compare duplicate-PR creation, false-positive completion, exact-head proof cover
 - The read-only trusted-base job explicitly fails `TRUSTED_BASE_BOOTSTRAP_REQUIRED` until reviewed, signed source is installed on main. **Do not copy the verifier from the candidate PR into this privileged slot.** For this first PR, the normal protected-main process must establish the verifier. No bypass is allowed.
 - A success reported by a PR-authored workflow is not independently authoritative merely because its GitHub Actions check-run app ID is 15368. The trusted base, protected rulesets, and reviewer identities remain required. Only `NOT_ADMITTED` or `EVIDENCE_COMPLETE_NOT_ADMITTED` can be emitted.
 - The source and tests were replayed locally with Git blob SHA equality to this PR. Hosted CI failures with missing job steps are `NO_TEST_VERDICT`, not proven Python errors.
+
+
+## v1.2 adversarial hardening — fail-closed claims vs reliable evidence
+
+**Observed falsifiers of the previous gate:** \`scripts/*\` wrongly matched \`scripts/private/credentials.py\` because the standard \`fnmatch\` wildcard spans slashes; GitHub login comparisons were case-sensitive; missing PR author ID could still leave a spurious independent reviewer. All three returned a positive field-level gate before this repair.
+
+**Repair:** path matching is component-scoped (\`*\` means one component, \`**\` means zero or more); reviewer identity requires positive numeric GitHub account IDs on both sides, canonical case-insensitive login distinction, and selection of latest review by numeric GitHub review ID rather than relying on array order. Malformed review evidence is denied.
+
+**Self-authored check attack:** a pull request can modify its own Actions workflow while preserving its check-run name and GitHub Actions publisher app ID. Therefore the check name/app ID alone is insufficient. The live adapter now verifies the check's GitHub Actions job-details URL, run-to-exact-head binding, entire run completion/success, and that its producing workflow YAML blob is **identical at the protected base commit and at the candidate**. A workflow added by the candidate (including this PR's \`.github/workflows/agent-issue-gate.yml\`) cannot pass this provenance test before it is independently bootstrapped on main. Incomplete/erroring origin reads give **NOT_ADMITTED**.
+
+**Remaining trust limits:** even an unchanged workflow may execute PR-controlled test source. A successful test attests only the executed test contract, **not** mathematical truth, product utility, reviewer independence beyond GitHub account identity, or a protected-main merge. This gate never grants authority.
+
+**Verified:** source-bound offline unittest suite 51/51 PASS (not hosted CI), with negative checks covering scope traversal, swapped reviewer identities, reordered reviews and forged trusted-app success.
+
+**Admission debt:** the trusted-base workflow does not exist on current main, latest candidate commits were unsigned, and hosted jobs failed without executed step evidence. Keep DRAFT / NOT_ADMITTED. No production, billing, signing, protection, merge, or authorization changes.
