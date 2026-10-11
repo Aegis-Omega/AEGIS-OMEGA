@@ -25,8 +25,8 @@ export function SystemStatusBar({ snap }: { snap: ConsoleSnapshot }) {
       <div className="flex items-center gap-5">
         <Field label="contract" value={`v${snap.status.contract_version}`} />
         <Field label="agents" value={String(snap.status.total_agents)} />
-        <Field label="chain" value={snap.status.audit_chain_hash.slice(0, 12) + '…'}
-          color={snap.status.chain_valid ? T.green : T.red} />
+        <Field label="chain" value={(snap.source === 'live' && snap.status.audit_chain_hash ? snap.status.audit_chain_hash.slice(0, 12) + '… (reported)' : 'NOT VERIFIED')}
+          color={snap.source === 'live' && snap.status.chain_valid === false ? T.red : T.amber} />
       </div>
     </div>
   )
