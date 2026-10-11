@@ -122,6 +122,16 @@ class EconomicReservationLedger:
                     PRIMARY KEY(scope, attempt_id),
                     FOREIGN KEY(scope) REFERENCES scopes(scope)
                 );
+                CREATE TABLE IF NOT EXISTS external_claims (
+                    provider TEXT NOT NULL,
+                    source_domain INTEGER NOT NULL,
+                    source_tx_hash TEXT NOT NULL,
+                    scope TEXT NOT NULL,
+                    attempt_id TEXT NOT NULL,
+                    PRIMARY KEY(provider,source_domain,source_tx_hash),
+                    UNIQUE(scope,attempt_id),
+                    FOREIGN KEY(scope,attempt_id) REFERENCES attempts(scope,attempt_id)
+                );
                 """)
 
     def _connect(self) -> sqlite3.Connection:
@@ -227,6 +237,84 @@ class EconomicReservationLedger:
                 "FROM attempts WHERE scope=? AND attempt_id=?", (scope, attempt_id)
             ).fetchone()
             return self._receipt(scope, current, policy_root, "RESERVED_EVIDENCE_ONLY")
+
+    def record_circle_correlation(self, *, scope: str, attempt_id: str,
+                                  expected_generation: int, source_domain: int,
+                                  source_tx_hash: str, status: str,
+                                  correlation_root: str) -> ReservationReceipt:
+        """Atomically claim a Circle source tx and transition local evidence state.
+
+        A transaction hash/domain can belong to only one attempt across ALL scopes.
+        The claim persists at PENDING; later COMPLETE never releases budget.
+        No remote authenticity or settlement is established by this operation.
+        """
+        _id("scope", scope)
+        _id("attempt_id", attempt_id)
+        _integer("expected_generation", expected_generation, maximum=2**63-1)
+        if type(source_domain) is not int or not 0 <= source_domain <= 2**32-1:
+            raise ReservationDenied("CIRCLE_SOURCE_DOMAIN_INVALID")
+        if (not isinstance(source_tx_hash, str) or len(source_tx_hash) != 66 or
+            not source_tx_hash.startswith("0x") or not HEX64.fullmatch(source_tx_hash[2:])):
+            raise ReservationDenied("CIRCLE_SOURCE_TRANSACTION_INVALID")
+        if status not in ("complete", "pending_confirmations"):
+            raise ReservationDenied("CIRCLE_SOURCE_STATUS_INVALID")
+        _hash("correlation_root", correlation_root)
+        next_state = "OBSERVATION_RECORDED" if status == "complete" else "OUTCOME_UNKNOWN"
+        stored_root = correlation_root if status == "complete" else None
+        with self._connection() as db:
+            db.execute("BEGIN IMMEDIATE")
+            snap = self._summary(db, scope)
+            row = db.execute(
+                "SELECT attempt_id,intent_root,boundary_root,amount,state,observation_root,generation "
+                "FROM attempts WHERE scope=? AND attempt_id=?", (scope, attempt_id)
+            ).fetchone()
+            if row is None:
+                raise ReservationDenied("UNKNOWN_ATTEMPT")
+            claimed = db.execute(
+                "SELECT scope,attempt_id FROM external_claims "
+                "WHERE provider='CIRCLE_CCTP_V2_SANDBOX' AND source_domain=? AND source_tx_hash=?",
+                (source_domain, source_tx_hash)
+            ).fetchone()
+            by_attempt = db.execute(
+                "SELECT source_domain,source_tx_hash FROM external_claims WHERE scope=? AND attempt_id=?",
+                (scope, attempt_id)
+            ).fetchone()
+            if claimed is not None and claimed != (scope, attempt_id):
+                raise ReservationDenied("CIRCLE_SOURCE_ALREADY_CLAIMED")
+            if by_attempt is not None and by_attempt != (source_domain, source_tx_hash):
+                raise ReservationDenied("CIRCLE_ATTEMPT_SOURCE_IMMUTABLE")
+            if row[4] == next_state and row[5] == stored_root and claimed == (scope, attempt_id):
+                return self._receipt(scope, row, snap.policy_root, "REPLAYED_NO_MUTATION")
+            if row[4] == "OBSERVATION_RECORDED":
+                raise ReservationDenied("OBSERVED_STATE_IMMUTABLE")
+            if row[4] == "OUTCOME_UNKNOWN" and next_state == "OUTCOME_UNKNOWN":
+                raise ReservationDenied("UNKNOWN_STATE_IMMUTABLE")
+            if expected_generation != snap.generation:
+                raise ReservationDenied("STALE_FENCING_GENERATION")
+            if claimed is None:
+                try:
+                    db.execute(
+                        "INSERT INTO external_claims VALUES('CIRCLE_CCTP_V2_SANDBOX',?,?,?,?)",
+                        (source_domain, source_tx_hash, scope, attempt_id)
+                    )
+                except sqlite3.IntegrityError as exc:
+                    raise ReservationDenied("CIRCLE_SOURCE_CLAIM_CONFLICT") from exc
+            generation = snap.generation + 1
+            try:
+                db.execute(
+                    "UPDATE attempts SET state=?,observation_root=?,generation=? "
+                    "WHERE scope=? AND attempt_id=?",
+                    (next_state, stored_root, generation, scope, attempt_id)
+                )
+            except sqlite3.IntegrityError as exc:
+                raise ReservationDenied("OBSERVATION_REUSE_FORBIDDEN") from exc
+            db.execute("UPDATE scopes SET generation=? WHERE scope=?", (generation, scope))
+            updated = db.execute(
+                "SELECT attempt_id,intent_root,boundary_root,amount,state,observation_root,generation "
+                "FROM attempts WHERE scope=? AND attempt_id=?", (scope, attempt_id)
+            ).fetchone()
+            return self._receipt(scope, updated, snap.policy_root,
+                                 "CIRCLE_CORRELATED_NOT_SETTLED" if stored_root else "UNKNOWN_RETAINED")
 
     def record_unknown(self, *, scope: str, attempt_id: str,
                        expected_generation: int) -> ReservationReceipt:
