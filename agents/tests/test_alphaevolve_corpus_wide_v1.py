@@ -92,6 +92,26 @@ class CorpusWide(unittest.TestCase):
         self.assertEqual(r['target_column'],'coherence_l1')
         self.assertEqual(r['promotion'],'DENIED')
 
+    def test_tabular_automatically_selects_measured_target(self):
+        from agents.alphaevolve_corpus_wide_v1 import evolve_tabular_relations
+        p=self.root/'tabular.csv'
+        p.write_text('run_id,temperature,noise,quality_score\n'+''.join(
+            f'{i},{1+i*.12},{(i*3)%7},{4+(.12*i)*2+((i*3)%7)*.01}\n'
+            for i in range(200)))
+        x=evolve_tabular_relations(p)
+        self.assertEqual(x['state'],'OBSERVATIONAL_TABULAR_EVALUATED_NOT_ADMITTED')
+        self.assertEqual(x['target'],'quality_score')
+        self.assertEqual(x['admission'],'DENIED')
+        self.assertGreaterEqual(x['candidate_count'],3)
+
+    def test_tabular_fails_closed_without_label_semantics(self):
+        from agents.alphaevolve_corpus_wide_v1 import evolve_tabular_relations
+        p=self.root/'numbers.csv'
+        p.write_text('a,b,c\n'+''.join(f'{i},{i*i},{i*i*i}\n' for i in range(200)))
+        x=evolve_tabular_relations(p)
+        self.assertEqual(x['state'],'TABULAR_NOT_EVALUATED')
+        self.assertEqual(x['reason'],'TARGET_SEMANTICS_NOT_IDENTIFIED')
+
     def test_idempotent_same_source(self):
         a=run(self.catalog,self.root,self.out)
         b=run(self.catalog,self.root,self.out)
