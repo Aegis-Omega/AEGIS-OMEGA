@@ -36,6 +36,26 @@ permissions:
 
 # ── SUBATOMIC — Constitutional membrane ──────────────────────────────────────
 jobs:
+  # Informational source tests only. Deliberately excluded from admission quorum.
+  # This job has read-only repository access and cannot deploy/promote anything.
+  alphaevolve-observation:
+    name: AlphaEvolve Corpus - Independent Observational Tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install pinned numerical test dependency
+        run: python -m pip install numpy==2.2.6
+      - name: Run corpus-wide and quantum evaluator tests (no admission)
+        run: PYTHONPATH=. python -m unittest agents.tests.test_alphaevolve_corpus_wide_v1 agents.tests.test_alphaevolve_frontier_router_v1 agents.tests.test_alphaevolve_quantum_tensor_v1 -v
+
   membrane:
     name: ⊕ SUBATOMIC · Constitutional Membrane [T0]
     runs-on: ubuntu-latest
