@@ -154,3 +154,6 @@ def append_evaluated(conn: sqlite3.Connection, *, generation: int, candidate_id:
     if (last[0] if last else GENESIS) != prior_root:
         raise ValueError('GENERATION_ROOT_STALE')
     return _insert(conn, gen, candidate_id, status, binding, prior_root, 'EVALUATED_TICK')
+
+
+
