@@ -197,6 +197,90 @@ def evolve_numeric_csv(p:Path, max_bytes:int=4_000_000)->dict:
             'limitation':'CORRELATED_TEMPORAL_TEST_NOT_INDEPENDENT','promotion':'DENIED'}
 
 
+
+def evolve_tabular_relations(p:Path, *, max_bytes:int=4_000_000)->dict:
+    """Bounded generic discovery: predict one measured numeric column from another.
+
+    No file-specific target specified. All variables, regression feature and
+    model are selected from development/validation, not the isolated final 20%.
+    The evaluation is observational and never satisfies issue #758 admission.
+    """
+    if p.stat().st_size>max_bytes:
+        return {'state':'TABULAR_REPLAY_PENDING','reason':'BYTE_BUDGET'}
+    try:
+        rdr=csv.reader(io.StringIO(p.read_bytes().decode('utf-8-sig'),newline=''),strict=True)
+        names=next(rdr)
+        if not 2<=len(names)<=MAX_COLUMN or len(set(names))!=len(names):
+            return {'state':'TABULAR_NOT_EVALUATED','reason':'HEADER_SCHEMA'}
+        rows=[]
+        for i,row in enumerate(rdr):
+            if i>=MAX_CSV_ROWS:break
+            if len(row)!=len(names):return {'state':'TABULAR_NOT_EVALUATED','reason':'ROW_SCHEMA'}
+            rows.append(row)
+    except (UnicodeError,StopIteration,csv.Error):
+        return {'state':'TABULAR_NOT_EVALUATED','reason':'CSV_PARSE'}
+    n=len(rows)
+    if n<60:return {'state':'TABULAR_NOT_EVALUATED','reason':'INSUFFICIENT_ROWS','rows':n}
+    vectors={}
+    for j,name in enumerate(names):
+        try:
+            z=[float(r[j]) for r in rows]
+            if all(math.isfinite(v) for v in z) and max(z)>min(z):
+                vectors[j]=z
+        except (ValueError,OverflowError):pass
+    if len(vectors)<2:return {'state':'TABULAR_NOT_EVALUATED','reason':'INSUFFICIENT_NUMERIC_COLUMNS'}
+    target_names=('error','score','residual','success','fitness','quality','mse',
+                  'cost','coherence','fidelity','prediction','value','yield','rate')
+    outcomes=[j for j in vectors if any(k in names[j].lower() for k in target_names)]
+    if outcomes:target=outcomes[-1]
+    else:
+        # No semantic outcome identified: do not invent a scientific target.
+        return {'state':'TABULAR_NOT_EVALUATED','reason':'TARGET_SEMANTICS_NOT_IDENTIFIED'}
+    candidates=[j for j in vectors if j!=target and not any(v in names[j].lower()
+                for v in ('id','index','uuid','hash','checksum','seed'))]
+    if not candidates:return {'state':'TABULAR_NOT_EVALUATED','reason':'NO_EXPLANATORY_VARIABLE'}
+    cut=int(n*.6);val=int(n*.8)
+    y=vectors[target];ymean=sum(y[:cut])/cut
+    if not math.isfinite(ymean):return {'state':'TABULAR_NOT_EVALUATED','reason':'NUMERIC_OVERFLOW'}
+    trained=[]
+    for j in candidates:
+        x=vectors[j];mx=sum(x[:cut])/cut
+        vx=sum((v-mx)**2 for v in x[:cut]);cov=sum((x[i]-mx)*(y[i]-ymean) for i in range(cut))
+        if vx>1e-20 and math.isfinite(vx) and math.isfinite(cov):
+            a=cov/vx
+            if math.isfinite(a):trained.append((j,mx,a))
+    if not trained:return {'state':'TABULAR_NOT_EVALUATED','reason':'UNIDENTIFIABLE_REGRESSION'}
+    def mse(a,b,proposal):
+        j,mx,coef=proposal
+        acc=0.0
+        for k in range(a,b):
+            pred=ymean+coef*(vectors[j][k]-mx)
+            acc+=(pred-y[k])**2
+        return acc/(b-a)
+    base=(-1,0.0,0.0)
+    trials=[]
+    for j,mx,a in trained:
+        for shrink in (0.25,0.5,1.):
+            proposal=(j,mx,shrink*a)
+            v=mse(cut,val,proposal)
+            if math.isfinite(v):trials.append((v,j,shrink,proposal))
+    if not trials:return {'state':'TABULAR_NOT_EVALUATED','reason':'NO_FINITE_CANDIDATES'}
+    winner=min(trials,key=lambda t:(t[0],t[1],t[2]))
+    bval=sum((ymean-y[i])**2 for i in range(cut,val))/(val-cut)
+    btest=sum((ymean-y[i])**2 for i in range(val,n))/(n-val)
+    test=mse(val,n,winner[3])
+    if not all(math.isfinite(v) for v in (test,bval,btest)):
+        return {'state':'TABULAR_NOT_EVALUATED','reason':'NONFINITE_SCORE'}
+    return {'state':'OBSERVATIONAL_TABULAR_EVALUATED_NOT_ADMITTED','rows':n,
+            'target':names[target],'feature':names[winner[1]],
+            'genome':{'linear_shrinkage':winner[2]}, 'candidate_count':len(trials),
+            'validation_baseline_mse':bval,'validation_candidate_mse':winner[0],
+            'test_baseline_mse':btest,'test_candidate_mse':test,
+            'test_improvement':btest-test,
+            'limitation':'ROW_DEPENDENCE_AND_TARGET_SEMANTICS_NOT_INDEPENDENTLY_VERIFIED',
+            'admission':'DENIED','source_mutated':False}
+
+
 def inspect_structure(p:Path, ext:str)->dict:
     """Parse bounded structured sources without executing imported code."""
     if p.stat().st_size>MAX_TEXT_PARSE:
@@ -210,7 +294,14 @@ def inspect_structure(p:Path, ext:str)->dict:
             return {'state':'PARSED_PYTHON_AST','top_level_nodes':len(x.body),
                     'warning':'NOT_EXECUTED'}
         if ext=='.csv':
-            return {'state':'CSV_LENS', 'detail':evolve_numeric_csv(p)}
+            temporal=evolve_numeric_csv(p)
+            if temporal['state']=='OBSERVATIONAL_EVALUATED_NOT_ADMITTED':
+                return {'state':'CSV_TIME_SERIES_EVOLUTION','detail':temporal}
+            tabular=evolve_tabular_relations(p)
+            if tabular['state']=='OBSERVATIONAL_TABULAR_EVALUATED_NOT_ADMITTED':
+                return {'state':'CSV_TABULAR_EVOLUTION','detail':tabular}
+            return {'state':'CSV_EVALUATOR_PENDING', 'time_result':temporal,
+                    'tabular_result':tabular}
         if ext in ('.lean','.v'):
             text=p.read_text('utf-8',errors='replace')
             return {'state':'FORMAL_SOURCE_STATIC_ONLY','proof_compiled':False,
