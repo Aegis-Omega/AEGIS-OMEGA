@@ -181,3 +181,100 @@ Security and operational limits:
   main admission are not bypassed.
 - This remains a candidate PR until native exact-head tests actually run;
   zero-step/skip checks do not count as PASS.
+
+
+## v1.2 — Local atomic CAS checkpoint store (not external anchoring)
+
+A real POSIX filesystem module is now available at
+agents/evolution_checkpoint_store.py. It extends, rather than replaces,
+the existing seal_checkpoint() and verify_checkpoint() pure reducers.
+
+### What is implemented
+
+publish(root, spine, events, observed_at, checkpoint, *,
+expected_current_id, trusted_spine_hash, trusted_event_keys,
+trusted_checkpoint_keys):
+
+- Accepts ONLY an absolute, private, current-user-owned store path.
+  Root and objects/ are 0700; lock, head and snapshot objects are 0600.
+  Nonregular files, unexpected hard links and direct symlinks are denied.
+- Uses a dedicated fcntl.flock over .anchor.lock to serialize processes.
+- Reads the current HEAD and compares it to operator-supplied
+  expected_current_id. Stale writers fail ANCHOR_COMPARE_AND_SWAP_CONFLICT.
+- Replays the existing stored checkpoint with supplied trusted keys before
+  accepting a successor. The successor must preserve exact prior events and
+  recorded observation times; a signed but rewritten history is rejected.
+- Verifies new checkpoint MAC, journal, state, source-spine and predecessor.
+- Writes the snapshot as a content-addressed 0600 object using fsync and an
+  exclusive hard-link; publishes HEAD using atomic replace and directory
+  fsync. If a process crashes after writing the object but before replacing
+  HEAD, retry accepts ONLY byte-identical orphaned data.
+- Returns LOCAL_ATOMIC_CAS_COMMITTED_NOT_EXTERNALLY_ANCHORED,
+  admission=DENIED, authority_effect=NONE and execution_effect=NONE.
+
+read_pinned(root, spine, *, trusted_head_id, trusted_spine_hash,
+trusted_event_keys, trusted_checkpoint_keys):
+
+- Requires the caller to supply a separately retained trusted HEAD ID.
+- Rejects an old HEAD, missing or tampered snapshots, unsafe files or a
+  mismatched sequence; independently replays the current checkpoint.
+- Returns LOCAL_PINNED_SNAPSHOT_MATCHED_NOT_EXTERNAL_PROOF.
+
+### Example
+
+Local API usage, with keys and independently stored HEAD ID outside the local
+writable directory:
+
+    from pathlib import Path
+    from agents.evolution_checkpoint_store import publish, read_pinned
+    # spine / events / observed_at / checkpoint are outputs of existing modules.
+    receipt = publish(
+        Path("/private/operator/aegis-evolution"),
+        spine, events, observed_at, checkpoint,
+        expected_current_id=previous_head_from_independent_store,
+        trusted_spine_hash=independently_verified_spine_hash,
+        trusted_event_keys=trusted_event_keys,
+        trusted_checkpoint_keys=trusted_checkpoint_keys,
+    )
+    next_head_id = receipt["checkpoint_id"]
+    # Deliberately save next_head_id to a DIFFERENT, trusted medium.
+
+    replay = read_pinned(
+        Path("/private/operator/aegis-evolution"), spine,
+        trusted_head_id=head_id_from_independent_store,
+        trusted_spine_hash=independently_verified_spine_hash,
+        trusted_event_keys=trusted_event_keys,
+        trusted_checkpoint_keys=trusted_checkpoint_keys,
+    )
+    assert replay["admission"] == "DENIED"
+
+### Reproduction
+
+    PYTHONPATH=. python3 -m unittest agents.tests.test_evolution_checkpoint_store -v
+
+The local collection with the previous lifecycle/checkpoint tests totals 86:
+
+    PYTHONPATH=. python3 -m unittest agents.tests.test_evolution_token_lifecycle agents.tests.test_evolution_token_lifecycle_integration agents.tests.test_evolution_token_checkpoint agents.tests.test_evolution_checkpoint_store -v
+
+### Explicit trust limits
+
+1. This is same-user local durability, NOT a third-party notary, trusted
+   timestamp, immutable WORM storage or deployed smart contract. An attacker
+   with complete user, filesystem or operator-key control can replace the
+   entire store. A latest-ID pin held separately can expose that reversal,
+   but no such independent external medium is provisioned by this module.
+2. expected_current_id / trusted_head_id must NOT be taken from untrusted
+   local HEAD and returned as independent proof.
+3. File checks do not protect against all malicious ancestor-directory
+   substitution, kernel compromise, power-loss modes or device corruption.
+   POSIX fcntl/fsync required; not portable to Windows.
+4. Snapshot content is 0600 local plaintext; no encryption at rest.
+5. No wallet, on-chain mint, agent dispatch, settlement, promotion,
+   automatic CI admission, approval or protected-main merge.
+6. Source graphs remain bound to the SAME frozen issue contract spine.
+   Updating that spine requires a separate trusted migration process.
+7. GitHub native exact-head Python checks must actually execute. A skipped
+   job or zero-step check is NOT_VERIFIED.
+
+This is a bounded incremental foundation for later independently anchored
+notarization, not a claim that local files have blockchain immutability.
