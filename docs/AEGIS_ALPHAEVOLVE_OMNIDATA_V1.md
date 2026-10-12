@@ -15,7 +15,7 @@
 ```bash
 python -m agents.alphaevolve_omnidata_v1 \
   --data-root ./datasets \
-  --format-catalog ./AEGIS_Dataset_Format_Catalog.json \
+  --format-catalog ./agents/config/dataset_formats_v1.json \
   --output ./receipts/omnidata.json
 python -m unittest agents.tests.test_alphaevolve_omnidata_v1 -v
 ```
