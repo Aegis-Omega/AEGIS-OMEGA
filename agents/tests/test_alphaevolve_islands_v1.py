@@ -67,6 +67,22 @@ class IslandTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError,'HOLDOUT_ALREADY_OPENED'):
                 finalize(catalog=cat,root=root,database=db)
 
+    def test_parent_lookup_uses_persisted_candidate_index(self):
+        # Regression guard for the correlated parent lookup in existing campaigns.
+        with tempfile.TemporaryDirectory() as d:
+            root=Path(d); cat=synthetic(root); db=root/'search.sqlite'
+            search(catalog=cat,root=root,database=db,additional_ticks=24,
+                   inheritance_mode='diploid_xy_v1')
+            with sqlite3.connect(db) as conn:
+                names={r[1] for r in conn.execute('PRAGMA index_list(breeding)')}
+                self.assertIn('idx_breeding_candidate_first', names)
+                plan=conn.execute("EXPLAIN QUERY PLAN SELECT b2.tick FROM breeding b2 "
+                    "WHERE b2.candidate_id=? ORDER BY b2.rowid LIMIT 1",
+                    ('irrelevant-id',)).fetchall()
+                details=' '.join(str(r[-1]) for r in plan)
+                self.assertIn('idx_breeding_candidate_first', details)
+                self.assertNotIn('SCAN b2', details)
+
     def test_source_drift_blocks_resume(self):
         with tempfile.TemporaryDirectory() as d:
             root=Path(d);cat=synthetic(root);db=root/'evolution.sqlite'
