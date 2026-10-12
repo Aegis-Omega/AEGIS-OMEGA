@@ -154,6 +154,8 @@ def _database(path:Path, *, create:bool=True)->sqlite3.Connection:
         mother_id TEXT, father_id TEXT, genome TEXT NOT NULL,
         inheritance_trace TEXT NOT NULL, genome_digest TEXT NOT NULL);
       CREATE INDEX IF NOT EXISTS idx_candidates_rank ON candidates(island,regression,validation);
+      -- Parent lookup otherwise scans historical offspring for every candidate.
+      CREATE INDEX IF NOT EXISTS idx_breeding_candidate_first ON breeding(candidate_id);
     """)
     return conn
 
