@@ -77,12 +77,33 @@ def router(db:Path)->dict:
     finally:con.close()
 
 
+
+def route_and_execute_bioreactor(db:Path,root:Path)->dict:
+    """Existing read-only frontier plus real pre-existing bioreactor cohort replay.
+
+    Only execute an evaluator with explicit schema/fitness. Retain the original
+    membership receipt and include blocked sources; never self-admit.
+    """
+    from agents.alphaevolve_bioreactor_v1 import run_catalog
+    front=router(db)
+    observed=run_catalog(db,root)
+    if observed['discovered'] != observed['evaluated']+len(observed['blocked']):
+        raise ValueError('BIOREACTOR_SILENT_DROP')
+    front['bioreactor_cohort']=observed
+    front['scientific_admission']='DENIED'
+    return front
+
+
 def main():
     p=argparse.ArgumentParser();p.add_argument('--db',required=True,type=Path)
     p.add_argument('--out',required=True,type=Path)
+    p.add_argument('--data-root',type=Path,default=None,
+                   help='Opt in to real read-only biological cohort replay')
     args=p.parse_args()
-    d=router(args.db);args.out.parent.mkdir(parents=True,exist_ok=True)
+    d=(router(args.db) if args.data_root is None
+       else route_and_execute_bioreactor(args.db,args.data_root))
+    args.out.parent.mkdir(parents=True,exist_ok=True)
     args.out.write_text(json.dumps(d,sort_keys=True,indent=2)+'\n')
-    print(json.dumps({k:v for k,v in d.items() if k!='cohorts'},indent=2))
+    print(json.dumps({k:v for k,v in d.items() if k not in ('cohorts','bioreactor_cohort')},indent=2))
 
 if __name__=='__main__':main()
