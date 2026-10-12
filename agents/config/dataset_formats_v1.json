@@ -1,0 +1,422 @@
+{
+  "schema": "AEGIS_FORMAT_CATALOG_V1",
+  "unique_extensions": 167,
+  "compressed_aliases_recognized": 228,
+  "groups": {
+    "tabular": {
+      "CSV": [
+        ".csv"
+      ],
+      "TSV": [
+        ".tsv",
+        ".tab"
+      ],
+      "PSV": [
+        ".psv"
+      ],
+      "SSV": [
+        ".ssv"
+      ],
+      "XLSX": [
+        ".xlsx",
+        ".xlsm",
+        ".xltx",
+        ".xltm"
+      ],
+      "XLS": [
+        ".xls"
+      ],
+      "ODS": [
+        ".ods"
+      ],
+      "PARQUET": [
+        ".parquet",
+        ".pq"
+      ],
+      "ARROW_IPC": [
+        ".arrow",
+        ".ipc"
+      ],
+      "FEATHER": [
+        ".feather"
+      ],
+      "ORC": [
+        ".orc"
+      ],
+      "AVRO": [
+        ".avro"
+      ],
+      "FDB": [
+        ".fdb"
+      ],
+      "RDS": [
+        ".rds"
+      ],
+      "RDATA": [
+        ".rdata",
+        ".rda"
+      ],
+      "FST": [
+        ".fst"
+      ],
+      "SAS7BDAT": [
+        ".sas7bdat"
+      ],
+      "STATA": [
+        ".dta"
+      ],
+      "SPSS": [
+        ".sav",
+        ".zsav"
+      ],
+      "MAT": [
+        ".mat"
+      ],
+      "DTA": [
+        ".dta"
+      ]
+    },
+    "structured": {
+      "JSON": [
+        ".json"
+      ],
+      "JSONL": [
+        ".jsonl",
+        ".ndjson"
+      ],
+      "YAML": [
+        ".yaml",
+        ".yml"
+      ],
+      "TOML": [
+        ".toml"
+      ],
+      "XML": [
+        ".xml"
+      ],
+      "RDF": [
+        ".rdf",
+        ".ttl",
+        ".nq",
+        ".nt"
+      ],
+      "PROTOBUF": [
+        ".pb",
+        ".protobuf",
+        ".proto"
+      ],
+      "MSGPACK": [
+        ".msgpack",
+        ".mpk"
+      ],
+      "CBOR": [
+        ".cbor"
+      ],
+      "BSON": [
+        ".bson"
+      ],
+      "PICKLE": [
+        ".pkl",
+        ".pickle"
+      ]
+    },
+    "database": {
+      "SQLITE": [
+        ".sqlite",
+        ".sqlite3",
+        ".db",
+        ".db3"
+      ],
+      "DUCKDB": [
+        ".duckdb"
+      ],
+      "ACCESS": [
+        ".mdb",
+        ".accdb"
+      ],
+      "SQL_DUMP": [
+        ".sql"
+      ],
+      "LMDB": [
+        ".mdbx"
+      ]
+    },
+    "array_tensor": {
+      "NUMPY_ARRAY": [
+        ".npy"
+      ],
+      "NUMPY_ARCHIVE": [
+        ".npz"
+      ],
+      "HDF5": [
+        ".h5",
+        ".hdf5",
+        ".hdf",
+        ".h5ad",
+        ".h5mu"
+      ],
+      "ZARR": [
+        ".zarr"
+      ],
+      "NETCDF": [
+        ".nc",
+        ".nc4",
+        ".cdf"
+      ],
+      "GRIB": [
+        ".grib",
+        ".grb",
+        ".grib2",
+        ".grb2"
+      ],
+      "FITS": [
+        ".fits",
+        ".fit",
+        ".fts"
+      ],
+      "MATRIX_MARKET": [
+        ".mtx"
+      ],
+      "LOOM": [
+        ".loom"
+      ],
+      "SAFETENSORS": [
+        ".safetensors"
+      ],
+      "PYTORCH": [
+        ".pt",
+        ".pth",
+        ".ckpt"
+      ],
+      "ONNX": [
+        ".onnx"
+      ],
+      "TFRECORD": [
+        ".tfrecord",
+        ".tfrecords"
+      ],
+      "GGUF": [
+        ".gguf"
+      ],
+      "GGML": [
+        ".ggml"
+      ],
+      "ROOT_HEP": [
+        ".root"
+      ],
+      "HEPMC": [
+        ".hepmc"
+      ],
+      "LHE": [
+        ".lhe"
+      ],
+      "LATTICE_QCD": [
+        ".ildg"
+      ],
+      "LAMMPS": [
+        ".lammpstrj"
+      ],
+      "GROMACS": [
+        ".xtc",
+        ".trr",
+        ".gro"
+      ],
+      "DCD": [
+        ".dcd"
+      ],
+      "NUMPY_PICKLED": [
+        ".npy.pkl"
+      ]
+    },
+    "bio_genomics": {
+      "FASTA": [
+        ".fa",
+        ".fasta",
+        ".fna",
+        ".faa",
+        ".fas"
+      ],
+      "FASTQ": [
+        ".fastq",
+        ".fq"
+      ],
+      "VCF": [
+        ".vcf"
+      ],
+      "BCF": [
+        ".bcf"
+      ],
+      "BAM": [
+        ".bam"
+      ],
+      "SAM": [
+        ".sam"
+      ],
+      "CRAM": [
+        ".cram"
+      ],
+      "BED": [
+        ".bed"
+      ],
+      "BIGBED": [
+        ".bb",
+        ".bigbed"
+      ],
+      "BIGWIG": [
+        ".bw",
+        ".bigwig"
+      ],
+      "GFF": [
+        ".gff",
+        ".gff3"
+      ],
+      "GTF": [
+        ".gtf"
+      ],
+      "PDB": [
+        ".pdb"
+      ],
+      "MMCIF": [
+        ".cif",
+        ".mmcif"
+      ],
+      "SDF": [
+        ".sdf"
+      ],
+      "MOL2": [
+        ".mol2"
+      ],
+      "SMILES": [
+        ".smi",
+        ".smiles"
+      ],
+      "ANNDATA": [
+        ".h5ad"
+      ],
+      "ZARR_ANNDATA": [
+        ".zarr"
+      ]
+    },
+    "scientific_media": {
+      "DICOM": [
+        ".dcm",
+        ".dicom"
+      ],
+      "NIFTI": [
+        ".nii"
+      ],
+      "NRRD": [
+        ".nrrd"
+      ],
+      "MHA": [
+        ".mha",
+        ".mhd"
+      ],
+      "OME_TIFF": [
+        ".ome.tif",
+        ".ome.tiff"
+      ],
+      "TIFF": [
+        ".tif",
+        ".tiff"
+      ],
+      "PNG": [
+        ".png"
+      ],
+      "JPEG": [
+        ".jpg",
+        ".jpeg"
+      ],
+      "GEO_TIFF": [
+        ".geotiff"
+      ],
+      "GEOPACKAGE": [
+        ".gpkg"
+      ],
+      "GEOJSON": [
+        ".geojson"
+      ],
+      "SHAPEFILE": [
+        ".shp"
+      ],
+      "KML": [
+        ".kml"
+      ],
+      "LAS_POINTCLOUD": [
+        ".las",
+        ".laz"
+      ],
+      "PLY": [
+        ".ply"
+      ],
+      "STL": [
+        ".stl"
+      ],
+      "WAV": [
+        ".wav"
+      ],
+      "FLAC": [
+        ".flac"
+      ],
+      "MP4": [
+        ".mp4"
+      ],
+      "EDF_EEG": [
+        ".edf"
+      ],
+      "BDF_EEG": [
+        ".bdf"
+      ],
+      "DICOMDIR": [
+        ".dicomdir"
+      ],
+      "NIFTI_GZ": [
+        ".nii.gz"
+      ]
+    },
+    "archive": {
+      "ZIP": [
+        ".zip"
+      ],
+      "TAR": [
+        ".tar"
+      ],
+      "TAR_GZ": [
+        ".tar.gz",
+        ".tgz"
+      ],
+      "TAR_XZ": [
+        ".tar.xz",
+        ".txz"
+      ],
+      "TAR_BZ2": [
+        ".tar.bz2",
+        ".tbz2"
+      ],
+      "GZIP": [
+        ".gz"
+      ],
+      "XZ": [
+        ".xz"
+      ],
+      "BZIP2": [
+        ".bz2"
+      ],
+      "SEVEN_ZIP": [
+        ".7z"
+      ]
+    },
+    "notebook_experiment": {
+      "JUPYTER": [
+        ".ipynb"
+      ],
+      "LEAN": [
+        ".lean"
+      ],
+      "COQ": [
+        ".v"
+      ]
+    }
+  },
+  "coverage_claim": "FORMAT_RECOGNITION_NOT_PARSER_AVAILABILITY"
+}
