@@ -147,7 +147,9 @@ def _event(e: Any, keyring: Mapping[str, Mapping[str, Any]], now: int) -> None:
 def evaluate_lifecycle(spine: Mapping[str, Any], events: list[Mapping[str, Any]], *,
                        trusted_spine_hash: str,
                        trusted_keys: Mapping[str, Mapping[str, Any]], now: int,
-                       trusted_journal_digest: str | None = None) -> dict[str, Any]:
+                       trusted_journal_digest: str | None = None,
+                       trusted_observation_times: list[int] | None = None,
+                       trusted_observations_digest: str | None = None) -> dict[str, Any]:
     """Pure replay. All 'reviewed' results still require actual admission elsewhere."""
     tokens = _strict_spine(spine, trusted_spine_hash)
     if (not isinstance(events, list) or len(events) > MAX_EVENTS or
@@ -162,6 +164,24 @@ def evaluate_lifecycle(spine: Mapping[str, Any], events: list[Mapping[str, Any]]
         if not _digest(trusted_journal_digest) or not hmac.compare_digest(
                 trusted_journal_digest, journal_digest):
             raise ValueError("TOKEN_JOURNAL_ROLLBACK_OR_TAMPER")
+    # Historical replay must validate an event at its *observed* time, not
+    # at the much later audit time. Without independent checkpoint binding,
+    # user-supplied timestamps would permit backdated expired events.
+    if trusted_observation_times is not None:
+        if (trusted_journal_digest is None or not _digest(trusted_observations_digest)
+                or type(trusted_observation_times) is not list
+                or len(trusted_observation_times) != len(events)
+                or any(type(t) is not int or t < 0 or t > now
+                       for t in trusted_observation_times)
+                or any(a > b for a, b in zip(trusted_observation_times,
+                                             trusted_observation_times[1:]))):
+            raise ValueError("EVENT_OBSERVATION_TIMES_UNTRUSTED")
+        expected_obs = digest({"journal_digest": journal_digest,
+                               "observed_at": trusted_observation_times})
+        if not hmac.compare_digest(expected_obs, trusted_observations_digest):
+            raise ValueError("EVENT_OBSERVATIONS_DIGEST_MISMATCH")
+    elif trusted_observations_digest is not None:
+        raise ValueError("EVENT_OBSERVATION_TIMES_MISSING")
     states: dict[str, dict[str, Any]] = {
         k: {"issue": v["issue"], "status": "OBSERVED_UNVERIFIED",
             "last_event": "0" * 64, "sequence": 0, "proposer": None,
@@ -169,8 +189,9 @@ def evaluate_lifecycle(spine: Mapping[str, Any], events: list[Mapping[str, Any]]
             "revoked": False} for k, v in tokens.items()
     }
     nonces = set()
-    for e in events:
-        _event(e, trusted_keys, now)
+    for i, e in enumerate(events):
+        observed_at = trusted_observation_times[i] if trusted_observation_times is not None else now
+        _event(e, trusted_keys, observed_at)
         token = tokens.get(e["token_id"])
         if token is None:
             raise ValueError("EVENT_UNKNOWN_TOKEN")
@@ -206,6 +227,10 @@ def evaluate_lifecycle(spine: Mapping[str, Any], events: list[Mapping[str, Any]]
     items = [{"token_id": k, **v} for k, v in sorted(states.items())]
     out = {"schema": SCHEMA, "spine_receipt": trusted_spine_hash,
            "journal_digest": journal_digest,
+           "observation_checkpoint": ("EXTERNALLY_SUPPLIED_DIGEST_MATCHED_NOT_AUTHENTICATED"
+                                      if trusted_observation_times is not None
+                                      else "NOT_PROVIDED"),
+           "observations_digest": trusted_observations_digest,
            "journal_checkpoint": ("EXTERNAL_DIGEST_MATCHED" if trusted_journal_digest is not None
                                   else "UNANCHORED_NO_ROLLBACK_PROTECTION"),
            "token_count": len(items), "event_count": len(events),
