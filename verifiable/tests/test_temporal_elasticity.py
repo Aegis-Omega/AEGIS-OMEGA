@@ -8,6 +8,9 @@ import pytest
 from jsonschema import Draft202012Validator
 
 from verifiable.temporal_elasticity import (
+    duration_to_femtoseconds,
+    femtoseconds_to_seconds,
+    sum_femtoseconds,
     signed_payload_bytes,
     signed_payload_sha256,
     verify_blp_declared_pair,
@@ -264,3 +267,68 @@ def test_empirical_source_can_only_pass_with_explicit_trusted_provenance_adapter
     assert result["verification"] == "PASS"
     assert result["authority_effect"] == "NONE"
     assert result["execution_release"] == "BLOCKED"
+
+
+
+def test_exact_femtosecond_roundtrip_and_millisecond_sum():
+    assert duration_to_femtoseconds("1", "fs") == 1
+    assert duration_to_femtoseconds("0.001", "s") == 10**12
+    assert duration_to_femtoseconds("1", "ms") == 10**12
+    assert duration_to_femtoseconds("-1e-15", "s") == -1
+    total = sum_femtoseconds([
+        duration_to_femtoseconds("500", "ms"),
+        duration_to_femtoseconds("500", "ms"),
+        duration_to_femtoseconds("1", "fs"),
+    ])
+    assert total == 10**15 + 1
+    assert femtoseconds_to_seconds(total) == "1.000000000000001"
+
+
+def test_exact_femtosecond_large_integer_roundtrip():
+    # Epoch-sized counts are beyond IEEE-754's safe-integer range.
+    ticks = 2**80 + 17
+    assert duration_to_femtoseconds(femtoseconds_to_seconds(ticks)) == ticks
+    assert duration_to_femtoseconds(femtoseconds_to_seconds(-ticks)) == -ticks
+
+
+@pytest.mark.parametrize("value,unit", [
+    ("0.1", "fs"),
+    ("0.0000000000000001", "s"),
+    ("0.0000000000001", "ms"),
+])
+def test_sub_femtosecond_precision_fails_closed(value, unit):
+    with pytest.raises(ValueError, match="SUB_FEMTOSECOND_PRECISION"):
+        duration_to_femtoseconds(value, unit)
+
+
+@pytest.mark.parametrize("value,unit", [
+    (1.0, "s"),
+    (True, "fs"),
+    ("NaN", "s"),
+    ("Infinity", "s"),
+    ("1", "fortnight"),
+])
+def test_invalid_exact_duration_fails_closed(value, unit):
+    with pytest.raises(ValueError, match="INVALID_EXACT_DURATION"):
+        duration_to_femtoseconds(value, unit)
+
+
+@pytest.mark.parametrize("ticks", [True, 1.0, "1"])
+def test_invalid_femtosecond_integer_fails_closed(ticks):
+    with pytest.raises(ValueError, match="INVALID_FEMTOSECOND_TICKS"):
+        femtoseconds_to_seconds(ticks)
+    with pytest.raises(ValueError, match="INVALID_FEMTOSECOND_TICKS"):
+        sum_femtoseconds([1, ticks])
+
+
+def test_temporal_verifier_distinguishes_adjacent_femtosecond_timestamps():
+    times = [femtoseconds_to_seconds(i) for i in (0, 1, 2)]
+    assert times == ["0", "0.000000000000001", "0.000000000000002"]
+    evidence = {"times_s": times, "tau_values_s": ["1", "1", "1"], "epsilon": "0"}
+    valid = verify_tau_adaptation(evidence)
+    assert valid["gate_passed"] is True
+    assert valid["status"] == "NO_NUMERICAL_ADAPTATION_OBSERVED"
+    evidence["times_s"] = [times[0], times[2], times[1]]
+    invalid = verify_tau_adaptation(evidence)
+    assert invalid["gate_passed"] is False
+    assert "TAU_TIME_NOT_STRICTLY_INCREASING" in invalid["reason_codes"]
