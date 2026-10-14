@@ -1,0 +1,98 @@
+{
+  "vector_set": "TEMPORAL_ELASTICITY_REFERENCE_VECTORS_V1",
+  "epistemic_status": "SYNTHETIC_AND_SIMULATION_ONLY",
+  "authority_effect": "NONE",
+  "empirical_reference_status": "NOT_ADMITTED_NO_GENUINE_MEASUREMENT_BATCH_BOUND_TO_CURRENT_MAIN",
+  "vectors": [
+    {
+      "id": "synthetic_backflow_consistent_v1",
+      "source_class": "SYNTHETIC",
+      "blp": {
+        "state_pair_id": "rhoA__rhoB",
+        "times_s": ["0", "1", "2", "3"],
+        "trace_distances": ["0.80", "0.60", "0.72", "0.65"],
+        "uncertainties": ["0.01", "0.01", "0.01", "0.01"],
+        "epsilon": "0.01"
+      },
+      "spectral": {
+        "concentration_model": "SLEPIAN_LANDAU_POLLACK",
+        "convention_id": "TEW_TEST_CONVENTION_V1",
+        "statistic_id": "ENERGY_CONCENTRATION_RATIO",
+        "dimensionless_c": "8",
+        "observed": "0.90",
+        "uncertainty": "0.01",
+        "admissible_min": "0.85",
+        "admissible_max": "0.95",
+        "s_c": "0.10"
+      },
+      "coherence": {
+        "coherence_measure": "L1_DECLARED_BASIS",
+        "basis": "TEST_BASIS_V1",
+        "state_estimator": "SYNTHETIC_EXACT_STATE_WITH_DECLARED_UNCERTAINTY",
+        "uncertainty_model": "SYMMETRIC_INTERVAL",
+        "times_s": ["0", "1", "2", "3"],
+        "values": ["0.70", "0.50", "0.62", "0.55"],
+        "uncertainties": ["0.01", "0.01", "0.01", "0.01"],
+        "value_min": "0",
+        "value_max": "1",
+        "epsilon": "0.01"
+      },
+      "tau_adaptation": {
+        "times_s": ["0", "1", "2", "3"],
+        "tau_values_s": ["0.10", "0.05", "0.025", "0.05"],
+        "epsilon": "0"
+      },
+      "expected": {
+        "blp_status": "BLP_BACKFLOW_FOR_DECLARED_PAIR",
+        "spectral_status": "SPECTRAL_CONSISTENT",
+        "coherence_status": "COHERENCE_REVIVAL_OBSERVED",
+        "tau_status": "NUMERICAL_TIME_RESOLUTION_ADAPTED"
+      }
+    },
+    {
+      "id": "simulation_no_backflow_v1",
+      "source_class": "SIMULATION",
+      "blp": {
+        "state_pair_id": "sim_rhoA__sim_rhoB",
+        "times_s": ["0", "1", "2", "3"],
+        "trace_distances": ["0.80", "0.70", "0.60", "0.50"],
+        "uncertainties": ["0.005", "0.005", "0.005", "0.005"],
+        "epsilon": "0.001"
+      },
+      "spectral": {
+        "concentration_model": "SLEPIAN_LANDAU_POLLACK",
+        "convention_id": "TEW_TEST_CONVENTION_V1",
+        "statistic_id": "ENERGY_CONCENTRATION_RATIO",
+        "dimensionless_c": "8",
+        "observed": "0.90",
+        "uncertainty": "0.01",
+        "admissible_min": "0.85",
+        "admissible_max": "0.95",
+        "s_c": "0.10"
+      },
+      "coherence": {
+        "coherence_measure": "L1_DECLARED_BASIS",
+        "basis": "SIMULATION_BASIS_V1",
+        "state_estimator": "DECLARED_MODEL_STATE",
+        "uncertainty_model": "SYMMETRIC_INTERVAL",
+        "times_s": ["0", "1", "2", "3"],
+        "values": ["0.80", "0.70", "0.60", "0.50"],
+        "uncertainties": ["0.005", "0.005", "0.005", "0.005"],
+        "value_min": "0",
+        "value_max": "1",
+        "epsilon": "0.001"
+      },
+      "tau_adaptation": {
+        "times_s": ["0", "1", "2", "3"],
+        "tau_values_s": ["0.10", "0.10", "0.10", "0.10"],
+        "epsilon": "0"
+      },
+      "expected": {
+        "blp_status": "NO_BLP_BACKFLOW_ESTABLISHED",
+        "spectral_status": "SPECTRAL_CONSISTENT",
+        "coherence_status": "NO_COHERENCE_REVIVAL_ESTABLISHED",
+        "tau_status": "NO_NUMERICAL_ADAPTATION_OBSERVED"
+      }
+    }
+  ]
+}
