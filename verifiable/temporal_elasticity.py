@@ -11,6 +11,7 @@ from __future__ import annotations
 import base64, binascii, copy, hashlib, json, re, unicodedata
 from datetime import datetime
 from decimal import Decimal, InvalidOperation, localcontext
+from fractions import Fraction
 from typing import Callable, Mapping
 
 RECEIPT_TYPE = "TEMPORAL_ELASTICITY_RECEIPT_V1"
@@ -57,6 +58,49 @@ def _d(x, code):
     if not x.is_finite():
         raise ValueError(code)
     return x
+
+
+
+FS_PER_UNIT = {"s": 10**15, "ms": 10**12, "us": 10**9,
+               "ns": 10**6, "ps": 10**3, "fs": 1}
+
+
+def duration_to_femtoseconds(value: str, unit: str = "s") -> int:
+    """Exact decimal-string duration to integral 10^-15-second ticks.
+
+    Fail closed for IEEE-754 inputs, nonfinite data, unknown units and
+    sub-femtosecond fractions. This utility never changes event sequencing,
+    clock calibration or receipt authority.
+    """
+    if not isinstance(unit, str) or unit not in FS_PER_UNIT:
+        raise ValueError("INVALID_EXACT_DURATION")
+    decimal = _d(value, "INVALID_EXACT_DURATION")
+    ticks = Fraction(decimal) * FS_PER_UNIT[unit]
+    if ticks.denominator != 1:
+        raise ValueError("SUB_FEMTOSECOND_PRECISION")
+    return ticks.numerator
+
+
+def femtoseconds_to_seconds(ticks: int) -> str:
+    """Exact seconds decimal string, independent of integer magnitude."""
+    if type(ticks) is not int:
+        raise ValueError("INVALID_FEMTOSECOND_TICKS")
+    sign = "-" if ticks < 0 else ""
+    seconds, fraction = divmod(abs(ticks), FS_PER_UNIT["s"])
+    if fraction == 0:
+        return f"{sign}{seconds}" if seconds else "0"
+    return f"{sign}{seconds}.{str(fraction).zfill(15).rstrip('0')}"
+
+
+def sum_femtoseconds(ticks) -> int:
+    """Sum exact signed intervals; reject floats and booleans."""
+    total = 0
+    for value in ticks:
+        if type(value) is not int:
+            raise ValueError("INVALID_FEMTOSECOND_TICKS")
+        total += value
+    return total
+
 
 
 def _ds(x):
