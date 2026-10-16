@@ -151,6 +151,37 @@ class TestTick(unittest.TestCase):
         with self.assertRaisesRegex(ValueError,'ISSUE_TITLE_REQUIRED'):
             opt.select_work(graph(n),source_head=HEAD,tick='missing-title')
 
+    def test_specialist_can_target_existing_eligible_issue(self):
+        g=graph(node(249,'engineering'),node(765,'research'))
+        r=opt.select_work(g,source_head=HEAD,tick='target',requested_issue=f'{opt.REPO}#249')
+        self.assertEqual(r['selected_issue'],f'{opt.REPO}#249')
+        self.assertEqual(r['execution_effect'],'NONE')
+
+    def test_specialist_cannot_bypass_operator_only_issue(self):
+        n=node(222,'engineering')
+        n['title']='Operator action: update required ruleset'
+        r=opt.select_work(graph(n),source_head=HEAD,tick='deny',
+                          requested_issue=f'{opt.REPO}#222')
+        self.assertEqual(r['disposition'],'HOLD_NO_NEW_VERIFIABLE_WORK')
+
+    def test_specialist_cannot_bypass_open_dependency(self):
+        g=graph(node(249,'engineering'))
+        g['unresolved_references']=[{'from':f'{opt.REPO}#249',
+                                    'to':f'{opt.REPO}#999','kind':'depends_on'}]
+        r=opt.select_work(g,source_head=HEAD,tick='deny',
+                          requested_issue=f'{opt.REPO}#249')
+        self.assertEqual(r['disposition'],'HOLD_NO_NEW_VERIFIABLE_WORK')
+
+    def test_specialist_cannot_target_other_repository(self):
+        with self.assertRaisesRegex(ValueError,'REQUESTED_ISSUE_INVALID'):
+            opt.select_work(graph(node(249,'engineering')),source_head=HEAD,tick='deny',
+                            requested_issue='evil/repository#249')
+
+    def test_specialist_cannot_target_unavailable_issue(self):
+        r=opt.select_work(graph(node(765,'research')),source_head=HEAD,tick='deny',
+                          requested_issue=f'{opt.REPO}#249')
+        self.assertEqual(r['disposition'],'HOLD_NO_NEW_VERIFIABLE_WORK')
+
     def test_malformed_dependency_denied(self):
         g=graph(node(1,'commerce'))
         g['edges']=[{'from':f'{opt.REPO}#1','to':f'{opt.REPO}#99','kind':'pretend_complete'}]
