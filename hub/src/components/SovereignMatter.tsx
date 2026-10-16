@@ -21,6 +21,8 @@ uniform float u_time;
 uniform float u_domain;
 uniform float u_limits;
 uniform float u_concept;
+uniform float u_view_angle;
+uniform float u_step_count;
 #define PI 3.14159265359
 
 mat2 rot(float a) { float c=cos(a),s=sin(a); return mat2(c,-s,s,c); }
@@ -53,7 +55,7 @@ float torus(vec3 p,vec2 t) {
   return length(q)-t.y;
 }
 vec2 map(vec3 p) {
-  float a=-.28 + .11*u_time;
+  float a=u_view_angle-.28 + .11*u_time;
   p.xz=rot(a)*p.xz; p.xy=rot(-.29-a*.19)*p.xy;
   vec3 crystal=p; crystal.xz=rot(.785398)*crystal.xz;
   float shell=u_concept>.5?omega(p):octa(p,1.01);
@@ -82,41 +84,85 @@ vec3 accent(float d) {
   if(d<3.5) return vec3(.91,.73,.49);
   return vec3(.66,.81,.94);
 }
+// Studio-light response in linear colour; no environment-map download required.
+float sat(float v) { return clamp(v,0.,1.); }
+vec3 fresnelSchlick(float VoH,vec3 F0) {
+  return F0+(vec3(1.)-F0)*pow(1.-sat(VoH),5.);
+}
+float distributionGGX(float NoH,float roughness) {
+  float a=roughness*roughness, a2=a*a;
+  float d=NoH*NoH*(a2-1.)+1.;
+  return a2/max(3.14159265*d*d,.0001);
+}
+float geometrySmith(float NoV,float NoL,float roughness) {
+  float k=pow(roughness+1.,2.)/8.;
+  return NoV/max(NoV*(1.-k)+k,.001)*NoL/max(NoL*(1.-k)+k,.001);
+}
+vec3 keyLight(vec3 n,vec3 v,vec3 l,vec3 radiance,vec3 F0,float roughness) {
+  vec3 h=normalize(v+l);
+  float NoL=sat(dot(n,l)),NoV=sat(dot(n,v));
+  float NoH=sat(dot(n,h)),VoH=sat(dot(v,h));
+  float D=distributionGGX(NoH,roughness);
+  float G=geometrySmith(NoV,NoL,roughness);
+  vec3 F=fresnelSchlick(VoH,F0);
+  vec3 spec=(D*G*F)/max(4.*NoV*NoL,.04);
+  return radiance*(spec*NoL);
+}
 vec3 atmosphere(vec2 uv) {
-  vec3 b=vec3(.013,.020,.035);
-  b+=exp(-1.9*length((uv-vec2(.10,.08))*vec2(.82,1.1)))*vec3(.036,.061,.12);
-  b+=exp(-5.0*length((uv+vec2(.5,-.28))*vec2(.75,1.2)))*vec3(.025,.021,.063);
-  return b;
+  vec3 base=vec3(.008,.015,.029);
+  base+=vec3(.032,.055,.11)*exp(-1.4*length((uv-vec2(-.25,.18))*vec2(.75,1.2)));
+  base+=vec3(.024,.017,.065)*exp(-3.1*length((uv-vec2(.56,-.27))*vec2(.66,1.1)));
+  return base;
+}
+float ambientOcclusion(vec3 p,vec3 n) {
+  // Two sparse probes: material separation without a mobile-hostile shadow march.
+  float s1=map(p+n*.085).x, s2=map(p+n*.19).x;
+  return sat(.64+.24*sat(s1/.085)+.12*sat(s2/.19));
+}
+vec3 tonemapACES(vec3 x) {
+  return clamp((x*(2.51*x+.03))/(x*(2.43*x+.59)+.14),0.,1.);
 }
 void main() {
   vec2 uv=(2.*gl_FragCoord.xy-u_resolution)/min(u_resolution.x,u_resolution.y);
-  vec3 bg=atmosphere(uv), ro=vec3(0.,0.,3.9);
-  vec3 rd=normalize(vec3(uv,-2.20));
+  vec3 bg=atmosphere(uv);
+  vec3 ro=vec3(0.,0.,3.9),rd=normalize(vec3(uv,-2.20));
   float t=0.,mid=0.;vec3 hit=vec3(0.);
   for(int i=0;i<82;i++) {
+    if(float(i)>=u_step_count)break;
     vec2 h=map(ro+rd*t);
-    if(h.x<.0018) { mid=h.y; hit=ro+rd*t; break; }
-    if(t>7.) break;
-    t+=max(h.x*.72,.0035);
+    if(h.x<.0019){mid=h.y;hit=ro+rd*t;break;}
+    if(t>7.)break;
+    t+=max(h.x*.72,.004);
   }
-  vec3 col=bg, hue=accent(u_domain);
+  vec3 col=bg;
   if(mid>0.) {
     vec3 n=norm(hit),v=-rd;
-    vec3 l=normalize(vec3(-.48,.72,1.3));
-    float lambert=max(dot(n,l),0.);
-    float fres=pow(1.-max(dot(n,v),0.),3.0);
-    float spec=pow(max(dot(reflect(-l,n),v),0.),58.);
-    float density=clamp(.22+.065*u_limits,.22,.47);
-    vec3 refr=atmosphere(uv+refract(-v,n,.73).xy*.16);
-    vec3 ink=mid<1.5?mix(hue,vec3(.83,.91,1.),.56):mid<2.5?hue:vec3(.82,.72,.56);
-    col=mix(refr+ink*(.12+.24*lambert)*density,ink,mid<1.5?.18:.35);
-    col+=fres*ink*.55+spec*vec3(1.,.98,.93)*.85;
-    col=mix(bg,col,exp(-.018*t*t));
+    float NoV=sat(dot(n,v));
+    vec3 hue=accent(u_domain);
+    vec3 ink=mid<1.5?mix(hue,vec3(.8,.93,1.),.64):mid<2.5?
+      mix(hue,vec3(.76,.88,1.),.35):mix(vec3(.82,.67,.42),hue,.18);
+    float roughness=mid<1.5?.14:mid<2.5?.21:.29;
+    float ao=ambientOcclusion(hit,n);
+    vec3 F0=mid<1.5?vec3(.055):mix(vec3(.09),ink*.72,.64);
+    vec3 key=keyLight(n,v,normalize(vec3(-.52,.77,1.)),vec3(3.7,4.0,4.7),F0,roughness);
+    vec3 rim=keyLight(n,v,normalize(vec3(.81,-.26,-.68)),vec3(.60,.88,2.1),F0,.24);
+    vec3 warm=keyLight(n,v,normalize(vec3(.55,.72,.30)),vec3(1.55,.97,.48),F0,.38);
+    float fres=pow(1.-NoV,5.);
+    vec3 refr=atmosphere(uv+n.xy*.10);
+    // Thin-film impression is explicitly artistic; not a measured optical coating.
+    float phase=sin((1.-NoV)*15.5+dot(n,vec3(2.4,1.7,.4)));
+    vec3 film=mix(vec3(.73,.86,1.06),vec3(1.08,.76,.98),.5+.5*phase);
+    vec3 transmission=refr*(.58+.24*ao)+ink*(.13+.15*sat(dot(n,normalize(vec3(-.52,.77,1.)))))*ao;
+    vec3 reflected=(key+rim+warm)*ao;
+    vec3 edge=fres*ink*film*(mid<1.5?.66:.36);
+    col=transmission+reflected+edge;
+    col+=ink*.07*sat(1.-NoV)*(1.+.25*u_limits);
+    col=mix(bg,col,exp(-.014*t*t));
   }
-  col+=hue*.014*exp(-2.3*dot(uv,uv));
-  col*=.91+.09*(1.-smoothstep(.65,2.1,length(uv)));
-  outColor=vec4(pow(max(col,vec3(0.)),vec3(.93)),1.);
-}`
+  // Vignette respects legibility: artwork does not serve as the reading plane.
+  col*=.96+.04*(1.-smoothstep(.80,2.1,length(uv)));
+  outColor=vec4(pow(tonemapACES(max(col,vec3(0.))),vec3(1./2.2)),1.);
+}}`
 
 const DOMAIN: Record<string, number> = {
   'formal-fork': 0, 'qgi-lab': 1, qbp: 2,
@@ -136,11 +182,18 @@ function compile(gl: WebGL2RenderingContext, type: number, source: string) {
   return shader
 }
 
-export function SovereignMatter({ sourceId, limitCount, motionOverride, conceptArt = false }: {
-  sourceId: string; limitCount: number; motionOverride?: boolean; conceptArt?: boolean
+export function SovereignMatter({ sourceId, limitCount, motionOverride, conceptArt = false, viewYaw }: {
+  sourceId: string; limitCount: number; motionOverride?: boolean; conceptArt?: boolean; viewYaw?: number
 }) {
   const canvas = useRef<HTMLCanvasElement>(null)
   const [motion, setMotion] = useState(false)
+  const [localYaw,setLocalYaw] = useState(0)
+  const yawRef = useRef(viewYaw ?? localYaw)
+  const redrawRef = useRef<(() => void)|null>(null)
+  useEffect(() => {
+    yawRef.current = viewYaw ?? localYaw
+    redrawRef.current?.()
+  }, [viewYaw, localYaw])
   const activeMotion = motionOverride ?? motion
   const [reduced, setReduced] = useState(false)
   const [available, setAvailable] = useState(false)
@@ -203,6 +256,8 @@ export function SovereignMatter({ sourceId, limitCount, motionOverride, conceptA
       gl.vertexAttribPointer(pos, 2, gl.FLOAT, false, 0, 0)
       const resolution = gl.getUniformLocation(program, 'u_resolution')
       const time = gl.getUniformLocation(program, 'u_time')
+      const viewAngle = gl.getUniformLocation(program, 'u_view_angle')
+      const stepCount = gl.getUniformLocation(program, 'u_step_count')
       gl.uniform1f(gl.getUniformLocation(program, 'u_domain'), DOMAIN[sourceId] ?? 4)
       gl.uniform1f(gl.getUniformLocation(program, 'u_limits'), Math.min(6, Math.max(0, limitCount)))
       gl.uniform1f(gl.getUniformLocation(program, 'u_concept'), conceptArt ? 1 : 0)
@@ -214,20 +269,29 @@ export function SovereignMatter({ sourceId, limitCount, motionOverride, conceptA
         if (now - last >= 1000 / 24) {
           last = now
           const rect = target.getBoundingClientRect()
-          const scale = Math.min(activeMotion ? 1 : 1.25, window.devicePixelRatio || 1)
-          const w = Math.max(1, Math.round(rect.width * scale))
-          const h = Math.max(1, Math.round(rect.height * scale))
+          // Budget bounded for phone GPUs, Retina, and reduced-motion devices.
+          const small = rect.width < 720 || window.matchMedia('(pointer:coarse)').matches
+          const scale = Math.min(small ? .85 : (activeMotion ? 1 : 1.2), window.devicePixelRatio || 1)
+          const w = Math.max(1, Math.min(1200, Math.round(rect.width * scale)))
+          const h = Math.max(1, Math.min(900, Math.round(rect.height * scale)))
           if (target.width !== w || target.height !== h) {
             target.width = w; target.height = h
           }
           gl.viewport(0, 0, w, h)
           gl.uniform2f(resolution, w, h)
           gl.uniform1f(time, activeMotion && !reduced ? (now - start) * .001 : 0)
+          gl.uniform1f(viewAngle, yawRef.current)
+          gl.uniform1f(stepCount, w < 600 ? 55 : 82)
           gl.drawArrays(gl.TRIANGLES, 0, 6)
         }
         if (activeMotion && !reduced && visible && !document.hidden) frame = window.requestAnimationFrame(draw)
       }
       setAvailable(true)
+      redrawRef.current = () => {
+        window.cancelAnimationFrame(frame)
+        last = -1000
+        frame = window.requestAnimationFrame(draw)
+      }
       draw(performance.now())
       if (typeof ResizeObserver !== 'undefined') {
         resizeObserver = new ResizeObserver(() => {
@@ -240,6 +304,7 @@ export function SovereignMatter({ sourceId, limitCount, motionOverride, conceptA
     }
     return () => {
       pause = true
+      redrawRef.current = null
       window.cancelAnimationFrame(frame)
       resizeObserver?.disconnect()
       target.removeEventListener('webglcontextlost', onLoss)
@@ -264,9 +329,11 @@ export function SovereignMatter({ sourceId, limitCount, motionOverride, conceptA
     <canvas ref={canvas} className={'sm-canvas' + (available ? ' sm-canvas-ready' : '')}
       aria-hidden="true" />
     <div className="sm-north" aria-hidden="true">{conceptArt ? 'AEGIS Ω / MATERIAL CONCEPT' : 'AEGIS Ω / MATTER STUDY 001'}</div>
-    <div className="sm-south" aria-hidden="true">{conceptArt ? 'PROCEDURAL ART · NOT TELEMETRY' : 'SIGNED DISTANCE · FRESNEL · DOMAIN-BOUND'}</div>
+    <div className="sm-south" aria-hidden="true">{conceptArt ? 'PROCEDURAL ART · NOT TELEMETRY' : '3D SDF · MICROFACET LIGHT · ART STUDY'}</div>
     {motionOverride === undefined && <div className="sm-command">
       <span>{available ? 'GPU MATERIAL' : 'VECTOR FALLBACK'}</span>
+      <button type="button" aria-label="Rotate sculpture left" onClick={() => setLocalYaw(value => Math.max(-3.14, value-.35))}>←</button>
+      <button type="button" aria-label="Rotate sculpture right" onClick={() => setLocalYaw(value => Math.min(3.14, value+.35))}>→</button>
       <button type="button" aria-label={motion ? 'Pause material motion' : 'Play material motion'}
         aria-pressed={motion && !reduced} disabled={reduced}
         onClick={() => setMotion(v => !v)}>
