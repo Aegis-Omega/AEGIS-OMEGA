@@ -164,6 +164,81 @@ jobs:
           gcloud projects describe "${PROJECT_ID}" \
             --format='yaml(projectId,projectNumber,name,lifecycleState)'
 
+      - name: Read AlphaEvolve API prerequisites (read-only)
+        id: alphaevolve_read
+        if: steps.auth.outcome == 'success'
+        continue-on-error: true
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json
+          import subprocess
+          from pathlib import Path
+          from urllib.error import HTTPError, URLError
+          from urllib.request import Request, urlopen
+
+          projects = ("aegisomegav1", "gdm-sci-client-k7rini18gx")
+          token = subprocess.run(
+              ["gcloud", "auth", "print-access-token"],
+              capture_output=True, text=True, check=True, timeout=20,
+          ).stdout.strip()
+          if not token:
+              raise SystemExit("WIF succeeded but gcloud access token was unavailable")
+
+          def read(url):
+              request = Request(
+                  url, headers={
+                      "Authorization": "Bearer " + token,
+                      "Accept": "application/json",
+                  }, method="GET",
+              )
+              try:
+                  with urlopen(request, timeout=15) as response:
+                      payload = json.loads(response.read(250000))
+                      return 200, payload
+              except HTTPError as error:
+                  # Provider error bodies can contain private tenant information.
+                  return error.code, {}
+              except (URLError, TimeoutError, OSError):
+                  return None, {}
+
+          checks = {}
+          for project in projects:
+              service_url = (
+                  "https://serviceusage.googleapis.com/v1/projects/"
+                  + project + "/services/discoveryengine.googleapis.com"
+              )
+              service_status, service_data = read(service_url)
+              engine_url = (
+                  "https://discoveryengine.googleapis.com/v1/projects/"
+                  + project + "/locations/global/collections/"
+                  "default_collection/engines?pageSize=100"
+              )
+              engine_status, engine_data = read(engine_url)
+              engines = engine_data.get("engines", [])
+              checks[project] = {
+                  "discoveryengine_service_http": service_status,
+                  "discoveryengine_service_state":
+                      service_data.get("state", "UNKNOWN")
+                      if service_status == 200 else "UNKNOWN",
+                  "engines_list_http": engine_status,
+                  "visible_engines": len(engines)
+                      if engine_status == 200 and isinstance(engines, list) else None,
+                  "engines_paginated": bool(engine_data.get("nextPageToken"))
+                      if engine_status == 200 else None,
+                  "alphaevolve_provisioned": "NOT_VERIFIED",
+                  "alphaevolve_experiment": "NOT_RUN",
+              }
+
+          receipt_path = Path("gcp_wif_preflight_receipt.json")
+          receipt = json.loads(receipt_path.read_text())
+          receipt["alphaevolve_prerequisites"] = checks
+          receipt["alphaevolve_probe_authority"] = "READ_ONLY_GET_NO_BILLABLE_RUN"
+          receipt_path.write_text(json.dumps(receipt, sort_keys=True, indent=2) + "\n")
+          print(json.dumps(checks, sort_keys=True))
+          PY
+
       - name: Read Cloud Storage bucket census
         id: bucket_census
         if: steps.auth.outcome == 'success'
