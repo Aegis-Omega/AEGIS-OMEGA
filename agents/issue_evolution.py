@@ -92,16 +92,19 @@ def _issue(raw: Mapping[str, Any], repo: str) -> dict[str, Any] | None:
     lines = body.splitlines()
     deps, parents, related = set(), set(), set()
     for line in lines:
-        # Honor only explicit references, NOT LLM-inferred relations.
+        # Classify each explicit clause independently. A single Markdown line
+        # may contain "Parent: #1. Depends on #2. Related #3"; classifying the
+        # entire line as a dependency invents false graph edges.
         if len(line) > 3000:
             continue
-        ids = set(int(i) for i in ISSUE_REF.findall(line))
-        if DEP_WORD.search(line):
-            deps.update(ids)
-        elif PARENT_WORD.search(line):
-            parents.update(ids)
-        else:
-            related.update(ids)
+        for clause in re.split(r"(?<=[.!?;])\s+(?=[A-Za-z])", line):
+            ids = set(int(i) for i in ISSUE_REF.findall(clause))
+            if DEP_WORD.search(clause):
+                deps.update(ids)
+            elif PARENT_WORD.search(clause):
+                parents.update(ids)
+            else:
+                related.update(ids)
     deps.discard(n); parents.discard(n); related.discard(n)
     return {"key": f"{repo}#{n}", "number": n, "title": title,
             "body_sha256": hashlib.sha256(body.encode("utf-8")).hexdigest(),
