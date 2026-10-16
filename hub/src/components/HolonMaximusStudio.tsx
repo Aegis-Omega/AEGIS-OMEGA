@@ -1,5 +1,6 @@
 import { useMemo, useRef, useState, type ChangeEvent } from 'react'
 import { SovereignMatter } from './SovereignMatter.js'
+import { HolonicThread } from './HolonicThread.js'
 import {
   emptyHolonTrace, appendHolonEvent, verifyHolonTrace, selectedHolonBranches,
   MAX_HOLON_EVENTS, MAX_HOLON_TEXT,
@@ -16,26 +17,6 @@ const labels:Record<HolonKind,string> = {
   seed:'Seed',branch:'Direction',select:'Human choice',weave:'Synthesis',artifact:'Artifact'
 }
 const shorten=(s:string,n=70) => s.length>n?s.slice(0,n-1)+'…':s
-
-function TraceGraph({trace}:{trace:HolonTrace}) {
-  const shown=trace.events.slice(-12)
-  const points=shown.map((e,i)=>({
-    id:e.id,label:labels[e.kind],text:e.text,actor:e.actor,
-    x:64+(i%4)*132,y:65+Math.floor(i/4)*118
-  }))
-  const index=new Map(points.map(p=>[p.id,p]))
-  return <div className="hm-graph" role="group" aria-label="Recorded idea and decision relationships">
-    <svg viewBox="0 0 530 344" role="img" aria-label={shown.length ? 'Graph of the latest '+shown.length+' actual trace events' : 'Empty trace; no activity has been invented'}>
-      {shown.flatMap(e=>e.parents.filter(id=>index.has(id)).map(id=>{
-        const p=index.get(id)!,q=index.get(e.id)!
-        return <path key={id+e.id} d={'M'+p.x+' '+p.y+' Q'+((p.x+q.x)/2)+' '+(p.y+q.y)/2+' '+q.x+' '+q.y} fill="none" stroke="#6EA9C6" strokeOpacity=".52" strokeWidth="1.4"/>
-      }))}
-      {points.map(p=><g key={p.id}><circle cx={p.x} cy={p.y} r={p.actor==='human'?20:16} stroke={p.actor==='human'?'#B8E4EC':'#CDB995'} strokeWidth="1.2" fill="#0C2234"/><circle cx={p.x} cy={p.y} r="5" fill={p.actor==='human'?'#88BFD6':'#CAA87B'}/><text x={p.x} y={p.y+35} fill="#D9E8ED" fontSize="10" textAnchor="middle">{p.label}</text></g>)}
-      {!shown.length&&<><circle cx="265" cy="165" r="63" fill="none" stroke="#4B7393" strokeWidth="1.1" strokeDasharray="2 9"/><circle cx="265" cy="165" r="33" fill="#13283C" stroke="#90B2C9" strokeWidth="1.6"/><text x="265" y="171" textAnchor="middle" fontSize="19" fill="#DCEEF2">Ω</text></>}
-    </svg>
-    <p>{shown.length ? 'Only recorded relationships are drawn. Not a map of thoughts or neural activity.' : 'Your first idea begins the structure. No simulated activity.'}</p>
-  </div>
-}
 
 export function HolonMaximusStudio(){
   const [trace,setTrace]=useState<HolonTrace>(emptyHolonTrace)
@@ -115,6 +96,7 @@ export function HolonMaximusStudio(){
       <span><b>{graphStats.nodes}</b> recorded events <span aria-hidden="true">·</span> <b>{graphStats.links}</b> documented links <span aria-hidden="true">·</span> <b>{humanDecisions}</b> human actions</span>
       <span>Memory: this tab only · export to preserve</span>
     </div>
+    <HolonicThread trace={trace}/>
     <div className="hm-layout">
       <section className="hm-primary" aria-label="Create and evolve an idea">
         <section className="hm-step" aria-labelledby="hm-seed-heading">
@@ -169,9 +151,8 @@ export function HolonMaximusStudio(){
           <p className="hm-helper">An intent record is not proof that an artifact was built or published.</p>
         </section>}
       </section>
-      <aside className="hm-aside" aria-label="Holonic lineage and export">
-        <div className="hm-evidence-title"><span>LIVE LOCAL TRACE / NOT MODEL TELEMETRY</span><h2>Every choice leaves a connection.</h2></div>
-        <TraceGraph trace={trace}/>
+      <aside className="hm-aside" aria-label="Full recorded history and export">
+        <div className="hm-evidence-title"><span>PORTABLE LINEAGE / NOT MODEL TELEMETRY</span><h2>Your decisions remain yours.</h2></div>
         <div className="hm-ledger"><h3>Recorded events</h3>
           {trace.events.length===0?<p>No journal yet. Nothing was generated in your name.</p>:
             <ol>{trace.events.slice(-8).map(e=><li key={e.id}>
