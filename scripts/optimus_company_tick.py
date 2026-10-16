@@ -38,7 +38,8 @@ def stable_hash(value: object) -> str:
 
 def select_work(graph: dict, *, source_head: str, tick: str,
                 prior: dict | None = None,
-                completed_fingerprints: frozenset[str] = frozenset()) -> dict:
+                completed_fingerprints: frozenset[str] = frozenset(),
+                requested_issue: str | None = None) -> dict:
     """Deterministic bounded selection with dedup; never treats text as authority."""
     if not SHA.fullmatch(source_head):
         raise ValueError("SOURCE_HEAD_REQUIRED")
@@ -116,17 +117,25 @@ def select_work(graph: dict, *, source_head: str, tick: str,
             continue
         pool.setdefault(topic, []).append(node)
 
-    # A fixed rotating fairness schedule avoids always choosing engineering.
-    # Urgency is not inferred from unknown customer/pipeline valuations.
-    offset = int(stable_hash({"tick": tick})[:8], 16) % len(TOPICS)
-    rotation = TOPICS[offset:] + TOPICS[:offset]
+    # Specialist targeting never changes eligibility; all dependency, tenant,
+    # label, operator-only and revision guards above apply unchanged.
     selected = None
-    for topic in rotation:
-        candidates = pool.get(topic, [])
-        if candidates:
-            selected = sorted(candidates, key=lambda n: (0 if "P0" in n["labels"] else 1,
-                                                            n["number"]))[0]
-            break
+    if requested_issue is not None:
+        if (not isinstance(requested_issue, str) or
+                not re.fullmatch(r"Aegis-Omega/AEGIS-OMEGA#[1-9][0-9]{0,6}", requested_issue)):
+            raise ValueError("REQUESTED_ISSUE_INVALID")
+        selected = next((n for candidates in pool.values() for n in candidates
+                         if n["key"] == requested_issue), None)
+    else:
+        # Rotating fairness avoids always choosing engineering.
+        offset = int(stable_hash({"tick": tick})[:8], 16) % len(TOPICS)
+        rotation = TOPICS[offset:] + TOPICS[:offset]
+        for topic in rotation:
+            candidates = pool.get(topic, [])
+            if candidates:
+                selected = sorted(candidates, key=lambda n:
+                                  (0 if "P0" in n["labels"] else 1, n["number"]))[0]
+                break
 
     base = {"schema": "AEGIS_OPTIMUS_TICK_V1", "tick": tick,
             "source_head": source_head, "graph_receipt_hash": graph["receipt_hash"],
@@ -294,6 +303,7 @@ def main() -> int:
     group.add_argument("--live-repo", default=None, help="allowlisted GitHub repository")
     ap.add_argument("--source-head", required=True)
     ap.add_argument("--tick", required=True)
+    ap.add_argument("--requested-issue", help="bounded same-repo specialist target; eligibility still mandatory")
     ap.add_argument("--prior", type=Path)
     ap.add_argument("--output", type=Path)
     ap.add_argument("--record-checkpoint", action="store_true")
@@ -319,7 +329,8 @@ def main() -> int:
                 raise ValueError("GITHUB_SCHEDULE_IDENTITY_UNVERIFIED")
             state, comment_id = read_checkpoint(issue=args.checkpoint_issue, token=token)
         receipt = select_work(graph, source_head=args.source_head, tick=args.tick, prior=prior,
-            completed_fingerprints=checkpoint_exclusions(state, now_epoch=int(time.time())))
+            completed_fingerprints=checkpoint_exclusions(state, now_epoch=int(time.time())),
+            requested_issue=args.requested_issue)
         # Never let a perpetually unexecuted lease disappear from the operator queue.
         exhausted = sorted({x["issue"] for x in state["leases"]
                             if x["state"] == "EXHAUSTED_UNEXECUTED"})
