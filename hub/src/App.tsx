@@ -7,6 +7,7 @@ import { CompliancePage } from './components/CompliancePage.js'
 import { ConsolePage } from './components/console/ConsolePage.js'
 import { DocsPage } from './components/DocsPage.js'
 import { ResearchWorkbench } from './components/ResearchWorkbench.js'
+import { HolonMaximusStudio } from './components/HolonMaximusStudio.js'
 import { PricingPage } from './components/PricingPage.js'
 import { ToolsPage } from './components/ToolsPage.js'
 
@@ -20,6 +21,7 @@ export default function App() {
     case '/compliance': return <HolonRoute route="compliance"><CompliancePage /></HolonRoute>
     case '/docs': return <HolonRoute route="docs"><DocsPage /></HolonRoute>
     case '/platform': return <HolonRoute route="platform"><ResearchWorkbench /></HolonRoute>
+    case '/holon': return <HolonRoute route="holon"><HolonMaximusStudio /></HolonRoute>
     case '/console': return <HolonRoute route="console"><ConsolePage /></HolonRoute>
     case '/runtime': return <HolonRoute route="runtime"><AegisRuntime /></HolonRoute>
     case '/tools': return <HolonRoute route="tools"><ToolsPage /></HolonRoute>
