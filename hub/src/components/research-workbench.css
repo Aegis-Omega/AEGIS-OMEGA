@@ -212,3 +212,62 @@
 .rw-compare-disclosure{margin:19px 0 0;font-size:11px;line-height:1.7;color:#abc5e4}
 @media(max-width:720px){.rw-compare-grid{grid-template-columns:1fr}.rw-compare-head label{width:100%}.rw-compare{margin:24px 0}}
 @media(prefers-contrast:more){.rw-compare-record,.rw-compare-verdict{border-color:#d3e8ff}.rw-compare-disclosure{color:#eff6ff}}
+
+/*
+ * AEGIS RESEARCHOS / SOURCE-FIRST FUSION V1
+ * Reuses Holon Glass material tokens and the existing Sovereign Matter renderer.
+ * Sketch source metrics: reading text 17/24, prominent controls 16/21.
+ * SF fonts are not bundled or impersonated; existing local/system fonts remain.
+ * Solid reading surfaces + bounded optics; no new palette or visual framework.
+ */
+.rw-perspective {
+  display:flex;align-items:center;justify-content:space-between;gap:20px;flex-wrap:wrap;
+  margin:23px 0 10px;padding:18px 0;
+  border-block:1px solid var(--hg-edge,rgba(145,192,252,.18));
+}
+.rw-perspective-copy {display:flex;flex-direction:column;gap:8px;max-width:600px;min-width:0}
+.rw-perspective-copy strong {font-size:17px;line-height:1.42;font-weight:620;color:var(--hg-text,#f0f7ff)}
+.rw-perspective-copy span {font-size:15px;line-height:1.55;color:var(--hg-dim,#9fb6d0)}
+.rw-perspective-controls {display:flex;flex-wrap:wrap;gap:7px;align-items:center}
+.rw-perspective-controls button {
+  min-height:46px;padding:10px 17px;border-radius:8px;cursor:pointer;
+  border:1px solid rgba(160,197,229,.55);
+  background:var(--hg-deep,#060e1d);color:var(--hg-text,#f0f7ff);
+  font-size:15px;font-weight:600;line-height:1.45;
+}
+.rw-perspective-controls button[aria-pressed="true"] {
+  border-color:var(--hg-ice,#bbebff);background:var(--hg-layer,#0b1930);
+  box-shadow:inset 0 -2px 0 var(--hg-ice,#bbebff);
+}
+.rw-perspective-controls button:focus-visible {outline:3px solid var(--hg-ice,#bbebff);outline-offset:3px}
+/* Sketch source reading hierarchy: 17px/24px body; keep source codes monospace. */
+.rw-hero p {font-size:17px;line-height:1.45}
+.rw-side small {font-size:14px;line-height:1.55}
+.rw-entry p {font-size:15px;line-height:1.6}
+.rw-entry small {font-size:12px;line-height:1.5}
+.rw-filters button {min-height:44px;font-size:14px}
+.rw-search {min-height:46px}
+.rw-search input {font-size:16px}
+.ef-heading p {font-size:16px;line-height:1.5}
+.ef-station small,.ef-map-material .ef-station small {font-size:12px;line-height:1.5}
+.ef-boundaries ol,.ef-map-material .ef-boundaries ol {font-size:14px;line-height:1.55}
+.ef-pick button {font-size:14px}
+.ef-disclosure {font-size:14px;line-height:1.65}
+@media(max-width:610px) {
+  .rw-perspective {align-items:stretch;margin:17px 0 6px}
+  .rw-perspective-controls {display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);width:100%}
+  .rw-perspective-controls button {min-height:48px;padding:11px 12px;font-size:14px;white-space:normal}
+  .rw-entry {min-height:0}
+  .rw-entry p {font-size:15px}
+  .ef-pick button {min-height:48px;font-size:14px}
+}
+@media(prefers-reduced-motion:reduce) {
+  .rw-perspective *, .rw-perspective *::before, .rw-perspective *::after {animation:none!important;transition:none!important}
+}
+@media(prefers-contrast:more) {
+  .rw-perspective-controls button {border:2px solid currentColor;background:#06101c}
+  .rw-perspective-controls button[aria-pressed="true"] {outline:2px solid #fff;outline-offset:-5px}
+}
+@media(prefers-reduced-transparency:reduce) {
+  .rw-perspective-controls button {background:#081526}
+}
