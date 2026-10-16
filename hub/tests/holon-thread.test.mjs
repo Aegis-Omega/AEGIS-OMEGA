@@ -88,3 +88,24 @@ test('pure deterministic projection returns identical output',()=>{
   const j=trace([evt(1,'seed'),evt(2,'branch',[id(1)]),evt(3,'select',[id(2)])])
   assert.deepEqual(buildHolonicThread(j,.4),buildHolonicThread(j,.4))
 })
+
+test('historical windows reveal earlier records without inventing later links',()=>{
+  const ev=[evt(1,'seed')];for(let n=2;n<=80;n++)ev.push(evt(n,'branch',[id(n-1)]))
+  const full=buildHolonicThread(trace(ev),0)
+  const earlier=buildHolonicThread(trace(ev),0,30)
+  assert.equal(full.windowStart,80-HOLON_THREAD_WINDOW)
+  assert.equal(earlier.windowStart,30-HOLON_THREAD_WINDOW)
+  assert.equal(earlier.windowEnd,30)
+  assert.equal(earlier.hiddenAfter,50)
+  assert.equal(earlier.hiddenBefore,6)
+  assert.equal(earlier.strands.length,HOLON_THREAD_WINDOW-1)
+  assert(earlier.strands.every(edge=>Number(edge.to.slice(-5))<=30))
+  assert.equal(earlier.hiddenStrands,79-(HOLON_THREAD_WINDOW-1))
+})
+
+test('invalid history windows fail closed and overflows clamp',()=>{
+  const j=trace([evt(1,'seed'),evt(2,'branch',[id(1)])])
+  assert.throws(()=>buildHolonicThread(j,0,NaN),/non-finite window/)
+  assert.equal(buildHolonicThread(j,0,-100).points.length,0)
+  assert.equal(buildHolonicThread(j,0,999).points.length,2)
+})
