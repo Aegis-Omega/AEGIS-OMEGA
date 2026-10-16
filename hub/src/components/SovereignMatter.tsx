@@ -333,12 +333,12 @@ export function SovereignMatter({ sourceId, limitCount, motionOverride, conceptA
     <div className="sm-south" aria-hidden="true">{conceptArt ? 'PROCEDURAL ART · NOT TELEMETRY' : '3D SDF · MICROFACET LIGHT · ART STUDY'}</div>
     {motionOverride === undefined && <div className="sm-command">
       <span>{available ? 'GPU MATERIAL' : 'VECTOR FALLBACK'}</span>
-      <button type="button" aria-label="Rotate sculpture left" onClick={() => setLocalYaw(value => Math.max(-3.14, value-.35))}>←</button>
-      <button type="button" aria-label="Rotate sculpture right" onClick={() => setLocalYaw(value => Math.min(3.14, value+.35))}>→</button>
+      <button type="button" aria-label="Rotate sculpture left" disabled={!available} onClick={() => setLocalYaw(value => Math.max(-3.14, value-.35))}>←</button>
+      <button type="button" aria-label="Rotate sculpture right" disabled={!available} onClick={() => setLocalYaw(value => Math.min(3.14, value+.35))}>→</button>
       <button type="button" aria-label={motion ? 'Pause material motion' : 'Play material motion'}
-        aria-pressed={motion && !reduced} disabled={reduced}
+        aria-pressed={motion && !reduced && available} disabled={reduced || !available}
         onClick={() => setMotion(v => !v)}>
-        {reduced ? 'Motion reduced' : motion ? 'Pause motion' : 'Explore motion'}
+        {reduced ? 'Motion reduced' : !available ? '3D unavailable' : motion ? 'Pause motion' : 'Explore motion'}
       </button>
     </div>}
   </div>
