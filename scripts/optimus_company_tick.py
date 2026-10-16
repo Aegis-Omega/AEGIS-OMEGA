@@ -54,6 +54,24 @@ def select_work(graph: dict, *, source_head: str, tick: str,
         raise ValueError("GRAPH_REPOSITORY_MISMATCH")
     if not re.fullmatch(r"[a-f0-9]{64}", str(graph.get("receipt_hash", ""))):
         raise ValueError("GRAPH_RECEIPT_MISSING")
+    # An open dependency or an unresolved dependency cannot be assumed done.
+    # Related/parent links carry context; only explicit depends_on blocks work.
+    edges, unresolved = graph.get("edges"), graph.get("unresolved_references")
+    if (not isinstance(edges, list) or not isinstance(unresolved, list) or
+            len(edges) + len(unresolved) > 8192):
+        raise ValueError("GRAPH_DEPENDENCY_COVERAGE_UNKNOWN")
+    waiting_on = set()
+    for relation in edges + unresolved:
+        if (not isinstance(relation, dict) or
+                set(relation) != {"from", "to", "kind"} or
+                relation["kind"] not in ("depends_on", "parent", "related") or
+                not isinstance(relation["from"], str) or
+                not isinstance(relation["to"], str) or
+                not re.fullmatch(r"Aegis-Omega/AEGIS-OMEGA#[1-9][0-9]{0,6}", relation["from"]) or
+                not re.fullmatch(r"Aegis-Omega/AEGIS-OMEGA#[1-9][0-9]{0,6}", relation["to"])):
+            raise ValueError("GRAPH_EDGE_UNTRUSTED")
+        if relation["kind"] == "depends_on":
+            waiting_on.add(relation["from"])
     # Legacy --prior receipts report only that an issue was SELECTED.
     # They must never remove an unfinished issue from the eligible pool:
     # queue cooldown and bounded escalation live exclusively in V2 leases.
@@ -82,6 +100,8 @@ def select_work(graph: dict, *, source_head: str, tick: str,
             raise ValueError("ISSUE_ID_NUMBER_MISMATCH")
         if any(label.lower() in ("needs-operator", "blocked", "do-not-automate") for label in labels):
             continue
+        if key in waiting_on:
+            continue  # unmet open/unknown prerequisite; never dispatch prematurely
         if stable_hash({"key": key, "body": node.get("body_sha256", ""),
                         "labels": sorted(labels), "title": node.get("title", "")}) in completed_fingerprints:
             continue
@@ -187,21 +207,33 @@ def checkpoint_exclusions(state: dict, *, now_epoch: int) -> frozenset[str]:
 
 
 def read_checkpoint(*, issue: int, token: str) -> tuple[dict, int | None]:
-    """Read existing issue #734, never promote a V1 selection into completion."""
+    """Scan all bounded comment pages to choose the newest V2 checkpoint.
+
+    GitHub returns issue comments oldest-first, 100/page. Returning the first
+    matching page silently resurrects an old cursor after >100 comments.
+    Treat a missing final page or a malformed newest checkpoint as HOLD.
+    """
     if issue != 734:
         raise ValueError("CHECKPOINT_ISSUE_NOT_ALLOWED")
+    newest = None
     for page in range(1, 9):
         batch = github_json(f"/repos/{REPO}/issues/{issue}/comments?per_page=100&page={page}", token=token)
-        if not isinstance(batch, list):
+        if not isinstance(batch, list) or len(batch) > 100:
             raise ValueError("COMMENT_LIST_INVALID")
-        for comment in reversed(batch):
+        for comment in batch:
+            if not isinstance(comment, dict):
+                raise ValueError("COMMENT_ENTRY_INVALID")
             if isinstance(comment.get("body"), str) and comment["body"].startswith(CHECKPOINT_MARKER):
-                return checkpoint_from_comment(comment), comment["id"]
+                newest = comment
         if len(batch) < 100:
-            return {"schema": CHECKPOINT_SCHEMA, "leases": [],
-                    "authority_effect": "NONE", "execution_effect": "NONE"}, None
+            if newest is None:
+                return {"schema": CHECKPOINT_SCHEMA, "leases": [],
+                        "authority_effect": "NONE", "execution_effect": "NONE"}, None
+            comment_id = newest.get("id")
+            if type(comment_id) is not int or comment_id <= 0:
+                raise ValueError("CHECKPOINT_COMMENT_ID_INVALID")
+            return checkpoint_from_comment(newest), comment_id
     raise ValueError("COMMENT_PAGINATION_INCOMPLETE")
-
 
 def next_lease(state: dict, receipt: dict, *, now_epoch: int) -> dict:
     """Stage an idempotent advisory claim; real completion requires separate proof."""
