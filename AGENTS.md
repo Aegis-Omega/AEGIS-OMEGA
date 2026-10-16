@@ -3,12 +3,12 @@
 Canonical working rules are in **WORKFLOW.md** and **CLAUDE.md**; do not fork
 the authority policy into another agent-specific guide.
 
-1. Run \`scripts/ground-truth.sh\`, identify exact SHA and live execution path.
-2. Read \`REPO_MAP.md\`, \`INDEX.md\`, existing \`sovereign-omega-v2/.claude/skills/\`,
+1. Run `scripts/ground-truth.sh`, identify exact SHA and live execution path.
+2. Read `REPO_MAP.md`, `INDEX.md`, existing `sovereign-omega-v2/.claude/skills/`,
    and authorized knowledge stores *before* proposing a new module.
 3. For substantive tasks, create a **metadata-only** source-reuse manifest
-   (see \`docs/SOURCE_REUSE_PREFLIGHT_V1.md\`) and execute
-   \`PYTHONPATH=. python3 -m agents.source_reuse_preflight /path/to/manifest.json\`.
+   (see `docs/SOURCE_REUSE_PREFLIGHT_V1.md`) and execute
+   `PYTHONPATH=. python3 -m agents.source_reuse_preflight /path/to/manifest.json`.
 4. If HOLD, disclose the missing source/coverage/tenant/staleness reason; never
    infer "absent" from a failed import, build, CI runner or a partial search.
 5. If READY_FOR_AUTHORITY_REVIEW, continue only through the **existing**
