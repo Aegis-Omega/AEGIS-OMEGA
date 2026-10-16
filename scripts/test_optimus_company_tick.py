@@ -17,7 +17,8 @@ def graph(*items):
 
 
 def node(n, topic, labels=()):
-    return {"key":f"Aegis-Omega/AEGIS-OMEGA#{n}","number":n,"topic":topic,"labels":list(labels),"body_sha256":"0"*64}
+    return {"key":f"Aegis-Omega/AEGIS-OMEGA#{n}","number":n,"topic":topic,
+            "title":f"Task {n}","labels":list(labels),"body_sha256":"0"*64}
 
 
 class TestTick(unittest.TestCase):
@@ -123,6 +124,31 @@ class TestTick(unittest.TestCase):
         g=graph(node(1,'commerce')); del g['unresolved_references']
         with self.assertRaisesRegex(ValueError,'GRAPH_DEPENDENCY_COVERAGE_UNKNOWN'):
             opt.select_work(g,source_head=HEAD,tick='must-check')
+
+    def test_live_operator_issue_not_autodispatched(self):
+        operator=node(222,'engineering')
+        operator['title']='Operator action: require Automaton-2 and Automaton-3 on main'
+        g=graph(operator,node(321,'research'))
+        r=opt.select_work(g,source_head=HEAD,tick='live-falsifier')
+        self.assertEqual(r['selected_issue'],f'{opt.REPO}#321')
+
+    def test_operator_title_alone_holds_when_labels_missing(self):
+        n=node(222,'engineering')
+        n['title']='OPERATOR ACTION: change protected ruleset'
+        r=opt.select_work(graph(n),source_head=HEAD,tick='must-have-human')
+        self.assertEqual(r['disposition'],'HOLD_NO_NEW_VERIFIABLE_WORK')
+
+    def test_regular_operator_research_can_still_queue(self):
+        n=node(451,'research')
+        n['title']='Research operator-oriented workflow ergonomics'
+        r=opt.select_work(graph(n),source_head=HEAD,tick='normal-research')
+        self.assertEqual(r['selected_issue'],f'{opt.REPO}#451')
+
+    def test_missing_issue_title_cannot_disappear_silently(self):
+        n=node(44,'engineering')
+        n.pop('title')
+        with self.assertRaisesRegex(ValueError,'ISSUE_TITLE_REQUIRED'):
+            opt.select_work(graph(n),source_head=HEAD,tick='missing-title')
 
     def test_malformed_dependency_denied(self):
         g=graph(node(1,'commerce'))
