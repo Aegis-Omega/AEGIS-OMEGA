@@ -89,6 +89,9 @@ def select_work(graph: dict, *, source_head: str, tick: str,
         topic = node.get("topic")
         key = node.get("key")
         labels = node.get("labels", [])
+        title = node.get("title")
+        if not isinstance(title, str) or not 0 < len(title) <= 800:
+            raise ValueError("ISSUE_TITLE_REQUIRED")
         if not isinstance(key, str) or not re.fullmatch(r"[\w-]+/[\w-]+#[1-9][0-9]{0,6}", key):
             raise ValueError("INVALID_ISSUE_ID")
         if (topic not in TOPICS or not isinstance(labels, list) or
@@ -99,6 +102,12 @@ def select_work(graph: dict, *, source_head: str, tick: str,
         if node.get("number") != int(key.rsplit("#", 1)[1]):
             raise ValueError("ISSUE_ID_NUMBER_MISMATCH")
         if any(label.lower() in ("needs-operator", "blocked", "do-not-automate") for label in labels):
+            continue
+        # A human-only administrative issue can lack GitHub labels.
+        # Never route an explicit operator decision to autonomous engineering.
+        if re.match(r"^\s*(?:operator(?:[- ]only|[- ]action|[- ]decision)?|"
+                    r"requires[- ]operator|manual[- ]approval|approval[- ]required|"
+                    r"human[- ]approval|admin[- ]action|billing[- ]action)\s*[:—-]", title, re.I):
             continue
         if key in waiting_on:
             continue  # unmet open/unknown prerequisite; never dispatch prematurely
