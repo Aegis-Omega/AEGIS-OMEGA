@@ -50,21 +50,29 @@ float omega(vec3 p) {
   vec2 d=vec2(glyph,abs(p.z)-.115);
   return length(max(d,0.))+min(max(d.x,d.y),0.);
 }
-float torus(vec3 p,vec2 t) {
-  vec2 q=vec2(length(p.xz)-t.x,p.y);
-  return length(q)-t.y;
+// Holon envelope: clipped periodic gyroid sculpture, purely authored art.
+float holonField(vec3 p) {
+  float g=sin(p.x*5.8)*cos(p.y*5.8)+sin(p.y*5.8)*cos(p.z*5.8)+sin(p.z*5.8)*cos(p.x*5.8);
+  return max((abs(g)-.27)*.085,length(p)-1.02);
+}
+// One luminous strand per recorded boundary (capped at three), never a proof verdict.
+float evidenceStrand(vec3 p,float radius,float width,float phase) {
+  float angle=atan(p.z,p.x);
+  float r=radius+.085*sin(5.0*angle+phase);
+  float height=.17*sin(3.0*angle+phase*1.4);
+  return length(vec2(length(p.xz)-r,p.y-height))-width;
 }
 vec2 map(vec3 p) {
   float a=u_view_angle-.28 + .11*u_time;
   p.xz=rot(a)*p.xz; p.xy=rot(-.29-a*.19)*p.xy;
   vec3 crystal=p; crystal.xz=rot(.785398)*crystal.xz;
-  float shell=u_concept>.5?omega(p):octa(p,1.01);
-  float facet=u_concept>.5?100.:abs(octa(crystal*.87,.81)/.87)-.022;
-  float ring=u_limits>=.5?torus(p,vec2(1.39,.026)):100.;
+  float shell=u_concept>.5?omega(p):holonField(p);
+  float facet=u_concept>.5?100.:omega(crystal*1.32)/1.32;
+  float ring=u_limits>=.5?evidenceStrand(p,1.31,.024,.0):100.;
   vec3 r=p; r.xy=rot(1.14)*r.xy;
-  float ring2=u_limits>=1.5?torus(r,vec2(1.27,.015)):100.;
+  float ring2=u_limits>=1.5?evidenceStrand(r,1.25,.018,1.9):100.;
   r=p; r.yz=rot(.88)*r.yz;
-  float ring3=u_limits>=2.5?torus(r,vec2(1.36,.013)):100.;
+  float ring3=u_limits>=2.5?evidenceStrand(r,1.33,.015,3.8):100.;
   float d=min(min(shell,facet),min(ring,min(ring2,ring3)));
   float id=shell<min(facet,min(ring,min(ring2,ring3)))?1.0:
     facet<min(ring,min(ring2,ring3))?2.0:3.0;
@@ -330,7 +338,7 @@ export function SovereignMatter({ sourceId, limitCount, motionOverride, conceptA
     <canvas ref={canvas} className={'sm-canvas' + (available ? ' sm-canvas-ready' : '')}
       aria-hidden="true" />
     <div className="sm-north" aria-hidden="true">{conceptArt ? 'AEGIS Ω / MATERIAL CONCEPT' : 'AEGIS Ω / MATTER STUDY 001'}</div>
-    <div className="sm-south" aria-hidden="true">{conceptArt ? 'PROCEDURAL ART · NOT TELEMETRY' : '3D SDF · MICROFACET LIGHT · ART STUDY'}</div>
+    <div className="sm-south" aria-hidden="true">{conceptArt ? 'PROCEDURAL ART · NOT TELEMETRY' : 'HOLON · BOUNDARY FILAMENTS · PROCEDURAL ART'}</div>
     {motionOverride === undefined && <div className="sm-command">
       <span>{available ? 'GPU MATERIAL' : 'VECTOR FALLBACK'}</span>
       <button type="button" aria-label="Rotate sculpture left" disabled={!available} onClick={() => setLocalYaw(value => Math.max(-3.14, value-.35))}>←</button>
