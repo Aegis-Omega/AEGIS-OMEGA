@@ -116,8 +116,8 @@ def github_json(path: str, *, token: str, method: str = "GET", body: dict | None
                  "User-Agent": "AEGIS-OPTIMUS-zero-spend"})
     try:
         with urllib.request.urlopen(request, timeout=15) as r:
-            raw = r.read(150000)
-            if len(raw) >= 150000:
+            raw = r.read(1000001)
+            if len(raw) > 1000000:
                 raise ValueError("GITHUB_RESPONSE_TOO_LARGE")
             return json.loads(raw)
     except urllib.error.HTTPError as exc:
