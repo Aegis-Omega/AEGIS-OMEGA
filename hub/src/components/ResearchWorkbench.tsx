@@ -3,6 +3,7 @@ import { useState, useMemo } from 'react'
 import './operator-workbench.css'
 import './research-workbench.css'
 import { SovereignField } from './SovereignField.js'
+import { EvidenceFilament } from './EvidenceFilament.js'
 
 type Area = 'all'|'formal'|'physics'|'biology'|'cognition'|'system'
 type Source = {
@@ -24,6 +25,9 @@ export function ResearchWorkbench(){
   const [area,setArea]=useState<Area>('all')
   const [term,setTerm]=useState('')
   const [active,setActive]=useState(SOURCES[0]!.id)
+  // One active renderer: data-bound source lineage OR the existing spatial source atlas.
+  // An inactive SDF scene is unmounted, never kept as a second ambient GPU surface.
+  const [perspective,setPerspective]=useState<'lineage'|'atlas'>('lineage')
   const shown=useMemo(()=>SOURCES.filter(x=>(area==='all'||x.area===area)&&`${x.title} ${x.kind} ${x.description} ${x.question}`.toLowerCase().includes(term.trim().toLowerCase())),[area,term])
   const detail=shown.find(x=>x.id===active)||shown[0]
   const [compareId,setCompareId]=useState<string|null>(null)
@@ -33,7 +37,19 @@ export function ResearchWorkbench(){
     <div className="rw-ruler"><span>AEGIS Ω / RESEARCHOS</span><span>CURATED SOURCE MAP · NOT A LIVE INDEX</span></div>
     <header className="rw-hero"><div><span className="rw-eyebrow">EVIDENCE FABRIC / 01</span><h1>Questions before <em>claims.</em></h1><p>One research surface across formal mathematics, physical simulation, genomics and cognitive evaluation. Every entry points to its actual access boundary.</p></div><div className="rw-side"><span>DISCOVERY PRINCIPLE</span><strong>Recover → Reproduce<br/>→ Challenge → Admit</strong><small>Access does not imply a verified result.</small></div></header>
     <div className="rw-toolstrip"><div className="rw-filters" aria-label="Research domain filters">{TAGS.map(t=><button type="button" key={t.id} onClick={()=>setArea(t.id)} aria-pressed={area===t.id}>{t.label}</button>)}</div><label className="rw-search"><span className="rw-search-symbol" aria-hidden="true">⌕</span><span className="sr-only">Search source index</span><input type="search" value={term} onChange={e=>setTerm(e.target.value)} placeholder="Search source or question"/></label></div>
-    <SovereignField sources={shown} selectedId={detail?.id ?? null} onSelect={setActive} />
+    <section className="rw-perspective" aria-label="Research visualization perspective">
+      <div className="rw-perspective-copy">
+        <strong>Explore relationships. Inspect their limits.</strong>
+        <span>Curated sources only; no live agent activity, inferred proof, or execution permission.</span>
+      </div>
+      <div className="rw-perspective-controls" role="group" aria-label="Choose evidence view">
+        <button type="button" aria-pressed={perspective==='lineage'} onClick={()=>setPerspective('lineage')}>Evidence filament</button>
+        <button type="button" aria-pressed={perspective==='atlas'} onClick={()=>setPerspective('atlas')}>Spatial atlas</button>
+      </div>
+    </section>
+    {perspective==='lineage'
+      ? <EvidenceFilament sources={shown} selectedId={detail?.id ?? null} onSelect={setActive} />
+      : <SovereignField sources={shown} selectedId={detail?.id ?? null} onSelect={setActive} />}
     <div className="rw-body"><section className="rw-index" aria-label="Research source list"><div className="rw-column-title"><span>SOURCE REGISTER</span><span>{shown.length} ENTRIES</span></div>{shown.length===0?<div className="rw-zero">No matching source in this curated map. Nothing has been inferred.</div>:shown.map(s=><button className={'rw-entry '+(detail?.id===s.id?'rw-entry-active':'')} key={s.id} onClick={()=>setActive(s.id)} type="button" aria-pressed={detail?.id===s.id}><span className="rw-entry-n">{s.index}</span><div><small>{s.kind}</small><strong>{s.title}</strong><p>{s.description}</p></div><span className="rw-entry-arrow" aria-hidden="true">↗</span></button>)}</section>
     <section className="rw-inspector" aria-label="Selected research source">{detail?<><div className="rw-inspector-top"><span>RESEARCH RECORD / {detail.index}</span><span className="rw-inspector-status">{detail.status}</span></div><div className="rw-inspector-main"><span className="rw-eyebrow">{detail.area.toUpperCase()} / SOURCE INSPECTION</span><h2>{detail.title}</h2><p>{detail.description}</p><div className="rw-question"><small>THE OPEN QUESTION</small><strong>{detail.question}</strong></div><div className="rw-limits"><small>BOUNDARIES · DO NOT PROMOTE</small>{detail.boundaries.map((x,i)=><div key={i}><span>{String(i+1).padStart(2,'0')}</span><p>{x}</p></div>)}</div><div className="rw-open">{detail.href?<a href={detail.href} target={detail.href.startsWith('http')?'_blank':undefined} rel={detail.href.startsWith('http')?'noopener noreferrer':undefined}>{detail.action}<span aria-hidden="true">↗</span></a>:<span className="rw-not-published">{detail.action} · NOT PUBLIC</span>}</div></div></>:<div className="rw-zero">Select a published source to inspect its limits.</div>}</section></div>
     <section className="rw-compare" aria-labelledby="rw-compare-title">
