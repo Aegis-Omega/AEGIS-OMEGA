@@ -66,6 +66,16 @@ class IssueEvolutionTests(unittest.TestCase):
         self.assertIn({"from": f"{REPO}#758", "to": f"{REPO}#753",
                        "kind": "related"}, x["edges"])
 
+    def test_mixed_semicolon_clauses_have_distinct_relations(self):
+        x = compile_graph(snapshot([
+            issue(1, "one", "Parent: #2; Depends on #3; Related #4"),
+            issue(2, "two"), issue(3, "three"), issue(4, "four"),
+        ]))
+        self.assertIn({"from":f"{REPO}#1","to":f"{REPO}#2","kind":"parent"}, x["edges"])
+        self.assertIn({"from":f"{REPO}#1","to":f"{REPO}#3","kind":"depends_on"}, x["edges"])
+        self.assertIn({"from":f"{REPO}#1","to":f"{REPO}#4","kind":"related"}, x["edges"])
+        self.assertEqual(len(x["edges"]), 3)
+
     def test_weak_mention_is_not_dependency(self):
         x = compile_graph(snapshot([issue(10, "Task", "See #12 for context."),
                                     issue(12, "Other")]))
