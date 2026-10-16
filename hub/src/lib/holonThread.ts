@@ -20,7 +20,7 @@ export type ThreadStrand = Readonly<{
 }>
 export type HolonicThread = Readonly<{
   points:readonly ThreadPoint[]; strands:readonly ThreadStrand[];
-  hiddenEvents:number; hiddenStrands:number; totalStrands:number; yaw:number
+  hiddenEvents:number; hiddenBefore:number; hiddenAfter:number; windowStart:number; windowEnd:number; hiddenStrands:number; totalStrands:number; yaw:number
 }>
 
 type WorldPoint = { x:number; y:number; z:number }
@@ -30,12 +30,16 @@ const kindLift:Record<HolonEvent['kind'],number>={seed:0,branch:0,select:.14,wea
 const actorZ:Record<HolonRole,number>={human:.34,model:-.30,agent:-.47}
 
 /** Pure layout; input must be verified separately by verifyHolonTrace. */
-export function buildHolonicThread(trace:HolonTrace, requestedYaw=0):HolonicThread {
+export function buildHolonicThread(trace:HolonTrace, requestedYaw=0, requestedEnd=trace.events.length):HolonicThread {
   if (!Number.isFinite(requestedYaw)) throw new Error('HOLON_THREAD_INVALID: non-finite camera yaw')
+  if (!Number.isFinite(requestedEnd)) throw new Error('HOLON_THREAD_INVALID: non-finite window')
   const yaw=clamp(requestedYaw,-.72,.72)
   const events=trace.events
-  const windowEvents=events.slice(-HOLON_THREAD_WINDOW)
-  const hiddenEvents=events.length-windowEvents.length
+  const windowEnd=clamp(Math.floor(requestedEnd),0,events.length)
+  const windowStart=Math.max(0,windowEnd-HOLON_THREAD_WINDOW)
+  const windowEvents=events.slice(windowStart,windowEnd)
+  const hiddenBefore=windowStart, hiddenAfter=events.length-windowEnd
+  const hiddenEvents=hiddenBefore+hiddenAfter
   const world=new Map<string,WorldPoint>()
   const siblings=new Map<string,number>()
   // First derive the full ancestry in source order. This keeps layout stable
@@ -89,7 +93,7 @@ export function buildHolonicThread(trace:HolonTrace, requestedYaw=0):HolonicThre
       strands.push({key:fromId+'>'+child.id,from:fromId,to:child.id,actor:child.actor,d,depth:(from.depth+to.depth)/2})
     }
   }
-  return {points,strands,hiddenEvents,hiddenStrands:totalStrands-strands.length,totalStrands,yaw}
+  return {points,strands,hiddenEvents,hiddenBefore,hiddenAfter,windowStart,windowEnd,hiddenStrands:totalStrands-strands.length,totalStrands,yaw}
 }
 
 export function threadFocus(trace:HolonTrace,id:string|null):HolonEvent|null {
