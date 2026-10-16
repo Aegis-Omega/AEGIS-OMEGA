@@ -19,6 +19,7 @@ jobs:
       - name: Read existing GitHub work graph and select next eligible work
         env:
           GH_TOKEN: ${{ github.token }}
+          PYTHONPATH: ${{ github.workspace }}
         run: |
           set -euo pipefail
           python3 scripts/optimus_company_tick.py \
