@@ -12,7 +12,8 @@ HEAD = 'a'*40
 
 def graph(*items):
     return {"schema":"AEGIS_ISSUE_EVOLUTION_GRAPH_V1", "receipt_hash":"f"*64,
-            "execution_effect":"NONE", "nodes":list(items)}
+            "execution_effect":"NONE", "nodes":list(items),
+            "edges":[], "unresolved_references":[]}
 
 
 def node(n, topic, labels=()):
@@ -97,6 +98,61 @@ class TestTick(unittest.TestCase):
     def test_checkpoint_issue_allowlist(self):
         with self.assertRaisesRegex(ValueError,'CHECKPOINT_ISSUE_NOT_ALLOWED'):
             opt.read_checkpoint(issue=777,token='fake-token')
+    def test_live_dependency_blocks_even_priority_work(self):
+        g=graph(node(1,'commerce',['P0']), node(2,'engineering'))
+        g['edges']=[{'from':f'{opt.REPO}#1','to':f'{opt.REPO}#2','kind':'depends_on'}]
+        r=opt.select_work(g,source_head=HEAD,tick='dependency')
+        self.assertEqual(r['selected_issue'],f'{opt.REPO}#2')
+
+    def test_unresolved_dependency_stays_blocked(self):
+        g=graph(node(1,'commerce'))
+        g['unresolved_references']=[{'from':f'{opt.REPO}#1',
+                                    'to':f'{opt.REPO}#999','kind':'depends_on'}]
+        self.assertEqual(opt.select_work(g,source_head=HEAD,tick='no-assumption')['disposition'],
+                         'HOLD_NO_NEW_VERIFIABLE_WORK')
+
+    def test_parent_and_related_do_not_block(self):
+        g=graph(node(1,'commerce'))
+        g['unresolved_references']=[
+            {'from':f'{opt.REPO}#1','to':f'{opt.REPO}#999','kind':'parent'},
+            {'from':f'{opt.REPO}#1','to':f'{opt.REPO}#998','kind':'related'}]
+        self.assertEqual(opt.select_work(g,source_head=HEAD,tick='context')['selected_issue'],
+                         f'{opt.REPO}#1')
+
+    def test_missing_topology_denied_not_ignored(self):
+        g=graph(node(1,'commerce')); del g['unresolved_references']
+        with self.assertRaisesRegex(ValueError,'GRAPH_DEPENDENCY_COVERAGE_UNKNOWN'):
+            opt.select_work(g,source_head=HEAD,tick='must-check')
+
+    def test_malformed_dependency_denied(self):
+        g=graph(node(1,'commerce'))
+        g['edges']=[{'from':f'{opt.REPO}#1','to':f'{opt.REPO}#99','kind':'pretend_complete'}]
+        with self.assertRaisesRegex(ValueError,'GRAPH_EDGE_UNTRUSTED'):
+            opt.select_work(g,source_head=HEAD,tick='must-check')
+
+    def test_read_checkpoint_uses_newest_page(self):
+        import json
+        from unittest.mock import patch
+        old={'user':{'login':'github-actions[bot]','type':'Bot'},'id':33,
+             'body':opt.CHECKPOINT_MARKER+'\n'+json.dumps({
+                 'schema':opt.CHECKPOINT_SCHEMA,'leases':[],
+                 'authority_effect':'NONE','execution_effect':'NONE'})}
+        new={'user':{'login':'github-actions[bot]','type':'Bot'},'id':44,
+             'body':opt.CHECKPOINT_MARKER+'\n'+json.dumps({
+                 'schema':opt.CHECKPOINT_SCHEMA,'leases':[],
+                 'authority_effect':'NONE','execution_effect':'NONE','last_receipt':'a'*64})}
+        with patch.object(opt,'github_json',side_effect=[[{}]*99+[old],[{},new]]) as mock:
+            state, comment_id=opt.read_checkpoint(issue=734,token='test-token')
+        self.assertEqual(comment_id,44)
+        self.assertEqual(state['last_receipt'],'a'*64)
+        self.assertEqual(mock.call_count,2)
+
+    def test_unverified_trailing_comment_page_cannot_reset_cursor(self):
+        from unittest.mock import patch
+        with patch.object(opt,'github_json',side_effect=[[{}]*100]*8):
+            with self.assertRaisesRegex(ValueError,'COMMENT_PAGINATION_INCOMPLETE'):
+                opt.read_checkpoint(issue=734,token='test-token')
+
     def test_tick_strict(self):
         with self.assertRaisesRegex(ValueError,'INVALID_TICK'):
             opt.select_work(graph(),source_head=HEAD,tick='a'*200)
