@@ -1,0 +1,110 @@
+{
+  "schema": "AEGIS_SKETCH_HOLON_SOURCE_CROSSWALK_V1",
+  "prepared_at": "2026-10-16",
+  "disposition": "SOURCE_REFERENCED_DESIGN_CANDIDATE_NOT_ADMITTED",
+  "source": {
+    "origin": "User's owned Library /AEGIS Research Archive/13_Data_Datasets",
+    "files": [
+      {
+        "name": "document.json",
+        "library_file_id": "file_00000000e88871f482d8962f262c2c4b",
+        "sha256": "0f565a8065182af04f683a1368c167be38672aeca311d4577fd7c4a10577d600",
+        "type": "Sketch document JSON",
+        "pages_referenced": 34,
+        "shared_colors": 107,
+        "shared_text_styles": 105,
+        "shared_layer_styles": 42
+      },
+      {
+        "name": "0D30C88B-DCB8-4A2A-9B2D-A081059FD58F.json",
+        "library_file_id": "file_000000009b1471f4be5419cb8ef6de93",
+        "sha256": "8ca7e3a37569553a9b671a31bed6eeebd46eedf5532385d68f9ec0fc1bef0edc",
+        "type": "Sketch Date and Time Pickers page JSON",
+        "page_object_id": "0D30C88B-DCB8-4A2A-9B2D-A081059FD58F"
+      }
+    ],
+    "limitations": [
+      "Only one of 34 pages was inspected; remaining 33 are not classified as absent.",
+      "External library names Apple iOS UI and Apple iOS UI Kit are metadata, not provenance/licensing confirmation.",
+      "SF Pro font names are metadata: no font binaries are copied or redistributed."
+    ]
+  },
+  "verified_native_style_examples": [
+    {
+      "name": "Loose Leading/06 Body/1 Default",
+      "object_id": "CAFCD3E3-61A7-4AF4-B9CC-F4189C598631",
+      "size": 17,
+      "line_height": 24,
+      "unit": "Sketch document points"
+    },
+    {
+      "name": "03 Title2/2 Bold",
+      "object_id": "0657BCF9-E6CA-4C54-90F4-44963BEA2C7C",
+      "size": 22,
+      "line_height": 28,
+      "unit": "Sketch document points"
+    },
+    {
+      "name": "01 LargeTitle/2 Bold",
+      "object_id": "337DC5AB-830F-46B5-9D0A-E2248F438E81",
+      "size": 34,
+      "line_height": 41,
+      "unit": "Sketch document points"
+    }
+  ],
+  "implementation": {
+    "repo": "Aegis-Omega/AEGIS-OMEGA",
+    "existing_branch": "design/holon-glass-enterprise-20261010",
+    "reused": [
+      "hub/src/components/ResearchWorkbench.tsx",
+      "hub/src/components/EvidenceFilament.tsx",
+      "hub/src/components/SovereignField.tsx",
+      "hub/src/components/SovereignMatter.tsx",
+      "hub/src/components/research-workbench.css",
+      "hub/src/holon-glass.css"
+    ],
+    "target_evidence_view": "Evidence Filament default; the existing Spatial Atlas can be selected instead, with only one mounted scene.",
+    "mapped_decisions": [
+      {
+        "css": ".rw-hero p",
+        "font_size_px": 17,
+        "line_height_px_approx": 24.65,
+        "sketch_id": "CAFCD3E3-61A7-4AF4-B9CC-F4189C598631",
+        "scope": "reading copy, not identity"
+      },
+      {
+        "css": ".rw-perspective-copy strong",
+        "font_size_px": 17,
+        "line_height_px_approx": 24.14,
+        "sketch_id": "CAFCD3E3-61A7-4AF4-B9CC-F4189C598631",
+        "scope": "navigational reading anchor"
+      },
+      {
+        "css": ".rw-perspective-controls button",
+        "min_height_px": 46,
+        "font_size_px": 15,
+        "scope": "ergonomic action with ≥44px target; does not falsely claim pixel parity with Sketch"
+      }
+    ],
+    "graphic_claims": "Data-bound curated atlas ONLY; rendering is not independent provenance validation or live telemetry",
+    "authority_effect": "NONE",
+    "other_effects": [
+      "No payment",
+      "No model inference",
+      "No external publishing",
+      "No production deploy",
+      "No protected-main merge"
+    ]
+  },
+  "independent_acceptance_pending": [
+    "Full Vite build from exact PR head",
+    "Installed React integration render",
+    "Visual QA at 320/390/768/1440 CSS px and 200% zoom",
+    "iOS Safari and Android Chrome device check",
+    "Screen reader and keyboard walkthrough",
+    "CSS real-device contrast and color-vision tests",
+    "Evidence source change with filters and zero results",
+    "CPU/GPU/memory and reduced-motion measurements",
+    "Independent designer/operator acceptance"
+  ]
+}

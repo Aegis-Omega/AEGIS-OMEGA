@@ -1,0 +1,595 @@
+/*
+ * AEGIS Ω · SOVEREIGN VISUAL UNIVERSE / 2026
+ * Source of truth: existing Holon Glass & canonical /design-system tokens.
+ * This is one shared expressive layer for ALL nine hub routes.
+ *
+ * Intent: warm-obsidian editorial architecture; precise instrument controls;
+ * typography-led spatial hierarchy; structural gold where it communicates
+ * affordance, optical cyan only in emphasis; never use visual polish to imply
+ * that a scientific or admission claim has passed.
+ *
+ * Existing route logic, purchase operations, API contracts, accessibility
+ * semantics, and their owners are not modified by this stylesheet.
+ */
+.hg-site {
+  --av-canvas: #080c0f;
+  --av-deep: #0d1216;
+  --av-plate: #151b1f;
+  --av-raised: #1b2428;
+  --av-ink: #eeeae1;
+  --av-ink-muted: #b5b9b6;
+  --av-ink-faint: #8b999c;
+  --av-line: rgba(199, 210, 209, .19);
+  --av-line-strong: rgba(229, 219, 193, .45);
+  --av-foil: var(--aegis-phi,#c8a96e);
+  --av-ice: #b8e8ee;
+  --av-plate-radius: 3px;
+  --av-cut: 16px;
+  --av-ease: cubic-bezier(.21,.9,.2,1);
+  --hg-bg: var(--av-canvas);
+  --hg-deep: var(--av-deep);
+  --hg-layer: var(--av-plate);
+  --hg-text: var(--av-ink);
+  --hg-dim: var(--av-ink-muted);
+  --hg-subtle: var(--av-ink-faint);
+  --hg-edge: var(--av-line);
+  --hg-blue: var(--av-ice);
+  --hg-ice: #dcf6f6;
+  --hg-gold: var(--av-foil);
+  --hg-violet: #aca6c9;
+  --hg-mint: #9cd0b3;
+  font-feature-settings: "ss01" 1;
+  color: var(--av-ink);
+  background:
+    radial-gradient(ellipse 56% 28% at 84% 0%,rgba(170,127,65,.095),transparent 80%),
+    radial-gradient(ellipse 38% 35% at 0% 38%,rgba(38,92,103,.08),transparent 80%),
+    var(--av-canvas);
+}
+.hg-site:before {
+  background-image:
+    linear-gradient(90deg,transparent calc(50% - .5px),rgba(171,193,186,.044) 50%,transparent calc(50% + .5px)),
+    linear-gradient(rgba(194,209,206,.025) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(194,209,206,.025) 1px,transparent 1px);
+  background-size:100% 100%,96px 96px,96px 96px;
+  mask-image:linear-gradient(180deg,#000,rgba(0,0,0,.37) 64%,transparent);
+  opacity:1;
+}
+.hg-site ::selection {background:rgba(200,169,110,.35);color:#fff}
+.hg-site :focus-visible {outline:2px solid #e7c88f;outline-offset:4px}
+.hg-content {max-width:1560px;padding-inline:clamp(19px,5vw,88px)}
+.hg-section {padding-block:clamp(67px,7.8vw,136px)}
+.hg-eyebrow,.hg-section-tag {
+  font-size:clamp(11px,.72vw,12px);
+  line-height:1.65;letter-spacing:.145em;font-weight:500;color:#c2b397;
+}
+.hg-site .hg-dot{width:6px;height:6px;background:var(--av-foil);box-shadow:0 0 0 3px rgba(200,169,110,.12)}
+.hg-site h1,.hg-site h2,.hg-site h3{font-optical-sizing:auto;text-wrap:balance}
+.hg-site p{overflow-wrap:break-word}
+.hg-site .hg-mono{font-variant-numeric:tabular-nums}
+
+/* The shared AEGIS identity: a crisp editorial masthead, not stacked local navs. */
+.hg-nav-wrap {
+  background:rgba(8,12,15,.92);
+  border-bottom:1px solid rgba(229,219,193,.19);
+  box-shadow:0 18px 46px rgba(0,0,0,.12);
+  backdrop-filter:blur(20px) saturate(105%);
+  -webkit-backdrop-filter:blur(20px) saturate(105%);
+}
+.hg-nav {
+  max-width:1560px;height:76px;gap:clamp(16px,2vw,38px);
+  padding-inline:clamp(19px,5vw,88px);
+}
+.hg-brand{gap:13px}
+.hg-brand svg{filter:none}
+.hg-brand-word strong{
+  font-size:16px;font-weight:700;letter-spacing:.13em;color:#f7f0e4;
+}
+.hg-brand-word em{color:var(--av-foil);font-weight:400}
+.hg-brand-word small{color:#9aabaa;font-size:9px;letter-spacing:.105em}
+.hg-links{gap:clamp(9px,1.7vw,25px)}
+.hg-links a{
+  position:relative;font-size:12px;font-weight:500;letter-spacing:.025em;
+  color:#b2bfbc;border-bottom:1px solid transparent;
+  transition:color .2s var(--av-ease),border-color .2s var(--av-ease);
+}
+.hg-links a:hover,.hg-links a[aria-current=page] {
+  color:#f2e8d6;border-bottom-color:#cbb487;
+}
+.hg-links a[aria-current=page]:before{
+  content:"";width:4px;height:4px;border-radius:50%;
+  background:var(--av-foil);position:absolute;top:19px;left:50%;
+}
+.hg-nav-status{font-size:10px;color:#afc6c0;letter-spacing:.075em}
+.hg-nav-cta{
+  min-height:43px;height:auto;border-radius:2px;
+  background:#d6c19a;color:#0d1415;border:1px solid #e7d5b1;
+  font-weight:700;font-size:12px;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.5);
+  transition:background .19s var(--av-ease),transform .19s var(--av-ease);
+}
+.hg-nav-cta:hover{background:#f3dfb4;transform:translateY(-1px)}
+.hg-menu-toggle{border-color:#8d8b75;border-radius:2px;background:#131b1e;color:#f5e9d8}
+
+/* Cinematic hero: editorial asymmetry, material treated as one intentional canvas. */
+.hg-hero{
+  min-height:min(790px,calc(100svh - 76px));gap:clamp(22px,3vw,65px);
+  grid-template-columns:minmax(0,1.06fr) minmax(0,.94fr);
+  padding-top:clamp(54px,6vw,108px);padding-bottom:clamp(64px,7vw,126px);
+}
+.hg-hero-copy{max-width:900px}
+.hg-hero h1{
+  font-family:Georgia,'Times New Roman',serif;
+  font-size:clamp(62px,6.95vw,120px);
+  font-weight:400;line-height:.92;letter-spacing:-.064em;
+  margin:clamp(22px,3.2vw,45px) 0 26px;
+  color:#f5f0e6;text-shadow:none;
+}
+.hg-hero h1 span{
+  color:#d0b27b;background:none;
+  -webkit-text-fill-color:initial;
+}
+.hg-hero-desc{
+  color:#b9c5c2;line-height:1.66;
+  font-size:clamp(16px,1.25vw,19px);
+  letter-spacing:-.008em;max-width:530px;
+}
+.hg-btn{
+  border-radius:2px;font-weight:650;
+  font-size:13px;letter-spacing:.02em;
+  transition:transform .21s var(--av-ease),background .21s var(--av-ease),border-color .21s var(--av-ease);
+}
+.hg-btn-primary {
+  color:#0c1113;border-color:#e7d6b7;background:#d9c29a;
+  box-shadow:inset 0 1px 0 #fff8,0 11px 30px #0003;
+}
+.hg-btn-secondary{
+  color:#e6e9df;border-color:rgba(210,225,220,.42);
+  background:#121c20;box-shadow:inset 0 1px 0 #eff3ec09;
+}
+.hg-btn-primary:hover{background:#f4dfb6}
+.hg-btn-secondary:hover{background:#1d2d31;border-color:#b9d4d0}
+.hg-hero-note{color:#b1b6ad;font-size:11px;letter-spacing:.12em;margin-top:clamp(30px,5vw,64px)}
+.hg-cross{color:#d6c6a0}
+.hg-orbit-stage {max-width:720px;justify-self:stretch;position:relative}
+.hg-orbit-stage:before{
+  content:"";position:absolute;inset:5% 3% 5%;
+  border:1px solid rgba(197,180,149,.16);pointer-events:none;
+  clip-path:polygon(0 0,calc(100% - 37px) 0,100% 37px,100% 100%,0 100%);
+}
+.hg-orbit-stage .sm-stage {min-height:590px;height:590px}
+.hg-orbit-stage .sm-stage:after{
+  background:radial-gradient(ellipse 67% 69% at center,transparent 34%,#080c0f 92%);
+}
+.hg-motion-control{
+  right:15px;bottom:20px;border:1px solid rgba(215,207,188,.59);
+  border-radius:2px;background:#121c20;color:#f3efe5;
+  box-shadow:0 6px 24px #0006;letter-spacing:.02em;
+}
+.hg-motion-control:hover{background:#2a3334;border-color:#e7d6b7}
+
+/* Recognizable editorial rhythm rather than repeating three-column cards. */
+.hg-facts{border-top:1px solid var(--av-line-strong);border-bottom:1px solid var(--av-line)}
+.hg-facts>div{min-height:122px;padding:26px clamp(12px,2vw,30px) 28px;border-color:var(--av-line)}
+.hg-facts>div:first-child{padding-left:0}
+.hg-facts small{font-size:11px;letter-spacing:.12em;color:#bcb39f}
+.hg-facts b{color:#ece9e1;font-size:clamp(14px,1.07vw,17px);line-height:1.38}
+.hg-site-home h2{font-weight:500;letter-spacing:-.048em}
+.hg-intro h2,.hg-section-head h2{
+  font-family:Georgia,'Times New Roman',serif;font-weight:400;
+  font-size:clamp(43px,5.35vw,81px);letter-spacing:-.052em;line-height:1.05;
+}
+.hg-intro h2 span,.hg-section-head h2 span{color:#d0b88f}
+.hg-intro p,.hg-section-head p{color:#bfc8c1;font-size:clamp(15px,1.15vw,17px)}
+.hg-glass {
+  background:linear-gradient(145deg,#151f22 0%,#11191e 58%,#0c1418);
+  border:1px solid var(--av-line);
+  box-shadow:inset 0 1px 0 #faf5e70a,0 13px 36px #0004;
+  backdrop-filter:none;-webkit-backdrop-filter:none;
+}
+.hg-domain{
+  border-radius:2px;min-height:365px;
+  transition:transform .3s var(--av-ease),border-color .3s var(--av-ease),background .3s var(--av-ease);
+}
+.hg-domain:hover,.hg-domain:focus-visible{
+  border-color:rgba(216,185,132,.65);background:#1b2527;transform:translateY(-5px);
+}
+.hg-domain-top,.hg-domain-tag{font-size:11px!important;letter-spacing:.09em}
+.hg-domain h3{font-weight:550;letter-spacing:-.035em}
+.hg-domain p{color:#b8c5c1}
+.hg-focus-shell{border-radius:3px}
+.hg-focus-menu button[aria-selected=true]{color:#edd4aa}
+.hg-focus-visual{filter:saturate(.68)}
+.hg-holon-core{filter:saturate(.73)}
+.hg-site-home .hg-section-tag:before{
+  content:"";display:inline-block;width:28px;height:1px;background:var(--av-foil);
+  vertical-align:middle;margin-right:15px;
+}
+.hg-footer{border-top:1px solid var(--av-line-strong);background:#090f12}
+.hg-footer-bottom{color:#a1aaa7}
+
+/* Every route shares one chapter system; scientific status labels are never
+   invented from the design-layer palette or from route presence. */
+.hg-route {--av-route-accent:#b9d1d0}
+.hg-route-holon{--av-route-accent:var(--hg-ice,#bbebff)}
+.hg-route-platform{--av-route-accent:#b4dacb}
+.hg-route-runtime{--av-route-accent:#d5bf94}
+.hg-route-console{--av-route-accent:#bed4e1}
+.hg-route-docs{--av-route-accent:#c4bddb}
+.hg-route-compliance{--av-route-accent:#deb6a0}
+.hg-route-tools{--av-route-accent:#b6c8da}
+.hg-route-pricing{--av-route-accent:#dcc091}
+.hg-route-claim-sponsor{--av-route-accent:#bad6a8}
+.hg-route-header{
+  position:relative;display:grid;grid-template-columns:minmax(0,1fr) minmax(260px,.4fr);
+  gap:clamp(20px,4vw,60px);
+  align-items:end;min-height:255px;
+  padding-top:54px;padding-bottom:42px;
+  border-bottom:1px solid var(--av-line-strong);
+}
+.hg-route-header:before{
+  content:"AEGIS  /  SOVEREIGN ATLAS";font:500 11px 'JetBrains Mono',ui-monospace,monospace;
+  letter-spacing:.09em;color:#acb6ac;position:absolute;top:21px;left:clamp(20px,5vw,88px);
+}
+.hg-route-header-main{max-width:830px}
+.hg-route-header h1 {
+  font-family:Georgia,'Times New Roman',serif;
+  font-size:clamp(44px,4.8vw,84px);font-weight:400;letter-spacing:-.053em;
+  line-height:1.02;color:#eee9dd;margin:12px 0 16px;
+}
+.hg-route-header h1:first-letter{color:var(--av-route-accent)}
+.hg-route-header-main p{color:#b6c5c2;font-size:clamp(14px,1.1vw,17px);line-height:1.6}
+.hg-route-aside{
+  border-left:1px solid var(--av-line-strong);padding:8px 0 5px clamp(18px,2vw,30px);
+  background:none;box-shadow:none;
+}
+.hg-route-aside .hg-mono {color:var(--av-route-accent);font-size:11px;letter-spacing:.12em}
+.hg-route-aside p{color:#b3beba;font-size:13px;line-height:1.65}
+.hg-route-aside a{font-size:12px;color:#eee3cd;border-bottom:1px solid #d4b98b}
+.hg-route .hg-legacy-content{position:relative;z-index:1;padding-bottom:clamp(35px,4vw,70px)}
+.hg-route .hg-legacy-content > div:first-child{
+  background-color:transparent!important;
+}
+/* Four formerly isolated commercial/technical surfaces used to contain their
+   own duplicate nav bars, visually competing with the shared sticky nav. */
+.hg-route .hg-legacy-content .av-embedded-nav{display:none!important}
+.hg-route :where(input,textarea,select):not([type="checkbox"]):not([type="radio"]){
+  color-scheme:dark;border-radius:3px;
+}
+.hg-route :where(button,[role="button"],input,textarea,select) {
+  transition-property:border-color,background-color,box-shadow,transform;
+  transition-duration:.18s;transition-timing-function:var(--av-ease);
+}
+.hg-route :where(a,button):focus-visible{outline:2px solid #f3dcae;outline-offset:3px}
+.hg-route :where(pre,code){overflow-wrap:anywhere}
+.hg-route :where(table){max-width:100%;border-spacing:0}
+.hg-route :where(td,th){text-align:left}
+
+/* Work environments retain density, but the same optical values, type hierarchy
+   and accessible controls travel with the rest of the product. */
+.hg-route .rw-shell,.hg-route .op-console {
+  max-width:1560px;margin-inline:auto;
+  color:#eee9de;padding-inline:clamp(19px,5vw,88px);
+}
+.hg-route .rw-ruler,.hg-route .rw-footer,.hg-route .op-dataline {
+  color:#b3c3bc;border-color:var(--av-line);
+}
+.hg-route .rw-hero h1,.hg-route .op-console h1 {
+  font-family:Georgia,'Times New Roman',serif;
+  font-weight:400;letter-spacing:-.057em;
+}
+.hg-route .rw-hero h1 em{color:#d6c09d}
+.hg-route .sf-root {
+  --sf-ink:#0d1215;--sf-panel:#161e21;--sf-cream:#f0ebe1;
+  --sf-stroke:var(--av-line);--sf-metal:var(--av-foil);
+  border-radius:2px;border-color:var(--av-line-strong);
+  box-shadow:0 22px 55px #0003;
+}
+.hg-route .sf-wordmark small,.hg-route .sf-kicker,.hg-route .sf-edition {font-size:max(11px,1em)}
+.hg-route .sf-root :where(button,a){min-height:38px}
+.hg-route .sf-camera button,.hg-route .sf-node,.hg-route .sf-compact-list button {min-height:44px}
+.hg-route .rw-filters button,.hg-route .rw-entry,.hg-route .rw-open a{border-radius:2px}
+.hg-route .op-panel{border-radius:3px}
+
+/* Older pages that were built with solid color inline wrappers get an
+   architecturally consistent inlaid surface, without changing their behavior. */
+.hg-route-pricing .hg-legacy-content > div,
+.hg-route-compliance .hg-legacy-content > div,
+.hg-route-docs .hg-legacy-content > div,
+.hg-route-tools .hg-legacy-content > div,
+.hg-route-claim-sponsor .hg-legacy-content > div {
+  color:#eaeae3;
+  box-shadow:inset 0 1px 0 rgba(200,169,110,.1);
+}
+.hg-route-pricing .hg-legacy-content > div > section:first-of-type,
+.hg-route-compliance .hg-legacy-content > div > section:first-of-type {
+  border-bottom:1px solid rgba(200,169,110,.19);
+}
+.hg-route-pricing .hg-legacy-content > div > section:first-of-type,
+.hg-route-compliance .hg-legacy-content > div > section:first-of-type {
+  padding-top:clamp(55px,8vw,110px)!important;
+}
+/* Avoid duplicative header chrome, but keep all original section anchors,
+   forms, payment buttons and API examples mounted in their original trees. */
+.hg-route-docs .hg-legacy-content > div > .max-w-5xl{max-width:1160px}
+.hg-route-tools .hg-legacy-content > div > .max-w-4xl{max-width:1200px}
+.hg-route-tools .hg-legacy-content > div .bg-hub-bg,
+.hg-route-docs .hg-legacy-content > div .bg-gray-900\/50{
+  background-color:#131c1f;border-color:var(--av-line);
+}
+
+/* Narrow / touch / zoom: no disappearing navigation, no reliant-on-3D content. */
+@media(max-width:1100px){
+  .hg-nav-status{display:none}
+  .hg-hero{min-height:610px}
+  .hg-orbit-stage .sm-stage{min-height:490px;height:490px}
+  .hg-route-header{min-height:215px}
+}
+@media(max-width:900px){
+  .hg-nav{height:70px}
+  .hg-links{
+    border-color:var(--av-line-strong);
+    background:#111a1d;
+    box-shadow:0 21px 65px rgba(0,0,0,.55);
+  }
+  .hg-links a{padding:15px 5px;color:#d8ded7}
+  .hg-links a[aria-current=page]:before{display:none}
+  .hg-hero{grid-template-columns:1fr;gap:0;padding-top:clamp(44px,7vw,65px)}
+  .hg-hero h1{font-size:clamp(62px,11vw,112px)}
+  .hg-orbit-stage {max-width:710px;margin-inline:auto;width:100%}
+  .hg-route-header{grid-template-columns:1fr;gap:20px;min-height:0}
+  .hg-route-aside{max-width:650px}
+}
+@media(max-width:600px){
+  .hg-nav{gap:10px;padding-inline:16px;height:68px}
+  .hg-brand-word strong{font-size:14px;letter-spacing:.1em}
+  .hg-brand-word small{font-size:10px}
+  .hg-nav-cta{font-size:0;min-width:44px;width:44px;height:44px;padding:0 10px;flex:none}
+  .hg-nav-cta svg{width:17px;height:17px}
+  .hg-menu-toggle{min-width:44px;min-height:44px}
+  .hg-content{padding-inline:20px}
+  .hg-hero{padding-top:50px;padding-bottom:40px}
+  .hg-hero h1{font-size:clamp(54px,12.2vw,80px);letter-spacing:-.06em}
+  .hg-hero-desc{font-size:16px;line-height:1.58}
+  .hg-hero-actions .hg-btn{min-height:50px;flex:1 1 190px}
+  .hg-orbit-stage .sm-stage{min-height:340px;height:340px}
+  .hg-facts{grid-template-columns:1fr}
+  .hg-facts>div,.hg-facts>div:first-child{
+    min-height:0;padding:16px 0;border-right:none;border-bottom:1px solid var(--av-line);
+    gap:6px;
+  }
+  .hg-intro h2,.hg-section-head h2{font-size:clamp(42px,10vw,59px)}
+  .hg-route-header{padding-top:53px;padding-bottom:30px}
+  .hg-route-header:before{left:20px;top:20px;font-size:10px}
+  .hg-route-header h1{font-size:clamp(42px,9.9vw,61px)}
+  .hg-route-aside{padding-left:17px}
+  .hg-route .rw-shell,.hg-route .op-console{padding-inline:16px}
+  .hg-route .sf-wordmark small{font-size:10px}
+}
+@media(max-width:360px){
+  .hg-brand-word small{display:none}
+  .hg-nav-cta{padding-inline:10px}
+  .hg-hero h1{font-size:clamp(50px,12.1vw,58px)}
+}
+@media(prefers-reduced-motion:reduce){
+  .hg-site,.hg-site *,.hg-site *:before,.hg-site *:after{
+    scroll-behavior:auto!important;
+    animation-duration:.01ms!important;
+    animation-iteration-count:1!important;
+    transition-duration:.01ms!important;
+  }
+}
+@media(prefers-contrast:more){
+  .hg-site{--av-line:rgba(236,236,224,.55);--av-ink-muted:#e5e9e2}
+  .hg-glass,.hg-domain,.hg-route-header,.hg-route-aside{border-color:#ede9db}
+  .hg-links a{color:#f2f0e9}
+}
+
+
+/* Edition 002: editorial bento rhythm + route families.
+   The same 4 actual domain destinations, but with a composed rather than
+   templated 4-identical-cards visual narrative. */
+@media(min-width:901px){
+  .hg-domains{display:grid;grid-template-columns:repeat(12,minmax(0,1fr));gap:14px}
+  .hg-domains .hg-domain{grid-column:span 6}
+  .hg-domains .hg-domain:nth-child(1){grid-column:span 7}
+  .hg-domains .hg-domain:nth-child(2){grid-column:span 5}
+  .hg-domains .hg-domain:nth-child(3){grid-column:span 5}
+  .hg-domains .hg-domain:nth-child(4){grid-column:span 7}
+}
+.hg-domains .hg-domain{position:relative;overflow:hidden;min-height:350px}
+.hg-domains .hg-domain:after{
+  content:"";pointer-events:none;position:absolute;inset:auto -20% -55% auto;
+  width:min(74%,385px);aspect-ratio:1;border-radius:50%;
+  border:1px solid rgba(206,197,169,.095);
+  box-shadow:0 0 0 40px rgba(206,197,169,.017),0 0 0 90px rgba(206,197,169,.012);
+}
+.hg-domains .hg-domain:nth-child(2):after,.hg-domains .hg-domain:nth-child(3):after{
+  border-radius:18%;transform:rotate(35deg);
+}
+.hg-domain .hg-domain-icon {color:#d4b98e}
+.hg-domain-arrow {color:#dccda9}
+.hg-domain:hover .hg-domain-arrow{transform:translate(2px,-2px)}
+.hg-domain p{max-width:55ch}
+.hg-site-home .hg-proof,.hg-site-home .hg-evidence{
+  border-top:1px solid var(--av-line);
+}
+.hg-route .hg-route-header + .hg-legacy-content {border-top:0}
+/* Commercial and documentation legacy root elements have inline neutral
+   background/color contracts. Normalize only their visual presentation,
+   without touching billing, identity, inputs or submission code. */
+.hg-route-pricing .hg-legacy-content h1,
+.hg-route-compliance .hg-legacy-content h1{
+  font-family:Georgia,'Times New Roman',serif!important;
+  font-weight:400!important;
+  letter-spacing:-.055em!important;
+  background:none!important;
+  -webkit-text-fill-color:#f1e9db!important;
+  color:#f1e9db!important;
+}
+.hg-route-pricing .hg-legacy-content h2,
+.hg-route-compliance .hg-legacy-content h2,
+.hg-route-docs .hg-legacy-content h2,
+.hg-route-tools .hg-legacy-content h2 {
+  color:#ebe6da;font-weight:550;letter-spacing:-.035em
+}
+.hg-route-pricing .hg-legacy-content input[type=email]{
+  min-height:48px!important;border-color:rgba(206,207,194,.48)!important;
+  color:#f1efe4!important;outline-offset:3px;
+}
+.hg-route-pricing .hg-legacy-content a:focus-visible,
+.hg-route-pricing .hg-legacy-content button:focus-visible,
+.hg-route-pricing .hg-legacy-content input:focus-visible{
+  outline:3px solid #ddc591!important;outline-offset:3px!important;
+}
+.hg-route .hg-legacy-content :where(label,legend){color:#d1d6cc}
+.hg-route .hg-legacy-content :where(input,textarea,select){
+  accent-color:#d9c293;
+}
+.hg-route-docs .hg-legacy-content :where(pre,code){
+  font-variant-ligatures:none;
+  font-size:clamp(12px,.88vw,14px);
+}
+.hg-route-docs .hg-legacy-content pre{max-width:100%;overflow:auto}
+.hg-route-docs .hg-legacy-content nav.sticky {scroll-margin-top:90px}
+.hg-route-docs .hg-legacy-content .rounded-lg,
+.hg-route-tools .hg-legacy-content .rounded-xl{
+  border-radius:4px;
+}
+.hg-route-tools .hg-legacy-content .bg-hub-bg{
+  border-color:rgba(196,199,186,.23)!important;
+}
+.hg-route-tools .hg-legacy-content a[href="/pricing"]{
+  border-color:#d2b483;
+}
+.hg-route-claim-sponsor .hg-legacy-content .max-w-md,
+.hg-route-claim-sponsor .hg-legacy-content .max-w-lg{
+  max-width:680px;min-width:0;
+  border:1px solid var(--av-line-strong);
+  background:#121b1e;padding:clamp(20px,4vw,48px);
+  box-shadow:0 24px 74px #0005;
+}
+.hg-route-claim-sponsor .hg-legacy-content input{min-height:46px}
+.hg-route .rt-shell{background:transparent;color:var(--av-ink)}
+.hg-route .rt-topbar{
+  background:#12191ccf;
+  border-bottom-color:var(--av-line);
+}
+.hg-route .rt-topbar :where(a,button){font-size:max(11px,.8em)}
+.hg-route .rt-wrap{max-width:1320px}
+.hg-route .rt-content{isolation:isolate}
+.hg-route .rt-field{opacity:.56}
+.hg-route .op-console .op-panel,.hg-route .rw-inspector,.hg-route .rw-entry{
+  border-color:var(--av-line);
+}
+.hg-route .op-console :where(button,a):focus-visible,
+.hg-route .rw-shell :where(button,a,input):focus-visible{
+  outline:2px solid #e9cd97;outline-offset:3px;
+}
+@media(max-width:900px) {
+  .hg-domains{grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+  .hg-domains .hg-domain{grid-column:auto!important}
+}
+@media(max-width:600px){
+  .hg-domains{grid-template-columns:1fr}
+  .hg-domains .hg-domain{min-height:290px}
+  .hg-route-pricing .hg-legacy-content h1,.hg-route-compliance .hg-legacy-content h1{
+    font-size:clamp(35px,9.1vw,51px)!important;line-height:1.05!important;
+  }
+  .hg-route-claim-sponsor .hg-legacy-content .max-w-md,
+  .hg-route-claim-sponsor .hg-legacy-content .max-w-lg{
+    padding:20px;border-left:0;border-right:0;
+  }
+}
+
+
+/* Precision pass — optical microcopy stays distinguishable on real hardware.
+   Essential source labels are at least 11px; decorative coordinates may
+   disappear before squeezing the usable mobile atlas. */
+.hg-route .sf-root .sf-lens{border-radius:3px;background:#192225}
+.hg-route .sf-root .sf-lens button{
+  min-height:44px;min-width:74px;border-radius:2px;
+  font-size:12px;line-height:1.25;padding:11px 14px;
+}
+.hg-route .sf-root .sf-space-top,
+.hg-route .sf-root .sf-space-bottom,
+.hg-route .sf-root .sf-edition,
+.hg-route .sf-root .sf-detail-label,
+.hg-route .sf-root .sf-verdict span,
+.hg-route .sf-root .sf-inquiry>span,
+.hg-route .sf-root .sf-constraints>span,
+.hg-route .sf-root .sf-footer,
+.hg-route .sf-root .sf-footer p {
+  font-size:11px;line-height:1.55;letter-spacing:.065em;
+}
+.hg-route .sf-root .sf-node-mark,
+.hg-route .sf-root .sf-coordinate,
+.hg-route .sf-root .sf-limit-node span{
+  font-size:11px;line-height:1.3;letter-spacing:.04em;
+}
+.hg-route .sf-root .sf-detail p,
+.hg-route .sf-root .sf-constraints li{
+  line-height:1.62;
+}
+.hg-route .op-console .op-topline,
+.hg-route .op-console .op-bottomline,
+.hg-route .op-console .op-overline,
+.hg-route .rw-shell .rw-ruler,
+.hg-route .rw-shell .rw-footer,
+.hg-route .rw-shell .rw-eyebrow{
+  font-size:11px;letter-spacing:.08em;line-height:1.6;
+}
+.hg-route .sf-root .sf-camera button{min-width:44px;min-height:44px}
+@media(max-width:600px){
+  .hg-route .sf-root .sf-coordinate{display:none}
+  .hg-route .sf-root .sf-footer{align-items:flex-start;gap:9px}
+  .hg-route .sf-root .sf-lens button{min-width:65px;padding-inline:10px}
+}
+
+
+/* Global route locator: one compact chapter rail; no duplicated hero headings.
+   Docs is the single route with its sole h1 owned by the shared shell. */
+.hg-route .av-route-rail{
+  display:flex;justify-content:space-between;align-items:center;gap:18px;
+  position:relative;z-index:3;min-height:63px;
+  border-bottom:1px solid var(--av-line);
+  color:#bfcac4;background:rgba(17,24,26,.34);
+}
+.hg-route .av-route-rail > div{
+  display:flex;flex-wrap:wrap;gap:12px;align-items:center;min-width:0;
+}
+.hg-route .av-route-rail-index{
+  font:500 11px/1.5 'JetBrains Mono',ui-monospace,monospace;
+  letter-spacing:.065em;color:var(--av-route-accent);
+  white-space:nowrap;
+}
+.hg-route .av-route-rail-title{
+  display:inline-block;max-width:45ch;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+  color:#d0d6ca;font-size:12px;
+}
+.hg-route .av-route-rail-right{
+  justify-content:flex-end;text-align:right;
+}
+.hg-route .av-route-rail-right > span{
+  color:#aebfb6;font:10px/1.5 'JetBrains Mono',ui-monospace,monospace;
+  letter-spacing:.055em;white-space:nowrap;
+}
+.hg-route .av-route-rail-right a{
+  display:inline-flex;align-items:center;gap:6px;
+  color:#e5d5b8;font-size:12px;min-height:44px;
+  border-bottom:1px solid transparent;
+}
+.hg-route .av-route-rail-right a:hover{border-bottom-color:#e5d5b8}
+.hg-route:not(.hg-route-docs) > .hg-route-header{display:none}
+.hg-route-docs > .hg-route-header{
+  min-height:220px;padding-top:49px;padding-bottom:36px;
+}
+@media(max-width:1050px){
+  .hg-route .av-route-rail-right > span{display:none}
+}
+@media(max-width:600px){
+  .hg-route .av-route-rail{min-height:58px;padding-inline:16px;gap:10px}
+  .hg-route .av-route-rail-title{display:none}
+  .hg-route .av-route-rail-index{font-size:10px}
+  .hg-route .av-route-rail-right a{font-size:11px}
+  .hg-route-docs > .hg-route-header{padding-top:38px}
+}
