@@ -54,12 +54,15 @@ def select_work(graph: dict, *, source_head: str, tick: str,
         raise ValueError("GRAPH_REPOSITORY_MISMATCH")
     if not re.fullmatch(r"[a-f0-9]{64}", str(graph.get("receipt_hash", ""))):
         raise ValueError("GRAPH_RECEIPT_MISSING")
-    used = set()
+    # Legacy --prior receipts report only that an issue was SELECTED.
+    # They must never remove an unfinished issue from the eligible pool:
+    # queue cooldown and bounded escalation live exclusively in V2 leases.
     if prior is not None:
-        if prior.get("schema") != "AEGIS_OPTIMUS_TICK_V1" or prior.get("authority_effect") != "NONE":
+        if (not isinstance(prior, dict) or
+                prior.get("schema") != "AEGIS_OPTIMUS_TICK_V1" or
+                prior.get("authority_effect") != "NONE" or
+                prior.get("execution_effect") != "NONE"):
             raise ValueError("PRIOR_RECEIPT_UNTRUSTED")
-        if prior.get("source_head") == source_head and prior.get("graph_receipt_hash") == graph["receipt_hash"]:
-            used.add(prior.get("selected_issue"))
 
     pool = {}
     for node in nodes:
@@ -79,8 +82,8 @@ def select_work(graph: dict, *, source_head: str, tick: str,
             raise ValueError("ISSUE_ID_NUMBER_MISMATCH")
         if any(label.lower() in ("needs-operator", "blocked", "do-not-automate") for label in labels):
             continue
-        if key in used or stable_hash({"key": key, "body": node.get("body_sha256", ""),
-                                          "labels": sorted(labels), "title": node.get("title", "")}) in completed_fingerprints:
+        if stable_hash({"key": key, "body": node.get("body_sha256", ""),
+                        "labels": sorted(labels), "title": node.get("title", "")}) in completed_fingerprints:
             continue
         pool.setdefault(topic, []).append(node)
 
