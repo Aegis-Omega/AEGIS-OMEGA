@@ -16,6 +16,7 @@ import { shouldDismissDisclosure } from './lib/disclosure.js'
 const MAIN = [
   { href: '/', label: 'Overview' },
   { href: '/platform', label: 'Platform' },
+  { href: '/holon', label: 'Holon Studio' },
   { href: '/console', label: 'Command' },
   { href: '/runtime', label: 'Runtime' },
   { href: '/docs', label: 'Developers' },
@@ -25,6 +26,7 @@ const MAIN = [
 const SIDE = [
   { href:'/', label:'Overview',glyph:'layers' },
   { href:'/platform',label:'ResearchOS',glyph:'math' },
+  { href:'/holon',label:'Holon Studio',glyph:'layers' },
   { href:'/console',label:'Command',glyph:'terminal' },
   { href:'/runtime',label:'Runtime',glyph:'neural' },
   { href:'/compliance',label:'Verification',glyph:'shield' },
@@ -218,6 +220,7 @@ export function HolonHome() {
 
 type RouteDescription={kicker:string;title:string;description:string;boundary:string;action:{href:string;label:string}}
 const ROUTE_META: Record<string, RouteDescription> = {
+  holon:{kicker:'AEGIS / HOLON MAXIMUS OPTIMUS',title:'Where an idea leaves its trace.',description:'An authored creative lineage from first thought through human choice and synthesis.',boundary:'Local session; pasted model content is unverified; SHA-256 is not a signature or proof of authorship.',action:{href:'/platform',label:'Explore research sources'}},
   platform:{kicker:'AEGIS / PLATFORM',title:'Agent configuration ≠ execution.',description:'Inspect configured departments and workflow behavior.',boundary:'No global latency or replay guarantee. Trust only receipts from the execution actually run.',action:{href:'/docs',label:'Read API contract'}},
   console:{kicker:'AEGIS / COMMAND',title:'Observe the operator state.',description:'Console state, execution traces and admission controls.',boundary:'Live telemetry and example data must remain distinguishable.',action:{href:'/runtime',label:'Inspect runtime'}},
   runtime:{kicker:'AEGIS / CONSTITUTIONAL',title:'Test the mechanism.',description:'In-browser demonstrations and runtime contracts.',boundary:'A browser simulation is not a signed production audit receipt.',action:{href:'/compliance',label:'Control mapping'}},
