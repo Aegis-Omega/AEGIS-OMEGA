@@ -10,7 +10,7 @@
     "preview": "vite preview",
     "test:integrity": "node --experimental-strip-types --test tests/artifact-integrity.test.mjs tests/clipboard-revision.test.mjs",
     "test:console": "node --test tests/console-observation.test.mjs",
-    "test:experience": "node --experimental-strip-types --test tests/holon-interaction.test.mjs tests/disclosure.test.mjs tests/holon-legibility.test.mjs tests/navigation-contract.test.mjs tests/evidence-filament.test.mjs tests/field-topology.test.mjs tests/research-visual-fusion.test.mjs tests/sovereign-matter-3d.test.mjs tests/holon-shader-integrity.test.mjs tests/visual-universe.test.mjs tests/cosmic-command.test.mjs tests/command-palette.test.mjs",
+    "test:experience": "node --experimental-strip-types --test tests/holon-interaction.test.mjs tests/disclosure.test.mjs tests/holon-legibility.test.mjs tests/navigation-contract.test.mjs tests/evidence-filament.test.mjs tests/field-topology.test.mjs tests/research-visual-fusion.test.mjs tests/sovereign-matter-3d.test.mjs tests/holon-shader-integrity.test.mjs tests/visual-universe.test.mjs tests/cosmic-command.test.mjs tests/command-palette.test.mjs tests/holon-maximus.test.mjs",
     "test:field": "node --experimental-strip-types --test tests/field-topology.test.mjs",
     "test:design": "node --test tests/visual-universe.test.mjs",
     "test:cosmic": "node --test tests/cosmic-command.test.mjs",
