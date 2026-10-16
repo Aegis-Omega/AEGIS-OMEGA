@@ -1,0 +1,23 @@
+{
+  "schema": "AEGIS_EXISTING_ALPHA_CATALOG_CONNECTION_V1",
+  "archive_sha256": "1b5ba31d5c8cc99970ae8aaef9860318cc889ef9bac51bf613e720f78174dfac",
+  "db_sha256": "97c6aa8e379dfa5f7e050173475bae89c1be44bfa60dbadbff594ab91d461683",
+  "integrity": "ok",
+  "counts": {
+    "assets": 32841,
+    "coverage": 67445,
+    "trials": 98418
+  },
+  "coverage_states": {
+    "DEDUP_LINKED_TO_EVALUATED_CONTENT": 34476,
+    "SENSITIVE_METADATA_ONLY": 67,
+    "SOURCE_QUARANTINED": 61,
+    "UNIQUE_REPRESENTATION_EVOLVED": 32841
+  },
+  "read_only_adapter": "EXECUTED_ON_ACTUAL_ARCHIVED_DB",
+  "query": "quantum",
+  "query_limit": 5,
+  "source_contents_replayed": false,
+  "query_result_count": 5,
+  "source_db_unchanged": true
+}

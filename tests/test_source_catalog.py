@@ -40,4 +40,42 @@ class CatalogTests(unittest.TestCase):
             p=Path(d)/'in.json';p.write_text(json.dumps(self.manifest()))
             with self.assertRaises(ValueError):c.build(p,p)
 
+class ExistingAlphaCorpusTests(unittest.TestCase):
+    def test_reads_existing_schema_preserves_states_and_source_bytes(self):
+        with tempfile.TemporaryDirectory() as d:
+            p=Path(d)/'corpus.sqlite'
+            with sqlite3.connect(p) as db:
+                db.execute('CREATE TABLE objects(id INTEGER PRIMARY KEY,sha256 TEXT,category TEXT,format TEXT,status TEXT,member TEXT)')
+                db.executemany('INSERT INTO objects VALUES(?,?,?,?,?,?)',[
+                    (1,'a'*64,'FORMAL_SOURCE','.lean','IMPORTED_BYTES_VERIFIED','proof/example.lean'),
+                    (2,None,'UNKNOWN','.lean','QUARANTINED','bad/example.lean')])
+            before=p.read_bytes()
+            rows=c.search_alpha_corpus(p,'example.lean')
+            self.assertEqual([r['source_object_id'] for r in rows],[1,2])
+            self.assertEqual(rows[1]['status'],'QUARANTINED')
+            self.assertEqual(p.read_bytes(),before)
+            self.assertEqual(c.search_alpha_corpus(p,"' OR 1=1 --"),[])
+
+    def test_existing_evaluation_catalog_preserves_aliases_and_science_state(self):
+        with tempfile.TemporaryDirectory() as d:
+            p=Path(d)/'evolved.sqlite'
+            with sqlite3.connect(p) as db:
+                db.execute('CREATE TABLE assets(digest TEXT,member TEXT,category TEXT,format TEXT,state TEXT,science_state TEXT,verified INTEGER)')
+                db.execute('CREATE TABLE coverage(object_id INTEGER,digest TEXT,state TEXT)')
+                db.execute('INSERT INTO assets VALUES(?,?,?,?,?,?,?)',('a'*64,'research/a.csv','STRUCTURED_DATA','.csv','EVOLVED_ROUNDTRIP_VERIFIED','EVALUATOR_REQUIRED',1))
+                db.executemany('INSERT INTO coverage VALUES(?,?,?)',[(1,'a'*64,'UNIQUE_REPRESENTATION_EVOLVED'),(2,'a'*64,'DEDUP_LINKED_TO_EVALUATED_CONTENT')])
+            before=p.read_bytes();rows=c.search_alpha_corpus(p,'a.csv')
+            self.assertEqual(len(rows),1)
+            self.assertEqual(rows[0]['source_references'],2)
+            self.assertEqual(rows[0]['science_state'],'EVALUATOR_REQUIRED')
+            self.assertEqual(p.read_bytes(),before)
+
+    def test_wrong_schema_and_missing_input_fail_without_creating_database(self):
+        with tempfile.TemporaryDirectory() as d:
+            p=Path(d)/'missing'
+            with self.assertRaises(sqlite3.OperationalError): c.search_alpha_corpus(p,'x')
+            self.assertFalse(p.exists())
+            with sqlite3.connect(p) as db: db.execute('CREATE TABLE unrelated(x)')
+            with self.assertRaises(ValueError): c.search_alpha_corpus(p,'x')
+
 if __name__=='__main__':unittest.main()

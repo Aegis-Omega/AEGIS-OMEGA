@@ -72,17 +72,54 @@ def search(database, query, limit=30):
           WHERE instr(lower(a.path),lower(?))>0
           ORDER BY a.repository,a.path LIMIT ?''', (query, min(max(limit,1),100)))]
 
+def search_alpha_corpus(database, query, limit=30):
+    """Read the existing AlphaEvolve master objects table without copying data.
+
+    Preserve import/quarantine states; an index match is not evaluator admission.
+    The caller supplies an already-authorized local catalog, not a remote URL.
+    """
+    uri = Path(database).resolve().as_uri() + '?mode=ro'
+    with sqlite3.connect(uri, uri=True) as db:
+        db.execute('PRAGMA query_only=ON')
+        db.row_factory = sqlite3.Row
+        columns = {r[1] for r in db.execute('PRAGMA table_info(objects)')}
+        required = {'id','sha256','category','format','status','member'}
+        if required <= columns:
+            return [dict(r) for r in db.execute("""
+              SELECT id AS source_object_id,sha256,category,format,status,member,
+                     'ALPHAEVOLVE_CORPUS_METADATA' AS source_kind
+              FROM objects WHERE instr(lower(member),lower(?))>0
+              ORDER BY id LIMIT ?""", (query, min(max(limit,1),100)))]
+        # The existing evaluated catalog preserves one content record per digest
+        # and a separate coverage row for every source object and alias.
+        columns = {r[1] for r in db.execute('PRAGMA table_info(assets)')}
+        coverage = {r[1] for r in db.execute('PRAGMA table_info(coverage)')}
+        required = {'digest','member','category','format','state','science_state','verified'}
+        if not required <= columns or not {'object_id','digest','state'} <= coverage:
+            raise ValueError('Unsupported AlphaEvolve corpus schema')
+        return [dict(r) for r in db.execute("""
+          SELECT a.digest AS sha256,a.category,a.format,a.state AS status,a.member,
+                 a.science_state,a.verified,
+                 (SELECT count(*) FROM coverage c WHERE c.digest=a.digest) AS source_references,
+                 'ALPHAEVOLVE_EVALUATED_METADATA' AS source_kind
+          FROM assets a WHERE instr(lower(a.member),lower(?))>0
+          ORDER BY a.digest LIMIT ?""", (query, min(max(limit,1),100)))]
+
 def main():
     p=argparse.ArgumentParser(description=__doc__)
     p.add_argument('--database', type=Path, required=True)
     p.add_argument('--snapshot', type=Path)
     p.add_argument('--allow-private-local', action='store_true')
     p.add_argument('--search')
+    p.add_argument('--alpha-corpus', type=Path, help='Read-only existing AlphaEvolve corpus.sqlite')
     a=p.parse_args()
     if a.snapshot:
         print(json.dumps({'indexed_assets':build(a.snapshot,a.database,a.allow_private_local)}))
     if a.search is not None:
-        print(json.dumps(search(a.database,a.search),indent=2))
+        result = {'git_sources': search(a.database,a.search)}
+        if a.alpha_corpus is not None:
+            result['alphaevolve_sources'] = search_alpha_corpus(a.alpha_corpus,a.search)
+        print(json.dumps(result,indent=2))
     if a.snapshot is None and a.search is None: p.error('Supply --snapshot or --search')
 
 if __name__=='__main__': main()
