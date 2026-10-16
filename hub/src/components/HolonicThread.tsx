@@ -18,7 +18,9 @@ const originLabel=(e:HolonEvent)=>e.actor==='human'?'Human-authored':
 export function HolonicThread({trace}:{trace:HolonTrace}){
   const [yaw,setYaw]=useState(0)
   const [focusId,setFocusId]=useState<string|null>(null)
-  const thread=useMemo(()=>buildHolonicThread(trace,yaw),[trace,yaw])
+  const [windowEnd,setWindowEnd]=useState<number|null>(null)
+  const effectiveEnd=windowEnd===null?trace.events.length:Math.min(windowEnd,trace.events.length)
+  const thread=useMemo(()=>buildHolonicThread(trace,yaw,effectiveEnd),[trace,yaw,effectiveEnd])
   const focus=threadFocus(trace,focusId)
   const allById=useMemo(()=>new Map(trace.events.map(e=>[e.id,e])),[trace])
   const activeId=focus?.id??null
@@ -34,12 +36,18 @@ export function HolonicThread({trace}:{trace:HolonTrace}){
       <div className="ht-metrics" aria-label="Thread rendering scope">
         <span><b>{thread.points.length}</b> visible events</span>
         <span><b>{thread.strands.length}</b> visible source links</span>
-        {thread.hiddenEvents>0&&<span>{thread.hiddenEvents} earlier events outside this window</span>}
+        {thread.hiddenEvents>0&&<span>{thread.hiddenBefore} earlier · {thread.hiddenAfter} later events outside this window</span>}
         {thread.hiddenStrands>0&&<span>{thread.hiddenStrands} links outside this window</span>}
       </div>
     </div>
     <div className="ht-composition">
       <div className="ht-scene">
+        <div className="ht-timeline" role="group" aria-label="Navigate recorded creative history">
+          <button type="button" onClick={()=>setWindowEnd(Math.max(1,effectiveEnd-12))} disabled={effectiveEnd<=1} aria-label="View earlier recorded events">← Earlier</button>
+          <span>{trace.events.length?"Events "+(thread.windowStart+1)+"–"+thread.windowEnd+" / "+trace.events.length:"No events"}</span>
+          <button type="button" onClick={()=>setWindowEnd(effectiveEnd>=trace.events.length-12?null:Math.min(trace.events.length,effectiveEnd+12))} disabled={effectiveEnd>=trace.events.length} aria-label="View later recorded events">Later →</button>
+          <button type="button" onClick={()=>setWindowEnd(null)} disabled={effectiveEnd===trace.events.length} aria-label="View latest recorded events">Latest</button>
+        </div>
         <div className="ht-tools" role="group" aria-label="Adjust spatial thread perspective">
           <button type="button" onClick={()=>setYaw(v=>Math.max(-.72,Math.round((v-.18)*100)/100))} disabled={!thread.points.length||yaw<=-.72} aria-label="Turn perspective left">←</button>
           <button type="button" onClick={()=>setYaw(0)} disabled={!thread.points.length||yaw===0} aria-label="Center perspective">Center</button>
