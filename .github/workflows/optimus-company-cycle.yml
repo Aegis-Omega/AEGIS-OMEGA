@@ -1,0 +1,35 @@
+name: AEGIS OPTIMUS Company Cycle (zero-spend intake)
+on:
+  schedule:
+    - cron: '7 */6 * * *'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: aegis-optimus-zero-spend
+  cancel-in-progress: false
+jobs:
+  intake:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate adapter locally (without inference)
+        run: python3 -m unittest scripts/test_optimus_company_tick.py -v
+      - name: Read existing GitHub work graph and select next eligible work
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          python3 scripts/optimus_company_tick.py \
+            --live-repo Aegis-Omega/AEGIS-OMEGA \
+            --source-head "${GITHUB_SHA}" \
+            --tick "run-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}" \
+            --output /tmp/aegis-optimus-receipt.json
+          {
+            echo '## AEGIS OPTIMUS — source-bound read-only cycle'
+            echo 'No inference spending, no dispatch, no GitHub issue mutation, no protected-main changes.'
+            echo '```json'
+            cat /tmp/aegis-optimus-receipt.json
+            echo '```'
+          } >> "${GITHUB_STEP_SUMMARY}"
