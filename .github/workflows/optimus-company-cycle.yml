@@ -5,6 +5,7 @@ on:
   workflow_dispatch:
 permissions:
   contents: read
+  issues: write
 concurrency:
   group: aegis-optimus-zero-spend
   cancel-in-progress: false
@@ -26,10 +27,11 @@ jobs:
             --live-repo Aegis-Omega/AEGIS-OMEGA \
             --source-head "${GITHUB_SHA}" \
             --tick "run-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}" \
+            --record-checkpoint --checkpoint-issue 734 \
             --output /tmp/aegis-optimus-receipt.json
           {
             echo '## AEGIS OPTIMUS — source-bound read-only cycle'
-            echo 'No inference spending, no dispatch, no GitHub issue mutation, no protected-main changes.'
+            echo 'No inference spending, no model dispatch, no protected-main changes; only an idempotent existing-issue checkpoint comment.'
             echo '```json'
             cat /tmp/aegis-optimus-receipt.json
             echo '```'
