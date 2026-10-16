@@ -61,6 +61,8 @@ export function HolonMaximusStudio(){
   const humanDecisions=trace.events.filter(e=>e.actor==='human').length
   const lastHash=trace.events.at(-1)?.hash??'NOT RECORDED'
   const canWeave=choices.length>=2&&selected.length>=2
+  const includedChoices=choices.slice(0,4)
+  const includedBranches=new Set(includedChoices.map(choice=>choice.parents[0]))
   const graphStats=useMemo(()=>({nodes:trace.events.length,links:trace.events.reduce((n,e)=>n+e.parents.length,0)}),[trace])
 
   async function append(kind:HolonKind,text:string,parents:string[],role:HolonRole='human',selectedLens:HolonLens='none',onSuccess?:()=>void){
@@ -145,19 +147,19 @@ export function HolonMaximusStudio(){
         </section>}
         {!!branches.length&&<section className="hm-step" aria-labelledby="hm-choose-heading">
           <div className="hm-step-label">03 / CHOOSE</div><h2 id="hm-choose-heading">Taste is a human decision.</h2>
-          <p className="hm-helper">Choosing records your decision. A model suggestion never becomes an accepted direction automatically.</p>
+          <p className="hm-helper">Choose up to four distinct directions. Every choice is yours; a model suggestion is never accepted automatically.</p>
           <div className="hm-branches">{branches.map(e=><div className="hm-branch" key={e.id}>
             <div className="hm-branch-head"><span>{e.actor==='human'?'HUMAN IDEA':'PASTED '+e.actor.toUpperCase()+' / UNVERIFIED'}</span><span>{e.lens}</span></div>
             <p>{e.text}</p>
-            <button type="button" disabled={busy||selectedIds.has(e.id)||!capacity} onClick={()=>void append('select','Human selected: '+shorten(e.text,110),[e.id])}>{selectedIds.has(e.id)?'Chosen by human ✓':'Keep this direction +'}</button>
+            <button type="button" disabled={busy||selectedIds.has(e.id)||selectedIds.size>=4||!capacity} onClick={()=>void append('select','Human selected: '+shorten(e.text,110),[e.id])}>{selectedIds.has(e.id)?'Chosen by human ✓':'Keep this direction +'}</button>
           </div>)}</div>
         </section>}
         {canWeave&&<section className="hm-step" aria-labelledby="hm-weave-heading">
           <div className="hm-step-label">04 / WEAVE</div><h2 id="hm-weave-heading">Combine what you chose.</h2>
-          <p className="hm-helper">{selected.length} distinct directions selected. Weaving is a human-authored synthesis.</p>
+          <p className="hm-helper">{includedBranches.size} distinct human-chosen directions enter this synthesis. Weaving is human-authored.</p>
           <label htmlFor="hm-weave">What emerges when these ideas meet?</label>
           <textarea id="hm-weave" value={weave} onChange={e=>setWeave(e.target.value)} rows={3} maxLength={MAX_HOLON_TEXT}/>
-          <button className="hm-action" type="button" disabled={busy||!weave.trim()||!capacity} onClick={()=>void append('weave',weave,choices.slice(0,4).map(x=>x.id),'human','none',()=>setWeave(''))}>Record the synthesis →</button>
+          <button className="hm-action" type="button" disabled={busy||!weave.trim()||!capacity} onClick={()=>void append('weave',weave,includedChoices.map(x=>x.id),'human','none',()=>setWeave(''))}>Record the synthesis →</button>
         </section>}
         {lastWeave&&<section className="hm-step" aria-labelledby="hm-artifact-heading">
           <div className="hm-step-label">05 / CRAFT</div><h2 id="hm-artifact-heading">Make an authored outcome.</h2>
