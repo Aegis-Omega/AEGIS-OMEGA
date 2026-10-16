@@ -171,7 +171,7 @@ void main() {
   // Vignette respects legibility: artwork does not serve as the reading plane.
   col*=.96+.04*(1.-smoothstep(.80,2.1,length(uv)));
   outColor=vec4(pow(tonemapACES(max(col,vec3(0.))),vec3(1./2.2)),1.);
-}}`
+}`
 
 const DOMAIN: Record<string, number> = {
   'formal-fork': 0, 'qgi-lab': 1, qbp: 2,
