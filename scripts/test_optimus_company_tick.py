@@ -55,6 +55,32 @@ class TestTick(unittest.TestCase):
     def test_no_work_hold(self):
         r=opt.select_work(graph(),source_head=HEAD,tick='tick-1')
         self.assertEqual(r['disposition'],'HOLD_NO_NEW_VERIFIABLE_WORK')
+    def test_persistent_history_deduplicates(self):
+        n=node(8,'commerce');n['body_sha256']='c'*64;n['title']='Revenue case'
+        g=graph(n)
+        a=opt.select_work(g,source_head=HEAD,tick='tick-1')
+        b=opt.select_work(g,source_head=HEAD,tick='tick-2',
+                          completed_fingerprints=frozenset({a['selected_fingerprint']}))
+        self.assertEqual(b['disposition'],'HOLD_NO_NEW_VERIFIABLE_WORK')
+    def test_changed_issue_reopens(self):
+        n=node(8,'commerce');n['body_sha256']='c'*64;n['title']='Revenue case'
+        a=opt.select_work(graph(n),source_head=HEAD,tick='tick-1')
+        n['body_sha256']='d'*64
+        b=opt.select_work(graph(n),source_head=HEAD,tick='tick-2',
+                          completed_fingerprints=frozenset({a['selected_fingerprint']}))
+        self.assertEqual(b['disposition'],'REVIEW_READY')
+    def test_untrusted_comment_rejected(self):
+        with self.assertRaisesRegex(ValueError,'CHECKPOINT_AUTHOR_UNTRUSTED'):
+            opt.checkpoint_from_comment({'user': {'login':'attacker','type':'User'},
+                'body':opt.CHECKPOINT_MARKER+'\n{}'})
+    def test_checkpoint_never_writes_without_work(self):
+        out=opt.persist_checkpoint(issue=734,token='fake-data',comment_id=None,
+              state={'schema':opt.CHECKPOINT_SCHEMA,'fingerprints':[]},
+              receipt={'disposition':'HOLD_NO_NEW_VERIFIABLE_WORK'})
+        self.assertEqual(out['status'],'NO_WRITE')
+    def test_checkpoint_issue_allowlist(self):
+        with self.assertRaisesRegex(ValueError,'CHECKPOINT_ISSUE_NOT_ALLOWED'):
+            opt.read_checkpoint(issue=777,token='fake-token')
     def test_tick_strict(self):
         with self.assertRaisesRegex(ValueError,'INVALID_TICK'):
             opt.select_work(graph(),source_head=HEAD,tick='a'*200)
