@@ -69,7 +69,8 @@ class TestTick(unittest.TestCase):
             opt.select_work(graph(node(1,'engineering')),source_head=HEAD,tick='tick-1',prior={'schema':'bad'})
     def test_bad_issue_rejected(self):
         with self.assertRaisesRegex(ValueError,'INVALID_ISSUE_ID'):
-            opt.select_work(graph({'key':'../../secrets','topic':'commerce','labels':[]}),source_head=HEAD,tick='tick-1')
+            opt.select_work(graph({'key':'../../secrets','number':1,'title':'Unsafe issue',
+                                   'topic':'commerce','labels':[],'body_sha256':'0'*64}),source_head=HEAD,tick='tick-1')
     def test_no_work_hold(self):
         r=opt.select_work(graph(),source_head=HEAD,tick='tick-1')
         self.assertEqual(r['disposition'],'HOLD_NO_NEW_VERIFIABLE_WORK')
