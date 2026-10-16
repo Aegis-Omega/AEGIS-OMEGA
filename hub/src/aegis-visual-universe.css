@@ -210,6 +210,7 @@
 /* Every route shares one chapter system; scientific status labels are never
    invented from the design-layer palette or from route presence. */
 .hg-route {--av-route-accent:#b9d1d0}
+.hg-route-holon{--av-route-accent:var(--hg-ice,#bbebff)}
 .hg-route-platform{--av-route-accent:#b4dacb}
 .hg-route-runtime{--av-route-accent:#d5bf94}
 .hg-route-console{--av-route-accent:#bed4e1}
