@@ -60,11 +60,11 @@ vec2 map(vec3 p) {
   vec3 crystal=p; crystal.xz=rot(.785398)*crystal.xz;
   float shell=u_concept>.5?omega(p):octa(p,1.01);
   float facet=u_concept>.5?100.:abs(octa(crystal*.87,.81)/.87)-.022;
-  float ring=torus(p,vec2(1.39,.026));
+  float ring=u_limits>=.5?torus(p,vec2(1.39,.026)):100.;
   vec3 r=p; r.xy=rot(1.14)*r.xy;
-  float ring2=torus(r,vec2(1.27,.015));
+  float ring2=u_limits>=1.5?torus(r,vec2(1.27,.015)):100.;
   r=p; r.yz=rot(.88)*r.yz;
-  float ring3=torus(r,vec2(1.36,.013));
+  float ring3=u_limits>=2.5?torus(r,vec2(1.36,.013)):100.;
   float d=min(min(shell,facet),min(ring,min(ring2,ring3)));
   float id=shell<min(facet,min(ring,min(ring2,ring3)))?1.0:
     facet<min(ring,min(ring2,ring3))?2.0:3.0;
@@ -139,9 +139,9 @@ void main() {
     vec3 n=norm(hit),v=-rd;
     float NoV=sat(dot(n,v));
     vec3 hue=accent(u_domain);
-    vec3 ink=mid<1.5?mix(hue,vec3(.8,.93,1.),.64):mid<2.5?
-      mix(hue,vec3(.76,.88,1.),.35):mix(vec3(.82,.67,.42),hue,.18);
-    float roughness=mid<1.5?.14:mid<2.5?.21:.29;
+    vec3 ink=mid<1.5?mix(vec3(.15,.35,.73),hue,.35):mid<2.5?
+      mix(hue,vec3(.29,.66,.85),.44):mix(vec3(.69,.45,.24),hue,.18);
+    float roughness=mid<1.5?.18:mid<2.5?.24:.26;
     float ao=ambientOcclusion(hit,n);
     vec3 F0=mid<1.5?vec3(.055):mix(vec3(.09),ink*.72,.64);
     vec3 key=keyLight(n,v,normalize(vec3(-.52,.77,1.)),vec3(3.7,4.0,4.7),F0,roughness);
@@ -152,9 +152,10 @@ void main() {
     // Thin-film impression is explicitly artistic; not a measured optical coating.
     float phase=sin((1.-NoV)*15.5+dot(n,vec3(2.4,1.7,.4)));
     vec3 film=mix(vec3(.73,.86,1.06),vec3(1.08,.76,.98),.5+.5*phase);
-    vec3 transmission=refr*(.58+.24*ao)+ink*(.13+.15*sat(dot(n,normalize(vec3(-.52,.77,1.)))))*ao;
+    vec3 opticalBody=mix(vec3(.06,.22,.43),ink,.46+.18*NoV);
+    vec3 transmission=refr*(.34+.30*ao)+opticalBody*(.10+.12*sat(dot(n,normalize(vec3(-.52,.77,1.)))))*ao;
     vec3 reflected=(key+rim+warm)*ao;
-    vec3 edge=fres*ink*film*(mid<1.5?.66:.36);
+    vec3 edge=fres*ink*film*(mid<1.5?.85:.53);
     col=transmission+reflected+edge;
     col+=ink*.07*sat(1.-NoV)*(1.+.25*u_limits);
     col=mix(bg,col,exp(-.014*t*t));
