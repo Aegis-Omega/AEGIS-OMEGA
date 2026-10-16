@@ -15,7 +15,7 @@ const embedded = ['PricingPage','CompliancePage','DocsPage','ToolsPage']
 test('all published hub surfaces inherit the same global visual system',()=>{
   assert.match(files.holon,/import '\.\/aegis-visual-universe\.css'/)
   const routes=[...files.app.matchAll(/case '\/([^']+)'/g)].map(x=>x[1])
-  assert.equal(routes.length,8,'8 non-home routes + homepage')
+  assert.equal(routes.length,9,'9 non-home routes + homepage')
   for(const route of routes)assert.ok(files.visual.includes('.hg-route-'+route),
     'Missing visual coverage for /'+route)
   assert.ok(files.visual.includes('.hg-site-home'))
