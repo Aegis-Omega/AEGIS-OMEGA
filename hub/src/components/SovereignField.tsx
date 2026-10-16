@@ -70,7 +70,7 @@ export function SovereignField({ sources, selectedId, onSelect }: Props) {
           <button type="button" aria-pressed={lens === 'lineage'} onClick={() => setLens('lineage')}>Lineage</button>
         </div></div>
         <div className={'sf-universe ' + (lens === 'lineage' ? 'sf-universe-lineage' : '')}>
-          {selected && <SovereignMatter sourceId={selected.id} limitCount={selected.boundaries.length} motionOverride={false} conceptArt />}
+          {selected && <SovereignMatter sourceId={selected.id} limitCount={selected.boundaries.length} viewYaw={yaw} motionOverride={false} conceptArt />}
           <div className="sf-coordinate sf-coordinate-top" aria-hidden="true">RELATIONAL COORDINATES <span>·</span> OBSERVED CATALOG</div>
           <div className="sf-coordinate sf-coordinate-bottom" aria-hidden="true">DRAG BACKGROUND TO ORBIT <span>·</span> NO SIMULATED TELEMETRY</div>
           <div className="sf-compact-list" aria-label="Accessible source navigator">
