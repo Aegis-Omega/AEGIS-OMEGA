@@ -38,10 +38,26 @@ class TestTick(unittest.TestCase):
     def test_valid_receipt_deterministic(self):
         g=graph(node(42,'research'));x=opt.select_work(g,source_head=HEAD,tick='tick-1')
         self.assertEqual(x,opt.select_work(g,source_head=HEAD,tick='tick-1'))
-    def test_prior_prevents_duplicate(self):
+    def test_prior_selection_never_counts_as_completion(self):
         g=graph(node(42,'research')); first=opt.select_work(g,source_head=HEAD,tick='tick-1')
         second=opt.select_work(g,source_head=HEAD,tick='tick-2',prior=first)
-        self.assertEqual(second['disposition'],'HOLD_NO_NEW_VERIFIABLE_WORK')
+        self.assertEqual(first['disposition'], 'REVIEW_READY')
+        self.assertEqual(second['disposition'], 'REVIEW_READY')
+        self.assertEqual(second['selected_issue'], first['selected_issue'])
+
+    def test_previous_proposal_cannot_suppress_undone_task(self):
+        g=graph(node(43,'formal'))
+        first=opt.select_work(g,source_head=HEAD,tick='tick-1')
+        second=opt.select_work(g,source_head=HEAD,tick='tick-2',prior=first)
+        self.assertEqual(second['selected_issue'], 'Aegis-Omega/AEGIS-OMEGA#43')
+        self.assertEqual(second['execution_effect'], 'NONE')
+
+    def test_prior_execution_claim_must_be_none(self):
+        g=graph(node(42,'research'))
+        first=opt.select_work(g,source_head=HEAD,tick='tick-1')
+        first['execution_effect']='COMPLETED'
+        with self.assertRaisesRegex(ValueError,'PRIOR_RECEIPT_UNTRUSTED'):
+            opt.select_work(g,source_head=HEAD,tick='tick-2',prior=first)
     def test_change_source_invalidates_dedupe(self):
         g=graph(node(42,'research')); first=opt.select_work(g,source_head=HEAD,tick='tick-1')
         second=opt.select_work(g,source_head='b'*40,tick='tick-2',prior=first)
