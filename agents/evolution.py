@@ -3,8 +3,8 @@ AEGIS-Ω Agent Evolution — Hash-Chained Adaptive Lineage
 =======================================================
 The evolutionary metabolism of the automaton's agent system.
 
-Skills are not fixed at their birth tier. They earn promotion through accumulated,
-hash-chained evidence — exactly as CLAUDE.md §"Tier Promotion Protocol" specifies:
+Skills are not fixed at their birth tier. They may become promotion candidates through
+reported counters, but require separate signed external attestation; hash-chained evidence — exactly as CLAUDE.md §"Tier Promotion Protocol" specifies:
 
     T2 → T1   ≥3 independent validations (failure_rate < 0.1)   → TIER_PROMOTION entry
     T1 → T0   formal proof OR byte-identical cross-platform demo → TIER_PROMOTION + guardian
@@ -178,7 +178,7 @@ class EvolutionEngine:
     Evaluates the skill tree for tier promotions and records them in the lineage.
 
     Promotion is evidence-driven, not asserted:
-      - T2 → T1: automatic when ≥3 validated_runs, failure_rate < 0.1, confidence ≥ 0.9.
+      - T2 → T1: candidate only; unverified counters cannot authorize promotion.
       - T1 → T0: NEVER automatic. Recorded as guardian-required; not self-granted.
       - Demotion: when failure_rate ≥ 0.5 after ≥3 runs, the prior tier basis is
         invalidated → demote one tier (new evidence invalidates the prior basis).
@@ -217,11 +217,12 @@ class EvolutionEngine:
         fail = skill.get("failure_rate", 0.0)
         conf = skill.get("confidence", 0.5)
 
-        # Demotion check first — new failing evidence invalidates the prior basis.
+        # Untrusted failure counters may trigger review, never auto-demote.
         if runs >= PROMOTION_MIN_RUNS and fail >= 0.5:
             return PromotionVerdict(
                 sid, tier, self._lower_tier(tier), False,
-                f"failure_rate={fail:.2f} ≥ 0.5 over {runs} runs — prior tier basis invalidated",
+                f"reported failure_rate={fail:.2f} over {runs} runs — INDEPENDENT REVIEW REQUIRED",
+                requires_guardian=True,
             )
 
         # T1 → T0 is never automatic (no autonomous mutation authority).
@@ -234,13 +235,16 @@ class EvolutionEngine:
                 )
             return PromotionVerdict(sid, tier, None, False, "T1 stable — no promotion criteria met")
 
-        # T2 → T1 — automatic when the evidence threshold is crossed.
+        # T2 → T1 counters may identify candidates, NEVER self-promote.
+        # The counters themselves are mutable JSON; hash chaining does not
+        # establish the independent origin of a claimed validation.
         if tier == "T2":
             if (runs >= PROMOTION_MIN_RUNS and fail < PROMOTION_MAX_FAILURE_RATE
                     and conf >= PROMOTION_MIN_CONFIDENCE):
                 return PromotionVerdict(
-                    sid, tier, "T1", True,
-                    f"T2→T1: {runs} validations, failure_rate={fail:.2f}, confidence={conf:.2f}",
+                    sid, tier, "T1", False,
+                    "T2→T1 eligibility ONLY: independent signed test attestation and guardian review required",
+                    requires_guardian=True,
                 )
             return PromotionVerdict(
                 sid, tier, None, False,
@@ -251,36 +255,17 @@ class EvolutionEngine:
         return PromotionVerdict(sid, tier, None, False, f"{tier} evolves via corpus re-arbitration, not run count")
 
     def tick(self, apply_changes: bool = True) -> list[PromotionVerdict]:
-        """Run one evolution tick across all skills. Records lineage events."""
+        """Compute eligibility WITHOUT writing tier state from mutable counters.
+
+        Both positive promotion and negative demotion require independent
+        evidence verified outside the agent-controlled lineage and registry.
+        A content hash or actor-authored success/failure boolean is not a
+        signature from an independent runner. Until that verifier exists,
+        this method is deliberately read-only, even when apply_changes=True.
+        """
         tree = self._load_tree()
-        verdicts: list[PromotionVerdict] = []
+        return [self.evaluate_skill(skill) for skill in tree.get("skills", [])]
 
-        for skill in tree.get("skills", []):
-            v = self.evaluate_skill(skill)
-            verdicts.append(v)
-
-            if v.promoted and apply_changes:
-                # Earned T2→T1 promotion — record and apply.
-                self.lineage.append(
-                    "TIER_PROMOTION", v.skill_id, v.current_tier, v.eligible_tier or v.current_tier, v.reason,
-                )
-                skill["tier"] = v.eligible_tier
-            elif v.eligible_tier and self._is_demotion(v) and apply_changes:
-                self.lineage.append(
-                    "TIER_DEMOTION", v.skill_id, v.current_tier, v.eligible_tier, v.reason,
-                )
-                skill["tier"] = v.eligible_tier
-            elif v.requires_guardian and apply_changes:
-                # Record eligibility WITHOUT promoting (no self-grant of T0).
-                self.lineage.append(
-                    "EVIDENCE_RECORDED", v.skill_id, v.current_tier, v.eligible_tier or v.current_tier,
-                    f"T0-eligible, guardian gate not yet satisfied: {v.reason}",
-                )
-
-        if apply_changes:
-            self.lineage.save()
-            self._save_tree()
-        return verdicts
 
     @staticmethod
     def _is_demotion(v: PromotionVerdict) -> bool:
@@ -394,7 +379,8 @@ def _cmd_selftest() -> int:
     v = engine.evaluate_skill(
         {"skill_id": "x", "tier": "T2", "validated_runs": 5, "failure_rate": 0.0, "confidence": 0.92}
     )
-    check("T2 with 5 clean runs is promotion-eligible", v.promoted and v.eligible_tier == "T1")
+    check("T2 with 5 claimed runs is held for independent review",
+          not v.promoted and v.eligible_tier == "T1" and v.requires_guardian)
 
     # 7 — T2 with insufficient runs does not promote
     v = engine.evaluate_skill(

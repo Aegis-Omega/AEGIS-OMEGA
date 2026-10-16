@@ -363,6 +363,9 @@ def _record_revenue_cycle(result: RevenueCycleResult) -> tuple[str, bool]:
         from agents.evolution import AdaptiveLineage, EvolutionEngine
 
         lineage = AdaptiveLineage.load()
+        valid_before, _ = lineage.verify_chain()
+        if not valid_before:
+            return "", False  # existing corruption must never be persisted
         for art in result.artifacts:
             lineage.append(
                 "REVENUE_CYCLE",
@@ -375,13 +378,16 @@ def _record_revenue_cycle(result: RevenueCycleResult) -> tuple[str, bool]:
                     f"proj_tier={result.projection.tier if result.projection else '?'}"
                 ),
             )
+        valid_after, _ = lineage.verify_chain()
+        if not valid_after:
+            return "", False
+        # Informational candidate eligibility only: never mutate skill tiers
+        # from self-reported revenue counters.
+        EvolutionEngine(lineage=lineage).tick(apply_changes=False)
         lineage.save()
-        # Participating departments earn an evolution tick.
-        EvolutionEngine(lineage=lineage).tick(apply_changes=True)
-        valid, _ = lineage.verify_chain()
-        return lineage.terminal_hash(), valid
-    except Exception:  # noqa: BLE001 — evolution is non-load-bearing
-        return "", True
+        return lineage.terminal_hash(), True
+    except Exception:  # noqa: BLE001 — reporting must fail closed
+        return "", False
 
 
 # ── Presentation ────────────────────────────────────────────────────────────────
@@ -417,19 +423,52 @@ def main() -> None:
     run_p.add_argument("--objective", required=True)
     run_p.add_argument("--live", action="store_true",
                        help="Dispatch each stage to its real agent via the coordinator")
+    run_p.add_argument("--dendrite", action="store_true", help="Produce read-only knowledge routing receipts")
+    run_p.add_argument("--source-head", help="Exact Git commit used for source attribution")
+    run_p.add_argument("--spool-dir", help="Opt-in private local mailbox directory (requires --dendrite)")
+    run_p.add_argument("--relay-key-file", help="Private local relay key file (requires --spool-dir)")
+    run_p.add_argument("--relay-key-id", help="Relay key identifier (requires --relay-key-file)")
 
-    sub.add_parser("demo", help="Run the deterministic revenue collaboration demo")
+    demo_p = sub.add_parser("demo", help="Run the deterministic revenue collaboration demo")
+    demo_p.add_argument("--dendrite", action="store_true", help="Produce read-only knowledge routing receipts")
+    demo_p.add_argument("--source-head", help="Exact Git commit used for source attribution")
+    demo_p.add_argument("--spool-dir", help="Opt-in private local mailbox directory (requires --dendrite)")
+    demo_p.add_argument("--relay-key-file", help="Private local relay key file (requires --spool-dir)")
+    demo_p.add_argument("--relay-key-id", help="Relay key identifier (requires --relay-key-file)")
     sub.add_parser("verify", help="Verify the revenue lineage hash chain")
 
     args = parser.parse_args()
+    if args.command in ("run", "demo") and args.dendrite and not args.source_head:
+        parser.error("--source-head is required with --dendrite")
+    if args.command in ("run", "demo") and args.spool_dir and not args.dendrite:
+        parser.error("--spool-dir requires --dendrite")
+    if args.command in ("run", "demo") and (args.relay_key_file or args.relay_key_id):
+        if not args.spool_dir or not args.relay_key_file or not args.relay_key_id:
+            parser.error("--relay-key-file and --relay-key-id require --spool-dir")
 
     if args.command == "run":
         r = asyncio.run(run_revenue_cycle(args.objective, live=args.live))
         _print_cycle(r)
+        if args.dendrite:
+            from agents.dendrite_system import from_revenue_cycle
+            receipt = from_revenue_cycle(r, source_head=args.source_head)
+            print(json.dumps(receipt, indent=2))
+            if args.spool_dir:
+                from agents.dendrite_attestation import publish_for_pipeline
+                print(json.dumps(publish_for_pipeline(receipt, args.spool_dir,
+                    key_file=args.relay_key_file, key_id=args.relay_key_id), indent=2))
     elif args.command == "demo":
         r = asyncio.run(run_revenue_cycle(
             "Sell AEGIS constitutional governance to AI labs needing EU AI Act compliance"))
         _print_cycle(r)
+        if args.dendrite:
+            from agents.dendrite_system import from_revenue_cycle
+            receipt = from_revenue_cycle(r, source_head=args.source_head)
+            print(json.dumps(receipt, indent=2))
+            if args.spool_dir:
+                from agents.dendrite_attestation import publish_for_pipeline
+                print(json.dumps(publish_for_pipeline(receipt, args.spool_dir,
+                    key_file=args.relay_key_file, key_id=args.relay_key_id), indent=2))
     elif args.command == "verify":
         from agents.evolution import AdaptiveLineage
         lineage = AdaptiveLineage.load()
