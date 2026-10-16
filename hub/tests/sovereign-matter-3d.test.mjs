@@ -83,3 +83,29 @@ test('negative mutation guards detect loss of perspective wiring and safety', ()
   assert.doesNotMatch(matter.replace('disabled={!available}', ''), /aria-label="Rotate sculpture left" disabled=\{!available\}/)
   assert.doesNotMatch(shader().replace('float distributionGGX(', 'float broken('), /float distributionGGX\(/)
 })
+
+
+test('Optimus Evolution geometry regression: original holonic implicit field replaces the generic prism', () => {
+  const glsl=shader()
+  assert.match(glsl, /float holonField\(vec3 p\)/)
+  assert.match(glsl, /sin\(p\.x\*5\.8\)\*cos\(p\.y\*5\.8\)/)
+  assert.match(glsl, /float containment=length\(p\)-1\.02/)
+  assert.match(glsl, /u_concept>\.5\?omega\(p\):holonField\(p\)/)
+  assert.doesNotMatch(glsl, /u_concept>\.5\?omega\(p\):octa\(p,1\.01\)/)
+})
+
+test('Optimus Evolution topology has three discrete source-bounded wave strands', () => {
+  const glsl=shader()
+  assert.match(glsl, /float evidenceStrand\(vec3 p,float radius,float width,float phase\)/)
+  assert.match(glsl, /height=\.17\*sin\(3\.0\*angle\+phase\*1\.4\)/)
+  assert.match(glsl, /ring=u_limits>=\.5\?evidenceStrand\(/)
+  assert.match(glsl, /ring2=u_limits>=1\.5\?evidenceStrand\(/)
+  assert.match(glsl, /ring3=u_limits>=2\.5\?evidenceStrand\(/)
+  assert.doesNotMatch(glsl, /float ring=u_limits>=\.5\?torus\(/)
+})
+
+test('Optimus Evolution negative guards detect loss of source clipping and authored weave', () => {
+  const glsl=shader()
+  assert.doesNotMatch(glsl.replace('length(p)-1.02','length(p)-9.0'), /length\(p\)-1\.02/)
+  assert.doesNotMatch(glsl.replace('float evidenceStrand(','float missingStrand('), /float evidenceStrand\(/)
+})
