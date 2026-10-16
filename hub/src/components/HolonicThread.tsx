@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import type { HolonTrace, HolonEvent } from '../lib/holonTrace.js'
-import { buildHolonicThread, HOLON_THREAD_WIDTH, HOLON_THREAD_HEIGHT } from '../lib/holonThread.js'
+import { buildHolonicThread, HOLON_THREAD_WIDTH, HOLON_THREAD_HEIGHT, HOLON_THREAD_WINDOW } from '../lib/holonThread.js'
 import './holonic-thread.css'
 
 const typeLabel:Record<HolonEvent['kind'],string>={
@@ -43,7 +43,7 @@ export function HolonicThread({trace}:{trace:HolonTrace}){
     <div className="ht-composition">
       <div className="ht-scene">
         <div className="ht-timeline" role="group" aria-label="Navigate recorded creative history">
-          <button type="button" onClick={()=>{setWindowEnd(Math.max(1,effectiveEnd-12));setFocusId(null)}} disabled={effectiveEnd<=1} aria-label="View earlier recorded events">← Earlier</button>
+          <button type="button" onClick={()=>{setWindowEnd(Math.max(HOLON_THREAD_WINDOW,effectiveEnd-12));setFocusId(null)}} disabled={thread.hiddenBefore===0} aria-label="View earlier recorded events">← Earlier</button>
           <span>{trace.events.length?"Events "+(thread.windowStart+1)+"–"+thread.windowEnd+" / "+trace.events.length:"No events"}</span>
           <button type="button" onClick={()=>{setWindowEnd(effectiveEnd>=trace.events.length-12?null:Math.min(trace.events.length,effectiveEnd+12));setFocusId(null)}} disabled={effectiveEnd>=trace.events.length} aria-label="View later recorded events">Later →</button>
           <button type="button" onClick={()=>{setWindowEnd(null);setFocusId(null)}} disabled={effectiveEnd===trace.events.length} aria-label="View latest recorded events">Latest</button>
