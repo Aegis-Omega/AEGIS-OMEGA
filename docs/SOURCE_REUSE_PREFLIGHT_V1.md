@@ -19,15 +19,15 @@ pagination is incomplete, the result stays HOLD.
 
 ## Invocation
 
-\`\`\`sh
+```sh
 PYTHONPATH=. python3 -m agents.source_reuse_preflight task-reuse.json
 PYTHONPATH=. python3 -m unittest agents.tests.test_source_reuse_preflight -v
-\`\`\`
+```
 
 Example (timestamps and refs are illustrative; refresh them before an actual
 run; no secrets should appear in this manifest):
 
-\`\`\`json
+```json
 {
   "task_id": "Aegis-Omega/AEGIS-OMEGA#753",
   "source_head": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
@@ -54,7 +54,7 @@ run; no secrets should appear in this manifest):
     }
   ]
 }
-\`\`\`
+```
 
 This exact example returns HOLD because Library coverage is partial. The agent
 must disclose the unknown, never invent "nothing exists". A real successful
@@ -86,7 +86,7 @@ must be explicitly identified; pagination is not automatically exhaustive.
 - No automatic external provider scan or durable replay database is introduced.
   For independent provenance and durable memory use the existing repository
   knowledge / issue-evolution / HMAC checkpoint components already in #773.
-- \`READY_FOR_AUTHORITY_REVIEW\` means only that this specific metadata manifest
+- `READY_FOR_AUTHORITY_REVIEW` means only that this specific metadata manifest
   passed structural and deny-only screening. No D1-D4 privilege is granted.
 - #758 still requires independently admitted paired held-out trials, security/
   privacy/cost checks, regressions and protected approval before any learning.
@@ -94,7 +94,7 @@ must be explicitly identified; pagination is not automatically exhaustive.
 
 ## Regression contract
 
-\`agents/tests/test_source_reuse_preflight.py\` covers deterministic replay,
+`agents/tests/test_source_reuse_preflight.py` covers deterministic replay,
 unsearched/partial/stale/future sources, content-unread reuse, duplicate builds,
 unexplained rejection, cross-tenant isolation, unknown candidates, duplicate IDs,
 unregistered surfaces, self-reported benefit non-promotion, secret/payload schema
