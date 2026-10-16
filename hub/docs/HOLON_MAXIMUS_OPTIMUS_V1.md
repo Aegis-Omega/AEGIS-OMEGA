@@ -46,3 +46,16 @@ The included `holon-maximus.test.mjs` covers honest roles, human-only select/wea
 5. Only after independent product/UX review: publication, pricing experiments and production admission.
 
 **Release gate:** protected main, signed commits, checks and explicit operator approval. Keep current PR draft until authentic testing and design review are complete.
+
+## Holonski konac — record-bound creative thread
+
+The V1 Studio now mounts `HolonicThread` instead of its previous 4-column event grid. The thread is a **3D mathematical projection rendered through SVG**, not a hardware WebGL graph and not a simulation of a human mind. Existing separate `SovereignMatter` WebGL/SDF art remains explicitly illustrative and is not passed off as the underlying source graph.
+
+- Pure model `hub/src/lib/holonThread.ts` derives every visible node from a journal event, and every filament from an explicit `parents[]` relationship. No orphan parent gets an invented on-screen edge. Neither PBR material appearance nor graphical proximity is a claim about causation, proof, model reasoning or authorship.
+- History window: at most 24 events at a time, navigable **Earlier / Later / Latest** in deterministic overlapping 12-event steps. The screen reports how many events and links lie outside the current window. The underlying 128-event journal remains unmodified.
+- Interactive node selection highlights recorded relationships and displays full text, recorded time, source event numbers, claimed actor/origin and event digest. Claimed `model`/`agent` origin is clearly labelled **pasted, unverified**; no model execution or provider authentication.
+- Desktop: user-directed perspective adjustments, no timers or auto-play; bounded projection and native accessible event buttons. On mobile widths <=640px, the same event window appears as an accessible textual event list instead of an unusable scaled 3D stage. At all viewport sizes the inspection details remain available.
+- Test: `hub/tests/holon-thread.test.mjs` now has **11 independently locally executed checks** covering empty truth, exact edges, role integrity, viewpoint identity invariants, 128-event bounds, omitted ancestry, deterministic projection, historical replay window, invalid input. It is registered in existing `test:experience`.
+- Synthetic QA preview checked in Chromium at 320, 390, 768 and 1440 CSS px with **no horizontal overflow**. Browser preview is a static fixture built from the same pure projector/CSS, *not* a running React route or mobile Safari test. The screenshot and preview must not be passed off as real customer activity.
+
+**Remaining admission:** verified React/Vite production build at exact head, full 24-node keyboard/VoiceOver focus audit, iOS Safari/Android touch, browser import→thread→export test, signed commit policy and provider-independent design review. No production change or publish authorization is inferred by adding source code to draft PR.
