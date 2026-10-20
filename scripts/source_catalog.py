@@ -181,12 +181,27 @@ def ingest_connectors(database, snapshot, allow_private_local=False):
         }:
             raise ValueError('Database is not an AEGIS source catalog')
         with db:
+            db.execute('BEGIN')  # Include table creation in the rollback boundary.
             db.execute('''CREATE TABLE IF NOT EXISTS connector_observations (
                 provider TEXT NOT NULL, resource_kind TEXT NOT NULL,
                 source_ref TEXT NOT NULL, visibility TEXT NOT NULL,
                 status TEXT NOT NULL, source_revision TEXT,
                 observed_at TEXT NOT NULL,
                 PRIMARY KEY(provider,resource_kind,source_ref))''')
+            for row in rows:
+                prior = db.execute('''SELECT visibility,status,source_revision,observed_at
+                    FROM connector_observations
+                    WHERE provider=? AND resource_kind=? AND source_ref=?''', row[:3]).fetchone()
+                if prior is not None:
+                    old_time = _connector_time(prior[3])
+                    if observed < old_time:
+                        raise ValueError('Older connector snapshot cannot replace newer evidence')
+                    if observed == old_time and tuple(row[3:6]) != tuple(prior[:3]):
+                        # An equal-time explicit denial may strengthen the prior state,
+                        # but cannot retract it or change source identity/provenance.
+                        if not (row[4] == 'DENIED' and prior[1] != 'DENIED' and
+                                row[3] == prior[0] and row[5] == prior[2]):
+                            raise ValueError('Conflicting evidence at identical observation time')
             db.executemany('''INSERT INTO connector_observations VALUES (?,?,?,?,?,?,?)
                 ON CONFLICT(provider,resource_kind,source_ref) DO UPDATE SET
                 visibility=excluded.visibility, status=excluded.status,
