@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from 'react'
-import { COMMAND_ROUTES, filterCommandRoutes, nextPaletteIndex } from '../lib/commandPaletteModel.js'
+import { filterCommandRoutes, nextPaletteIndex } from '../lib/commandPaletteModel.js'
 
 /** Published-route navigation only; no remote search, indexing or telemetry. */
 
