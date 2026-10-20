@@ -1,0 +1,74 @@
+/* AEGIS Ω / Operator Workbench
+   Enterprise software, not ambient marketing. High information density with
+   deliberately restrained translucent surfaces and explicit evidence states. */
+.op-console {
+  --op-ink:#e7eef9;--op-muted:#a8b9d0;--op-line:rgba(132,163,198,.23);
+  --op-panel:rgba(7,18,32,.87);--op-accent:#d9b77a;--op-teal:#89d5c8;
+  color:var(--op-ink);max-width:1420px;margin:0 auto;
+  padding:clamp(20px,3vw,45px) clamp(16px,3.5vw,55px) 52px;
+  position:relative;font-family:Inter,ui-sans-serif,system-ui,sans-serif;
+}
+.op-console::before{content:"";position:absolute;inset:12px 0 auto;height:340px;pointer-events:none;
+  background:radial-gradient(ellipse at 78% 0,rgba(48,90,128,.12),transparent 65%);z-index:-1}
+.op-console *{box-sizing:border-box}
+.op-overline{font:550 10px/1.5 'JetBrains Mono',ui-monospace,monospace;letter-spacing:.17em;color:#d4b888;text-transform:uppercase}
+.op-topline,.op-bottomline{display:flex;justify-content:space-between;gap:15px;font:10px/1.5 'JetBrains Mono',ui-monospace,monospace;letter-spacing:.11em;color:#809bb9;padding:9px 0 17px;border-bottom:1px solid var(--op-line)}
+.op-topline .op-line-right{text-align:right}.op-topline b{font-weight:550;color:#bdcbdc}
+.op-intro{display:grid;grid-template-columns:minmax(0,1.4fr) minmax(220px,.5fr);gap:36px;align-items:end;padding:50px 0 45px}
+.op-intro h1{font-size:clamp(37px,5vw,68px);font-weight:620;line-height:1.03;letter-spacing:-.07em;margin:15px 0 19px;max-width:780px}
+.op-intro em{font-style:normal;color:#c6dbf0}
+.op-intro p{max-width:680px;font-size:14px;line-height:1.8;color:#9fb7d2;margin:0}
+.op-intro-state{border-left:2px solid #536b85;min-height:105px;padding:9px 0 9px 21px;display:flex;flex-direction:column;justify-content:center}
+.op-intro-state span{font:10px 'JetBrains Mono',monospace;letter-spacing:.12em;color:#8ba5bf}
+.op-intro-state strong{color:#e8c393;font-size:clamp(22px,3vw,31px);font-weight:620;letter-spacing:-.03em;margin:9px 0 5px}
+.op-intro-state strong.op-state-live{color:#99e3d4}
+.op-intro-state small{line-height:1.5;color:#91a9c2;font-size:11px}
+.op-tabs{display:flex;align-items:stretch;gap:0;border-bottom:1px solid rgba(180,201,224,.33);margin-bottom:20px;overflow:auto;scrollbar-width:thin}
+.op-tabs button,.op-tabs a{background:none;border:0;border-bottom:2px solid transparent;color:#95adc7;display:inline-flex;gap:13px;align-items:center;white-space:nowrap;font-size:12px;font-weight:610;padding:16px 26px;cursor:pointer;text-decoration:none}
+.op-tabs button:first-child{padding-left:4px}.op-tabs button span{font:10px 'JetBrains Mono',monospace;color:#6985a4}
+.op-tabs button.op-tab-active{color:#f2f6ff;border-bottom-color:var(--op-accent)}
+.op-tabs a{margin-left:auto;padding-right:3px;font-size:11px;color:#d3b78c}
+.op-main-layout,.op-proof-layout{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:16px;align-items:stretch}
+.op-panel{background:var(--op-panel);border:1px solid var(--op-line);border-radius:13px;
+  box-shadow:inset 0 1px 0 rgba(236,248,255,.035),0 18px 48px rgba(0,0,0,.2);
+  padding:clamp(20px,2.5vw,33px);min-width:0;backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px)}
+.op-panel-head{display:flex;justify-content:space-between;align-items:flex-start;gap:15px;margin:0 0 13px}
+.op-panel h2{font-size:clamp(20px,2vw,29px);font-weight:600;line-height:1.2;letter-spacing:-.045em;margin:10px 0 9px;color:#edf4fc}
+.op-panel .op-muted,.op-muted{font-size:12px;line-height:1.7;color:#9db2ca;margin:8px 0 16px}
+.op-panel code{font:11px 'JetBrains Mono',monospace;color:#d1ba8e;overflow-wrap:anywhere}
+.op-stamp{font:550 9px/1.35 'JetBrains Mono',ui-monospace,monospace;letter-spacing:.065em;padding:8px 9px;border:1px solid;border-radius:4px;white-space:nowrap;flex-shrink:0}
+.op-stamp-observed{color:#99e3d2;border-color:#67baac66;background:#19473f34}
+.op-stamp-unknown{color:#ddbe89;border-color:#ddbe8970;background:#493c2b39}
+.op-stamp-blocked{color:#f1a9ab;border-color:#f1a9ab63;background:#502b3939}
+.op-signal{display:grid;grid-template-columns:7px 1fr 1fr;gap:16px;margin:24px 0;padding:18px 0;border-block:1px solid var(--op-line)}
+.op-signal-bar{background:repeating-linear-gradient(180deg,#a28355 0 4px,transparent 4px 7px);width:5px;min-height:40px;opacity:.8}
+.op-signal-bar.op-signal-live{background:linear-gradient(#7ce2c8,#3f8f87)}
+.op-signal>div:not(.op-signal-bar){display:flex;flex-direction:column;gap:9px}
+.op-signal span{font-size:10px;color:#8aa7c0}.op-signal strong{font-size:12px;line-height:1.5;color:#e0ebf8;font-weight:590}
+.op-data-rows{margin:20px 0}.op-dataline{display:flex;align-items:baseline;justify-content:space-between;gap:12px;border-bottom:1px solid rgba(135,166,198,.16);padding:11px 0}
+.op-dataline span{color:#91aac6;font-size:11px}.op-dataline strong{font-weight:580;font-size:11px;color:#dbe9f8;text-align:right;overflow-wrap:anywhere}
+.op-monospace{font-family:'JetBrains Mono',ui-monospace,monospace}
+.op-reload{display:flex;align-items:center;justify-content:space-between;gap:14px;background:#173b52a9;border:1px solid #468ba1a0;border-radius:7px;color:#dcf6f5;width:100%;padding:13px 16px;font-size:12px;font-weight:600;cursor:pointer}
+.op-reload span{font-size:17px}.op-reload:disabled{opacity:.57;cursor:wait}
+.op-footnote{font-size:11px;color:#d2b98f;line-height:1.7;margin:14px 0 0}
+.op-fieldlabel{display:flex;flex-direction:column;gap:8px;font-size:11px;line-height:1.5;color:#c1d2e7;font-weight:600;margin:17px 0 8px}
+.op-fieldlabel span{font:10px 'JetBrains Mono',monospace;color:#8ca4bf;margin-left:auto}
+.op-input{color:#f0f6fc;background:#040e1d;border:1px solid #486782;border-radius:7px;padding:13px 12px;width:100%;font:12px/1.5 Inter,system-ui,sans-serif;outline:none;min-width:0}
+.op-input::placeholder{color:#6e89a2}.op-input:focus{border-color:#b4d9f6;box-shadow:0 0 0 2px #5d91cd30}
+.op-textarea{resize:vertical;min-height:100px}.op-controls{display:grid;grid-template-columns:1fr 1fr;gap:12px}.op-controls label{margin-top:10px}
+.op-code-header{margin-top:18px;background:#0b2031;border:1px solid #264862;border-bottom:0;padding:9px 12px;display:flex;justify-content:space-between;align-items:center;color:#7eb9d1;font:10px 'JetBrains Mono',monospace;gap:12px}
+.op-code{background:#040d19;color:#d6e6f2;border:1px solid #264862;border-top:0;border-radius:0 0 8px 8px;margin:0;padding:17px 14px;min-height:137px;overflow:auto;white-space:pre-wrap;overflow-wrap:anywhere;font:11px/1.7 'JetBrains Mono',ui-monospace,monospace}
+.op-copy{background:none;border:0;color:#bce9ef;font:10px 'JetBrains Mono',monospace;cursor:pointer;padding:4px 0}.op-low{color:#8a9fac}
+.op-cta-row{margin-top:16px;display:flex;justify-content:space-between;align-items:center;gap:15px;flex-wrap:wrap}.op-cta-row .op-muted{margin:0;font-size:10px}
+.op-action{display:inline-flex;justify-content:space-between;align-items:center;gap:18px;padding:12px 15px;border:1px solid #597b9c;border-radius:7px;background:rgba(56,84,116,.20);color:#e1f0ff!important;font-size:12px;font-weight:650;text-decoration:none!important;cursor:pointer}.op-action:hover{border-color:#89c5ef}
+.op-bottomline{border-top:1px solid var(--op-line);border-bottom:0;margin-top:24px;padding:16px 0 0}
+.op-check{display:grid;grid-template-columns:30px minmax(0,1fr) auto;gap:14px;border-top:1px solid var(--op-line);padding:18px 0;align-items:start}
+.op-check-index{font:10px 'JetBrains Mono',monospace;color:#789bb4;padding-top:3px}.op-check strong{font-size:12px;font-weight:650}.op-check p{font-size:11px;line-height:1.65;color:#a1b7ce;margin:8px 0 0}
+.op-check-verdict{font:10px 'JetBrains Mono',monospace;color:#e8c18b}.op-check-verdict.op-check-observed{color:#9ad7c6}
+.op-download{width:100%;margin-top:25px}.op-empty{margin-top:28px;border:1px dashed #36516b;padding:26px;text-align:center;background:#081426}.op-empty-mark{font-size:29px;font-family:serif;color:#719cb9}.op-empty strong{font-size:13px}.op-empty p{font-size:12px;line-height:1.7;color:#9cb2c9;max-width:360px;margin:8px auto}
+.op-tool-list{margin-top:18px}.op-tool{display:grid;grid-template-columns:36px 1fr auto;gap:12px;align-items:center;padding:13px 0;border-bottom:1px solid var(--op-line)}.op-tool-symbol{color:#8cbfdf}.op-tool strong{font-size:13px}.op-tool small{display:block;font-size:10px;color:#98b2ce;margin-top:6px;overflow-wrap:anywhere}.op-tool>span:last-child{font:10px 'JetBrains Mono',monospace;color:#e2bf8d}
+.op-destinations{display:flex;flex-direction:column;gap:10px;margin-top:26px}.op-destinations a{display:grid;grid-template-columns:1fr 24px;gap:4px 12px;grid-template-rows:auto auto auto;position:relative;padding:18px;border:1px solid #34536e;border-radius:7px;background:#0a1c2e;color:#e8f2ff;text-decoration:none}.op-destinations a:hover{border-color:#80c3e6}.op-destinations a span{font:10px 'JetBrains Mono',monospace;color:#81abc9;letter-spacing:.1em}.op-destinations a strong{font-size:14px;font-weight:630}.op-destinations a small{font-size:11px;color:#a8bad2}.op-destinations a b{position:absolute;top:22px;right:20px;font-size:17px;color:#c7dcf1;font-weight:400}
+.op-console :is(button,a,select,textarea,input):focus-visible{outline:2px solid #a9e4ff!important;outline-offset:3px}
+@media(max-width:1050px){.op-main-layout,.op-proof-layout{grid-template-columns:1fr}.op-panel{padding:24px}.op-intro{padding:33px 0}.op-intro h1{font-size:55px}}
+@media(max-width:680px){.op-console{padding:15px 14px 40px}.op-topline{font-size:9px}.op-topline .op-line-right{max-width:125px}.op-intro{grid-template-columns:1fr;gap:25px;padding:30px 0}.op-intro h1{font-size:clamp(40px,10vw,55px);margin:11px 0}.op-intro p{font-size:12px}.op-intro-state{min-height:75px;padding:5px 0 5px 14px}.op-tabs{margin-bottom:14px}.op-tabs button,.op-tabs a{padding:14px 12px;gap:7px;font-size:11px}.op-tabs a{margin-left:0}.op-panel{padding:20px 15px;border-radius:9px}.op-panel-head{flex-wrap:wrap}.op-controls{grid-template-columns:1fr;gap:0}.op-signal{gap:10px}.op-check{grid-template-columns:25px 1fr;gap:10px}.op-check-verdict{grid-column:2}.op-bottomline{font-size:9px;flex-direction:column}.op-cta-row .op-action{width:100%}}
+@media(prefers-reduced-motion:reduce){.op-console *, .op-console *::before,.op-console *::after{animation:none!important;transition:none!important}}

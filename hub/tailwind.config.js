@@ -13,12 +13,12 @@ export default {
       },
       colors: {
         hub: {
-          bg:      '#08090C',
-          surface: '#0F1117',
-          card:    '#141416',
-          border:  '#1A1D27',
-          text:    '#ECEAE3',
-          muted:   '#6B6B7A',
+          bg:      '#080C0F',
+          surface: '#111A1D',
+          card:    '#172125',
+          border:  '#344044',
+          text:    '#EEEAE1',
+          muted:   '#A9B6B0',
           accent:  '#6366F1',
           glow:    '#818CF8',
         },

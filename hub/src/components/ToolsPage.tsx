@@ -270,7 +270,7 @@ export function ToolsPage() {
     <div className="min-h-screen bg-hub-bg text-hub-text">
 
       {/* ── Nav ──────────────────────────────────────────────── */}
-      <nav className="border-b border-hub-border/60 sticky top-0 z-50 bg-hub-bg/95 backdrop-blur-sm">
+      <nav className="av-embedded-nav border-b border-hub-border/60 sticky top-0 z-50 bg-hub-bg/95 backdrop-blur-sm">
         <div className="max-w-5xl mx-auto px-4 py-3 flex items-center justify-between">
           <a
             href="/"

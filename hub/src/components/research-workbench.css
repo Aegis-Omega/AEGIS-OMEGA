@@ -1,0 +1,273 @@
+/* AEGIS Ω ResearchOS. One index, one inspector, no fabricated dashboard KPIs. */
+.rw-shell{max-width:1440px;margin:0 auto;padding:clamp(20px,3vw,45px) clamp(16px,3.5vw,55px) 60px;color:#e7f1fb;position:relative;font-family:Inter,system-ui,sans-serif}
+.rw-shell *{box-sizing:border-box}.rw-shell a{text-decoration:none}.rw-shell button{font-family:inherit}
+.rw-ruler,.rw-footer{display:flex;justify-content:space-between;gap:15px;border-bottom:1px solid rgba(150,184,218,.28);padding-bottom:17px;color:#85a2c0;font:10px 'JetBrains Mono',monospace;letter-spacing:.12em}
+.rw-hero{display:grid;grid-template-columns:minmax(0,1.4fr) minmax(180px,.56fr);gap:45px;align-items:end;padding:51px 0 54px}
+.rw-eyebrow{font:10px 'JetBrains Mono',monospace;letter-spacing:.2em;color:#d4b88d}
+.rw-hero h1{font-size:clamp(43px,5.5vw,78px);line-height:1.02;letter-spacing:-.077em;font-weight:620;margin:16px 0 20px;color:#f0f7ff}.rw-hero h1 em{font-style:normal;color:#adcee9}
+.rw-hero p{font-size:14px;line-height:1.75;color:#a4b9cf;max-width:710px;margin:0}.rw-side{border-left:1px solid #4c718e;padding:8px 0 8px 24px;display:flex;flex-direction:column;gap:15px}.rw-side span{font:10px 'JetBrains Mono',monospace;letter-spacing:.12em;color:#9db9d4}.rw-side strong{font-size:16px;font-weight:540;line-height:1.5;color:#c9def2}.rw-side small{font-size:11px;color:#90a9c0}
+.rw-toolstrip{display:flex;gap:15px;justify-content:space-between;align-items:center;flex-wrap:wrap;padding:16px 0;border-top:1px solid #36536f;border-bottom:1px solid #36536f}.rw-filters{display:flex;overflow-x:auto;gap:5px;max-width:100%;scrollbar-width:thin}.rw-filters button{border:1px solid transparent;background:transparent;color:#9fb2c7;font-size:11px;font-weight:620;white-space:nowrap;cursor:pointer;padding:10px 12px;border-radius:5px}.rw-filters button[aria-pressed=true]{border-color:#79775b;background:#463d2b50;color:#eecf9a}.rw-search{min-height:39px;border:1px solid #476482;background:#071427;display:flex;align-items:center;gap:8px;padding:0 12px;color:#a3c4e0;min-width:190px;flex:0 1 270px;border-radius:5px}.rw-search input{background:transparent;border:0;outline:0;color:#edf5ff;min-width:0;width:100%;font:12px Inter,system-ui,sans-serif}.rw-search input::placeholder{color:#7e9ab6}.rw-search:focus-within{outline:2px solid #7aaed3;outline-offset:2px}.rw-search-symbol{font-size:20px}
+.rw-body{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,.98fr);gap:18px;align-items:start;margin:19px 0 30px}.rw-index{border:1px solid #334a65;background:#09182aab;border-radius:10px;overflow:hidden}.rw-column-title{display:flex;justify-content:space-between;gap:8px;padding:18px 21px;background:#10223783;color:#88a8c6;font:10px 'JetBrains Mono',monospace;letter-spacing:.12em;border-bottom:1px solid #334a65}
+.rw-entry{display:grid;grid-template-columns:27px minmax(0,1fr) 18px;gap:14px;padding:20px 18px;min-height:132px;text-align:left;width:100%;color:#e6edf7;background:transparent;border:0;border-bottom:1px solid #2e476260;cursor:pointer}.rw-entry:last-child{border-bottom:0}.rw-entry:hover{background:#132b4190}.rw-entry-active{background:linear-gradient(110deg,rgba(48,91,127,.30),rgba(5,19,35,.75));box-shadow:inset 3px 0 0 #dfc48f}.rw-entry-n{font:11px 'JetBrains Mono',monospace;color:#b9a17b;margin-top:5px}.rw-entry small{font:10px 'JetBrains Mono',monospace;letter-spacing:.085em;color:#8faed0}.rw-entry strong{display:block;font-size:17px;font-weight:610;letter-spacing:-.025em;margin:7px 0 5px}.rw-entry p{margin:0;font-size:11px;line-height:1.7;color:#93aac2}.rw-entry-arrow{font-size:17px;color:#7cb3d6}
+.rw-inspector{border:1px solid #43617b;background:linear-gradient(153deg,#0f2436eb,#081525f5);border-radius:10px;position:sticky;top:105px;min-height:610px;box-shadow:inset 0 1px 0 #c3effc12,0 16px 60px #0003}.rw-inspector-top{display:flex;justify-content:space-between;gap:14px;align-items:center;padding:17px 20px;border-bottom:1px solid #3b5874;color:#86a6c5;font:10px 'JetBrains Mono',monospace}.rw-inspector-status{color:#e3c38b;text-align:right;font-size:9px}.rw-inspector-main{padding:clamp(22px,3vw,37px)}.rw-inspector-main h2{font-size:clamp(31px,3.7vw,49px);line-height:1.1;letter-spacing:-.063em;font-weight:610;margin:18px 0}.rw-inspector-main>p{color:#9dbad5;font-size:13px;line-height:1.75;margin-bottom:28px}.rw-question{border-left:2px solid #d8bc84;background:#4f472332;padding:17px 20px;margin:28px 0}.rw-question small,.rw-limits>small{font:10px 'JetBrains Mono',monospace;letter-spacing:.12em;color:#d7b984}.rw-question strong{display:block;font-size:16px;font-weight:580;line-height:1.5;margin-top:11px}.rw-limits>small{color:#95b2ca}.rw-limits>div{display:grid;grid-template-columns:24px 1fr;gap:12px;padding:12px 0;border-bottom:1px solid #34506a88}.rw-limits>div span{font:10px 'JetBrains Mono',monospace;color:#bca178;margin-top:3px}.rw-limits p{color:#b4c9df;font-size:11px;line-height:1.7;margin:0}.rw-open{margin-top:32px}.rw-open a{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:14px 18px;border-radius:6px;background:linear-gradient(90deg,#143e5c,#102842);border:1px solid #5197b7;color:#e7f9ff;font-size:12px;font-weight:630}.rw-not-published{font:10px/1.6 'JetBrains Mono',monospace;color:#ddb980}
+.rw-zero{padding:35px 20px;font-size:12px;line-height:1.7;color:#b7c9da}.rw-gate{display:grid;grid-template-columns:minmax(0,1.5fr) 1fr;gap:22px;align-items:center;border:1px solid #345471;background:#081a2b;padding:clamp(24px,3vw,40px);border-radius:10px}.rw-gate h2{font-size:27px;font-weight:630;letter-spacing:-.04em;margin:12px 0}.rw-gate p{font-size:12px;line-height:1.7;color:#9eb5cb;margin:0}.rw-gate-actions{display:flex;flex-direction:column;gap:10px}.rw-gate-actions a{border:1px solid #48688a;padding:14px 16px;color:#edf5ff;font-size:12px;display:flex;justify-content:space-between;border-radius:7px}.rw-footer{border:0;border-top:1px solid #2c4b68;padding:22px 0 0;margin-top:32px}
+.rw-shell :is(button,a,input):focus-visible{outline:2px solid #a9e4ff!important;outline-offset:3px}
+@media(max-width:950px){.rw-body{grid-template-columns:1fr}.rw-inspector{position:static;min-height:0}.rw-hero{grid-template-columns:1fr}.rw-side{max-width:590px}.rw-toolstrip{flex-direction:column;align-items:stretch}.rw-search{flex:auto;width:100%}}
+@media(max-width:610px){.rw-shell{padding:16px 14px 38px}.rw-ruler{font-size:9px;flex-direction:column}.rw-hero{padding:35px 0 28px;gap:23px}.rw-hero h1{font-size:clamp(42px,11vw,61px)}.rw-hero p{font-size:12px}.rw-filters button{padding:10px 8px;font-size:10px}.rw-entry{min-height:119px;padding:18px 12px;gap:9px}.rw-entry strong{font-size:15px}.rw-entry p{font-size:10px}.rw-inspector-top{flex-wrap:wrap}.rw-inspector-main{padding:24px 19px}.rw-gate{grid-template-columns:1fr}.rw-footer{font-size:9px;flex-direction:column}.rw-side strong{font-size:14px}}
+@media(prefers-reduced-motion:reduce){.rw-shell *{animation:none!important;transition:none!important}}
+
+/* Evidence Filament — source-derived topology, no independent token system.
+   Graph lines describe metadata associations; labels convey meaning without color. */
+.ef-observatory{position:relative;isolation:isolate;overflow:hidden;margin:22px 0 29px;
+  background:linear-gradient(135deg,rgba(18,37,60,.96),rgba(4,14,28,.99) 62%);
+  border:1px solid var(--hg-edge,rgba(145,192,252,.18));border-radius:14px;
+  box-shadow:inset 0 1px 0 rgba(217,239,255,.1),0 22px 56px rgba(0,0,0,.23)}
+.ef-observatory:before{content:"";position:absolute;inset:0;pointer-events:none;z-index:-1;
+  background:radial-gradient(ellipse 70% 60% at 40% 13%,rgba(74,123,194,.16),transparent 78%)}
+.ef-heading{display:flex;align-items:end;justify-content:space-between;gap:24px;
+  padding:clamp(23px,3vw,38px) clamp(18px,3vw,36px) 21px;border-bottom:1px solid rgba(145,192,252,.13)}
+.ef-heading h2{font-size:clamp(28px,3.5vw,49px);font-weight:620;line-height:1.05;
+  letter-spacing:-.06em;margin:13px 0 12px;color:var(--hg-text,#f0f7ff)}
+.ef-heading h2 em{font-style:normal;color:var(--hg-ice,#bbebff)}
+.ef-heading p{max-width:620px;font-size:13px;line-height:1.65;color:var(--hg-dim,#9fb6d0);margin:0}
+.ef-mode{font:10px/1.65 'JetBrains Mono',ui-monospace,monospace;letter-spacing:.09em;
+  text-align:right;color:#d9c39a;max-width:220px;flex-shrink:0}
+.ef-map{position:relative;min-height:340px;display:grid;place-items:center;padding:45px clamp(16px,3vw,42px);
+  background:radial-gradient(ellipse 45% 45% at 48% 52%,rgba(35,99,167,.15),transparent)}
+.ef-engraving{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
+.ef-flow{width:100%;position:relative;z-index:1;display:grid;
+  grid-template-columns:minmax(0,.88fr) minmax(0,1.14fr) minmax(0,1.17fr);
+  align-items:center;gap:clamp(13px,3.2vw,45px);animation:ef-arrive .23s ease-out both}
+.ef-station{min-width:0;min-height:155px;border:1px solid rgba(143,190,232,.38);
+  background:rgba(6,18,33,.97);border-radius:11px;padding:clamp(16px,2vw,24px);
+  box-shadow:inset 0 1px 0 rgba(208,237,255,.11),0 14px 28px rgba(0,0,0,.24)}
+.ef-source{border-left:2px solid var(--hg-blue,#7cbaff)}
+.ef-question{border-top:2px solid var(--hg-gold,#c8a96e);
+  background:linear-gradient(135deg,rgba(17,36,57,.98),rgba(8,23,43,.98))}
+.ef-boundaries{border-right:2px solid var(--hg-violet,#aa96ff)}
+.ef-index{display:block;font:10px 'JetBrains Mono',ui-monospace,monospace;
+  letter-spacing:.13em;color:#cdb68b;margin-bottom:17px}
+.ef-station strong{display:block;color:#f0f6ff;font-weight:610;font-size:clamp(15px,1.4vw,19px);line-height:1.43;
+  overflow-wrap:anywhere}
+.ef-station small{display:block;font:10px/1.65 'JetBrains Mono',monospace;color:#9ebbd7;margin-top:14px}
+.ef-boundaries ol{margin:10px 0 0;padding-left:18px;max-height:158px;overflow:auto;color:#adc4dc;
+  font-size:11px;line-height:1.55;overflow-wrap:anywhere}
+.ef-boundaries li+li{margin-top:6px}
+.ef-pick{display:flex;flex-wrap:wrap;gap:7px;padding:20px clamp(18px,3vw,36px);
+  border-top:1px solid rgba(143,188,229,.14);border-bottom:1px solid rgba(143,188,229,.12)}
+.ef-pick button{display:inline-flex;align-items:center;gap:10px;min-height:44px;padding:10px 14px;
+  background:rgba(14,31,49,.94);border:1px solid #405d7a;border-radius:7px;color:#c2d6eb;
+  font-size:12px;line-height:1.4;cursor:pointer;text-align:left;transition:border-color .16s,background-color .16s}
+.ef-pick button span{color:#d3b582;font:10px 'JetBrains Mono',monospace;flex:none;white-space:nowrap}
+.ef-pick button[aria-pressed=true]{border-color:#ceb27a;background:#39362670;color:#fff1d5}
+.ef-pick button:hover{border-color:#9bc5ea}
+.ef-disclosure{margin:0;padding:15px clamp(18px,3vw,36px) 21px;
+  font-size:11px;line-height:1.7;color:#a8c0d8}
+.ef-disclosure strong{color:#e4c993;font-weight:600}
+.ef-empty{padding:30px;font-size:13px;color:#b8cce0}
+@keyframes ef-arrive{from{opacity:.65;transform:translateY(5px)}to{opacity:1;transform:none}}
+@media(max-width:850px){
+ .ef-heading{flex-direction:column;align-items:start}.ef-mode{text-align:left;max-width:none}
+ .ef-engraving{opacity:.35}
+ .ef-flow{grid-template-columns:1fr;gap:12px}.ef-station{min-height:0}
+ .ef-map{padding:22px 18px}.ef-boundaries ol{max-height:none}
+}
+@media(max-width:470px){
+ .ef-heading{padding:22px 16px}.ef-map{padding:18px 14px}
+ .ef-pick{display:grid;grid-template-columns:1fr 1fr;padding:16px;gap:8px}
+ .ef-pick button{padding:10px;font-size:11px;min-width:0;overflow-wrap:anywhere}
+ .ef-disclosure{padding:14px 16px 20px}
+}
+@media(prefers-reduced-motion:reduce){.ef-flow{animation:none!important}.ef-pick button{transition:none!important}}
+@media(prefers-contrast:more){.ef-station,.ef-pick button{border-color:#d5e7fa;background:#071426}
+ .ef-station strong,.ef-disclosure{color:#f8fcff}}
+@media(prefers-reduced-transparency:reduce){.ef-station{background:#081526}.ef-observatory{background:#071323}}
+
+
+/*
+ * AEGIS Ω / SOVEREIGN MATTER
+ * Authored editorial evidence chamber: quiet reader surface + one SDF artwork.
+ * Deliberately avoids glass-on-glass text, fantasy KPI badges and permanent GPU.
+ * Consumes existing Holon Glass CSS tokens, not a new design system.
+ */
+.ef-map-material {
+  display:block;
+  overflow:hidden;
+  min-height:620px;
+  padding:clamp(24px,4vw,58px);
+  isolation:isolate;
+  background:linear-gradient(105deg,rgba(7,18,33,.96) 3%,rgba(5,15,29,.93) 52%,rgba(5,13,26,.7) 100%);
+}
+.ef-map-material .ef-engraving {display:none}
+.ef-map-material .ef-flow {
+  display:flex;
+  flex-direction:column;
+  align-items:stretch;
+  width:min(46%,510px);
+  gap:14px;
+  z-index:2;
+  animation:none;
+}
+.ef-map-material .ef-station {
+  min-height:0;
+  padding:18px 22px 19px;
+  position:relative;
+  border:1px solid rgba(156,183,211,.20);
+  border-radius:8px;
+  background:#09182a;
+  box-shadow:0 12px 35px rgba(0,0,0,.19),inset 0 1px 0 rgba(230,241,255,.07);
+}
+.ef-map-material .ef-source {
+  border-left:2px solid var(--hg-gold,#c8a96e);
+  background:linear-gradient(110deg,#132234 0%,#0a1829 90%);
+}
+.ef-map-material .ef-question {
+  border-top:1px solid rgba(156,183,211,.24);
+  border-left:2px solid var(--hg-blue,#7cbaff);
+}
+.ef-map-material .ef-boundaries {
+  border-right:1px solid rgba(156,183,211,.24);
+  border-left:2px solid var(--hg-violet,#aa96ff);
+}
+.ef-map-material .ef-index {
+  font-size:10px;
+  margin:0 0 11px;
+  color:var(--hg-gold,#c8a96e);
+}
+.ef-map-material .ef-source strong {
+  font-size:clamp(21px,2.2vw,30px);
+  letter-spacing:-.035em;
+  line-height:1.14;
+}
+.ef-map-material .ef-question strong {
+  font-size:clamp(15px,1.4vw,19px);
+  font-weight:530;
+  line-height:1.45;
+}
+.ef-map-material .ef-station small {
+  margin:9px 0 0;
+  font-size:10px;
+  letter-spacing:.01em;
+  color:#a8bfd6;
+}
+.ef-map-material .ef-boundaries ol {
+  max-height:160px;
+  line-height:1.6;
+  font-size:11px;
+  margin-top:10px;
+  color:#b5cce1;
+}
+.ef-map-material .ef-boundaries li {padding-left:3px}
+.ef-map-material .ef-station strong,
+.ef-map-material .ef-boundaries li {overflow-wrap:anywhere}
+@media(max-width:980px) {
+  .ef-map-material {min-height:570px;padding:30px 22px}
+  .ef-map-material .ef-flow {width:53%}
+  .ef-map-material .sm-stage {width:65%}
+  .sm-north,.sm-south {right:18px}
+  .sm-command {left:48%;top:64%}
+}
+@media(max-width:720px) {
+  .ef-map-material {min-height:0;padding:0;display:flex;flex-direction:column}
+  .ef-map-material .sm-stage {position:relative;inset:auto;width:100%;height:340px;min-height:340px;flex:none}
+  .sm-north {top:19px;right:16px}
+  .sm-south {bottom:18px;right:16px}
+  .sm-command {left:50%;top:74%;transform:translateX(-50%);justify-content:center;width:90%}
+  .ef-map-material .ef-flow {
+    order:2;width:100%;padding:0 16px 22px;gap:10px;
+    display:grid;grid-template-columns:1fr;
+  }
+  .ef-map-material .ef-station {padding:18px 19px;max-width:none}
+  .ef-map-material .ef-boundaries ol {max-height:none}
+}
+@media(prefers-contrast:more){
+  .ef-map-material .ef-station{border-color:#d1e5fa;background:#06101c}
+
+}
+
+
+/* Comparative research instrument: semantic evidence, never invented lineage. */
+.rw-compare{margin:32px 0;padding:clamp(20px,3vw,38px);background:linear-gradient(150deg,#0b203e,#061429);border:1px solid #477bb078;border-radius:10px;color:#e9f4ff}
+.rw-compare-head{display:flex;justify-content:space-between;align-items:flex-end;gap:24px;flex-wrap:wrap;margin-bottom:24px}
+.rw-compare-head h2{font-size:clamp(28px,3vw,46px);letter-spacing:-.055em;line-height:1.1;margin:8px 0;color:#eff7ff}
+.rw-compare-head h2 em{font-style:normal;color:#a5c8ff}
+.rw-compare-head p{font-size:13px;line-height:1.7;color:#bfd1e8;max-width:62ch}
+.rw-compare-head label{display:flex;flex-direction:column;gap:9px;min-width:min(100%,275px);font:10px 'JetBrains Mono',monospace;letter-spacing:.08em;color:#a7c9ef}
+.rw-compare-head select{width:100%;min-height:44px;background:#07162e;color:#eaf3ff;border:1px solid #6b9bda;border-radius:7px;padding:9px 12px;font:13px Inter,system-ui,sans-serif;letter-spacing:0}
+.rw-compare-head select:focus-visible,.rw-compare a:focus-visible{outline:2px solid #c1e9ff;outline-offset:3px}
+.rw-compare-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:13px}
+.rw-compare-record{min-width:0;display:flex;flex-direction:column;gap:16px;padding:clamp(17px,2.5vw,28px);border:1px solid #5078a9;background:#08192f;border-radius:8px}
+.rw-compare-record>span,.rw-compare-verdict small,.rw-compare-question small,.rw-compare-limits small{font:10px 'JetBrains Mono',monospace;letter-spacing:.09em;color:#a5c6f0}
+.rw-compare-record h3{font-size:clamp(20px,2vw,29px);letter-spacing:-.035em;line-height:1.2;color:#f0f6ff;margin:0}
+.rw-compare-verdict{display:flex;flex-direction:column;gap:8px;border:1px solid #557ba6;border-radius:6px;background:#102647;padding:14px}
+.rw-compare-verdict strong{font-size:13px;font-weight:600;color:#d4e7ff}
+.rw-compare-question p{font-size:15px;line-height:1.6;color:#eff6ff;margin:9px 0 0}
+.rw-compare-limits{flex:1}
+.rw-compare-limits ol{margin:12px 0 0;padding-left:21px}
+.rw-compare-limits li{color:#c1d4ed;line-height:1.65;font-size:13px;margin:0 0 8px}
+.rw-compare-record>a{color:#d8eeff;text-decoration:none;border-top:1px solid #5474a6;padding-top:14px;font-size:13px;font-weight:600}
+.rw-compare-record>a:hover{text-decoration:underline}
+.rw-compare-private{color:#aac4e5;font:11px 'JetBrains Mono',monospace}
+.rw-compare-empty{padding:25px;border:1px dashed #5279a7;color:#c7d9ef;font-size:14px;border-radius:7px}
+.rw-compare-disclosure{margin:19px 0 0;font-size:11px;line-height:1.7;color:#abc5e4}
+@media(max-width:720px){.rw-compare-grid{grid-template-columns:1fr}.rw-compare-head label{width:100%}.rw-compare{margin:24px 0}}
+@media(prefers-contrast:more){.rw-compare-record,.rw-compare-verdict{border-color:#d3e8ff}.rw-compare-disclosure{color:#eff6ff}}
+
+/*
+ * AEGIS RESEARCHOS / SOURCE-FIRST FUSION V1
+ * Reuses Holon Glass material tokens and the existing Sovereign Matter renderer.
+ * Sketch source metrics: reading text 17/24, prominent controls 16/21.
+ * SF fonts are not bundled or impersonated; existing local/system fonts remain.
+ * Solid reading surfaces + bounded optics; no new palette or visual framework.
+ */
+.rw-perspective {
+  display:flex;align-items:center;justify-content:space-between;gap:20px;flex-wrap:wrap;
+  margin:23px 0 10px;padding:18px 0;
+  border-block:1px solid var(--hg-edge,rgba(145,192,252,.18));
+}
+.rw-perspective-copy {display:flex;flex-direction:column;gap:8px;max-width:600px;min-width:0}
+.rw-perspective-copy strong {font-size:17px;line-height:1.42;font-weight:620;color:var(--hg-text,#f0f7ff)}
+.rw-perspective-copy span {font-size:15px;line-height:1.55;color:var(--hg-dim,#9fb6d0)}
+.rw-perspective-controls {display:flex;flex-wrap:wrap;gap:7px;align-items:center}
+.rw-perspective-controls button {
+  min-height:46px;padding:10px 17px;border-radius:8px;cursor:pointer;
+  border:1px solid rgba(160,197,229,.55);
+  background:var(--hg-deep,#060e1d);color:var(--hg-text,#f0f7ff);
+  font-size:15px;font-weight:600;line-height:1.45;
+}
+.rw-perspective-controls button[aria-pressed="true"] {
+  border-color:var(--hg-ice,#bbebff);background:var(--hg-layer,#0b1930);
+  box-shadow:inset 0 -2px 0 var(--hg-ice,#bbebff);
+}
+.rw-perspective-controls button:focus-visible {outline:3px solid var(--hg-ice,#bbebff);outline-offset:3px}
+/* Sketch source reading hierarchy: 17px/24px body; keep source codes monospace. */
+.rw-hero p {font-size:17px;line-height:1.45}
+.rw-side small {font-size:14px;line-height:1.55}
+.rw-entry p {font-size:15px;line-height:1.6}
+.rw-entry small {font-size:12px;line-height:1.5}
+.rw-filters button {min-height:44px;font-size:14px}
+.rw-search {min-height:46px}
+.rw-search input {font-size:16px}
+.ef-heading p {font-size:16px;line-height:1.5}
+.ef-station small,.ef-map-material .ef-station small {font-size:12px;line-height:1.5}
+.ef-boundaries ol,.ef-map-material .ef-boundaries ol {font-size:14px;line-height:1.55}
+.ef-pick button {font-size:14px}
+.ef-disclosure {font-size:14px;line-height:1.65}
+@media(max-width:610px) {
+  .rw-perspective {align-items:stretch;margin:17px 0 6px}
+  .rw-perspective-controls {display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);width:100%}
+  .rw-perspective-controls button {min-height:48px;padding:11px 12px;font-size:14px;white-space:normal}
+  .rw-entry {min-height:0}
+  .rw-entry p {font-size:15px}
+  .ef-pick button {min-height:48px;font-size:14px}
+}
+@media(prefers-reduced-motion:reduce) {
+  .rw-perspective *, .rw-perspective *::before, .rw-perspective *::after {animation:none!important;transition:none!important}
+}
+@media(prefers-contrast:more) {
+  .rw-perspective-controls button {border:2px solid currentColor;background:#06101c}
+  .rw-perspective-controls button[aria-pressed="true"] {outline:2px solid #fff;outline-offset:-5px}
+}
+@media(prefers-reduced-transparency:reduce) {
+  .rw-perspective-controls button {background:#081526}
+}
