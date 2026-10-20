@@ -129,3 +129,28 @@ universal absence or a denial by every ClickHouse account.
 NOT INCLUDED: production data migrations, auth grants, OpenAI model
 invocations, live MCP/A2A handshakes, signed admission, two-client smoke
 tests, browser acceptance, production deployment, billing changes or merge.
+
+
+## Multi-account Cloudflare connector boundary (2026-10-20)
+
+The operator reports **two Cloudflare accounts connected** in ChatGPT.
+A read-only GET /accounts using the Cloudflare session currently selected by
+this tool returned exactly **one accessible account** (display name:
+Info@aegisomega.com's Account) with one Worker called aegisomega. That
+observation proves access to that single account through THIS authorization;
+it does NOT establish absence or disconnection of another ChatGPT-linked
+Cloudflare account. Other linked identities must be independently selected,
+authorized and enumerated before their Workers can be marked verified.
+
+Catalog record identity is (provider, resource_kind, source_ref). For provider
+cloudflare and resource_kind account (or account-scoped workers), use a
+locally computed, opaque SHA-256 source_ref bound to the **specific account**
+(and account+resource for a worker); do not key only on provider or Worker
+name, since matching names can occur in multiple accounts. Do not commit raw
+account IDs or raw identity-to-hash lookup maps to the repository. When a
+second account cannot be enumerated from the active session, record its
+coverage as AVAILABLE_UNTESTED without claiming its Workers. Updates to
+one account must not overwrite the other's state. See the synthetic
+two-account isolation regression in tests/test_connector_catalog.py.
+
+No Cloudflare account setting, DNS, Worker, billing or connection was changed.
