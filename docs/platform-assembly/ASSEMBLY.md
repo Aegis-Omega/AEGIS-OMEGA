@@ -83,3 +83,49 @@ The public metadata snapshot now additionally includes the entire #773 source tr
 Recovered `AEGIS_AlphaEvolve_Full_Corpus_Evidence_v1.zip` (SHA-256 `1b5ba31d5c8cc99970ae8aaef9860318cc889ef9bac51bf613e720f78174dfac`) and inspected its existing `AEGIS_evolution_67445.sqlite` database. Actual read-only queries returned 32,841 assets, 67,445 coverage records and 98,418 trial records; `PRAGMA integrity_check` returned `ok`. A real adapter query returned five quantum metadata matches, and full DB SHA-256 was unchanged afterward. This is a new database integrity/count/query check, not a replay of the historical 98,418 trials or source bytes. Aggregate-only receipt: `alpha-catalog-connection-20261016.json`. Raw DB and source names remain outside Git.
 
 The same adapter supports the original master `objects` schema and the existing evaluated `assets` + `coverage` schema. It preserves representation status separately from scientific evaluation status and retains alias counts. Catalog tests are now 6 methods; total focused release/catalog/product tests are **19**. The earlier fixture-only limitation is superseded for this specific archived database connection; live production integration remains unperformed.
+
+
+## Connector-aware local source snapshots (UWP-08, Issue #756)
+
+This extends the EXISTING local SQLite source catalog in scripts/source_catalog.py,
+not a second registry, database or runtime. Authorized provider reads are made
+separately by connected tools. This code only ingests a bounded, explicit local
+JSON metadata snapshot; it cannot fetch remote data or grant tool authority.
+
+Supported input fields: schema_version=1, observed_at (timezone required), and
+connectors[] with provider, resource_kind, source_ref, visibility, status and
+source_revision. A resource reference must be an OPAQUE sha256:<64 lower-case
+hex digits> token, never a provider-native ID, name, URL or credential.
+source_revision is null or a 40-character git commit SHA. For connector-level
+denials or empty organization lists, source_ref may be null.
+
+States: CONNECTED_AND_VERIFIED, AVAILABLE_UNTESTED, NOT_CONNECTED, DENIED,
+STALE. A successful metadata lookup does NOT establish a working model call,
+paid service, MCP OAuth, remote execution, approval or production readiness.
+The local search computes effective_status=STALE when evidence is older than
+the specified freshness window (default 24 h) or timestamp is in the future.
+
+Example CLI (only explicit local SQLite files may be written):
+
+    python3 scripts/source_catalog.py --database /tmp/aegis-sources.sqlite --snapshot docs/platform-assembly/public-sources-20261016.json
+    python3 scripts/source_catalog.py --database /tmp/aegis-sources.sqlite --connector-snapshot /path/to/authorized-metadata-only.json --allow-private-connectors-local
+    python3 scripts/source_catalog.py --database /tmp/aegis-sources.sqlite --connector-query github
+    python3 -m unittest tests/test_connector_catalog.py
+
+--allow-private-connectors-local permits PRIVATE METADATA in the caller's own
+local file only. It never grants external access or consents to publishing
+that file. Import rejects unknown fields, raw URLs, unrecognized states,
+duplicate identities, invalid SHA, oversized manifests and absent consent,
+before writing local SQLite transactionally. Search opens SQLite read-only.
+Never commit live private connector manifests, raw provider IDs, OAuth keys,
+customer records, emails or Drive asset names to this public repository.
+
+This is a metadata discovery and provenance extension. Retrieval must
+re-check the source provider's permission and version at use time. The
+ClickHouse connector presently responds but returns zero accessible
+organizations; this is AVAILABLE_UNTESTED for organization content, not a
+universal absence or a denial by every ClickHouse account.
+
+NOT INCLUDED: production data migrations, auth grants, OpenAI model
+invocations, live MCP/A2A handshakes, signed admission, two-client smoke
+tests, browser acceptance, production deployment, billing changes or merge.
