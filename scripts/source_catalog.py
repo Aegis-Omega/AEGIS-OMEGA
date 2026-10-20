@@ -105,21 +105,138 @@ def search_alpha_corpus(database, query, limit=30):
           FROM assets a WHERE instr(lower(a.member),lower(?))>0
           ORDER BY a.digest LIMIT ?""", (query, min(max(limit,1),100)))]
 
+
+# Source-bounded metadata-only connector observations; this module never
+# calls remote providers or grants execution authority.
+from datetime import datetime, timezone
+
+CONNECTOR_STATES = frozenset({
+    'CONNECTED_AND_VERIFIED', 'AVAILABLE_UNTESTED', 'NOT_CONNECTED', 'DENIED', 'STALE'
+})
+CONNECTOR_TYPES = re.compile(r'[a-z][a-z0-9_-]{1,63}\Z')
+OPAQUE_DIGEST = re.compile(r'sha256:[0-9a-f]{64}\Z')
+
+
+def _connector_time(value):
+    if not isinstance(value, str) or len(value) > 40:
+        raise ValueError('Invalid observation timestamp')
+    try:
+        when = datetime.fromisoformat(value.replace('Z', '+00:00'))
+    except ValueError as exc:
+        raise ValueError('Invalid observation timestamp') from exc
+    if when.tzinfo is None or when.utcoffset() is None:
+        raise ValueError('Observation timestamp requires timezone')
+    return when.astimezone(timezone.utc)
+
+
+def ingest_connectors(database, snapshot, allow_private_local=False):
+    """Import an explicit metadata-only snapshot into an EXISTING local catalog.
+
+    Raw provider URLs, OAuth tokens, names, messages, file contents and
+    credential-bearing identifiers are not accepted. Never publishes a snapshot.
+    """
+    database, snapshot = Path(database), Path(snapshot)
+    if not database.is_file():
+        raise ValueError('First build the local source catalog')
+    if snapshot.resolve() == database.resolve() or snapshot.stat().st_size > 1_000_000:
+        raise ValueError('Unsafe connector manifest')
+    data = json.loads(snapshot.read_text(encoding='utf-8'))
+    if not isinstance(data, dict) or set(data) != {'schema_version', 'observed_at', 'connectors'} or data['schema_version'] != 1:
+        raise ValueError('Unsupported connector manifest')
+    observed = _connector_time(data['observed_at'])
+    entries = data['connectors']
+    if not isinstance(entries, list) or len(entries) > 500:
+        raise ValueError('Connector snapshot too large')
+    rows, seen = [], set()
+    for entry in entries:
+        if not isinstance(entry, dict) or set(entry) != {'provider', 'resource_kind', 'source_ref', 'visibility', 'status', 'source_revision'}:
+            raise ValueError('Unsupported connector record fields')
+        provider, kind, ref = entry['provider'], entry['resource_kind'], entry['source_ref']
+        if not isinstance(provider, str) or not CONNECTOR_TYPES.fullmatch(provider):
+            raise ValueError('Invalid provider name')
+        if not isinstance(kind, str) or not CONNECTOR_TYPES.fullmatch(kind):
+            raise ValueError('Invalid resource kind')
+        if ref is not None and (not isinstance(ref, str) or not OPAQUE_DIGEST.fullmatch(ref)):
+            raise ValueError('Source reference must be opaque SHA-256; raw links forbidden')
+        if entry['status'] not in CONNECTOR_STATES:
+            raise ValueError('Unrecognized connector status')
+        if entry['status'] == 'CONNECTED_AND_VERIFIED' and ref is None:
+            raise ValueError('Verified source requires source identity')
+        if entry['visibility'] not in ('public', 'private'):
+            raise ValueError('Unrecognized visibility')
+        if entry['visibility'] == 'private' and not allow_private_local:
+            raise ValueError('Private metadata needs explicit local opt-in')
+        revision = entry['source_revision']
+        if revision is not None and (not isinstance(revision, str) or not HEX.fullmatch(revision)):
+            raise ValueError('Invalid source revision')
+        key = (provider, kind, ref or '')
+        if key in seen:
+            raise ValueError('Duplicate connector identity')
+        seen.add(key)
+        rows.append((provider, kind, ref or '', entry['visibility'], entry['status'], revision, observed.isoformat()))
+    # Validate entire manifest BEFORE beginning local SQLite transaction.
+    with sqlite3.connect(database) as db:
+        if not {'source_snapshots', 'source_assets'} <= {
+            row[0] for row in db.execute("SELECT name FROM sqlite_master WHERE type='table'")
+        }:
+            raise ValueError('Database is not an AEGIS source catalog')
+        with db:
+            db.execute('''CREATE TABLE IF NOT EXISTS connector_observations (
+                provider TEXT NOT NULL, resource_kind TEXT NOT NULL,
+                source_ref TEXT NOT NULL, visibility TEXT NOT NULL,
+                status TEXT NOT NULL, source_revision TEXT,
+                observed_at TEXT NOT NULL,
+                PRIMARY KEY(provider,resource_kind,source_ref))''')
+            db.executemany('''INSERT INTO connector_observations VALUES (?,?,?,?,?,?,?)
+                ON CONFLICT(provider,resource_kind,source_ref) DO UPDATE SET
+                visibility=excluded.visibility, status=excluded.status,
+                source_revision=excluded.source_revision,
+                observed_at=excluded.observed_at''', rows)
+    return len(rows)
+
+
+def search_connectors(database, provider='', max_age_minutes=1440, limit=30, now=None):
+    """Read-only lookup; stale observations never masquerade as current."""
+    if not isinstance(provider, str) or (provider and not CONNECTOR_TYPES.fullmatch(provider)):
+        raise ValueError('Invalid provider filter')
+    if not isinstance(max_age_minutes, int) or max_age_minutes < 0 or max_age_minutes > 525600:
+        raise ValueError('Invalid freshness window')
+    now = _connector_time(now or datetime.now(timezone.utc).isoformat())
+    uri = Path(database).resolve().as_uri() + '?mode=ro'
+    with sqlite3.connect(uri, uri=True) as db:
+        db.execute('PRAGMA query_only=ON')
+        db.row_factory = sqlite3.Row
+        items = [dict(r) for r in db.execute('''SELECT * FROM connector_observations
+            WHERE (? = '' OR provider = ?) ORDER BY provider,resource_kind,source_ref
+            LIMIT ?''', (provider, provider, min(max(limit, 1), 100)))]
+    for item in items:
+        delta = (now - _connector_time(item['observed_at'])).total_seconds()
+        item['effective_status'] = 'STALE' if delta < -60 or delta > max_age_minutes * 60 else item['status']
+    return items
+
 def main():
     p=argparse.ArgumentParser(description=__doc__)
     p.add_argument('--database', type=Path, required=True)
     p.add_argument('--snapshot', type=Path)
     p.add_argument('--allow-private-local', action='store_true')
     p.add_argument('--search')
+    p.add_argument('--connector-snapshot', type=Path, help='Import an explicit local metadata-only connector snapshot')
+    p.add_argument('--connector-query', nargs='?', const='', help='Search locally indexed connector status by provider')
+    p.add_argument('--allow-private-connectors-local', action='store_true')
     p.add_argument('--alpha-corpus', type=Path, help='Read-only existing AlphaEvolve corpus.sqlite')
     a=p.parse_args()
     if a.snapshot:
         print(json.dumps({'indexed_assets':build(a.snapshot,a.database,a.allow_private_local)}))
+    if a.connector_snapshot is not None:
+        print(json.dumps({'indexed_connectors':ingest_connectors(a.database,a.connector_snapshot,a.allow_private_connectors_local)}))
+    if a.connector_query is not None:
+        print(json.dumps({'connectors':search_connectors(a.database,a.connector_query)},indent=2))
     if a.search is not None:
         result = {'git_sources': search(a.database,a.search)}
         if a.alpha_corpus is not None:
             result['alphaevolve_sources'] = search_alpha_corpus(a.alpha_corpus,a.search)
         print(json.dumps(result,indent=2))
-    if a.snapshot is None and a.search is None: p.error('Supply --snapshot or --search')
+    if a.snapshot is None and a.search is None and a.connector_snapshot is None and a.connector_query is None:
+        p.error('Supply --snapshot, --search, --connector-snapshot or --connector-query')
 
 if __name__=='__main__': main()
