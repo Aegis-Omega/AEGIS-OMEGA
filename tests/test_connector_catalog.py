@@ -91,6 +91,36 @@ class ConnectorCatalogTests(unittest.TestCase):
         self.assertEqual(catalog.ingest_connectors(self.db, self.connectors, allow_private_local=True), 1)
         self.assertEqual(catalog.search_connectors(self.db)[0]["source_ref"], "")
 
+    def test_older_allow_cannot_replace_newer_denial(self):
+        self.write([self.record(status="DENIED")], at="2026-10-20T08:00:00Z")
+        catalog.ingest_connectors(self.db, self.connectors)
+        self.write([self.record(status="CONNECTED_AND_VERIFIED")], at="2026-10-19T08:00:00Z")
+        with self.assertRaisesRegex(ValueError, "Older connector snapshot"):
+            catalog.ingest_connectors(self.db, self.connectors)
+        record = catalog.search_connectors(self.db, now="2026-10-20T08:01:00Z")[0]
+        self.assertEqual(record["status"], "DENIED")
+        self.assertEqual(record["effective_status"], "DENIED")
+
+    def test_same_timestamp_conflict_rejected_but_idempotent_replay_allowed(self):
+        self.write([self.record(status="DENIED")])
+        self.assertEqual(catalog.ingest_connectors(self.db, self.connectors), 1)
+        self.assertEqual(catalog.ingest_connectors(self.db, self.connectors), 1)
+        self.write([self.record(status="CONNECTED_AND_VERIFIED")])
+        with self.assertRaisesRegex(ValueError, "Conflicting evidence"):
+            catalog.ingest_connectors(self.db, self.connectors)
+        self.assertEqual(catalog.search_connectors(self.db)[0]["status"], "DENIED")
+
+    def test_mixed_out_of_order_snapshot_is_atomic(self):
+        old = self.record(status="DENIED")
+        self.write([old], at="2026-10-20T08:00:00Z")
+        catalog.ingest_connectors(self.db, self.connectors)
+        new_resource = self.record(provider="supabase", source_ref="sha256:" + "d" * 64)
+        self.write([new_resource, self.record(status="CONNECTED_AND_VERIFIED")], at="2026-10-19T08:00:00Z")
+        with self.assertRaisesRegex(ValueError, "Older connector snapshot"):
+            catalog.ingest_connectors(self.db, self.connectors)
+        self.assertEqual(catalog.search_connectors(self.db, provider="supabase"), [])
+        self.assertEqual(catalog.search_connectors(self.db, provider="github")[0]["status"], "DENIED")
+
     def test_read_only_search_does_not_create_missing_database(self):
         missing = Path(self.tmp.name) / "missing.sqlite"
         with self.assertRaises(sqlite3.OperationalError):
