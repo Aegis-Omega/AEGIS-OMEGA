@@ -1,21 +1,16 @@
 #!/usr/bin/env bash
 # AEGIS Commercial Products — One-Command Deploy to Vercel
 # Run this from your LOCAL machine (not the cloud container)
-# Requires: vercel CLI installed + logged in + DASHSCOPE API key
+# Requires: vercel CLI installed + logged in; provider credentials stay server-side
 #
 # Usage:
-#   export DASHSCOPE_KEY="sk-XXXXXXXXXXXXXXXX"   # your DashScope API key
 #   bash scripts/prepare-deployment.sh --build
 #   bash scripts/deploy-products.sh
 #
-# Optional:
-#   ALLOW_MISSING_DASHSCOPE=1 bash scripts/deploy-products.sh
 
 set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-DASHSCOPE_KEY="${DASHSCOPE_KEY:-}"
-ALLOW_MISSING_DASHSCOPE="${ALLOW_MISSING_DASHSCOPE:-0}"
 PRODUCTS=("platform-picker" "hook-generator" "content-calendar" "hub")
 
 declare -A PRODUCTION_URLS=(
@@ -35,15 +30,12 @@ die()    { echo -e "${RED}✗ ERROR:${NC} $*"; exit 1; }
 command -v vercel >/dev/null 2>&1 || die "vercel CLI not installed. Run: npm i -g vercel"
 vercel whoami >/dev/null 2>&1 || die "Not logged in to Vercel. Run: vercel login"
 
-if [[ -z "$DASHSCOPE_KEY" && "$ALLOW_MISSING_DASHSCOPE" != "1" ]]; then
-  die "DASHSCOPE_KEY not set. Set DASHSCOPE_KEY=sk-... or rerun with ALLOW_MISSING_DASHSCOPE=1 for a build-only deploy."
-fi
-
-if [[ "$ALLOW_MISSING_DASHSCOPE" == "1" ]]; then
-  bash "$REPO_ROOT/scripts/prepare-deployment.sh"
-else
-  bash "$REPO_ROOT/scripts/prepare-deployment.sh" --require-secrets
-fi
+# Vite embeds VITE_* values into public JavaScript. Never forward provider
+# credentials to browser deployments; configure the existing server-side proxy.
+for name in VITE_DASHSCOPE_API_KEY VITE_CLAUDE_API_KEY VITE_OPENAI_API_KEY VITE_AZURE_OPENAI_API_KEY; do
+  [[ -z "${!name:-}" ]] || die "$name is a provider credential exposed to browser builds; remove it before deploying"
+done
+bash "$REPO_ROOT/scripts/prepare-deployment.sh"
 
 echo ""
 echo "═══════════════════════════════════════════════════════"
@@ -60,40 +52,37 @@ for product in "${PRODUCTS[@]}"; do
   cd "$dir"
 
   # Build locally first to catch errors
-  npm install --silent
+  # Product-local packages and the separately locked shared package are both
+  # required: TypeScript follows @shared imports outside each product root.
+  if [[ -f package-lock.json ]]; then
+    npm ci --silent --include=dev
+  else
+    npm install --silent
+  fi
+  if [[ "$product" == "platform-picker" || "$product" == "hook-generator" || "$product" == "content-calendar" ]]; then
+    [[ -f "$REPO_ROOT/packages/shared/package-lock.json" ]] || die "Missing shared lockfile"
+    npm ci --silent --include=dev --prefix "$REPO_ROOT/packages/shared"
+  fi
   npm run build --silent
-  log "$product build OK"
+  log "$product local build OK"
 
   # Deploy to Vercel production. Canonical domains are documented in DEPLOY.md;
   # the deployment URL printed by Vercel should be aliased to the matching domain.
-  if [[ -n "$DASHSCOPE_KEY" && "$product" != "hub" ]]; then
-    vercel --prod --yes \
-      -e "VITE_DASHSCOPE_API_KEY=$DASHSCOPE_KEY" \
-      -e "VITE_DASHSCOPE_MODEL=qwen-plus" \
-      -e "VITE_HUB_URL=https://aegisomega.com" \
-      2>&1 | tail -5
-  else
-    vercel --prod --yes 2>&1 | tail -5
-  fi
+  vercel --prod --yes 2>&1 | tail -5
 
   log "$product production target: ${PRODUCTION_URLS[$product]}"
 
-  log "$product deployed ✓"
+  log "$product deployment command completed; public surface not yet verified"
   echo ""
 done
 
 cd "$REPO_ROOT"
 echo "═══════════════════════════════════════════════════════"
 echo ""
+echo "▸ Validating actual public product surfaces (not just Vercel READY)"
+python3 "$REPO_ROOT/scripts/product_surface_gate.py" || die "Production surface verification failed — do not claim deployment complete"
+
 log "All products deployed!"
 echo ""
-echo "Next steps:"
-echo "  1. Note the Vercel deployment URLs from above"
-echo "  2. Alias each deployment to its canonical aegisomega.com domain"
-echo "  3. Set up Lemon Squeezy products (see DEPLOY.md):"
-echo "     - Single tool          → \$19"
-echo "     - Starter (any 2)     → \$29"
-echo "     - Full Toolkit        → \$39"
-echo ""
-echo "  4. Point Lemon Squeezy redirects to https://aegisomega.com/success?order_id={order_id}"
-echo ""
+echo "Provider credentials must be configured on the existing server-side inference service."
+echo "Payment verification remains in the existing server-side payment functions."
