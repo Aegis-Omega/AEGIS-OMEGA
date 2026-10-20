@@ -121,6 +121,30 @@ class ConnectorCatalogTests(unittest.TestCase):
         self.assertEqual(catalog.search_connectors(self.db, provider="supabase"), [])
         self.assertEqual(catalog.search_connectors(self.db, provider="github")[0]["status"], "DENIED")
 
+    def test_two_cloudflare_accounts_do_not_share_state(self):
+        # Distinct opaque account handles are not public native Cloudflare IDs.
+        first = self.record(provider="cloudflare", resource_kind="account",
+                            source_ref="sha256:" + "e" * 64, source_revision=None,
+                            visibility="private", status="CONNECTED_AND_VERIFIED")
+        second = self.record(provider="cloudflare", resource_kind="account",
+                             source_ref="sha256:" + "f" * 64, source_revision=None,
+                             visibility="private", status="AVAILABLE_UNTESTED")
+        self.write([first, second], at="2026-10-20T02:00:00Z")
+        self.assertEqual(catalog.ingest_connectors(self.db, self.connectors,
+                                                    allow_private_local=True), 2)
+        states = {r["source_ref"]: r["status"] for r in catalog.search_connectors(
+            self.db, provider="cloudflare", now="2026-10-20T02:01:00Z")}
+        self.assertEqual(states[first["source_ref"]], "CONNECTED_AND_VERIFIED")
+        self.assertEqual(states[second["source_ref"]], "AVAILABLE_UNTESTED")
+        self.write([self.record(**dict(first, status="DENIED"))],
+                   at="2026-10-20T02:02:00Z")
+        self.assertEqual(catalog.ingest_connectors(self.db, self.connectors,
+                                                    allow_private_local=True), 1)
+        after = {r["source_ref"]: r["status"] for r in catalog.search_connectors(
+            self.db, provider="cloudflare", now="2026-10-20T02:03:00Z")}
+        self.assertEqual(after[first["source_ref"]], "DENIED")
+        self.assertEqual(after[second["source_ref"]], "AVAILABLE_UNTESTED")
+
     def test_read_only_search_does_not_create_missing_database(self):
         missing = Path(self.tmp.name) / "missing.sqlite"
         with self.assertRaises(sqlite3.OperationalError):
