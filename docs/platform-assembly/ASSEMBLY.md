@@ -135,8 +135,8 @@ tests, browser acceptance, production deployment, billing changes or merge.
 
 The operator reports **two Cloudflare accounts connected** in ChatGPT.
 A read-only GET /accounts using the Cloudflare session currently selected by
-this tool returned exactly **one accessible account** (display name:
-Info@aegisomega.com's Account) with one Worker called aegisomega. That
+this tool returned exactly **one accessible account** (account label
+withheld from this public note) with one Worker called aegisomega. That
 observation proves access to that single account through THIS authorization;
 it does NOT establish absence or disconnection of another ChatGPT-linked
 Cloudflare account. Other linked identities must be independently selected,
@@ -148,8 +148,11 @@ locally computed, opaque SHA-256 source_ref bound to the **specific account**
 (and account+resource for a worker); do not key only on provider or Worker
 name, since matching names can occur in multiple accounts. Do not commit raw
 account IDs or raw identity-to-hash lookup maps to the repository. When a
-second account cannot be enumerated from the active session, record its
-coverage as AVAILABLE_UNTESTED without claiming its Workers. Updates to
+second account cannot be enumerated from the active session, record a
+coverage gap in the read-only issue receipt; DO NOT synthesize an account
+handle or insert an account-specific row until an authorized stable identity
+is available. After verifying its identity, retain AVAILABLE_UNTESTED for
+unverified Worker content, without implying denial or disconnection. Updates to
 one account must not overwrite the other's state. See the synthetic
 two-account isolation regression in tests/test_connector_catalog.py.
 
