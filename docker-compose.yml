@@ -3,13 +3,13 @@
 # Epistemic Tier: T1 — infrastructure substrate.
 #
 # Usage:
-#   cp sovereign-omega-v2/.env.example sovereign-omega-v2/.env  # add your keys
-#   docker-compose up -d
-#   docker-compose logs -f bridge
+#   cp .env.example .env  # add server credentials
+#   npm run ops:up
+#   docker compose logs -f bridge
 #
 # The checkpoint volume survives container restarts — governance state is durable.
 
-version: '3.9'
+name: aegis
 
 services:
 
@@ -18,14 +18,17 @@ services:
     build:
       context: ./sovereign-omega-v2
       dockerfile: Dockerfile
-      target: runtime
-    container_name: aegis-bridge
     restart: unless-stopped
     ports:
-      - "7890:7890"
+      - "127.0.0.1:${AEGIS_BRIDGE_PORT:-7890}:7890"
     environment:
+      PORT: "7890"
       SOVEREIGN_BRIDGE_PORT: "7890"
       AEGIS_CHECKPOINT_PATH: "/app/data/aegis_checkpoint.json"
+      AEGIS_ARRAY_BYTES: ${AEGIS_ARRAY_BYTES:-268435456}
+      SUPABASE_URL: ${SUPABASE_URL:-}
+      SUPABASE_SERVICE_ROLE_KEY: ${SUPABASE_SERVICE_ROLE_KEY:-}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
     volumes:
       # Persisted checkpoint — governance state survives restarts
       - bridge-checkpoint:/app/data
@@ -41,31 +44,70 @@ services:
     build:
       context: ./studio
       dockerfile: Dockerfile
-    container_name: aegis-studio
+      args:
+        VITE_BRIDGE_URL: /api/bridge
     restart: unless-stopped
     ports:
-      - "3001:80"
+      - "127.0.0.1:${AEGIS_STUDIO_PORT:-3001}:80"
     depends_on:
       bridge:
         condition: service_healthy
-    environment:
-      VITE_BRIDGE_URL: "http://bridge:7890"
 
   # Cockpit — AI chat UI with governance telemetry
   cockpit:
     build:
-      context: ./cockpit
-      dockerfile: Dockerfile
-    container_name: aegis-cockpit
+      context: .
+      dockerfile: cockpit/Dockerfile
     restart: unless-stopped
     ports:
-      - "3000:80"
+      - "127.0.0.1:${AEGIS_COCKPIT_PORT:-3000}:8080"
     depends_on:
       bridge:
         condition: service_healthy
-    env_file:
-      - ./cockpit/.env
+    environment:
+      PORT: "8080"
+      AEGIS_BRIDGE_URL: http://bridge:7890
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      GOOGLE_CLOUD_PROJECT: ${GOOGLE_CLOUD_PROJECT:-}
+      GOOGLE_CLOUD_REGION: ${GOOGLE_CLOUD_REGION:-us-east5}
+
+  # Existing governed agent coordinator; enable with --profile agents.
+  platform:
+    profiles: [agents]
+    build:
+      context: .
+      dockerfile: vertex/Dockerfile
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:${AEGIS_PLATFORM_PORT:-8081}:8080"
+    environment:
+      PORT: "8080"
+      REDIS_URL: redis://redis:6379
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      SUPABASE_URL: ${SUPABASE_URL:-}
+      SUPABASE_SERVICE_ROLE_KEY: ${SUPABASE_SERVICE_ROLE_KEY:-}
+      AEGIS_EXECUTION_IDENTITY_JSON: ${AEGIS_EXECUTION_IDENTITY_JSON:-}
+      AEGIS_WORKSPACE_OBSERVATION_JSON: ${AEGIS_WORKSPACE_OBSERVATION_JSON:-}
+      AEGIS_APPROVAL_GRANT_JSON: ${AEGIS_APPROVAL_GRANT_JSON:-}
+    depends_on:
+      redis:
+        condition: service_healthy
+
+  redis:
+    profiles: [agents]
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: [redis-server, --appendonly, "yes"]
+    volumes:
+      - agent-chain:/data
+    healthcheck:
+      test: [CMD, redis-cli, ping]
+      interval: 10s
+      timeout: 3s
+      retries: 3
 
 volumes:
   bridge-checkpoint:
+    driver: local
+  agent-chain:
     driver: local

@@ -1,6 +1,8 @@
 import express from 'express'
 import path from 'path'
 import { fileURLToPath } from 'url'
+import { request as httpRequest } from 'node:http'
+import { request as httpsRequest } from 'node:https'
 import Anthropic from '@anthropic-ai/sdk'
 import { AnthropicVertex } from '@anthropic-ai/vertex-sdk'
 
@@ -39,6 +41,34 @@ interface ChatMessage { role: 'user' | 'assistant'; content: string }
 interface StreamRequest { messages: ChatMessage[]; max_tokens?: number }
 
 const app = express()
+// Forward governance APIs to the same runtime used by Studio, MCP and the SDK.
+// Register before the JSON parser so POST bodies and SSE streams stay intact.
+const BRIDGE = process.env.AEGIS_BRIDGE_URL?.replace(/\/$/, '')
+if (BRIDGE) {
+  const base = new URL(BRIDGE)
+  if (!['http:', 'https:'].includes(base.protocol) || base.username || base.password) {
+    throw new Error('AEGIS_BRIDGE_URL must be an HTTP(S) URL without credentials')
+  }
+  app.use(['/telemetry', '/event', '/node', '/catalog', '/skills', '/platform'], (req, res) => {
+    const target = new URL(`${BRIDGE}${req.originalUrl}`)
+    const headers = { ...req.headers }
+    for (const key of ['host', 'connection', 'transfer-encoding', 'upgrade']) delete headers[key]
+    const request = target.protocol === 'https:' ? httpsRequest : httpRequest
+    const upstream = request(target, { method: req.method, headers }, response => {
+      const responseHeaders = { ...response.headers }
+      for (const key of ['connection', 'transfer-encoding', 'upgrade']) delete responseHeaders[key]
+      res.writeHead(response.statusCode ?? 502, responseHeaders)
+      response.pipe(res)
+    })
+    upstream.on('error', () => {
+      if (!res.headersSent) res.status(502).json({ error: 'AEGIS bridge unavailable' })
+      else res.destroy()
+    })
+    req.on('aborted', () => upstream.destroy())
+    res.on('close', () => { if (!res.writableEnded) upstream.destroy() })
+    req.pipe(upstream)
+  })
+}
 app.use(express.json({ limit: '256kb' }))
 
 app.get('/health', (_, res) => {
