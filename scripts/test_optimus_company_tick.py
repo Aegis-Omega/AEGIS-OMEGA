@@ -11,9 +11,15 @@ HEAD = 'a'*40
 
 
 def graph(*items):
-    return {"schema":"AEGIS_ISSUE_EVOLUTION_GRAPH_V1", "receipt_hash":"f"*64,
-            "execution_effect":"NONE", "nodes":list(items),
-            "edges":[], "unresolved_references":[]}
+    body={"schema":"AEGIS_ISSUE_EVOLUTION_GRAPH_V1",
+          "execution_effect":"NONE", "nodes":list(items),
+          "edges":[], "unresolved_references":[]}
+    return {**body, "receipt_hash":opt.stable_hash(body)}
+
+
+def reseal(g):
+    g['receipt_hash']=opt.stable_hash({k:v for k,v in g.items() if k!='receipt_hash'})
+    return g
 
 
 def node(n, topic, labels=()):
@@ -103,6 +109,7 @@ class TestTick(unittest.TestCase):
     def test_live_dependency_blocks_even_priority_work(self):
         g=graph(node(1,'commerce',['P0']), node(2,'engineering'))
         g['edges']=[{'from':f'{opt.REPO}#1','to':f'{opt.REPO}#2','kind':'depends_on'}]
+        reseal(g)
         r=opt.select_work(g,source_head=HEAD,tick='dependency')
         self.assertEqual(r['selected_issue'],f'{opt.REPO}#2')
 
@@ -110,6 +117,7 @@ class TestTick(unittest.TestCase):
         g=graph(node(1,'commerce'))
         g['unresolved_references']=[{'from':f'{opt.REPO}#1',
                                     'to':f'{opt.REPO}#999','kind':'depends_on'}]
+        reseal(g)
         self.assertEqual(opt.select_work(g,source_head=HEAD,tick='no-assumption')['disposition'],
                          'HOLD_NO_NEW_VERIFIABLE_WORK')
 
@@ -118,6 +126,7 @@ class TestTick(unittest.TestCase):
         g['unresolved_references']=[
             {'from':f'{opt.REPO}#1','to':f'{opt.REPO}#999','kind':'parent'},
             {'from':f'{opt.REPO}#1','to':f'{opt.REPO}#998','kind':'related'}]
+        reseal(g)
         self.assertEqual(opt.select_work(g,source_head=HEAD,tick='context')['selected_issue'],
                          f'{opt.REPO}#1')
 
@@ -168,6 +177,7 @@ class TestTick(unittest.TestCase):
         g=graph(node(249,'engineering'))
         g['unresolved_references']=[{'from':f'{opt.REPO}#249',
                                     'to':f'{opt.REPO}#999','kind':'depends_on'}]
+        reseal(g)
         r=opt.select_work(g,source_head=HEAD,tick='deny',
                           requested_issue=f'{opt.REPO}#249')
         self.assertEqual(r['disposition'],'HOLD_NO_NEW_VERIFIABLE_WORK')
@@ -312,5 +322,71 @@ class TestTick(unittest.TestCase):
         n=node(78,'commerce',labels=('Do-Not-Automate',))
         x=opt.select_work(graph(n),source_head=HEAD,tick='labels')
         self.assertEqual(x['disposition'],'HOLD_NO_NEW_VERIFIABLE_WORK')
+
+    def test_unresolved_uwp_blocks_only_own_issue(self):
+        a=node(758,'engineering')
+        b=node(249,'engineering')
+        g=graph(a,b)
+        g['unresolved_references']=[{'from':'Aegis-Omega/AEGIS-OMEGA#758',
+            'to':'Aegis-Omega/AEGIS-OMEGA@UWP-05','kind':'depends_on'}]
+        reseal(g)
+        held=opt.select_work(g,source_head=HEAD,tick='v7',
+                    requested_issue='Aegis-Omega/AEGIS-OMEGA#758')
+        ready=opt.select_work(g,source_head=HEAD,tick='v7',
+                    requested_issue='Aegis-Omega/AEGIS-OMEGA#249')
+        self.assertEqual(held['disposition'],'HOLD_NO_NEW_VERIFIABLE_WORK')
+        self.assertEqual(ready['selected_issue'],'Aegis-Omega/AEGIS-OMEGA#249')
+        self.assertEqual(ready['authority_effect'],'NONE')
+
+    def test_uwp_alias_forbidden_on_resolved_edges(self):
+        g=graph(node(758,'engineering'))
+        g['edges']=[{'from':'Aegis-Omega/AEGIS-OMEGA#758',
+            'to':'Aegis-Omega/AEGIS-OMEGA@UWP-05','kind':'depends_on'}]
+        with self.assertRaisesRegex(ValueError,'GRAPH_EDGE_UNTRUSTED'):
+            opt.select_work(g,source_head=HEAD,tick='v7')
+
+    def test_uwp_alias_wrong_kind_forbidden(self):
+        g=graph(node(758,'engineering'))
+        g['unresolved_references']=[{'from':'Aegis-Omega/AEGIS-OMEGA#758',
+            'to':'Aegis-Omega/AEGIS-OMEGA@UWP-05','kind':'related'}]
+        with self.assertRaisesRegex(ValueError,'GRAPH_EDGE_UNTRUSTED'):
+            opt.select_work(g,source_head=HEAD,tick='v7')
+
+    def test_uwp_alias_wrong_repository_forbidden(self):
+        g=graph(node(758,'engineering'))
+        g['unresolved_references']=[{'from':'Aegis-Omega/AEGIS-OMEGA#758',
+            'to':'external/foreign@UWP-05','kind':'depends_on'}]
+        with self.assertRaisesRegex(ValueError,'GRAPH_EDGE_UNTRUSTED'):
+            opt.select_work(g,source_head=HEAD,tick='v7')
+
+    def test_digest_mismatch_does_not_select(self):
+        g=graph(node(90,'commerce'))
+        g['nodes'][0]['title']='manipulated after compiler receipt'
+        with self.assertRaisesRegex(ValueError,'GRAPH_RECEIPT_CONTENT_MISMATCH'):
+            opt.select_work(g,source_head=HEAD,tick='integrity')
+
+    def test_dependency_erasure_without_reseal_denied(self):
+        g=graph(node(90,'commerce'),node(91,'commerce'))
+        g['edges']=[{'from':f'{opt.REPO}#90','to':f'{opt.REPO}#91','kind':'depends_on'}]
+        reseal(g)
+        del g['edges'][:]
+        with self.assertRaisesRegex(ValueError,'GRAPH_RECEIPT_CONTENT_MISMATCH'):
+            opt.select_work(g,source_head=HEAD,tick='tamper')
+
+    def test_p0_lowercase_precedes_lower_issue_number(self):
+        g=graph(node(90,'commerce'),node(91,'commerce',['p0']))
+        r=opt.select_work(g,source_head=HEAD,tick='priority')
+        self.assertEqual(r['selected_issue'],f'{opt.REPO}#91')
+
+    def test_p0_uppercase_preserved(self):
+        g=graph(node(90,'commerce'),node(91,'commerce',['P0']))
+        r=opt.select_work(g,source_head=HEAD,tick='priority')
+        self.assertEqual(r['selected_issue'],f'{opt.REPO}#91')
+
+    def test_independent_issue_keeps_digest_and_ready(self):
+        g=graph(node(249,'engineering'))
+        self.assertEqual(g['receipt_hash'],opt.stable_hash({k:v for k,v in g.items() if k!='receipt_hash'}))
+        r=opt.select_work(g,source_head=HEAD,tick='standalone')
+        self.assertEqual(r['selected_issue'],f'{opt.REPO}#249')
 
 if __name__=='__main__':unittest.main()

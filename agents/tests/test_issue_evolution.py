@@ -288,5 +288,46 @@ class IssueEvolutionTests(unittest.TestCase):
 
 
 
+    def test_uwp10_finds_open_alias_dependencies(self):
+        items = [issue(n, f'[UWP-{a:02d}] Open prerequisite') for a,n in
+                 ((4,752),(5,753),(6,754),(9,757))]
+        items.append(issue(758,'[UWP-10] Improve',
+                      '**Dependencies:** UWP-05, UWP-06, UWP-09, UWP-04.'))
+        g=compile_graph(snapshot(items))
+        got={e['to'] for e in g['edges'] if e['from']==f'{REPO}#758' and e['kind']=='depends_on'}
+        self.assertEqual(got,{f'{REPO}#{n}' for n in (752,753,754,757)})
+
+    def test_closed_or_missing_alias_is_issue_local_unresolved(self):
+        g=compile_graph(snapshot([issue(758,'[UWP-10] Improve',
+                            'Dependencies: UWP-05.'),issue(249,'Independent task')]))
+        self.assertEqual(g['node_count'],2)
+        self.assertIn({'from':f'{REPO}#758','to':f'{REPO}@UWP-05',
+                       'kind':'depends_on'},g['unresolved_references'])
+        self.assertFalse(any(e['from']==f'{REPO}#249' and e['kind']=='depends_on'
+                             for e in g['unresolved_references']))
+
+    def test_uwp_alias_invalid_syntax_rejected(self):
+        with self.assertRaisesRegex(ValueError,'UWP_DEPENDENCY_MALFORMED'):
+            compile_graph(snapshot([issue(758,'[UWP-10] Improve',
+                               'Dependencies: UWP-05alpha.')]))
+
+    def test_uwp_range_resolves_open_and_unresolved(self):
+        g=compile_graph(snapshot([issue(749,'[UWP-01] Plan'),
+            issue(757,'[UWP-09] Test','Dependencies: UWP-01 to UWP-04.')]))
+        self.assertEqual({e['to'] for e in g['edges'] if e['kind']=='depends_on'},
+                         {f'{REPO}#749'})
+        self.assertEqual({e['to'] for e in g['unresolved_references']},
+                         {f'{REPO}@UWP-{a:02d}' for a in (2,3,4)})
+
+    def test_uwp_dependency_cycle_rejected(self):
+        with self.assertRaisesRegex(ValueError,'ISSUE_DEPENDENCY_CYCLE'):
+            compile_graph(snapshot([issue(749,'[UWP-01] A','Dependencies: UWP-02.'),
+                 issue(750,'[UWP-02] B','Dependencies: UWP-01.')]))
+
+    def test_duplicate_open_alias_rejected(self):
+        with self.assertRaisesRegex(ValueError,'UWP_ALIAS_DUPLICATE'):
+            compile_graph(snapshot([issue(749,'[UWP-01] A'),
+                                    issue(750,'[UWP-01] B')]))
+
 if __name__ == "__main__":
     unittest.main()

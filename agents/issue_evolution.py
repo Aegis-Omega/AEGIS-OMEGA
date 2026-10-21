@@ -28,6 +28,11 @@ REPOS = frozenset({
 ISSUE_REF = re.compile(r"(?<![A-Za-z0-9/])#([1-9][0-9]{0,6})(?![0-9])")
 DEP_WORD = re.compile(r"\b(?:depends on|dependencies|dependency|blocked by|requires|prerequisite)\b", re.I)
 PARENT_WORD = re.compile(r"\b(?:parent|epic)\b", re.I)
+UWP_TITLE = re.compile(r"^\[UWP-([0-9]{2})\](?:\s|$)", re.I)
+UWP_REF = re.compile(r"(?<![A-Za-z0-9_-])UWP-([0-9]{2})(?![A-Za-z0-9_-])", re.I)
+UWP_CANDIDATE = re.compile(r"(?<![A-Za-z0-9_-])UWP-([A-Za-z0-9_-]+)", re.I)
+UWP_RANGE = re.compile(r"(?<![A-Za-z0-9_-])UWP-([0-9]{2})\s+(?:to|through)\s+UWP-([0-9]{2})(?![A-Za-z0-9_-])", re.I)
+UWP_DEP_LINE = re.compile(r"^(?:[-*]\s*)?(?:\*\*)?(?:Dependencies|Depends\s+on|Blocked\s+by|Requires|Prerequisites?)(?:\*\*)?(?:\s*:\s*|\s+)", re.I)
 MAX_ISSUES = 2048
 MAX_BODY = 60_000
 HEX64 = re.compile(r"[0-9a-f]{64}\Z")
@@ -115,6 +120,63 @@ def _issue(raw: Mapping[str, Any], repo: str) -> dict[str, Any] | None:
             "repo": repo}
 
 
+def _uwp_alias_map(entries: list[dict[str, Any]]) -> dict[str, int]:
+    """Require unique exact UWP aliases from observed issue titles."""
+    aliases: dict[str, int] = {}
+    for node in entries:
+        matched = UWP_TITLE.match(node["title"])
+        if not matched:
+            continue
+        alias = matched.group(1)
+        if alias in aliases:
+            raise ValueError("UWP_ALIAS_DUPLICATE:" + alias)
+        aliases[alias] = node["number"]
+    return aliases
+
+
+def _uwp_declared_dependencies(
+    body: str, aliases: dict[str, int], *, missing: set[str] | None = None
+) -> set[int]:
+    """Resolve declared dependencies without interpreting ordinary prose.
+
+    If `missing` is supplied, unknown well-formed aliases are accumulated for
+    issue-local HOLD via unresolved_references. If omitted, fail closed.
+    Malformed declarations always raise; no partial interpretation is allowed.
+    """
+    if not isinstance(body, str):
+        raise ValueError("UWP_BODY_INVALID")
+    result: set[int] = set()
+    for line in body.splitlines():
+        if len(line) > 3000:
+            if "UWP-" in line.upper() and re.search(r"depend|blocked|requir|prerequisit", line, re.I):
+                raise ValueError("UWP_DEPENDENCY_LINE_TOO_LONG")
+            continue
+        for clause in re.split(r"(?<=[.!?;])\s+(?=[A-Za-z*])", line):
+            clause = clause.strip()
+            if not UWP_DEP_LINE.match(clause):
+                continue
+
+            def expand_range(match: re.Match[str]) -> str:
+                first, last = int(match.group(1)), int(match.group(2))
+                if last < first or last-first > 16:
+                    raise ValueError("UWP_DEPENDENCY_RANGE_INVALID")
+                return ", ".join(f"UWP-{i:02d}" for i in range(first, last + 1))
+
+            expanded = UWP_RANGE.sub(expand_range, clause)
+            for candidate in UWP_CANDIDATE.finditer(expanded):
+                if not re.fullmatch(r"[0-9]{2}", candidate.group(1)):
+                    raise ValueError("UWP_DEPENDENCY_MALFORMED:" + candidate.group(1))
+            for match in UWP_REF.finditer(expanded):
+                alias = match.group(1)
+                if alias not in aliases:
+                    if missing is None:
+                        raise ValueError("UWP_DEPENDENCY_UNRESOLVED:" + alias)
+                    missing.add(alias)
+                else:
+                    result.add(aliases[alias])
+    return result
+
+
 def _domain(title: str, labels: list[str]) -> str:
     value = (title + " " + " ".join(labels)).lower()
     # A topic is a routing classification, NOT evidence that an agent is capable.
@@ -171,10 +233,28 @@ def compile_graph(snapshot: Mapping[str, Any]) -> dict[str, Any]:
     keys = [x["number"] for x in entries]
     if len(keys) != len(set(keys)):
         raise ValueError("ISSUE_SNAPSHOT_DUPLICATE")
+    # Preserve unresolved UWP references as issue-local blockers. A missing
+    # open title may be closed, removed or inaccessible: NEVER infer completion.
+    aliases = _uwp_alias_map(entries)
+    raw_by_number = {item["number"]: item for item in source
+                     if isinstance(item, Mapping) and "pull_request" not in item}
+    uwp_unresolved = []
+    for entry in entries:
+        raw_body = raw_by_number[entry["number"]].get("body") or ""
+        missing: set[str] = set()
+        uwp_deps = _uwp_declared_dependencies(raw_body, aliases, missing=missing)
+        if entry["number"] in uwp_deps:
+            raise ValueError("UWP_SELF_DEPENDENCY")
+        if missing and repo != "Aegis-Omega/AEGIS-OMEGA":
+            raise ValueError("UWP_DEPENDENCY_SCOPE_UNSUPPORTED")
+        entry["explicit_dependencies"] = sorted(set(entry["explicit_dependencies"]) | uwp_deps)
+        for alias in sorted(missing):
+            uwp_unresolved.append({"from": entry["key"],
+                "to": f"Aegis-Omega/AEGIS-OMEGA@UWP-{alias}", "kind": "depends_on"})
     known = set(keys)
     nodes = []
     edges = []
-    unresolved = []
+    unresolved = list(uwp_unresolved)
     for node in sorted(entries, key=lambda x: x["number"]):
         node["topic"] = _domain(node["title"], node["labels"])
         node["evolution"] = _evolution_contract(node)

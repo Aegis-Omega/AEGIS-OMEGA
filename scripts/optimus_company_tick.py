@@ -62,17 +62,30 @@ def select_work(graph: dict, *, source_head: str, tick: str,
             len(edges) + len(unresolved) > 8192):
         raise ValueError("GRAPH_DEPENDENCY_COVERAGE_UNKNOWN")
     waiting_on = set()
-    for relation in edges + unresolved:
+    for index, relation in enumerate(edges + unresolved):
+        # Only the UNRESOLVED collection may hold UWP-alias targets. The
+        # unresolved alias represents an unverified prerequisite, never success.
+        unresolved_uwp = (index >= len(edges) and
+            isinstance(relation, dict) and relation.get("kind") == "depends_on" and
+            isinstance(relation.get("to"), str) and
+            re.fullmatch(r"Aegis-Omega/AEGIS-OMEGA@UWP-[0-9]{2}", relation["to"]))
         if (not isinstance(relation, dict) or
                 set(relation) != {"from", "to", "kind"} or
                 relation["kind"] not in ("depends_on", "parent", "related") or
                 not isinstance(relation["from"], str) or
                 not isinstance(relation["to"], str) or
                 not re.fullmatch(r"Aegis-Omega/AEGIS-OMEGA#[1-9][0-9]{0,6}", relation["from"]) or
-                not re.fullmatch(r"Aegis-Omega/AEGIS-OMEGA#[1-9][0-9]{0,6}", relation["to"])):
+                not (unresolved_uwp or re.fullmatch(
+                    r"Aegis-Omega/AEGIS-OMEGA#[1-9][0-9]{0,6}", relation["to"]))):
             raise ValueError("GRAPH_EDGE_UNTRUSTED")
         if relation["kind"] == "depends_on":
             waiting_on.add(relation["from"])
+    # Match issue_evolution.compile_graph's digest. This proves only that the
+    # supplied graph is internally consistent; source/publisher authentication
+    # and independent admission still require existing #746/#752 boundaries.
+    if graph["receipt_hash"] != stable_hash({
+            k: v for k, v in graph.items() if k != "receipt_hash"}):
+        raise ValueError("GRAPH_RECEIPT_CONTENT_MISMATCH")
     # Legacy --prior receipts report only that an issue was SELECTED.
     # They must never remove an unfinished issue from the eligible pool:
     # queue cooldown and bounded escalation live exclusively in V2 leases.
@@ -134,7 +147,7 @@ def select_work(graph: dict, *, source_head: str, tick: str,
             candidates = pool.get(topic, [])
             if candidates:
                 selected = sorted(candidates, key=lambda n:
-                                  (0 if "P0" in n["labels"] else 1, n["number"]))[0]
+                                  (0 if any(label.casefold() == "p0" for label in n["labels"]) else 1, n["number"]))[0]
                 break
 
     base = {"schema": "AEGIS_OPTIMUS_TICK_V1", "tick": tick,
