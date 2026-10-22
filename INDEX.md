@@ -86,6 +86,8 @@
 |------|---------|------|
 | `agents/alphaevolve_frontier_router_v1.py` | Deterministic corpus frontier routing and read-only import-index reconciliation; scientific admission denied | T1 |
 | `agents/tests/test_alphaevolve_frontier_router_v1.py` | Frontier, identity-reconciliation, and adversarial SQLite WAL regression tests | T1 |
+| `agents/alphaevolve_corpus_wide_v1.py` | Byte-exact corpus processing and sensitive-path policy consumed by the frontier reconciler | T1 |
+| `agents/source_reuse_preflight.py` | Metadata-only source-reuse gate; never grants execution authority | T1 |
 
 ---
 
