@@ -7,6 +7,7 @@ Stdlib-only, no network or side effects.
 """
 from __future__ import annotations
 
+import hashlib
 import json
 import re
 import sys
@@ -56,6 +57,7 @@ def validate(claim: dict[str, Any]) -> list[str]:
         errors.append("evidence: array required (can be empty for UNKNOWN/OPEN)")
         evidence = []
     observed_primary_pass = False
+    evidence_bound_indices: set[int] = set()
     observed_counterexample = False
     for n, item in enumerate(evidence):
         if not isinstance(item, dict):
@@ -72,10 +74,29 @@ def validate(claim: dict[str, Any]) -> list[str]:
         digest = item.get("sha256")
         if digest is not None and (not isinstance(digest, str) or not SHA256_RE.fullmatch(digest)):
             errors.append(f"evidence[{n}].sha256: 64 hex digits required")
-        # A 'target_match' field is an assertion only. It must be accompanied
-        # by a machine-observed primary check and an immutable witness identity.
-        witness = bool(item.get("sha256") or item.get("revision") or item.get("record_id"))
-        bound = item.get("target_match") is True and witness and item.get("observed_at") and item.get("uri")
+        # A reported digest is NOT a verified digest. Compare the bytes on disk.
+        # Unavailable remote records cannot be promoted by this offline gate.
+        bound = False
+        if kind in PRIMARY_KINDS and observation in {"PASS", "COUNTEREXAMPLE"}:
+            path_str = item.get("artifact_path")
+            if not isinstance(path_str, str) or not path_str:
+                errors.append(f"evidence[{n}]: primary success requires artifact_path for byte-level replay")
+            elif not isinstance(digest, str) or not SHA256_RE.fullmatch(digest):
+                errors.append(f"evidence[{n}]: primary success requires a valid sha256 digest")
+            else:
+                proof = Path(path_str)
+                try:
+                    if proof.is_symlink() or not proof.is_file():
+                        raise OSError("missing, non-file or symlinked artifact")
+                    actual = hashlib.sha256(proof.read_bytes()).hexdigest()
+                except OSError as exc:
+                    errors.append(f"evidence[{n}]: cannot verify actual artifact: {exc}")
+                else:
+                    if actual.lower() != digest.lower():
+                        errors.append(f"evidence[{n}]: SHA-256 mismatch between reported digest and actual bytes")
+                    elif item.get("target_match") is True and item.get("observed_at") and item.get("uri"):
+                        bound = True
+                        evidence_bound_indices.add(n)
         if kind in PRIMARY_KINDS and observation == "PASS" and bound:
             observed_primary_pass = True
         if kind == "counterexample" and observation == "COUNTEREXAMPLE" and bound:
@@ -83,6 +104,14 @@ def validate(claim: dict[str, Any]) -> list[str]:
         if kind in NONPRIMARY_KINDS and observation in ("PASS", "COUNTEREXAMPLE"):
             # Such a note may be shown, but never upgrades the judgment.
             continue
+    if scope.get("universal") is True:
+        idx = scope.get("coverage_evidence_index")
+        if type(idx) is not int or idx not in evidence_bound_indices:
+            errors.append("scope: universal claim requires verified coverage_evidence_index")
+    if inventory is not None and isinstance(inventory, dict) and inventory.get("complete") is True:
+        idx = inventory.get("coverage_evidence_index")
+        if type(idx) is not int or idx not in evidence_bound_indices:
+            errors.append("inventory: complete=true requires verified coverage_evidence_index")
     if status == "VERIFIED" and not observed_primary_pass:
         errors.append("VERIFIED: requires target-bound primary PASS evidence; metadata/green unrelated CI insufficient")
     if status == "REFUTED" and not observed_counterexample:
@@ -122,7 +151,7 @@ def main(argv: list[str] | None = None) -> int:
             print(f"REJECT: {failure}", file=sys.stderr)
         return 1
     print(f"RECEIPT_STRUCTURE_VALID: {data['claim_id']} ({data['status']})")
-    print("NOTE: This verifies consistency, NOT the external evidence itself.")
+    print("NOTE: Byte digests verified locally; source authenticity and semantic conclusions still need independent review.")
     return 0
 
 
