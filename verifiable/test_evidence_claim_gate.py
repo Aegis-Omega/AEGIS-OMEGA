@@ -1,13 +1,18 @@
-import copy
+import hashlib
+import tempfile
 import unittest
+from pathlib import Path
 
 try:
     from verifiable.evidence_claim_gate import validate
 except ModuleNotFoundError:
     from evidence_claim_gate import validate
 
-SHA = "a" * 64
 HEAD = "b" * 40
+_TEMP = tempfile.TemporaryDirectory()
+ARTIFACT = Path(_TEMP.name) / "observed.log"
+ARTIFACT.write_bytes(b"real direct tool output for specific target\n")
+SHA = hashlib.sha256(ARTIFACT.read_bytes()).hexdigest()
 
 
 def sample(status="VERIFIED", kind="test", observation="PASS"):
@@ -18,7 +23,7 @@ def sample(status="VERIFIED", kind="test", observation="PASS"):
         "status": status,
         "scope": {"description": "service A, sandbox tenant, 2026-10-22", "revision": HEAD},
         "evidence": [{"kind": kind, "observation": observation, "uri": "https://example.invalid/build/123",
-                      "observed_at": "2026-10-22T12:00:00Z", "target_match": True, "sha256": SHA}],
+                      "observed_at": "2026-10-22T12:00:00Z", "target_match": True, "sha256": SHA, "artifact_path": str(ARTIFACT)}],
         "side_effects": {"performed": False},
     }
 
@@ -46,6 +51,14 @@ class EvidenceGateTests(unittest.TestCase):
     def test_missing_blob_binding_not_accepted(self):
         x = sample(); x["evidence"][0].pop("sha256")
         self.assertTrue(validate(x))
+
+    def test_forged_digest_rejected(self):
+        x = sample(); x["evidence"][0]["sha256"] = "a" * 64
+        self.assertTrue(any("mismatch" in e for e in validate(x)))
+
+    def test_unavailable_remote_not_promoted(self):
+        x = sample(); x["evidence"][0].pop("artifact_path")
+        self.assertTrue(any("byte-level replay" in e for e in validate(x)))
 
     def test_import_failure_not_refutation(self):
         x = sample("REFUTED", "compiler", "FAIL")
@@ -76,7 +89,15 @@ class EvidenceGateTests(unittest.TestCase):
         self.assertTrue(validate(x))
 
     def test_complete_inventory_accepted(self):
-        x = sample(); x["inventory"] = {"complete": True, "reported_total": 2, "items": [1, 2]}
+        x = sample(); x["inventory"] = {"complete": True, "reported_total": 2, "items": [1, 2], "coverage_evidence_index": 0}
+        self.assertEqual(validate(x), [])
+
+    def test_universal_proof_must_cite_verified_coverage(self):
+        x = sample(); x["scope"].update({"universal": True, "coverage_complete": True})
+        self.assertTrue(validate(x))
+
+    def test_universal_proof_with_coverage(self):
+        x = sample(); x["scope"].update({"universal": True, "coverage_complete": True, "coverage_evidence_index": 0})
         self.assertEqual(validate(x), [])
 
     def test_status_not_hardcoded_false(self):
