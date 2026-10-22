@@ -78,6 +78,85 @@ def router(db:Path)->dict:
 
 
 
+
+def reconcile_import_index(import_db: Path, evolved_db: Path) -> dict:
+    """Read-only identity audit of source objects, evolved coverage, and SHA assets.
+
+    This audits the actual mounted catalogs, not a historical 67,445-item claim.
+    No discovery, data execution, index rebuild or scientific promotion occurs.
+    """
+    if (not import_db.is_file() or not evolved_db.is_file()
+            or import_db.is_symlink() or evolved_db.is_symlink()
+            or import_db.resolve() == evolved_db.resolve()):
+        raise ValueError('INDEX_SOURCE_UNAVAILABLE_OR_UNSAFE')
+    catalog_sha = hashlib.sha256(import_db.read_bytes()).hexdigest()
+    src = sqlite3.connect('file:' + str(import_db.resolve()) + '?mode=ro', uri=True)
+    dst = sqlite3.connect('file:' + str(evolved_db.resolve()) + '?mode=ro', uri=True)
+    try:
+        src.execute('PRAGMA query_only=ON')
+        dst.execute('PRAGMA query_only=ON')
+        recorded = dst.execute("SELECT value FROM meta WHERE key='last_receipt'").fetchone()
+        if recorded is None:
+            raise ValueError('MISSING_PINNED_CORPUS_RECEIPT')
+        receipt = json.loads(recorded[0])
+        if receipt.get('catalog_digest') != catalog_sha:
+            raise ValueError('INDEX_CATALOG_SHA256_MISMATCH')
+        objects = dict((oid, (digest, status)) for oid, digest, status in
+                       src.execute('SELECT id,sha256,status FROM objects'))
+        coverage = dict((oid, (digest, state)) for oid, digest, state in
+                        dst.execute('SELECT object_id,digest,state FROM coverage'))
+        if not objects or set(objects) != set(coverage):
+            raise ValueError('INDEX_OBJECT_COVERAGE_MISMATCH')
+        verified_assets = dict(dst.execute(
+            "SELECT digest,verified FROM assets WHERE state='EVOLVED_ROUNDTRIP_VERIFIED'"))
+        if any(v != 1 for v in verified_assets.values()):
+            raise ValueError('INDEX_ASSET_NOT_VERIFIED')
+        counts = Counter(state for digest, state in coverage.values())
+        if counts.get('AWAITING_RUN_BUDGET', 0) or counts.get('EXPERIMENT_BLOCKED', 0):
+            raise ValueError('INDEX_COVERAGE_INCOMPLETE_OR_BLOCKED')
+        linked = set()
+        canonical = set()
+        for oid, (digest, state) in coverage.items():
+            source_sha, source_state = objects[oid]
+            if state in ('UNIQUE_REPRESENTATION_EVOLVED',
+                         'DEDUP_LINKED_TO_EVALUATED_CONTENT'):
+                if (source_state != 'IMPORTED_BYTES_VERIFIED'
+                        or digest != source_sha or digest not in verified_assets):
+                    raise ValueError('INDEX_DIGEST_OR_STATE_MISMATCH')
+                linked.add(digest)
+                if state == 'UNIQUE_REPRESENTATION_EVOLVED':
+                    if digest in canonical:
+                        raise ValueError('INDEX_DUPLICATE_CANONICAL_ASSET')
+                    canonical.add(digest)
+            elif state == 'SOURCE_QUARANTINED':
+                if digest is not None or source_state == 'IMPORTED_BYTES_VERIFIED':
+                    raise ValueError('INDEX_QUARANTINE_STATE_MISMATCH')
+            elif state == 'SENSITIVE_METADATA_ONLY':
+                if digest is not None or source_state != 'IMPORTED_BYTES_VERIFIED':
+                    raise ValueError('INDEX_SENSITIVE_STATE_MISMATCH')
+            else:
+                raise ValueError('INDEX_UNSUPPORTED_COVERAGE_STATE')
+        if linked != canonical or canonical != set(verified_assets):
+            raise ValueError('INDEX_ASSET_SET_MISMATCH')
+        if receipt.get('total_indexed') != len(objects) or receipt.get('objects_accounted_for') != len(coverage):
+            raise ValueError('INDEX_RECEIPT_CARDINALITY_MISMATCH')
+        return {
+            'schema': 'AEGIS_CORPUS_INDEX_RECONCILIATION_V1',
+            'catalog_sha256': catalog_sha,
+            'objects_accounted': len(objects),
+            'unique_verified_assets': len(canonical),
+            'alias_records': counts.get('DEDUP_LINKED_TO_EVALUATED_CONTENT', 0),
+            'sensitive_metadata_only': counts.get('SENSITIVE_METADATA_ONLY', 0),
+            'quarantined': counts.get('SOURCE_QUARANTINED', 0),
+            'coverage_state': 'EXACT_READ_ONLY_PASS',
+            'scientific_admission': 'DENIED',
+            'source_mutated': False,
+        }
+    finally:
+        src.close()
+        dst.close()
+
+
 def route_and_execute_bioreactor(db:Path,root:Path)->dict:
     """Existing read-only frontier plus real pre-existing bioreactor cohort replay.
 
