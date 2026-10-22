@@ -89,6 +89,13 @@ def reconcile_import_index(import_db: Path, evolved_db: Path) -> dict:
             or import_db.is_symlink() or evolved_db.is_symlink()
             or import_db.resolve() == evolved_db.resolve()):
         raise ValueError('INDEX_SOURCE_UNAVAILABLE_OR_UNSAFE')
+    # The receipt hashes the main SQLite file, not uncheckpointed WAL pages.
+    # Fail closed if the source has a transaction sidecar.
+    def ensure_no_unpinned_journal():
+        if any(import_db.with_name(import_db.name + suffix).exists()
+               for suffix in ('-wal', '-shm', '-journal')):
+            raise ValueError('INDEX_UNPINNED_SQLITE_JOURNAL')
+    ensure_no_unpinned_journal()
     h = hashlib.sha256()
     with import_db.open('rb') as stream:
         for block in iter(lambda: stream.read(1 << 20), b''):
@@ -156,6 +163,15 @@ def reconcile_import_index(import_db: Path, evolved_db: Path) -> dict:
                 or receipt.get('unique_asset_states') != {'EVOLVED_ROUNDTRIP_VERIFIED': len(canonical)}
                 or receipt.get('candidate_trials') != dst.execute('SELECT COUNT(*) FROM trials').fetchone()[0]):
             raise ValueError('INDEX_RECEIPT_STATE_MISMATCH')
+        # Recheck the catalog after reading its logical SQLite view.
+        ensure_no_unpinned_journal()
+        final_hash = hashlib.sha256()
+        with import_db.open('rb') as stream:
+            for block in iter(lambda: stream.read(1 << 20), b''):
+                final_hash.update(block)
+        ensure_no_unpinned_journal()
+        if final_hash.hexdigest() != catalog_sha:
+            raise ValueError('INDEX_CATALOG_CHANGED_DURING_AUDIT')
         return {
             'schema': 'AEGIS_CORPUS_INDEX_RECONCILIATION_V1',
             'catalog_sha256': catalog_sha,

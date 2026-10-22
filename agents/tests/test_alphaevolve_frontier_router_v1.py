@@ -84,6 +84,31 @@ class IndexReconciliationTests(unittest.TestCase):
   self.assertEqual(result['scientific_admission'],'DENIED')
   self.assertEqual(before,tuple(hashlib.sha256(x.read_bytes()).hexdigest() for x in (self.c,self.d)))
 
+ def test_uncheckpointed_wal_catalog_fails_closed(self):
+  import hashlib,json
+  con=sqlite3.connect(self.c)
+  mode=con.execute('PRAGMA journal_mode=WAL').fetchone()[0]
+  con.close()
+  self.assertEqual(mode.lower(),'wal')
+  catalog_sha=hashlib.sha256(self.c.read_bytes()).hexdigest()
+  db=sqlite3.connect(self.d)
+  receipt=json.loads(db.execute("SELECT value FROM meta WHERE key='last_receipt'").fetchone()[0])
+  receipt['catalog_digest']=catalog_sha
+  db.execute("UPDATE meta SET value=? WHERE key='last_receipt'",(json.dumps(receipt),))
+  db.commit();db.close()
+  writer=sqlite3.connect(self.c)
+  try:
+   writer.execute('PRAGMA wal_autocheckpoint=0')
+   writer.execute('UPDATE objects SET member=? WHERE id=1',('renamed-without-catalog-digest-change.csv',))
+   writer.commit()
+   self.assertEqual(hashlib.sha256(self.c.read_bytes()).hexdigest(),catalog_sha)
+   wal=self.c.with_name(self.c.name+'-wal')
+   self.assertGreater(wal.stat().st_size,0)
+   with self.assertRaisesRegex(ValueError,'INDEX_UNPINNED_SQLITE_JOURNAL'):
+    reconcile_import_index(self.c,self.d)
+  finally:
+   writer.close()
+
  def test_missing_object_fails_closed(self):
   self._mutate(self.d,'DELETE FROM coverage WHERE object_id=2')
   with self.assertRaisesRegex(ValueError,'COVERAGE_MISMATCH'):

@@ -5,7 +5,7 @@
 > before a BUILDER stage may touch them.
 
 **Epistemic Tier: T0 (machine-readable authority)**
-**Updated:** 2026-06-19
+**Updated:** 2026-10-22
 
 ---
 
@@ -77,6 +77,15 @@
 | `sovereign-omega-v2/scripts/verify-hashes.mjs` | Frozen file SHA-256 verification — must exit 0 |
 | `sovereign-omega-v2/scripts/proof-demo.sh` | 6-proof constitutional demo — all must PASS |
 | `sovereign-omega-v2/scripts/mythos-pipeline.ts` | Claude API 6-stage MYTHOS pipeline |
+
+---
+
+## Corpus Research Agents
+
+| Path | Purpose | Tier |
+|------|---------|------|
+| `agents/alphaevolve_frontier_router_v1.py` | Deterministic corpus frontier routing and read-only import-index reconciliation; scientific admission denied | T1 |
+| `agents/tests/test_alphaevolve_frontier_router_v1.py` | Frontier, identity-reconciliation, and adversarial SQLite WAL regression tests | T1 |
 
 ---
 
