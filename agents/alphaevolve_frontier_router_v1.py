@@ -89,7 +89,11 @@ def reconcile_import_index(import_db: Path, evolved_db: Path) -> dict:
             or import_db.is_symlink() or evolved_db.is_symlink()
             or import_db.resolve() == evolved_db.resolve()):
         raise ValueError('INDEX_SOURCE_UNAVAILABLE_OR_UNSAFE')
-    catalog_sha = hashlib.sha256(import_db.read_bytes()).hexdigest()
+    h = hashlib.sha256()
+    with import_db.open('rb') as stream:
+        for block in iter(lambda: stream.read(1 << 20), b''):
+            h.update(block)
+    catalog_sha = h.hexdigest()
     src = sqlite3.connect('file:' + str(import_db.resolve()) + '?mode=ro', uri=True)
     dst = sqlite3.connect('file:' + str(evolved_db.resolve()) + '?mode=ro', uri=True)
     try:
