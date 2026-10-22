@@ -94,8 +94,8 @@ def reconcile_import_index(import_db: Path, evolved_db: Path) -> dict:
         for block in iter(lambda: stream.read(1 << 20), b''):
             h.update(block)
     catalog_sha = h.hexdigest()
-    src = sqlite3.connect('file:' + str(import_db.resolve()) + '?mode=ro', uri=True)
-    dst = sqlite3.connect('file:' + str(evolved_db.resolve()) + '?mode=ro', uri=True)
+    src = sqlite3.connect(import_db.resolve().as_uri() + '?mode=ro', uri=True)
+    dst = sqlite3.connect(evolved_db.resolve().as_uri() + '?mode=ro', uri=True)
     try:
         src.execute('PRAGMA query_only=ON')
         dst.execute('PRAGMA query_only=ON')
@@ -105,8 +105,8 @@ def reconcile_import_index(import_db: Path, evolved_db: Path) -> dict:
         receipt = json.loads(recorded[0])
         if receipt.get('catalog_digest') != catalog_sha:
             raise ValueError('INDEX_CATALOG_SHA256_MISMATCH')
-        objects = dict((oid, (digest, status)) for oid, digest, status in
-                       src.execute('SELECT id,sha256,status FROM objects'))
+        objects = dict((oid, (member, rel, sha, status)) for oid, member, rel, sha, status in
+                       src.execute('SELECT id,member,extracted_path,sha256,status FROM objects'))
         coverage = dict((oid, (digest, state)) for oid, digest, state in
                         dst.execute('SELECT object_id,digest,state FROM coverage'))
         if not objects or set(objects) != set(coverage):
@@ -115,17 +115,24 @@ def reconcile_import_index(import_db: Path, evolved_db: Path) -> dict:
             "SELECT digest,verified FROM assets WHERE state='EVOLVED_ROUNDTRIP_VERIFIED'"))
         if any(v != 1 for v in verified_assets.values()):
             raise ValueError('INDEX_ASSET_NOT_VERIFIED')
+        if dst.execute('SELECT COUNT(*) FROM assets').fetchone()[0] != len(verified_assets):
+            raise ValueError('INDEX_UNRESOLVED_ASSET_STATE')
         counts = Counter(state for digest, state in coverage.values())
         if counts.get('AWAITING_RUN_BUDGET', 0) or counts.get('EXPERIMENT_BLOCKED', 0):
             raise ValueError('INDEX_COVERAGE_INCOMPLETE_OR_BLOCKED')
         linked = set()
         canonical = set()
+        from agents.alphaevolve_corpus_wide_v1 import SENSITIVE_PATH_SEGMENTS
         for oid, (digest, state) in coverage.items():
-            source_sha, source_state = objects[oid]
+            member, rel, source_sha, source_state = objects[oid]
+            eligible = (source_state == 'IMPORTED_BYTES_VERIFIED'
+                        and isinstance(rel, str) and bool(rel)
+                        and isinstance(source_sha, str) and bool(source_sha))
+            sensitive = (isinstance(member, str) and
+                         any(segment in '/' + member.lower() for segment in SENSITIVE_PATH_SEGMENTS))
             if state in ('UNIQUE_REPRESENTATION_EVOLVED',
                          'DEDUP_LINKED_TO_EVALUATED_CONTENT'):
-                if (source_state != 'IMPORTED_BYTES_VERIFIED'
-                        or digest != source_sha or digest not in verified_assets):
+                if not eligible or sensitive or digest != source_sha or digest not in verified_assets:
                     raise ValueError('INDEX_DIGEST_OR_STATE_MISMATCH')
                 linked.add(digest)
                 if state == 'UNIQUE_REPRESENTATION_EVOLVED':
@@ -133,10 +140,10 @@ def reconcile_import_index(import_db: Path, evolved_db: Path) -> dict:
                         raise ValueError('INDEX_DUPLICATE_CANONICAL_ASSET')
                     canonical.add(digest)
             elif state == 'SOURCE_QUARANTINED':
-                if digest is not None or source_state == 'IMPORTED_BYTES_VERIFIED':
+                if digest is not None or eligible:
                     raise ValueError('INDEX_QUARANTINE_STATE_MISMATCH')
             elif state == 'SENSITIVE_METADATA_ONLY':
-                if digest is not None or source_state != 'IMPORTED_BYTES_VERIFIED':
+                if digest is not None or not eligible or not sensitive:
                     raise ValueError('INDEX_SENSITIVE_STATE_MISMATCH')
             else:
                 raise ValueError('INDEX_UNSUPPORTED_COVERAGE_STATE')
@@ -144,6 +151,11 @@ def reconcile_import_index(import_db: Path, evolved_db: Path) -> dict:
             raise ValueError('INDEX_ASSET_SET_MISMATCH')
         if receipt.get('total_indexed') != len(objects) or receipt.get('objects_accounted_for') != len(coverage):
             raise ValueError('INDEX_RECEIPT_CARDINALITY_MISMATCH')
+        if (receipt.get('complete') is not True
+                or receipt.get('object_states') != dict(counts)
+                or receipt.get('unique_asset_states') != {'EVOLVED_ROUNDTRIP_VERIFIED': len(canonical)}
+                or receipt.get('candidate_trials') != dst.execute('SELECT COUNT(*) FROM trials').fetchone()[0]):
+            raise ValueError('INDEX_RECEIPT_STATE_MISMATCH')
         return {
             'schema': 'AEGIS_CORPUS_INDEX_RECONCILIATION_V1',
             'catalog_sha256': catalog_sha,
