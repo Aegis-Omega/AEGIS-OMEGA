@@ -51,10 +51,12 @@ def _roster_payload(roster):
     }
 
 
-def select_reviewer(candidate_head, submitter_principal, roster, seed):
-    """Select one canonical principal, collapsing account aliases before draw."""
+def _select_identity(candidate_head, submitter_principal, roster, seed, role,
+                     excluded_principals=()):
     _require(bool(SHA40.fullmatch(candidate_head or "")), "CANDIDATE_HEAD_INVALID")
     _require(bool(SHA256.fullmatch(seed or "")), "SELECTION_SEED_INVALID")
+    _require(all(isinstance(item, str) for item in excluded_principals),
+             "EXCLUDED_IDENTITY_INVALID")
     principals = {}
     account_owners = {}
     for item in roster["identities"]:
@@ -72,21 +74,37 @@ def select_reviewer(candidate_head, submitter_principal, roster, seed):
         principals[principal] = normalized
 
     _require(submitter_principal in principals, "SUBMITTER_IDENTITY_UNKNOWN")
-    eligible = sorted(
-        principal for principal in principals if principal != submitter_principal
-    )
+    excluded = {submitter_principal, *excluded_principals}
+    eligible = sorted(principal for principal in principals if principal not in excluded)
     _require(eligible, "NO_INDEPENDENT_REVIEWER")
     draw = canonical_digest({
         "candidate_head": candidate_head,
         "roster_digest": canonical_digest(_roster_payload(roster)),
+        "role": role,
         "seed": seed,
         "submitter": submitter_principal,
+        "excluded": sorted(excluded),
     })
     selected = eligible[int(draw, 16) % len(eligible)]
     return {
         "principal_id": selected,
         "github_id": principals[selected][0],
     }
+
+
+def select_reviewer(candidate_head, submitter_principal, roster, seed,
+                    excluded_principals=()):
+    """Select one canonical reviewer, collapsing account aliases before draw."""
+    return _select_identity(
+        candidate_head, submitter_principal, roster, seed, "reviewer",
+        excluded_principals,
+    )
+
+
+def select_challenge_generator(candidate_head, submitter_principal, roster, seed):
+    return _select_identity(
+        candidate_head, submitter_principal, roster, seed, "challenge_generator",
+    )
 
 
 def select_challenges(source_digest, challenge_pool, seed, count, submitter):
@@ -174,10 +192,19 @@ def _assess(receipt, roster):
     _require(isinstance(submitter, dict) and isinstance(review, dict),
              "REVIEW_IDENTITY_MISSING")
     submitter_principal = submitter.get("principal_id")
+    generator_principal = review.get("challenge_generator_principal_id")
+    selected_generator = select_challenge_generator(
+        head, submitter_principal, roster, seed,
+    )
+    _require(generator_principal == selected_generator["principal_id"],
+             "CHALLENGE_GENERATOR_MISMATCH")
     reviewer = review.get("reviewer")
     _require(isinstance(reviewer, dict), "REVIEWER_IDENTITY_MISSING")
     reviewer_principal = reviewer.get("principal_id")
-    selected = select_reviewer(head, submitter_principal, roster, seed)
+    selected = select_reviewer(
+        head, submitter_principal, roster, seed,
+        excluded_principals=(generator_principal,),
+    )
     _require(reviewer_principal == selected["principal_id"]
              and reviewer.get("github_id") == selected["github_id"],
              "REVIEWER_IDENTITY_MISMATCH")
@@ -207,10 +234,7 @@ def _assess(receipt, roster):
 
     challenge_pool = review.get("challenge_pool")
     challenge_count = review.get("challenge_count")
-    generator_principal = review.get("challenge_generator_principal_id")
     _identity(roster, generator_principal)
-    _require(generator_principal != submitter_principal,
-             "CHALLENGE_GENERATOR_NOT_INDEPENDENT")
     pool = review.get("challenge_pool")
     _require(isinstance(pool, list) and all(
         isinstance(item, dict)

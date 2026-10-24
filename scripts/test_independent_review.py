@@ -8,6 +8,7 @@ from independent_review import (
     assess,
     canonical_digest,
     select_challenges,
+    select_challenge_generator,
     select_reviewer,
 )
 
@@ -40,7 +41,11 @@ def good_receipt():
         "files": source_files,
     }
     source["sha256"] = canonical_digest(source)
-    reviewer = select_reviewer(HEAD, "agent:submitter", roster, SEED)
+    generator = select_challenge_generator(HEAD, "agent:submitter", roster, SEED)
+    reviewer = select_reviewer(
+        HEAD, "agent:submitter", roster, SEED,
+        excluded_principals=(generator["principal_id"],),
+    )
     challenge_pool = [
         {
             "id": f"falsifier-{index}",
@@ -48,7 +53,7 @@ def good_receipt():
             "source_snapshot_sha256": source["sha256"],
             "prompt_sha256": str(index) * 64,
             "expected_answer_visible": False,
-            "generator_principal_id": "agent:challenge-author",
+            "generator_principal_id": generator["principal_id"],
         }
         for index in (2, 3)
     ]
@@ -72,7 +77,7 @@ def good_receipt():
                 "submitter_identity_visible": False,
                 "expected_answer_visible": False,
             },
-            "challenge_generator_principal_id": "agent:challenge-author",
+            "challenge_generator_principal_id": generator["principal_id"],
             "challenge_pool": challenge_pool,
             "challenge_count": 1,
             "challenge_set": challenges,
@@ -118,12 +123,15 @@ class IndependentReviewTests(unittest.TestCase):
         self.assertEqual(result["disposition"], "OFFLINE_SIMULATION_ONLY")
         self.assertEqual(result["authority_effect"], "NONE")
         self.assertEqual(result["record"]["reviewer_identity"]["github_id"],
-                         select_reviewer(HEAD, "agent:submitter",
-                                         identity_snapshot(), SEED)["github_id"])
+                         good_receipt()["review"]["reviewer"]["github_id"])
         self.assertEqual(result["record"]["source_snapshot_sha256"],
                          good_receipt()["candidate"]["source_snapshot"]["sha256"])
         self.assertEqual(result["record"]["failed_falsifiers"], [])
         self.assertTrue(result["record"]["residual_uncertainty"])
+        self.assertNotEqual(
+            result["record"]["reviewer_identity"]["principal_id"],
+            good_receipt()["review"]["challenge_generator_principal_id"],
+        )
 
     def test_selection_collapses_sybil_accounts_to_one_principal(self):
         receipt = good_receipt()
@@ -180,7 +188,7 @@ class IndependentReviewTests(unittest.TestCase):
         receipt["review"]["challenge_generator_principal_id"] = "agent:submitter"
         for item in receipt["review"]["challenge_pool"]:
             item["generator_principal_id"] = "agent:submitter"
-        self.reject(receipt, identity_snapshot(), "CHALLENGE_GENERATOR_NOT_INDEPENDENT")
+        self.reject(receipt, identity_snapshot(), "CHALLENGE_GENERATOR_MISMATCH")
 
     def test_weak_evidence_is_rejected(self):
         receipt = good_receipt()
