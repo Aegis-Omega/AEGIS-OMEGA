@@ -5,6 +5,8 @@ WORKDIR /app
 COPY package*.json ./
 RUN npm ci
 COPY . .
+ARG VITE_BRIDGE_URL=/api/bridge
+ENV VITE_BRIDGE_URL=$VITE_BRIDGE_URL
 RUN npm run build
 
 FROM nginx:alpine AS runtime

@@ -13,7 +13,7 @@ import { fileURLToPath } from 'node:url'
 import { spawnSync } from 'node:child_process'
 import { createHash } from 'node:crypto'
 
-const BRIDGE = (process.env['AEGIS_BRIDGE_URL'] ?? 'http://localhost:7890').replace(/\/$/, '')
+const BRIDGE = (process.env['AEGIS_BRIDGE_URL'] || process.env['AEGIS_BASE_URL'] || 'https://aegis-vertex.aegisomega.com').replace(/\/$/, '')
 const API_KEY = process.env['AEGIS_API_KEY'] ?? ''
 
 const server = new McpServer({ name: 'aegis-constitutional-swarm', version: '0.2.0' })
