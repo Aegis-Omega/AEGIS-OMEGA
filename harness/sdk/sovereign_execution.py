@@ -480,6 +480,7 @@ class AuthorityEvaluator:
             if approval is None:
                 reasons.append("APPROVAL_MISSING")
             else:
+                reasons.append("TRUSTED_APPROVAL_VERIFIER_UNAVAILABLE")
                 if approval.state != "APPROVED": reasons.append("APPROVAL_NOT_ACTIVE")
                 if approval.reference != request.approval_reference: reasons.append("APPROVAL_REFERENCE_MISMATCH")
                 if approval.authority_domain != request.authority_domain: reasons.append("APPROVAL_DOMAIN_MISMATCH")
@@ -544,11 +545,14 @@ class WriterLeaseManager:
         self._leases: dict[str, WriterLease] = {}
         self._generation: dict[str, int] = {}
         self._used_actions: set[tuple[str, int, str]] = set()
+        self._emergency_stopped = False
         self._lock = threading.RLock()
 
     def acquire(self, *, authority_domain: str, holder_identity_root: str, source_commit: str, expected_parent_state: str) -> tuple[WriterLease | None, LeaseReceipt]:
         with self._lock:
             reasons: list[str] = []
+            if self._emergency_stopped:
+                reasons.append("EMERGENCY_STOP_ACTIVE")
             if authority_domain in self._leases:
                 reasons.append("WRITER_ALREADY_ACTIVE")
             try: _assert_hash("holder_identity_root", holder_identity_root)
@@ -608,6 +612,17 @@ class WriterLeaseManager:
             token = lease.fencing_token if lease else ZERO_HASH
             if not reasons: del self._leases[authority_domain]
             return self._lease_receipt("REVOKE", authority_domain, generation, token, reasons)
+
+    def emergency_stop(self) -> tuple[LeaseReceipt, ...]:
+        with self._lock:
+            self._emergency_stopped = True
+            receipts = []
+            for authority_domain, lease in sorted(self._leases.items()):
+                del self._leases[authority_domain]
+                receipts.append(self._lease_receipt(
+                    "REVOKE", authority_domain, lease.lease_generation, lease.fencing_token, (),
+                ))
+            return tuple(receipts)
 
     def current(self, authority_domain: str) -> WriterLease | None:
         with self._lock:
