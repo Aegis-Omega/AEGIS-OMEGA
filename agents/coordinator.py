@@ -21,7 +21,7 @@ from harness.sdk.authority_client import (
     authorize_from_environment,
     authorize_with_context,
 )
-from harness.sdk.repository_knowledge import build_snapshot, verify_snapshot
+from harness.sdk.repository_knowledge import build_snapshot, verify_snapshot_github_origin
 from harness.sdk.skill_routing import ADMITTED, DENIED, SkillRoutingReceipt
 
 for _name in dir(_legacy):
@@ -78,10 +78,11 @@ def establish_repository_knowledge(*, repo_root: str | Path = _legacy._REPO_ROOT
             repository_id=AEGIS_REPOSITORY_ID,
             repository_full_name=AEGIS_REPOSITORY_FULL_NAME,
         )
-        verification = verify_snapshot(
+        verification = verify_snapshot_github_origin(
             root,
             snapshot,
             expected_repository_id=AEGIS_REPOSITORY_ID,
+            expected_repository_full_name=AEGIS_REPOSITORY_FULL_NAME,
         )
     except (OSError, subprocess.SubprocessError, TypeError, ValueError, KeyError) as exc:
         body: dict[str, Any] = {

@@ -11,6 +11,8 @@ import hashlib
 import json
 import subprocess
 from pathlib import Path
+from urllib import request as urlrequest
+from urllib.parse import quote
 from typing import Any, Iterable, Mapping
 
 SCHEMA_VERSION = "1"
@@ -273,9 +275,101 @@ def compute_delta(before: Mapping[str, Any], after: Mapping[str, Any]) -> dict[s
     return delta
 
 
+
+# Separate provider-origin validation from the local, authority-neutral snapshot.
+# Local Git and a supplied repository_id cannot establish GitHub provenance.
+def _github_api_document(api_path: str, *, timeout: float = 5.0) -> dict[str, Any]:
+    """Read a bounded official HTTPS GitHub API response; never use Git remotes."""
+    url = "https://api.github.com" + api_path
+    req = urlrequest.Request(url, headers={
+        "Accept": "application/vnd.github+json",
+        "User-Agent": "AEGIS-OMEGA-origin-check/1",
+        "X-GitHub-Api-Version": "2022-11-28",
+    })
+    with urlrequest.urlopen(req, timeout=timeout) as response:
+        # Do not admit redirected or provider-substituted origins.
+        if response.geturl() != url:
+            raise ValueError("GITHUB_ORIGIN_REDIRECTED")
+        raw = response.read(1_048_577)
+    if len(raw) > 1_048_576:
+        raise ValueError("GITHUB_ORIGIN_OVERSIZED")
+    payload = json.loads(raw)
+    if not isinstance(payload, dict):
+        raise ValueError("GITHUB_ORIGIN_DOCUMENT_INVALID")
+    return payload
+
+
+def verify_snapshot_github_origin(
+    repo: str | Path,
+    snapshot: Mapping[str, Any],
+    *,
+    expected_repository_id: int,
+    expected_repository_full_name: str,
+) -> dict[str, Any]:
+    """Deny unless local exact HEAD also exists at the authenticated GitHub API.
+
+    Provider trust derives from an official HTTPS response checked in this function,
+    not a caller-provided repository ID, Git remote string or snapshot digest.
+    This is a read-only prerequisite, never an Automaton-3 authority grant.
+    """
+    local = verify_snapshot(repo, snapshot, expected_repository_id=expected_repository_id)
+    if local["status"] != "ESTABLISHED":
+        return {"status": "DENIED", "reason_codes": local["reason_codes"]}
+    if (
+        not isinstance(expected_repository_id, int)
+        or isinstance(expected_repository_id, bool)
+        or not isinstance(expected_repository_full_name, str)
+        or snapshot.get("repository_full_name") != expected_repository_full_name
+    ):
+        return {"status": "DENIED", "reason_codes": ["REPOSITORY_ORIGIN_IDENTITY_MISMATCH"]}
+
+    parts = expected_repository_full_name.split("/")
+    if len(parts) != 2 or not all(part and part.replace("-", "").replace("_", "").isalnum() for part in parts):
+        return {"status": "DENIED", "reason_codes": ["REPOSITORY_ORIGIN_NAME_INVALID"]}
+    head_sha = snapshot.get("source_head_sha")
+    tree_sha = snapshot.get("source_tree_sha")
+    if not all(isinstance(x, str) and len(x) in (40, 64) and all(c in "0123456789abcdef" for c in x) for x in (head_sha, tree_sha)):
+        return {"status": "DENIED", "reason_codes": ["REPOSITORY_ORIGIN_SHA_INVALID"]}
+
+    path = "/repos/" + "/".join(quote(part, safe="") for part in parts)
+    try:
+        provider_repository = _github_api_document(path)
+        provider_commit = _github_api_document(path + "/commits/" + head_sha)
+    except (OSError, ValueError, TypeError):
+        # An unavailable provider is UNKNOWN evidence, hence DENIED dispatch.
+        return {"status": "DENIED", "reason_codes": ["GITHUB_ORIGIN_UNAVAILABLE"]}
+
+    if type(provider_repository.get("id")) is not int or provider_repository["id"] != expected_repository_id or provider_repository.get("full_name") != expected_repository_full_name:
+        return {"status": "DENIED", "reason_codes": ["GITHUB_ORIGIN_REPOSITORY_MISMATCH"]}
+    actual_tree = provider_commit.get("commit")
+    if not isinstance(actual_tree, dict):
+        actual_tree = {}
+    actual_tree = actual_tree.get("tree")
+    if not isinstance(actual_tree, dict):
+        actual_tree = {}
+    if provider_commit.get("sha") != head_sha or actual_tree.get("sha") != tree_sha:
+        return {"status": "DENIED", "reason_codes": ["GITHUB_ORIGIN_COMMIT_TREE_MISMATCH"]}
+
+    # Recheck local Git after network I/O to reject an in-flight checkout change.
+    latest = verify_snapshot(repo, snapshot, expected_repository_id=expected_repository_id)
+    if latest["status"] != "ESTABLISHED":
+        return {"status": "DENIED", "reason_codes": latest["reason_codes"]}
+    return {
+        "status": "ESTABLISHED",
+        "reason_codes": [],
+        "origin_status": "PROVIDER_VERIFIED",
+        "provider": "github.com-rest-https",
+        "repository_id": expected_repository_id,
+        "repository_full_name": expected_repository_full_name,
+        "source_head_sha": head_sha,
+        "source_tree_sha": tree_sha,
+    }
+
+
 __all__ = [
     "build_snapshot",
     "compute_delta",
     "verify_snapshot",
     "verify_snapshot_document",
+    "verify_snapshot_github_origin",
 ]
