@@ -9,8 +9,8 @@
   "provenance": {
     "generator": "scripts/build-cognitive-manifest.py",
     "repository": "Aegis-Omega/AEGIS-OMEGA",
-    "source_ref": "integration/aegis-universal-intelligence-rh-v1",
-    "parent_state_hash": "c3b7f84ff8a28b318573484b69468676d56e35aca1410870661389f4134597d6",
+    "source_ref": "fix/agent-dispatch-exact-head-guards",
+    "parent_state_hash": "8de11bf84d283cd248ae017c5914ef592a9d922d41cda91e59450369a72edcdb",
     "signature_mode": "GITHUB_OIDC_ATTESTATION"
   },
   "hashing": {
@@ -488,5 +488,5 @@
       "on_success": "broadcast-attested-verified-event-stream"
     }
   },
-  "state_hash": "2c40576a2289c61c9309f2d5b27c64488a43e6099f227137fa2dd2166427aeaf"
+  "state_hash": "e7cdf09692f35158b3f63e06d2843e12725fcb262cb869620ba2a3b2f751f57c"
 }

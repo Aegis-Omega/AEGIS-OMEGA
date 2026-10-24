@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import subprocess
 import sys
 from pathlib import Path
 from typing import Any
@@ -171,6 +172,138 @@ def test_dispatch_executes_only_after_central_admission(tmp_path: Path, monkeypa
     receipts = coordinator.last_dispatch_receipts()
     assert receipts[0]["outcome"] == "ADMITTED"
     assert receipts[0]["authority_score"] == pytest.approx(0.72)
+
+
+def test_dispatch_denies_before_central_authority_when_repository_knowledge_unavailable(tmp_path: Path, monkeypatch: Any) -> None:
+    instance = router(tmp_path, {"observed_cap": "observed"})
+    role = coordinator.AgentRole.ENGINEERING
+    monkeypatch.setattr(coordinator, "_skill_router", instance)
+    monkeypatch.setattr(coordinator._legacy, "_skill_router", instance)
+    monkeypatch.setattr(coordinator._legacy, "EVENT_ROUTING", {"test": [role]})
+    monkeypatch.setattr(coordinator._legacy, "_load_agent_defs", lambda: {"agents": {role.value: {"capabilities": ["observed_cap"]}}})
+    monkeypatch.setattr(coordinator._legacy, "_event_to_instruction", lambda *_args: "same task")
+    monkeypatch.setattr(
+        coordinator,
+        "establish_repository_knowledge",
+        lambda **_kwargs: {
+            "status": "DENIED",
+            "reason_codes": ["REPOSITORY_KNOWLEDGE_UNAVAILABLE"],
+            "receipt_hash": "5" * 64,
+        },
+        raising=False,
+    )
+
+    def forbidden_central(**_kwargs: Any) -> dict[str, Any]:
+        raise AssertionError("central authority must not be queried without repository knowledge")
+
+    async def forbidden_run_agent(_task: Any) -> Any:
+        raise AssertionError("agent must not execute without repository knowledge")
+
+    monkeypatch.setattr(coordinator, "authorize_from_environment", forbidden_central)
+    monkeypatch.setattr(coordinator._legacy, "run_agent", forbidden_run_agent)
+
+    assert asyncio.run(coordinator.dispatch_event("test", {})) == []
+    receipts = coordinator.last_dispatch_receipts()
+    assert len(receipts) == 1
+    assert receipts[0]["outcome"] == "DENIED"
+    assert receipts[0]["authority_score"] == 0.0
+    assert receipts[0]["reason_codes"] == ("REPOSITORY_KNOWLEDGE_UNAVAILABLE",)
+    assert receipts[0]["receipt_hash"] == "5" * 64
+
+
+def test_dispatch_binds_established_repository_knowledge_into_authority_and_task_context(tmp_path: Path, monkeypatch: Any) -> None:
+    instance = router(tmp_path, {"observed_cap": "observed"})
+    role = coordinator.AgentRole.ENGINEERING
+    monkeypatch.setattr(coordinator, "_skill_router", instance)
+    monkeypatch.setattr(coordinator._legacy, "_skill_router", instance)
+    monkeypatch.setattr(coordinator._legacy, "EVENT_ROUTING", {"test": [role]})
+    monkeypatch.setattr(coordinator._legacy, "_load_agent_defs", lambda: {"agents": {role.value: {"capabilities": ["observed_cap"]}}})
+    monkeypatch.setattr(coordinator._legacy, "_event_to_instruction", lambda *_args: "same task")
+
+    knowledge = {
+        "status": "ESTABLISHED",
+        "reason_codes": [],
+        "snapshot_digest": "6" * 64,
+        "source_head_sha": "7" * 40,
+        "source_tree_sha": "8" * 40,
+        "receipt_hash": "9" * 64,
+    }
+    monkeypatch.setattr(coordinator, "establish_repository_knowledge", lambda **_kwargs: knowledge, raising=False)
+
+    calls: list[dict[str, Any]] = []
+
+    def central(**kwargs: Any) -> dict[str, Any]:
+        calls.append(kwargs)
+        return admitted_decision()
+
+    executed: list[Any] = []
+
+    async def admitted_run_agent(task: Any) -> Any:
+        executed.append(task)
+        return {"status": "executed"}
+
+    monkeypatch.setattr(coordinator, "authorize_from_environment", central)
+    monkeypatch.setattr(coordinator._legacy, "run_agent", admitted_run_agent)
+
+    results = asyncio.run(coordinator.dispatch_event("test", {}))
+    assert results == [{"status": "executed"}]
+    assert len(calls) == 1
+    assert calls[0]["action"]["repository_knowledge"] == {
+        "snapshot_digest": "6" * 64,
+        "source_head_sha": "7" * 40,
+        "source_tree_sha": "8" * 40,
+    }
+    assert len(executed) == 1
+    assert executed[0].context["repository_knowledge"] == calls[0]["action"]["repository_knowledge"]
+
+
+
+def test_incomplete_established_knowledge_denies_before_authority(tmp_path: Path, monkeypatch: Any) -> None:
+    """Even an asserted ESTABLISHED status cannot bypass a missing binding."""
+    role = coordinator.AgentRole.ENGINEERING
+    monkeypatch.setattr(coordinator._legacy, "EVENT_ROUTING", {"test": [role]})
+    monkeypatch.setattr(
+        coordinator, "establish_repository_knowledge",
+        lambda **_kwargs: {"status": "ESTABLISHED", "snapshot_digest": "a" * 64},
+    )
+
+    def forbidden_central(**_kwargs: Any) -> dict[str, Any]:
+        raise AssertionError("invalid exact-head evidence must deny before central admission")
+
+    async def forbidden_run_agent(_task: Any) -> Any:
+        raise AssertionError("invalid exact-head evidence must deny before agent execution")
+
+    monkeypatch.setattr(coordinator, "authorize_from_environment", forbidden_central)
+    monkeypatch.setattr(coordinator._legacy, "run_agent", forbidden_run_agent)
+    assert asyncio.run(coordinator.dispatch_event("test", {})) == []
+    receipts = coordinator.last_dispatch_receipts()
+    assert len(receipts) == 1
+    assert receipts[0]["outcome"] == "DENIED"
+    assert "REPOSITORY_KNOWLEDGE_BINDING_INVALID" in receipts[0]["reason_codes"]
+
+
+def test_repository_knowledge_snapshot_rejects_stale_exact_head(tmp_path: Path) -> None:
+    """A correctly hashed previous HEAD snapshot cannot authorize a newer HEAD."""
+    from harness.sdk.repository_knowledge import build_snapshot, verify_snapshot
+
+    subprocess.run(["git", "init", "-q"], cwd=tmp_path, check=True)
+    (tmp_path / "tracked.txt").write_text("first\\n", encoding="utf-8")
+    subprocess.run(["git", "add", "."], cwd=tmp_path, check=True)
+    author = ["git", "-c", "user.name=AEGIS Test", "-c", "user.email=aegis-test@example.invalid"]
+    subprocess.run([*author, "commit", "-qm", "first"], cwd=tmp_path, check=True)
+
+    snapshot = build_snapshot(tmp_path, repository_id=1095915905, repository_full_name="Aegis-Omega/AEGIS-OMEGA")
+    accepted = verify_snapshot(tmp_path, snapshot, expected_repository_id=1095915905)
+    assert accepted["status"] == "ESTABLISHED"
+
+    (tmp_path / "tracked.txt").write_text("second\\n", encoding="utf-8")
+    subprocess.run(["git", "add", "."], cwd=tmp_path, check=True)
+    subprocess.run([*author, "commit", "-qm", "second"], cwd=tmp_path, check=True)
+
+    denied = verify_snapshot(tmp_path, snapshot, expected_repository_id=1095915905)
+    assert denied["status"] == "DENIED"
+    assert "SOURCE_HEAD_MISMATCH" in denied["reason_codes"]
+    assert "SOURCE_TREE_MISMATCH" in denied["reason_codes"]
 
 
 def test_learning_observation_cannot_mutate_authority_registry_without_admission(tmp_path: Path) -> None:
