@@ -1,0 +1,74 @@
+{
+  "schema": "aegis.uwp.benchmark/1",
+  "benchmark_id": "uwp09-slack-plain-text-fixture",
+  "status": "FIXTURE_ONLY",
+  "comparison_arms": [
+    "aegis_candidate",
+    "existing_internal",
+    "external_reference",
+    "no_change",
+    "single_agent"
+  ],
+  "cases": [
+    {
+      "id": "security-accessibility-slack-plain-text-001",
+      "domain": "security_accessibility",
+      "difficulty": "bounded",
+      "task_text": "Fixture contract only; no agent execution is represented.\n\nInput: a signed Slack work request. A mocked model response contains <!channel>, <@user>, an angle-bracket link, and fake Markdown.\n\nExpected action: render the response as plain text without triggering Slack mentions or presenting the angle-bracket content as an active link.\n\nThe comparator is mock-only. Real provider behavior, rendered Slack-client output, accessibility, user task completion, and equal cost/latency budgets are not measured by this fixture definition.",
+      "task_sha256": "423bd7f459ffef00fcc3278dc4b253213910fb075cf9db2c30d655bda658af3d",
+      "expected_action": "ACT",
+      "abstention_correct": false,
+      "fixture_source": {
+        "reference": "AEGIS-OMEGA#757 issue discussion",
+        "baseline_blob": "2c052a0ae7ecac8dc50c576423d6304859c4f310",
+        "candidate_blob": "bab495796366a44c23f73c36d851031c6f1a7db6",
+        "test_blob": "00dcecbf79b161ebf6c2f7c77ccf02075d72f28a",
+        "review_state": "REPORTED_NOT_REVERIFIED"
+      },
+      "budget": {
+        "status": "UNKNOWN",
+        "wall_ms": "UNKNOWN",
+        "model_calls": "UNKNOWN",
+        "cost_microusd": "UNKNOWN",
+        "manual_interventions": "UNKNOWN"
+      },
+      "arm_revisions": {
+        "aegis_candidate": "UNKNOWN",
+        "existing_internal": "UNKNOWN",
+        "external_reference": "UNKNOWN",
+        "no_change": "UNKNOWN",
+        "single_agent": "UNKNOWN"
+      },
+      "quality_axes": {
+        "visual": {"status": "UNMEASURED", "reason": "Not part of the plain-text rendering fixture.", "measurement_method": "UNKNOWN", "evidence_sha256": "UNKNOWN", "reviewer_ref": "UNKNOWN"},
+        "typography": {"status": "UNMEASURED", "reason": "No typography study was run.", "measurement_method": "UNKNOWN", "evidence_sha256": "UNKNOWN", "reviewer_ref": "UNKNOWN"},
+        "motion": {"status": "UNMEASURED", "reason": "No motion behavior was run.", "measurement_method": "UNKNOWN", "evidence_sha256": "UNKNOWN", "reviewer_ref": "UNKNOWN"},
+        "sonic": {"status": "NOT_APPLICABLE", "reason": "The fixture asserts text output only; no audio is introduced.", "measurement_method": "task-scope review", "evidence_sha256": "423bd7f459ffef00fcc3278dc4b253213910fb075cf9db2c30d655bda658af3d", "reviewer_ref": "UNKNOWN"},
+        "narrative": {"status": "UNMEASURED", "reason": "No narrative-comprehension measure was run.", "measurement_method": "UNKNOWN", "evidence_sha256": "UNKNOWN", "reviewer_ref": "UNKNOWN"},
+        "product_utility": {"status": "UNMEASURED", "reason": "No end-user task-utility study was run.", "measurement_method": "UNKNOWN", "evidence_sha256": "UNKNOWN", "reviewer_ref": "UNKNOWN"},
+        "usability": {"status": "UNMEASURED", "reason": "No user study was run.", "measurement_method": "UNKNOWN", "evidence_sha256": "UNKNOWN", "reviewer_ref": "UNKNOWN"},
+        "accessibility": {"status": "UNMEASURED", "reason": "The test contract is plain text, not a real-client accessibility review.", "measurement_method": "UNKNOWN", "evidence_sha256": "UNKNOWN", "reviewer_ref": "UNKNOWN"},
+        "performance": {"status": "UNMEASURED", "reason": "No latency or resource budget was recorded.", "measurement_method": "UNKNOWN", "evidence_sha256": "UNKNOWN", "reviewer_ref": "UNKNOWN"},
+        "reliability": {"status": "UNMEASURED", "reason": "No crash or recovery trial was run.", "measurement_method": "UNKNOWN", "evidence_sha256": "UNKNOWN", "reviewer_ref": "UNKNOWN"},
+        "privacy_safety": {"status": "UNMEASURED", "reason": "Mocked transport behavior does not establish live privacy or safety.", "measurement_method": "UNKNOWN", "evidence_sha256": "UNKNOWN", "reviewer_ref": "UNKNOWN"},
+        "originality_rights": {"status": "UNMEASURED", "reason": "No rights or originality review was run.", "measurement_method": "UNKNOWN", "evidence_sha256": "UNKNOWN", "reviewer_ref": "UNKNOWN"},
+        "business_value": {"status": "UNMEASURED", "reason": "No business outcome was measured.", "measurement_method": "UNKNOWN", "evidence_sha256": "UNKNOWN", "reviewer_ref": "UNKNOWN"}
+      },
+      "standards": [
+        {
+          "id": "WCAG22",
+          "issuer": "W3C",
+          "publisher_url": "https://www.w3.org/TR/WCAG22/",
+          "document_id": "WCAG 2.2",
+          "edition_date": "UNKNOWN",
+          "status_at_observation": "UNKNOWN",
+          "domain_scope": "Web content accessibility; not evaluated by this mock-output fixture.",
+          "applicability_decision": "UNKNOWN; this fixture does not exercise a real Slack client.",
+          "measurement_method": "UNKNOWN",
+          "checked_at": "UNKNOWN"
+        }
+      ],
+      "run_state": "NOT_RUN"
+    }
+  ]
+}
