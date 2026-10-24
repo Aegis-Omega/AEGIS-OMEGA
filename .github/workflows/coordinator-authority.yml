@@ -7,6 +7,8 @@ on:
       - "harness/**"
       - "sovereign-omega-v2/python/tests/test_coordinator_authority.py"
       - ".github/workflows/coordinator-authority.yml"
+      - ".github/workflows/agent-dispatch.yml"
+      - "scripts/test_agent_dispatch_payload.py"
   workflow_dispatch:
 
 permissions:
@@ -39,3 +41,6 @@ jobs:
 
       - name: Run coordinator fail-closed tests
         run: pytest -q sovereign-omega-v2/python/tests/test_coordinator_authority.py
+
+      - name: Run GitHub actor event trust regression tests
+        run: python -m unittest discover -s scripts -p 'test_agent_dispatch_payload.py' -v
