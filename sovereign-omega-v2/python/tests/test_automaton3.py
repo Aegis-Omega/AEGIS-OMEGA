@@ -3,11 +3,14 @@
 from __future__ import annotations
 
 import json
+import importlib.util
+import os
 import sys
-from dataclasses import replace
+from dataclasses import asdict, replace
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from unittest import TestCase, main
+from unittest.mock import patch
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(REPO_ROOT))
@@ -20,6 +23,7 @@ from harness.sdk.sovereign_execution import (  # noqa: E402
     SovereignExecutionError, WriterLeaseManager, canonical_bytes, canonical_hash,
     compute_workspace_binding, make_mutation_receipt, verify_workspace,
 )
+from harness.sdk.authority_client import authorize_from_environment  # noqa: E402
 
 REMOTE = "https://github.com/Aegis-Omega/AEGIS-OMEGA.git"
 COMMIT = "a" * 40
@@ -34,6 +38,9 @@ POLICY = {
 
 
 class Automaton3Tests(TestCase):
+    INVALID_GENERATIONS = (None, True, False, "1", 1.0, 1.5, [], {}, -1)
+    VALID_GENERATIONS = (0, 1, 2**63 - 1)
+
     def setUp(self) -> None:
         self.temp = TemporaryDirectory(); self.addCleanup(self.temp.cleanup)
         self.root = Path(self.temp.name)
@@ -217,6 +224,7 @@ class Automaton3Tests(TestCase):
         )
         self.assertIsNone(denied_lease)
         self.assertIn("EMERGENCY_STOP_ACTIVE", stopped_receipt.denial_codes)
+        self.assertEqual(stopped.emergency_stop(), ())
 
     def test_workspace_remote_changed(self):
         decision=verify_workspace(declared_root=self.root,cwd=self.root,expected_remote=REMOTE,actual_remote="https://github.com/other/project.git",project_identity="AEGIS-OMEGA",source_commit=COMMIT,operator_authorization=self.approval_ref,mutation_target=self.root)
@@ -324,6 +332,91 @@ class Automaton3Tests(TestCase):
                 roots.append(decision.decision_root)
             self.assertEqual(len(roots),k)
             self.assertEqual((self.root/"evidence/run.json").read_bytes(),initial)
+
+    def _cli_evaluate(self, *, current_generation, approval_generation):
+        spec = importlib.util.spec_from_file_location(
+            "automaton3_authority_cli", REPO_ROOT / "scripts/automaton3-authority.py",
+        )
+        cli = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(cli)
+        action = {"operation": "write", "target": "docs/test.md"}
+        approval = asdict(self.approval(valid_through_generation=approval_generation))
+        payload = {
+            "identity": asdict(self.identity),
+            "workspace": {
+                "actual_cwd": str(REPO_ROOT),
+                "remote_origin": REMOTE,
+                "mutation_target": str(REPO_ROOT),
+            },
+            "action": action,
+            "request": {
+                "action_class": D2,
+                "authority_domain": "github:contents",
+                "requested_capability": "repository.mutate",
+                "tool": "git",
+                "target": "docs/test.md",
+                "current_generation": current_generation,
+            },
+            "approval": approval,
+        }
+        return cli.evaluate(payload)
+
+    def _environment_decision(self, *, current_generation, approval_generation):
+        action = {"operation": "write", "target": "docs/test.md"}
+        env = {
+            "AEGIS_EXECUTION_IDENTITY_JSON": json.dumps(asdict(self.identity)),
+            "AEGIS_WORKSPACE_OBSERVATION_JSON": json.dumps({
+                "actual_cwd": str(REPO_ROOT),
+                "remote_origin": REMOTE,
+                "mutation_target": str(REPO_ROOT),
+            }),
+            "AEGIS_APPROVAL_GRANT_JSON": json.dumps(asdict(
+                self.approval(valid_through_generation=approval_generation),
+            )),
+        }
+        with patch.dict(os.environ, env):
+            return authorize_from_environment(
+                action_class=D2, authority_domain="github:contents",
+                requested_capability="repository.mutate", tool="git", target="docs/test.md",
+                action=action, current_generation=current_generation,
+            )
+
+    def test_cli_evaluate_rejects_non_integer_generations(self):
+        for value in self.INVALID_GENERATIONS:
+            with self.subTest(field="current_generation", value=value):
+                result = self._cli_evaluate(current_generation=value, approval_generation=2)
+                self.assertEqual(result["outcome"], DENIED)
+                self.assertIn("REQUEST_GENERATION_INVALID", result["policy_decision"]["denial_codes"])
+            with self.subTest(field="valid_through_generation", value=value):
+                result = self._cli_evaluate(current_generation=1, approval_generation=value)
+                self.assertEqual(result["outcome"], DENIED)
+                self.assertIn("APPROVAL_GENERATION_INVALID", result["policy_decision"]["denial_codes"])
+
+    def test_environment_client_rejects_non_integer_generations(self):
+        for value in self.INVALID_GENERATIONS:
+            with self.subTest(field="current_generation", value=value):
+                result = self._environment_decision(current_generation=value, approval_generation=2)
+                self.assertEqual(result["outcome"], DENIED)
+                self.assertIn("REQUEST_GENERATION_INVALID", result["denial_codes"])
+            with self.subTest(field="valid_through_generation", value=value):
+                result = self._environment_decision(current_generation=1, approval_generation=value)
+                self.assertEqual(result["outcome"], DENIED)
+                self.assertIn("APPROVAL_GENERATION_INVALID", result["denial_codes"])
+
+    def test_generation_integer_boundaries_remain_fail_closed(self):
+        for value in self.VALID_GENERATIONS:
+            with self.subTest(path="cli", value=value):
+                result = self._cli_evaluate(current_generation=value, approval_generation=value)
+                self.assertEqual(result["outcome"], DENIED)
+                self.assertIn("TRUSTED_APPROVAL_VERIFIER_UNAVAILABLE", result["policy_decision"]["denial_codes"])
+                self.assertNotIn("REQUEST_GENERATION_INVALID", result["policy_decision"]["denial_codes"])
+                self.assertNotIn("APPROVAL_GENERATION_INVALID", result["policy_decision"]["denial_codes"])
+            with self.subTest(path="environment", value=value):
+                result = self._environment_decision(current_generation=value, approval_generation=value)
+                self.assertEqual(result["outcome"], DENIED)
+                self.assertIn("TRUSTED_APPROVAL_VERIFIER_UNAVAILABLE", result["denial_codes"])
+                self.assertNotIn("REQUEST_GENERATION_INVALID", result["denial_codes"])
+                self.assertNotIn("APPROVAL_GENERATION_INVALID", result["denial_codes"])
 
 
 if __name__ == "__main__":
