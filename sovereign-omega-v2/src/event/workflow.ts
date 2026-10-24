@@ -7,7 +7,8 @@
 // this module defines the canonical payload schema.
 // ============================================================
 
-import type { SHA256Hex, CapabilityClass, UUIDv7 } from '../core/types.js'
+import type { Checkpoint, SHA256Hex, CapabilityClass, UUIDv7 } from '../core/types.js'
+import type { AuthorityLeaseV1, DurableExecutionRecordV1 } from '../sovereignty/contracts.js'
 
 // ─── E5 Payload Types ─────────────────────────────────────
 
@@ -86,3 +87,69 @@ export interface SemanticNodeQueriedPayload {
   readonly query_parameter: string
   readonly result_count: number
 }
+
+export type DurableWorkflowEventPayloadV1 =
+  | {
+      readonly schema_version: '1.0.0'
+      readonly kind: 'EXECUTION_REGISTERED'
+      readonly operation_id: string
+      readonly request_hash: SHA256Hex
+      readonly execution: DurableExecutionRecordV1
+    }
+  | {
+      readonly schema_version: '1.0.0'
+      readonly kind: 'LEASE_ACQUIRED'
+      readonly operation_id: string
+      readonly request_hash: SHA256Hex
+      readonly execution_id: string
+      readonly lease: AuthorityLeaseV1
+      readonly execution: DurableExecutionRecordV1
+    }
+  | {
+      readonly schema_version: '1.0.0'
+      readonly kind: 'HEARTBEAT'
+      readonly operation_id: string
+      readonly request_hash: SHA256Hex
+      readonly execution_id: string
+      readonly lease: AuthorityLeaseV1
+      readonly execution: DurableExecutionRecordV1
+    }
+  | {
+      readonly schema_version: '1.0.0'
+      readonly kind: 'CHECKPOINT_SAVED'
+      readonly operation_id: string
+      readonly request_hash: SHA256Hex
+      readonly execution_id: string
+      readonly lease_id: string
+      readonly fencing_token: string
+      readonly checkpoint: Checkpoint
+    }
+  | {
+      readonly schema_version: '1.0.0'
+      readonly kind: 'STEP_APPLIED'
+      readonly operation_id: string
+      readonly request_hash: SHA256Hex
+      readonly execution_id: string
+      readonly lease_id: string
+      readonly fencing_token: string
+      readonly checkpoint_id: string
+      readonly action_digest: SHA256Hex
+      readonly result_digest: SHA256Hex
+    }
+  | {
+      readonly schema_version: '1.0.0'
+      readonly kind: 'RESUMED'
+      readonly operation_id: string
+      readonly request_hash: SHA256Hex
+      readonly execution_id: string
+      readonly checkpoint: Checkpoint
+    }
+  | {
+      readonly schema_version: '1.0.0'
+      readonly kind: 'ACTION_DENIED'
+      readonly operation_id: string
+      readonly request_hash: SHA256Hex
+      readonly execution_id: string
+      readonly action: string
+      readonly denial_code: string
+    }

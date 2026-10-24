@@ -1,7 +1,7 @@
 // ============================================================
 // SOVEREIGN OMEGA — Cognitive Workflow Recorder Tests (E5)
 // Verifies: replay-safety gate fires before any store write,
-// all 8 E5 payload instances are replay-safe, non-E5 event
+// all 9 E5 payload instances are replay-safe, non-E5 event
 // types are rejected, and store.append receives correct args.
 // ============================================================
 
@@ -107,11 +107,21 @@ const nodeQueried: SemanticNodeQueriedPayload = {
   result_count: 1,
 }
 
+const durableWorkflowEvent = {
+  schema_version: '1.0.0',
+  kind: 'ACTION_DENIED',
+  operation_id: 'operation-1',
+  request_hash: ZERO_HASH,
+  execution_id: 'execution-1',
+  action: 'RESUME',
+  denial_code: 'CHECKPOINT_MISSING',
+}
+
 // ─── Tests ────────────────────────────────────────────────
 
 describe('Workflow Event Recorder (E5) — Ω⁵.8', () => {
 
-  it('all 8 E5 payload instances pass isReplaySafe', () => {
+  it('all 9 E5 payload instances pass isReplaySafe', () => {
     expect(isReplaySafe(agentPatch), 'AgentPatchProposedPayload').toBe(true)
     expect(isReplaySafe(gateResult), 'GateResultRecordedPayload').toBe(true)
     expect(isReplaySafe(corpusAccess), 'CorpusNodeAccessedPayload').toBe(true)
@@ -120,6 +130,7 @@ describe('Workflow Event Recorder (E5) — Ω⁵.8', () => {
     expect(isReplaySafe(guardianInvoked), 'GuardianInvokedPayload').toBe(true)
     expect(isReplaySafe(guardianVerdict), 'GuardianVerdictPayload').toBe(true)
     expect(isReplaySafe(nodeQueried), 'SemanticNodeQueriedPayload').toBe(true)
+    expect(isReplaySafe(durableWorkflowEvent), 'DurableWorkflowEventPayloadV1').toBe(true)
   })
 
   it('rejects non-replay-safe payloads with ReplaySafetyViolation before calling store', async () => {
@@ -177,7 +188,7 @@ describe('Workflow Event Recorder (E5) — Ω⁵.8', () => {
     ).rejects.toThrow('IDB_WRITE_FAILED')
   })
 
-  it('all 8 E5 types are accepted — none throw RangeError', async () => {
+  it('all 9 E5 types are accepted — none throw RangeError', async () => {
     const { store } = makeStore()
     const cases: [EventType, unknown][] = [
       [EventType.AGENT_PATCH_PROPOSED, agentPatch],
@@ -188,6 +199,7 @@ describe('Workflow Event Recorder (E5) — Ω⁵.8', () => {
       [EventType.GUARDIAN_INVOKED, guardianInvoked],
       [EventType.GUARDIAN_VERDICT_ISSUED, guardianVerdict],
       [EventType.SEMANTIC_NODE_QUERIED, nodeQueried],
+      [EventType.DURABLE_WORKFLOW_EVENT, durableWorkflowEvent],
     ]
     for (const [et, payload] of cases) {
       await expect(

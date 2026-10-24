@@ -22,7 +22,9 @@ export interface AppendCapable {
     producer_version: string,
     payload_schema_version: string,
     retention_class: RetentionClass,
-    timestamp_ms: number
+    timestamp_ms: number,
+    expectedSequence?: number,
+    writeCondition?: () => boolean,
   ): Promise<EventEnvelope<T>>
 }
 
@@ -35,6 +37,7 @@ const E5_EVENT_TYPES = new Set<EventType>([
   EventType.GUARDIAN_INVOKED,
   EventType.GUARDIAN_VERDICT_ISSUED,
   EventType.SEMANTIC_NODE_QUERIED,
+  EventType.DURABLE_WORKFLOW_EVENT,
 ])
 
 /**
@@ -49,7 +52,9 @@ export async function recordWorkflowEvent<T>(
   store: AppendCapable,
   event_type: EventType,
   payload: T,
-  timestamp_ms: number
+  timestamp_ms: number,
+  expectedSequence?: number,
+  writeCondition?: () => boolean,
 ): Promise<EventEnvelope<T>> {
   if (!E5_EVENT_TYPES.has(event_type)) {
     throw new RangeError(
@@ -65,6 +70,8 @@ export async function recordWorkflowEvent<T>(
     E5_PRODUCER_VERSION,
     E5_SCHEMA_VERSION,
     RetentionClass.STANDARD,
-    timestamp_ms
+    timestamp_ms,
+    expectedSequence,
+    writeCondition,
   )
 }
