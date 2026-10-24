@@ -11,6 +11,9 @@ import re
 SCHEMA = "aegis.independent-review.v1"
 SHA256 = re.compile(r"[0-9a-f]{64}\Z")
 SHA40 = re.compile(r"[0-9a-f]{40}\Z")
+ROSTER_FIELDS = {
+    "source", "snapshot_id", "identities", "selection_seed_commitment", "sha256",
+}
 
 
 class Invalid(Exception):
@@ -37,6 +40,15 @@ def _identity(roster, principal_id):
     ]
     _require(len(matches) == 1, "IDENTITY_NOT_UNIQUE")
     return matches[0]
+
+
+def _roster_payload(roster):
+    return {
+        "source": roster["source"],
+        "snapshot_id": roster["snapshot_id"],
+        "identities": roster["identities"],
+        "selection_seed_commitment": roster["selection_seed_commitment"],
+    }
 
 
 def select_reviewer(candidate_head, submitter_principal, roster, seed):
@@ -66,7 +78,7 @@ def select_reviewer(candidate_head, submitter_principal, roster, seed):
     _require(eligible, "NO_INDEPENDENT_REVIEWER")
     draw = canonical_digest({
         "candidate_head": candidate_head,
-        "roster_digest": canonical_digest(roster),
+        "roster_digest": canonical_digest(_roster_payload(roster)),
         "seed": seed,
         "submitter": submitter_principal,
     })
@@ -77,7 +89,7 @@ def select_reviewer(candidate_head, submitter_principal, roster, seed):
     }
 
 
-def select_challenges(source_digest, challenge_pool, seed, count, submitter, reviewer):
+def select_challenges(source_digest, challenge_pool, seed, count, submitter):
     """Blindly draw source-bound falsifiers from an independent challenge pool."""
     _require(bool(SHA256.fullmatch(source_digest or "")), "SOURCE_SNAPSHOT_DIGEST_INVALID")
     _require(bool(SHA256.fullmatch(seed or "")), "SELECTION_SEED_INVALID")
@@ -94,7 +106,7 @@ def select_challenges(source_digest, challenge_pool, seed, count, submitter, rev
         seen.add(ident)
         _require(item.get("source_snapshot_sha256") == source_digest,
                  "CHALLENGE_SOURCE_MISMATCH")
-        _require(item.get("generator_principal_id") not in {submitter, reviewer},
+        _require(item.get("generator_principal_id") != submitter,
                  "CHALLENGE_GENERATOR_NOT_INDEPENDENT")
         _require(item.get("expected_answer_visible") is False
                  and "expected_answer" not in item,
@@ -120,6 +132,7 @@ def _assess(receipt, roster):
              "RECEIPT_SCHEMA_INVALID")
     _require(isinstance(roster, dict) and isinstance(roster.get("identities"), list),
              "IDENTITY_ROSTER_INVALID")
+    _require(set(roster) == ROSTER_FIELDS, "IDENTITY_ROSTER_FIELDS_INVALID")
     _require(roster.get("source") == "trusted_identity_snapshot",
              "IDENTITY_SOURCE_UNVERIFIED")
     _require(isinstance(roster.get("snapshot_id"), str) and roster["snapshot_id"],
@@ -147,12 +160,7 @@ def _assess(receipt, roster):
     source_digest = canonical_digest({"head_sha": head, "files": files})
     _require(source.get("sha256") == source_digest, "SOURCE_SNAPSHOT_DIGEST_INVALID")
 
-    roster_body = {
-        "source": roster["source"],
-        "snapshot_id": roster["snapshot_id"],
-        "identities": roster["identities"],
-        "selection_seed_commitment": roster.get("selection_seed_commitment"),
-    }
+    roster_body = _roster_payload(roster)
     _require(roster.get("sha256") == canonical_digest(roster_body),
              "IDENTITY_SNAPSHOT_DIGEST_INVALID")
     seed = receipt.get("selection_seed")
@@ -201,7 +209,7 @@ def _assess(receipt, roster):
     challenge_count = review.get("challenge_count")
     generator_principal = review.get("challenge_generator_principal_id")
     _identity(roster, generator_principal)
-    _require(generator_principal not in {submitter_principal, reviewer_principal},
+    _require(generator_principal != submitter_principal,
              "CHALLENGE_GENERATOR_NOT_INDEPENDENT")
     pool = review.get("challenge_pool")
     _require(isinstance(pool, list) and all(
@@ -213,7 +221,7 @@ def _assess(receipt, roster):
     _require(isinstance(challenges, list) and challenges, "CHALLENGE_SET_MISSING")
     selected_challenges = select_challenges(
         source_digest, challenge_pool, receipt.get("selection_seed"),
-        challenge_count, submitter_principal, reviewer_principal,
+        challenge_count, submitter_principal,
     )
     _require(challenges == selected_challenges, "CHALLENGE_SET_NOT_INDEPENDENT")
     challenge_ids = []

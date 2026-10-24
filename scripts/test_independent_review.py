@@ -54,7 +54,7 @@ def good_receipt():
     ]
     challenges = select_challenges(
         source["sha256"], challenge_pool, SEED, 1,
-        "agent:submitter", reviewer["principal_id"],
+        "agent:submitter",
     )
     return {
         "schema": SCHEMA,
@@ -167,21 +167,19 @@ class IndependentReviewTests(unittest.TestCase):
         review = receipt["review"]
         expected = select_challenges(
             review["source_snapshot_sha256"], review["challenge_pool"],
-            SEED, 1, "agent:submitter", review["reviewer"]["principal_id"],
+            SEED, 1, "agent:submitter",
         )
         self.assertEqual(review["challenge_set"], expected)
         self.assertEqual(expected, select_challenges(
             review["source_snapshot_sha256"], review["challenge_pool"],
-            SEED, 1, "agent:submitter", review["reviewer"]["principal_id"],
+            SEED, 1, "agent:submitter",
         ))
 
-    def test_challenge_generator_cannot_share_submitter_or_reviewer_identity(self):
+    def test_challenge_generator_cannot_share_submitter_identity(self):
         receipt = good_receipt()
-        receipt["review"]["challenge_generator_principal_id"] = (
-            receipt["review"]["reviewer"]["principal_id"]
-        )
+        receipt["review"]["challenge_generator_principal_id"] = "agent:submitter"
         for item in receipt["review"]["challenge_pool"]:
-            item["generator_principal_id"] = receipt["review"]["reviewer"]["principal_id"]
+            item["generator_principal_id"] = "agent:submitter"
         self.reject(receipt, identity_snapshot(), "CHALLENGE_GENERATOR_NOT_INDEPENDENT")
 
     def test_weak_evidence_is_rejected(self):
@@ -251,6 +249,12 @@ class IndependentReviewTests(unittest.TestCase):
         roster = identity_snapshot()
         roster["source"] = "caller_claim"
         self.reject(receipt, roster, "IDENTITY_SOURCE_UNVERIFIED")
+
+    def test_uncommitted_identity_roster_fields_fail_closed(self):
+        receipt = good_receipt()
+        roster = identity_snapshot()
+        roster["extra_identity_claim"] = "uncommitted"
+        self.reject(receipt, roster, "IDENTITY_ROSTER_FIELDS_INVALID")
 
     def test_seeded_selection_is_stable_for_same_exact_head(self):
         roster = identity_snapshot()
