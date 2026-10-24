@@ -18,6 +18,7 @@
 //! Uses SHA-256 from the sha2 crate (already in Cargo.toml).
 
 use crate::coherence_broadcaster::CoherenceFrame;
+use crate::hash_chain_log::{HashChainEntry, HashChainLog};
 use sha2::{Sha256, Digest};
 
 /// One entry in the epoch coherence chain.
@@ -34,6 +35,25 @@ pub struct EpochCoherenceEntry {
     pub prev_entry_hash: [u8; 32],
 }
 
+impl HashChainEntry for EpochCoherenceEntry {
+    fn previous_hash(&self) -> &[u8; 32] {
+        &self.prev_entry_hash
+    }
+
+    fn entry_hash(&self) -> &[u8; 32] {
+        &self.entry_hash
+    }
+
+    fn hash_for(&self, previous_hash: &[u8; 32]) -> [u8; 32] {
+        compute_entry_hash(self.epoch, &self.frame, previous_hash)
+    }
+
+    fn set_hashes(&mut self, previous_hash: [u8; 32], entry_hash: [u8; 32]) {
+        self.prev_entry_hash = previous_hash;
+        self.entry_hash = entry_hash;
+    }
+}
+
 impl EpochCoherenceEntry {
     /// True iff the embedded frame declares a global section.
     pub fn is_globally_coherent(&self) -> bool {
@@ -47,7 +67,7 @@ pub const GENESIS_COHERENCE_HASH: [u8; 32] = [0u8; 32];
 /// A hash-linked chain of epoch coherence frames.
 #[derive(Debug, Clone)]
 pub struct EpochCoherenceChain {
-    entries: Vec<EpochCoherenceEntry>,
+    log: HashChainLog<EpochCoherenceEntry>,
 }
 
 #[derive(Debug)]
@@ -55,22 +75,26 @@ pub struct ChainError(pub &'static str);
 
 impl EpochCoherenceChain {
     /// Create an empty chain.
-    pub fn new() -> Self { Self { entries: Vec::new() } }
+    pub fn new() -> Self {
+        Self {
+            log: HashChainLog::new(GENESIS_COHERENCE_HASH),
+        }
+    }
 
     /// Number of entries in the chain.
-    pub fn len(&self) -> usize { self.entries.len() }
+    pub fn len(&self) -> usize { self.log.len() }
 
     /// True iff the chain has no entries.
-    pub fn is_empty(&self) -> bool { self.entries.is_empty() }
+    pub fn is_empty(&self) -> bool { self.log.is_empty() }
 
     /// The hash of the last entry, or GENESIS_COHERENCE_HASH if empty.
     pub fn last_hash(&self) -> [u8; 32] {
-        self.entries.last().map(|e| e.entry_hash).unwrap_or(GENESIS_COHERENCE_HASH)
+        self.log.terminal_hash()
     }
 
     /// The epoch of the last entry, or None if empty.
     pub fn last_epoch(&self) -> Option<u64> {
-        self.entries.last().map(|e| e.epoch)
+        self.log.entries().last().map(|e| e.epoch)
     }
 
     /// Append a new coherence frame for the given epoch.
@@ -85,48 +109,38 @@ impl EpochCoherenceChain {
                 return Err(ChainError("epoch must be strictly greater than last epoch"));
             }
         }
-        let prev_hash = self.last_hash();
-        let entry_hash = compute_entry_hash(epoch, &frame, &prev_hash);
-        self.entries.push(EpochCoherenceEntry {
+        Ok(self.log.append(EpochCoherenceEntry {
             epoch,
             frame,
-            entry_hash,
-            prev_entry_hash: prev_hash,
-        });
-        Ok(self.entries.last().unwrap())
+            entry_hash: [0; 32],
+            prev_entry_hash: [0; 32],
+        }))
     }
 
     /// All entries in chain order.
     pub fn entries(&self) -> &[EpochCoherenceEntry] {
-        &self.entries
+        self.log.entries()
     }
 
     /// True iff every entry in the chain declares global_section_exists=true.
     /// Empty chain returns true (vacuously coherent).
     pub fn is_continuously_coherent(&self) -> bool {
-        self.entries.iter().all(|e| e.is_globally_coherent())
+        self.entries().iter().all(|e| e.is_globally_coherent())
     }
 
     /// Index of the first entry where global_section_exists=false, or None.
     pub fn first_breach_epoch(&self) -> Option<u64> {
-        self.entries.iter().find(|e| !e.is_globally_coherent()).map(|e| e.epoch)
+        self.entries().iter().find(|e| !e.is_globally_coherent()).map(|e| e.epoch)
     }
 
     /// Verify the full hash chain integrity.
     /// Returns (is_valid, first_broken_epoch) where first_broken_epoch is None iff valid.
     pub fn verify_chain(&self) -> (bool, Option<u64>) {
-        let mut prev_hash = GENESIS_COHERENCE_HASH;
-        for entry in &self.entries {
-            if entry.prev_entry_hash != prev_hash {
-                return (false, Some(entry.epoch));
-            }
-            let expected = compute_entry_hash(entry.epoch, &entry.frame, &prev_hash);
-            if expected != entry.entry_hash {
-                return (false, Some(entry.epoch));
-            }
-            prev_hash = entry.entry_hash;
-        }
-        (true, None)
+        let (valid, broken_index) = self.log.verify_chain();
+        (
+            valid,
+            broken_index.map(|index| self.log.entries()[index].epoch),
+        )
     }
 
     /// Terminal hash of the chain (last entry_hash, or GENESIS if empty).
