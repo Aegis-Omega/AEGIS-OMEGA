@@ -114,6 +114,8 @@ export function replayDurableWorkflow(
           const existing = executions.find(item => item.execution_id === event.execution_id)
           if (
             !existing ||
+            existing.execution_id !== event.execution.execution_id ||
+            event.execution_id !== event.execution.execution_id ||
             existing.provider !== event.execution.provider ||
             existing.executor_id !== event.execution.executor_id ||
             existing.workflow_identity_hash !== event.execution.workflow_identity_hash ||

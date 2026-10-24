@@ -173,6 +173,36 @@ describe('durable workflow event-store slice', () => {
     expect(replayDurableWorkflow(await store.getAll()).executions[0]?.executor_id).toBe('executor-1')
   })
 
+  it('rejects replay events that splice execution identifiers', async () => {
+    const store = await openedStore()
+    const workflow = engine(store)
+    await register(workflow)
+    await workflow.acquireLease(leaseRequest('execution-1', 'lease-1', START + 1))
+    const events = await store.getAll()
+
+    const wrongOuterId = events.map(event => {
+      const payload = event.payload as DurableWorkflowEventPayloadV1
+      return payload.kind === 'LEASE_ACQUIRED'
+        ? { ...event, payload: { ...payload, execution_id: 'other-execution' } }
+        : event
+    })
+    const wrongRecordId = events.map(event => {
+      const payload = event.payload as DurableWorkflowEventPayloadV1
+      return payload.kind === 'LEASE_ACQUIRED'
+        ? {
+            ...event,
+            payload: {
+              ...payload,
+              execution: { ...payload.execution, execution_id: 'other-execution' },
+            },
+          }
+        : event
+    })
+
+    expect(() => replayDurableWorkflow(wrongOuterId)).toThrow('EXECUTION_IDENTITY_CHANGED')
+    expect(() => replayDurableWorkflow(wrongRecordId)).toThrow('EXECUTION_IDENTITY_CHANGED')
+  })
+
   it('uses increasing fencing tokens and rejects a stale writer after expiry', async () => {
     const store = await openedStore()
     const workflow = engine(store)
