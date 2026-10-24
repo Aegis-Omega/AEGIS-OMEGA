@@ -31,6 +31,11 @@ impl<T: HashChainEntry> HashChainLog<T> {
         &self.entries
     }
 
+    #[cfg(test)]
+    pub(crate) fn entries_mut_for_test(&mut self) -> &mut [T] {
+        &mut self.entries
+    }
+
     pub fn terminal_hash(&self) -> [u8; 32] {
         self.entries
             .last()
@@ -114,6 +119,19 @@ mod tests {
     }
 
     #[test]
+    fn append_uses_nonzero_genesis_hash() {
+        let genesis_hash = [7; 32];
+        let mut log = HashChainLog::new(genesis_hash);
+
+        let entry = log.append(TestEntry::new(1));
+
+        assert_eq!(entry.previous_hash(), &genesis_hash);
+        assert_eq!(entry.entry_hash(), &[8; 32]);
+        assert_eq!(log.terminal_hash(), [8; 32]);
+        assert_eq!(log.verify_chain(), (true, None));
+    }
+
+    #[test]
     fn appends_link_entries_and_verify_for_varied_lengths() {
         for length in 0..32 {
             let mut log = HashChainLog::default();
@@ -138,6 +156,26 @@ mod tests {
         log.append(TestEntry::new(2));
         log.append(TestEntry::new(3));
         log.entries[1].value = 9;
+
+        assert_eq!(log.verify_chain(), (false, Some(1)));
+    }
+
+    #[test]
+    fn detects_tampered_previous_hash() {
+        let mut log = HashChainLog::default();
+        log.append(TestEntry::new(1));
+        log.append(TestEntry::new(2));
+        log.entries[1].previous_hash = [9; 32];
+
+        assert_eq!(log.verify_chain(), (false, Some(1)));
+    }
+
+    #[test]
+    fn detects_tampered_entry_hash() {
+        let mut log = HashChainLog::default();
+        log.append(TestEntry::new(1));
+        log.append(TestEntry::new(2));
+        log.entries[1].entry_hash = [9; 32];
 
         assert_eq!(log.verify_chain(), (false, Some(1)));
     }

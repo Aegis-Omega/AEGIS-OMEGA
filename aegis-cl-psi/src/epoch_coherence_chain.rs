@@ -246,6 +246,20 @@ mod tests {
     }
 
     #[test]
+    fn append_preserves_pre_refactor_hash_formula() {
+        let frame = full_frame();
+        let mut chain = EpochCoherenceChain::new();
+        let entry = chain.append(1, frame.clone()).unwrap();
+
+        let mut expected = Sha256::new();
+        expected.update(1u64.to_be_bytes());
+        expected.update(frame.bytes);
+        expected.update(GENESIS_COHERENCE_HASH);
+        let expected_hash: [u8; 32] = expected.finalize().into();
+        assert_eq!(entry.entry_hash, expected_hash);
+    }
+
+    #[test]
     fn verify_clean_chain() {
         let mut chain = EpochCoherenceChain::new();
         for epoch in 1..=5 { chain.append(epoch, full_frame()).unwrap(); }
@@ -312,6 +326,19 @@ mod tests {
         let (valid, broken) = chain.verify_chain();
         assert!(valid);
         assert!(broken.is_none());
+    }
+
+    #[test]
+    fn verify_chain_maps_first_broken_index_to_epoch() {
+        let mut chain = EpochCoherenceChain::new();
+        chain.append(10, full_frame()).unwrap();
+        chain.append(20, full_frame()).unwrap();
+        chain.append(30, full_frame()).unwrap();
+        let entries = chain.log.entries_mut_for_test();
+        entries[1].entry_hash[0] ^= 1;
+        entries[2].prev_entry_hash[0] ^= 1;
+
+        assert_eq!(chain.verify_chain(), (false, Some(20)));
     }
 
     #[test]
