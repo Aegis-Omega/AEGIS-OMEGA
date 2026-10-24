@@ -151,9 +151,15 @@ def _assess(receipt, roster):
         "source": roster["source"],
         "snapshot_id": roster["snapshot_id"],
         "identities": roster["identities"],
+        "selection_seed_commitment": roster.get("selection_seed_commitment"),
     }
     _require(roster.get("sha256") == canonical_digest(roster_body),
              "IDENTITY_SNAPSHOT_DIGEST_INVALID")
+    seed = receipt.get("selection_seed")
+    _require(isinstance(seed, str) and SHA256.fullmatch(seed)
+             and roster.get("selection_seed_commitment")
+             == hashlib.sha256(seed.encode("utf-8")).hexdigest(),
+             "SELECTION_SEED_UNCOMMITTED")
 
     submitter = receipt.get("submitter")
     review = receipt.get("review")
@@ -163,9 +169,7 @@ def _assess(receipt, roster):
     reviewer = review.get("reviewer")
     _require(isinstance(reviewer, dict), "REVIEWER_IDENTITY_MISSING")
     reviewer_principal = reviewer.get("principal_id")
-    selected = select_reviewer(
-        head, submitter_principal, roster, receipt.get("selection_seed")
-    )
+    selected = select_reviewer(head, submitter_principal, roster, seed)
     _require(reviewer_principal == selected["principal_id"]
              and reviewer.get("github_id") == selected["github_id"],
              "REVIEWER_IDENTITY_MISMATCH")
@@ -230,10 +234,12 @@ def _assess(receipt, roster):
              "CHALLENGE_SET_DIGEST_INVALID")
     evidence = review.get("evidence")
     _require(isinstance(evidence, list), "EVIDENCE_MISSING")
-    _require(not any(
-        isinstance(item, dict) and item.get("result") == "contradicts"
+    _require(all(
+        isinstance(item, dict) and item.get("result") in {"supports", "contradicts"}
         for item in evidence
-    ), "CONFLICTING_EVIDENCE")
+    ), "EVIDENCE_RESULT_INVALID")
+    _require(not any(item["result"] == "contradicts" for item in evidence),
+             "CONFLICTING_EVIDENCE")
     accepted = [
         item for item in evidence
         if isinstance(item, dict)
@@ -258,6 +264,8 @@ def _assess(receipt, roster):
     falsifier_ids = [item["id"] for item in falsifiers]
     _require(len(falsifier_ids) == len(set(falsifier_ids)),
              "FALSIFIER_IDS_DUPLICATED")
+    _require(set(falsifier_ids) == set(challenge_ids),
+             "FALSIFIER_COVERAGE_INCOMPLETE")
     failed_falsifiers = [
         item["id"] for item in falsifiers if item["result"] == "triggered"
     ]

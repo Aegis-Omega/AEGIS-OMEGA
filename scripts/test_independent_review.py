@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Offline attack fixtures for the independent-review reducer."""
+import hashlib
 import unittest
 
 from independent_review import (
@@ -18,6 +19,7 @@ def identity_snapshot():
     body = {
         "source": "trusted_identity_snapshot",
         "snapshot_id": "directory-snapshot-1",
+        "selection_seed_commitment": hashlib.sha256(SEED.encode("utf-8")).hexdigest(),
         "identities": [
             {"principal_id": "agent:submitter", "github_ids": [11]},
             {"principal_id": "agent:reviewer", "github_ids": [20, 21]},
@@ -96,7 +98,9 @@ def good_receipt():
                 },
             ],
             "unresolved_conflicts": [],
-            "falsifier_results": [{"id": "falsifier-1", "result": "survived"}],
+            "falsifier_results": [
+                {"id": challenges[0]["id"], "result": "survived"},
+            ],
             "residual_uncertainty": "One supported task class has not been tested.",
         },
     }
@@ -196,6 +200,11 @@ class IndependentReviewTests(unittest.TestCase):
         })
         self.reject(receipt, identity_snapshot(), "CONFLICTING_EVIDENCE")
 
+    def test_unknown_evidence_outcome_fails_closed(self):
+        receipt = good_receipt()
+        receipt["review"]["evidence"][0]["result"] = "refutes"
+        self.reject(receipt, identity_snapshot(), "EVIDENCE_RESULT_INVALID")
+
     def test_compiler_only_success_is_rejected(self):
         receipt = good_receipt()
         receipt["review"]["evidence"] = [{
@@ -209,12 +218,23 @@ class IndependentReviewTests(unittest.TestCase):
     def test_triggered_falsifier_is_recorded_and_rejected(self):
         receipt = good_receipt()
         receipt["review"]["falsifier_results"] = [{
-            "id": "counterexample-1", "result": "triggered",
+            "id": receipt["review"]["challenge_set"][0]["id"],
+            "result": "triggered",
         }]
         result = assess(receipt, identity_snapshot())
         self.assertEqual(result["disposition"], "NOT_ADMITTED")
         self.assertEqual(result["reason"], "FALSIFIER_TRIGGERED")
-        self.assertEqual(result["record"]["failed_falsifiers"], ["counterexample-1"])
+        self.assertEqual(
+            result["record"]["failed_falsifiers"],
+            [receipt["review"]["challenge_set"][0]["id"]],
+        )
+
+    def test_every_selected_challenge_requires_a_result(self):
+        receipt = good_receipt()
+        receipt["review"]["falsifier_results"] = [{
+            "id": "unselected-challenge", "result": "survived",
+        }]
+        self.reject(receipt, identity_snapshot(), "FALSIFIER_COVERAGE_INCOMPLETE")
 
     def test_missing_residual_uncertainty_is_rejected(self):
         receipt = good_receipt()
@@ -237,6 +257,11 @@ class IndependentReviewTests(unittest.TestCase):
         selected = select_reviewer(HEAD, "agent:submitter", roster, SEED)
         self.assertEqual(selected, select_reviewer(HEAD, "agent:submitter", roster, SEED))
         self.assertNotEqual(selected["principal_id"], "agent:submitter")
+
+    def test_selection_seed_must_match_precommitted_digest(self):
+        receipt = good_receipt()
+        receipt["selection_seed"] = "e" * 64
+        self.reject(receipt, identity_snapshot(), "SELECTION_SEED_UNCOMMITTED")
 
 
 if __name__ == "__main__":
