@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import copy
 import hashlib
+import hmac
 import json
 import os
 import re
@@ -370,6 +371,26 @@ class ApprovalGrant:
     valid_through_generation: int
     signature_root: str
     state: str = "APPROVED"
+    signer_key_id: str = "NONE"
+    action_digest: str = ZERO_HASH
+
+
+def approval_mac_payload(grant: ApprovalGrant) -> bytes:
+    """Domain-separated exact approval payload; the untrusted MAC is excluded."""
+    return canonical_bytes({
+        "domain": "AEGIS_OPERATOR_APPROVAL_GRANT_HMAC_SHA256_V1",
+        "grant": {
+            "reference": grant.reference,
+            "authority_domain": grant.authority_domain,
+            "action_class": grant.action_class,
+            "source_commit": grant.source_commit,
+            "workspace_binding": grant.workspace_binding,
+            "valid_through_generation": grant.valid_through_generation,
+            "state": grant.state,
+            "signer_key_id": grant.signer_key_id,
+            "action_digest": grant.action_digest,
+        },
+    })
 
 
 @dataclass(frozen=True)
@@ -388,6 +409,7 @@ class AuthorityRequest:
     approval_reference: str = "NONE"
     idempotency_key: str = "NONE"
     compensation_reference: str = "NONE"
+    action_digest: str = ZERO_HASH
 
 
 @dataclass(frozen=True)
@@ -409,11 +431,16 @@ class PolicyDecision:
 
 
 class AuthorityEvaluator:
-    def __init__(self, *, policy: Mapping[str, Mapping[str, Any]] | None, registry: Mapping[str, CapabilityEvidence] | None, repository_root: str | Path | None = None):
+    def __init__(self, *, policy: Mapping[str, Mapping[str, Any]] | None, registry: Mapping[str, CapabilityEvidence] | None, repository_root: str | Path | None = None, trusted_approval_keys: Mapping[str, bytes] | None = None, revoked_approval_refs: Iterable[str] = (), revoked_signer_keys: Iterable[str] = ()):
         self.policy = copy.deepcopy(dict(policy)) if policy is not None else None
         self.registry = dict(registry) if registry is not None else None
         self.repository_root = Path(repository_root).resolve() if repository_root is not None else None
         self.policy_root = canonical_hash("AEGIS_CONSEQUENCE_POLICY_V1", self.policy) if self.policy is not None else ZERO_HASH
+        # Host-owned trust only. Never hydrate this mapping from approval JSON, PR body, or a candidate manifest.
+        # No protected key provider -> D2/D3/D4 DENIED; never treat a hex digest as identity.
+        self._trusted_approval_keys = dict(trusted_approval_keys) if trusted_approval_keys is not None else None
+        self._revoked_approval_refs = frozenset(revoked_approval_refs)
+        self._revoked_signer_keys = frozenset(revoked_signer_keys)
 
     def evaluate(self, request: AuthorityRequest, *, approval: ApprovalGrant | None = None) -> PolicyDecision:
         reasons: list[str] = []
@@ -487,8 +514,29 @@ class AuthorityEvaluator:
                 if approval.source_commit != request.source_commit: reasons.append("APPROVAL_SOURCE_COMMIT_MISMATCH")
                 if approval.workspace_binding != request.workspace_binding: reasons.append("APPROVAL_WORKSPACE_MISMATCH")
                 if approval.valid_through_generation < request.current_generation: reasons.append("APPROVAL_EXPIRED")
+                try: _assert_hash("request.action_digest", request.action_digest)
+                except SovereignExecutionError: reasons.append("APPROVAL_ACTION_DIGEST_UNAVAILABLE")
+                if request.action_digest == ZERO_HASH: reasons.append("APPROVAL_ACTION_DIGEST_UNAVAILABLE")
+                if approval.action_digest != request.action_digest: reasons.append("APPROVAL_ACTION_DIGEST_MISMATCH")
+                if approval.reference in self._revoked_approval_refs: reasons.append("APPROVAL_REFERENCE_REVOKED")
+                if approval.signer_key_id in self._revoked_signer_keys: reasons.append("APPROVAL_SIGNER_REVOKED")
+                valid_shape = True
                 try: _assert_hash("approval.signature_root", approval.signature_root)
-                except SovereignExecutionError: reasons.append("APPROVAL_UNSIGNED")
+                except SovereignExecutionError:
+                    reasons.append("APPROVAL_UNSIGNED")
+                    valid_shape = False
+                if self._trusted_approval_keys is None:
+                    reasons.append("APPROVAL_TRUST_UNAVAILABLE")
+                else:
+                    key = self._trusted_approval_keys.get(approval.signer_key_id)
+                    if key is None:
+                        reasons.append("APPROVAL_SIGNER_UNKNOWN")
+                    elif not isinstance(key, bytes) or len(key) < 32:
+                        reasons.append("APPROVAL_TRUST_KEY_INVALID")
+                    elif valid_shape:
+                        actual_mac = hmac.new(key, approval_mac_payload(approval), hashlib.sha256).hexdigest()
+                        if not hmac.compare_digest(actual_mac, approval.signature_root):
+                            reasons.append("APPROVAL_SIGNATURE_INVALID")
 
         if policy and policy.get("external_idempotency"):
             if request.idempotency_key == "NONE" and request.compensation_reference == "NONE":

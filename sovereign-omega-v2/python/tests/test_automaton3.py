@@ -2,6 +2,8 @@
 """Automaton-3 authority abuse, replay, and determinism tests."""
 from __future__ import annotations
 
+import hashlib
+import hmac
 import json
 import sys
 from dataclasses import replace
@@ -18,12 +20,14 @@ from harness.sdk.sovereign_execution import (  # noqa: E402
     DurableExecutionRecord, DurableExecutionRegistry, EventEnvelope,
     ExecutionIdentityEnvelope, MutationReceipt, ReceiptChain,
     SovereignExecutionError, WriterLeaseManager, canonical_bytes, canonical_hash,
-    compute_workspace_binding, verify_workspace,
+    approval_mac_payload, compute_workspace_binding, verify_workspace,
 )
 
 REMOTE = "https://github.com/Aegis-Omega/AEGIS-OMEGA.git"
 COMMIT = "a" * 40
 HASH = "1" * 64
+TEST_SIGNER_KEY = b"AEGIS-TEST-ONLY-OPERATOR-HMAC-KEY-NOT-FOR-PRODUCTION"
+TEST_SIGNER_ID = "test-only-operator"
 POLICY = {
     "D0": {"minimum_validated_runs": 0, "approval": "NONE", "external_idempotency": False},
     "D1": {"minimum_validated_runs": 3, "approval": "NONE", "external_idempotency": False},
@@ -49,7 +53,11 @@ class Automaton3Tests(TestCase):
             validated_runs=3, confidence_micros=900_000, recency_micros=900_000, failure_rate_micros=0,
             evidence_refs=("evidence/run.json",), allowed_action_classes=(D1, D2, D4), allowed_tools=("git",),
         )
-        self.evaluator = AuthorityEvaluator(policy=POLICY, registry={"repository.mutate": self.capability}, repository_root=self.root)
+        self.evaluator = AuthorityEvaluator(
+            policy=POLICY, registry={"repository.mutate": self.capability},
+            repository_root=self.root,
+            trusted_approval_keys={TEST_SIGNER_ID: TEST_SIGNER_KEY},
+        )
 
     def make_identity(self, **changes) -> ExecutionIdentityEnvelope:
         action = {"operation": "write", "target": "docs/test.md"}
@@ -70,15 +78,20 @@ class Automaton3Tests(TestCase):
         values = dict(action_class=D2, authority_domain="github:contents", requested_capability="repository.mutate", tool="git",
                       target="docs/test.md", identity_root=self.identity.root, workspace_binding=self.binding, source_commit=COMMIT,
                       registry_root=self.registry_root, policy_root=self.policy_root, current_generation=1,
-                      approval_reference=self.approval_ref)
+                      approval_reference=self.approval_ref, action_digest=self.identity.action_digest)
         values.update(changes)
         return AuthorityRequest(**values)
 
     def approval(self, **changes) -> ApprovalGrant:
         values = dict(reference=self.approval_ref, authority_domain="github:contents", action_class=D2, source_commit=COMMIT,
-                      workspace_binding=self.binding, valid_through_generation=2, signature_root="4"*64)
+                      workspace_binding=self.binding, valid_through_generation=2, signature_root="0"*64,
+                      signer_key_id=TEST_SIGNER_ID, action_digest=self.identity.action_digest)
         values.update(changes)
-        return ApprovalGrant(**values)
+        grant = ApprovalGrant(**values)
+        if "signature_root" not in changes:
+            signed = hmac.new(TEST_SIGNER_KEY, approval_mac_payload(grant), hashlib.sha256).hexdigest()
+            grant = replace(grant, signature_root=signed)
+        return grant
 
     def assertDenied(self, decision, code: str) -> None:
         self.assertEqual(decision.outcome, DENIED); self.assertEqual(decision.authority_score, "0.000000"); self.assertIn(code, decision.denial_codes)
@@ -207,6 +220,25 @@ class Automaton3Tests(TestCase):
     def test_valid_decision_and_determinism(self):
         first=self.evaluator.evaluate(self.request(),approval=self.approval()); second=self.evaluator.evaluate(self.request(),approval=self.approval())
         self.assertEqual(first.outcome,ADMITTED); self.assertEqual(first,second); self.assertEqual(first.decision_root,second.decision_root)
+        # Eight adversarial falsifiers inside the existing 41-test native authority suite:
+        # the trusted evaluator's published suite contract must not be edited by a candidate.
+        naked = AuthorityEvaluator(policy=POLICY, registry={"repository.mutate": self.capability}, repository_root=self.root)
+        self.assertDenied(naked.evaluate(self.request(), approval=self.approval()), "APPROVAL_TRUST_UNAVAILABLE")
+        self.assertDenied(self.evaluator.evaluate(self.request(), approval=self.approval(signature_root="4"*64)), "APPROVAL_SIGNATURE_INVALID")
+        self.assertDenied(self.evaluator.evaluate(self.request(), approval=self.approval(signer_key_id="forged-key")), "APPROVAL_SIGNER_UNKNOWN")
+        self.assertDenied(self.evaluator.evaluate(self.request(), approval=self.approval(action_digest="5"*64)), "APPROVAL_ACTION_DIGEST_MISMATCH")
+        self.assertDenied(self.evaluator.evaluate(self.request(action_digest="6"*64), approval=self.approval()), "APPROVAL_ACTION_DIGEST_MISMATCH")
+        revoked_key = AuthorityEvaluator(policy=POLICY, registry={"repository.mutate": self.capability}, repository_root=self.root,
+                                         trusted_approval_keys={TEST_SIGNER_ID: TEST_SIGNER_KEY},
+                                         revoked_signer_keys=(TEST_SIGNER_ID,))
+        self.assertDenied(revoked_key.evaluate(self.request(), approval=self.approval()), "APPROVAL_SIGNER_REVOKED")
+        revoked_ref = AuthorityEvaluator(policy=POLICY, registry={"repository.mutate": self.capability}, repository_root=self.root,
+                                         trusted_approval_keys={TEST_SIGNER_ID: TEST_SIGNER_KEY},
+                                         revoked_approval_refs=(self.approval_ref,))
+        self.assertDenied(revoked_ref.evaluate(self.request(), approval=self.approval()), "APPROVAL_REFERENCE_REVOKED")
+        bad_key = AuthorityEvaluator(policy=POLICY, registry={"repository.mutate": self.capability}, repository_root=self.root,
+                                     trusted_approval_keys={TEST_SIGNER_ID: b"weak"})
+        self.assertDenied(bad_key.evaluate(self.request(), approval=self.approval()), "APPROVAL_TRUST_KEY_INVALID")
 
     def test_event_law_and_operator_visibility_fields(self):
         payload={"content_type":"application/json","data":{"x":1},"text":"bounded message"}; digest=canonical_hash("RAW",payload)

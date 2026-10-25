@@ -95,6 +95,7 @@ def evaluate(payload: dict) -> dict:
             approval_reference=identity.approval_reference,
             idempotency_key=request_payload.get("idempotency_key", "NONE"),
             compensation_reference=request_payload.get("compensation_reference", "NONE"),
+            action_digest=action_digest,
         )
         approval = ApprovalGrant(**payload["approval"]) if payload.get("approval") else None
         decision = AuthorityEvaluator(policy=policy, registry=registry, repository_root=ROOT).evaluate(request, approval=approval)
