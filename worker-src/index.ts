@@ -253,8 +253,14 @@ export default {
         version: '2.0.0',
         chain_valid: null,
         chain_evidence: 'not_available_at_edge',
-        total_agents: 39,
-        available: true,
+        // Distinguish declared departments from actually instantiated agents.
+        // This Worker has no persistent execution queue or agent workers.
+        declared_departments: DEPARTMENTS.length,
+        total_agents: 0,
+        operational_agents: 0,
+        available: false,
+        inference_backend_configured: Boolean(env.ANTHROPIC_API_KEY),
+        execution_backend: 'unavailable_at_edge',
         contract_version: CONTRACT_VERSION,
         constitutional_hash_pinned_at_build: CONSTITUTIONAL_HASH,
       }))
@@ -356,14 +362,21 @@ export default {
       }))
     }
 
-    // Async execution stub — returns immediately with a pending execution
+    // There is no durable worker/queue at the edge. Never mint a fake pending
+    // execution ID or a stream URL for work that has not actually started.
     if (pathname === '/platform/executions' && method === 'POST') {
-      const id = execId('exec')
-      return ok(envelope(id, {
-        execution_id: id,
-        stream_url: `/platform/executions/live?id=${id}`,
-        status: 'pending',
-      }))
+      return err(
+        'No execution backend connected: no agent task was submitted.',
+        'EXECUTION_BACKEND_UNAVAILABLE',
+        503,
+      )
+    }
+    if (pathname === '/platform/executions/live' && method === 'GET') {
+      return err(
+        'No execution stream exists at this edge.',
+        'EXECUTION_STREAM_UNAVAILABLE',
+        501,
+      )
     }
 
     // ── Fall through to WebGPU static assets ─────────────────────────────────
