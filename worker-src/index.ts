@@ -19,13 +19,14 @@ interface Fetcher {
 
 interface Env {
   ANTHROPIC_API_KEY?: string
+  AEGIS_PLATFORM_API_KEY?: string
   ASSETS: Fetcher
 }
 
 const CORS = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-  'Access-Control-Allow-Headers': 'Content-Type, X-API-Key',
+  'Access-Control-Allow-Headers': 'Content-Type, X-API-Key, Authorization',
 }
 
 function ok(data: unknown): Response {
@@ -39,6 +40,18 @@ function err(msg: string, code: string, status: number): Response {
     status,
     headers: { 'Content-Type': 'application/json', ...CORS },
   })
+}
+
+/** Bound and compare tokens without a data-dependent early character exit. */
+function constantTimeTokenEquals(provided: string, expected: string): boolean {
+  if (provided.length > 2048 || expected.length > 2048) return false
+  const a = new TextEncoder().encode(provided)
+  const b = new TextEncoder().encode(expected)
+  let mismatch = a.length ^ b.length
+  for (let i = 0; i < Math.max(a.length, b.length); i++) {
+    mismatch |= (a[i] ?? 0) ^ (b[i] ?? 0)
+  }
+  return mismatch === 0
 }
 
 function seq(): number {
@@ -143,7 +156,12 @@ Return JSON:
     cycle_id: id,
     objective,
     mode,
-    departments_collaborated: DEPARTMENTS.length,
+    // A single model response is NOT 39 independent executed agents.
+    declared_departments: DEPARTMENTS.length,
+    departments_collaborated: 0,
+    individual_agents_executed: 0,
+    department_artifacts_generated: artifacts.length,
+    execution_kind: 'single_model_synthesis',
     artifacts,
     projection: { summary: parsed['summary'] ?? 'Constitutional analysis complete.' },
     // The model's own words about its output. Relabelled so it is not read as
@@ -268,7 +286,20 @@ export default {
 
     if (pathname === '/platform/collaborate' && method === 'POST') {
       if (!env.ANTHROPIC_API_KEY) {
-        return err('ANTHROPIC_API_KEY not configured', 'UNAUTHORIZED', 401)
+        return err('Inference backend not configured', 'MODEL_BACKEND_UNAVAILABLE', 503)
+      }
+      // A model key is a billing credential, never public authorisation.
+      if (!env.AEGIS_PLATFORM_API_KEY) {
+        return err('Protected operator key not configured', 'PLATFORM_AUTH_UNCONFIGURED', 503)
+      }
+      const auth = request.headers.get('authorization') ?? ''
+      const bearer = auth.slice(0, 7).toLowerCase() === 'bearer ' ? auth.slice(7) : ''
+      const xKey = request.headers.get('x-api-key') ?? ''
+      const provided = xKey || bearer
+      if (!provided || (auth && !bearer)
+          || (xKey && bearer && !constantTimeTokenEquals(xKey, bearer))
+          || !constantTimeTokenEquals(provided, env.AEGIS_PLATFORM_API_KEY)) {
+        return err('Invalid operator credential', 'UNAUTHORIZED', 401)
       }
       try {
         const body = await request.json() as { objective?: string; mode?: string }
