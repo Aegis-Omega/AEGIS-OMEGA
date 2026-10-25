@@ -12,6 +12,7 @@ and which open PRs already overlap the task text given as argv.
 Read-only. PR list comes from the GitHub REST API via `gh api` (cached 10 min
 in .git/); without gh it falls back to remote branch names.
 """
+import hashlib
 import json
 import os
 import re
@@ -371,6 +372,67 @@ def overlaps(prs, query, limit=8):
     return scored[:limit]
 
 
+OPTIMUS_POLICY_VERSION = "AEGIS_OPTIMUS_BY_DEFAULT_V1_2026_10_16"
+OPTIMUS_POLICY_MARKER = "<!-- AEGIS_OPTIMUS_BY_DEFAULT_V1_2026_10_16 -->"
+OPTIMUS_POLICY_SHA256 = "e7943f3ede9804438a3f34da0f6bd6f462022cde3bab10fdbc8b3b0442392c46"
+OPTIMUS_POLICY_ISSUE = 734
+
+
+def verify_optimus_issue(raw, expected_sha256=OPTIMUS_POLICY_SHA256):
+    """Bind only the #734 policy section content; never grant action authority.
+
+    A GitHub API read is source provenance, not authenticated model identity,
+    consent, tenant ACL, independent replay, or policy admission.
+    """
+    receipt = {
+        "source": f"https://github.com/{REPO}/issues/{OPTIMUS_POLICY_ISSUE}",
+        "version": OPTIMUS_POLICY_VERSION,
+        "expected_sha256": expected_sha256,
+        "observed_sha256": None,
+        "state": "SOURCE_UNAVAILABLE",
+        "execution_authority": "NOT_GRANTED",
+        "consent_acl": "UNVERIFIED",
+        "lesson_retraction": "UNVERIFIED",
+        "cross_provider_replay": "NOT_RUN",
+    }
+    if not isinstance(raw, str) or not raw.strip():
+        return receipt
+    try:
+        issue = json.loads(raw)
+    except (ValueError, TypeError):
+        receipt["state"] = "INVALID_SOURCE"
+        return receipt
+    if not isinstance(issue, dict) or type(issue.get("number")) is not int or issue["number"] != OPTIMUS_POLICY_ISSUE:
+        receipt["state"] = "SOURCE_ID_MISMATCH"
+        return receipt
+    if issue.get("state") != "open":
+        receipt["state"] = "SOURCE_NOT_OPEN"
+        return receipt
+    body = issue.get("body")
+    if not isinstance(body, str) or body.count(OPTIMUS_POLICY_MARKER) != 1:
+        receipt["state"] = "VERSION_MISSING_OR_AMBIGUOUS"
+        return receipt
+    section = body[body.index(OPTIMUS_POLICY_MARKER):].strip()
+    if not section.startswith(OPTIMUS_POLICY_MARKER + "\n## OPTIMUS BY DEFAULT"):
+        receipt["state"] = "VERSION_HEADER_MISMATCH"
+        return receipt
+    receipt["observed_sha256"] = hashlib.sha256(section.encode("utf-8")).hexdigest()
+    receipt["state"] = ("VERIFIED_SOURCE" if receipt["observed_sha256"] == expected_sha256
+                        else "CONTENT_MISMATCH")
+    return receipt
+
+
+def read_optimus_policy(quick=False):
+    """Quick hook is offline/UNKNOWN; full preflight requires live issue readback."""
+    if quick:
+        receipt = verify_optimus_issue("")
+        receipt["state"] = "UNKNOWN_QUICK"
+        return receipt
+    return verify_optimus_issue(
+        sh("gh", "api", f"repos/{REPO}/issues/{OPTIMUS_POLICY_ISSUE}",
+           "--jq", "{number:.number,state:.state,body:.body}", timeout=15))
+
+
 def main():
     quick = "--quick" in sys.argv
     args = [a for a in sys.argv[1:] if a not in ("--json", "--quick")]
@@ -394,15 +456,23 @@ def main():
     prs, source = open_prs(quick=quick)
     shared_state = shared_state_audit.inspect(prs, source, main_receipt)
     issues, issue_source = open_issue_board(timeout=4 if quick else 15)
+    optimus_policy = read_optimus_policy(quick=quick)
     stacked = [p for p in prs if p["b"] not in ("main", "?")]
     locked = (billing_locked(prs) if not quick and source in ("github", "cache") else None)
     hits = overlaps(prs, query)
     issue_hits = relevant_issues(issues, query)
     disposition = holon_disposition(source, issue_source, hits, issue_hits)
     holon_blocks = holon_blockers(source, issue_source, main_receipt["state"], hits, issue_hits)
+    policy_blockers = ([] if optimus_policy["state"] == "VERIFIED_SOURCE"
+                       else ["HOLD_OPTIMUS_POLICY_READBACK"])
+    holon_blocks.extend(policy_blockers)
     if main_receipt["state"] != "FRESH":
         disposition = "HOLD_UNVERIFIED_MAIN"
     coordination_blocks = coordination_blockers(main_receipt, source, issue_source, hits, issue_hits)
+    if policy_blockers:
+        coordination_blocks.append("OPTIMUS_POLICY_READBACK_UNVERIFIED")
+        if disposition == "ISSUE_ASSIGNMENT_AND_REVIEW_REQUIRED":
+            disposition = "HOLD_OPTIMUS_POLICY_READBACK"
     p0 = [issue for issue in issues if "p0" in issue["labels"]]
     main_verified = main_receipt["state"] == "FRESH"
     # Git grep reads the local origin/main ref. Never present that material as
@@ -469,6 +539,11 @@ def main():
         lines.append("- Related issues (check owners/claims; coordinate before editing):")
         for issue, matched in issue_hits:
             lines.append(f"  #{issue['n']} {issue['t'][:100]} [labels: {', '.join(issue['labels'])}] (match: {', '.join(matched)})")
+    lines.append(f"- OPTIMUS #734 source readback: {optimus_policy['state']} "
+                 f"(expected {optimus_policy['expected_sha256']}; "
+                 f"observed {optimus_policy['observed_sha256'] or 'UNKNOWN'}). "
+                 "Source verification only; scope/consent, retraction and cross-provider replay "
+                 "remain unverified. No action authority.")
     lines.append(f"- Holon coordination: {disposition}. Informational only; never authorizes a merge/release.")
     lines.append(f"- Holon blockers: {', '.join(holon_blocks) if holon_blocks else 'none observed; still advisory'}")
     lines.append(f"- Coordination blockers: {', '.join(coordination_blocks) if coordination_blocks else 'none observed; still advisory'}")

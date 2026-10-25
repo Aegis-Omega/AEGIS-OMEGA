@@ -3,6 +3,7 @@
 Run: python3 -m unittest discover -s scripts -p test_agent_context_holon.py -v
 """
 import contextlib
+import hashlib
 import importlib.util
 import io
 import json
@@ -142,10 +143,12 @@ class HolonContextTests(unittest.TestCase):
         receipt = json.loads(out.getvalue(), object_pairs_hook=reject_duplicate_pairs)
         self.assertEqual(receipt["holon_blockers"], [
             "HOLD_UNVERIFIED_MAIN", "HOLD_INCOMPLETE_PR_INVENTORY",
-            "OPERATOR_ACTION_REQUIRED", "HOLD_CLAIMED_WORK_COORDINATE"])
+            "OPERATOR_ACTION_REQUIRED", "HOLD_CLAIMED_WORK_COORDINATE",
+            "HOLD_OPTIMUS_POLICY_READBACK"])
         self.assertEqual(receipt["coordination_blockers"], [
             "MAIN_FRESHNESS_UNVERIFIED", "PR_INVENTORY_INCOMPLETE",
-            "OPERATOR_ACTION_REQUIRED", "CLAIMED_ISSUE_COORDINATION"])
+            "OPERATOR_ACTION_REQUIRED", "CLAIMED_ISSUE_COORDINATION",
+            "OPTIMUS_POLICY_READBACK_UNVERIFIED"])
         self.assertEqual(receipt["holon_disposition"], "HOLD_UNVERIFIED_MAIN")
 
     def test_unknown_peers_are_never_empty_board(self):
@@ -812,6 +815,87 @@ class HolonContextTests(unittest.TestCase):
         self.assertIn("OPEN PR COUNT UNKNOWN", text)
         self.assertIn("ISSUE BOARD UNKNOWN", text)
         self.assertIn("file-path overlap NOT ruled out", text)
+
+
+
+
+
+class OptimusPolicyReadbackTests(unittest.TestCase):
+    """Offline falsifiers for source pinning, never a provider admission claim."""
+
+    def fixture(self):
+        section = (ctx.OPTIMUS_POLICY_MARKER +
+                   "\n## OPTIMUS BY DEFAULT - fixture contract\n" +
+                   "No implicit authority; consent is externally gated.\n")
+        expected = hashlib.sha256(section.strip().encode("utf-8")).hexdigest()
+        issue = {"number": 734, "state": "open", "body": "Other context\n" + section}
+        return issue, expected
+
+    def test_pinned_source_section_fixture_is_verified_not_authorized(self):
+        issue, digest = self.fixture()
+        result = ctx.verify_optimus_issue(json.dumps(issue), expected_sha256=digest)
+        self.assertEqual(result["state"], "VERIFIED_SOURCE")
+        self.assertEqual(result["observed_sha256"], digest)
+        self.assertEqual(result["execution_authority"], "NOT_GRANTED")
+        self.assertEqual(result["consent_acl"], "UNVERIFIED")
+        self.assertEqual(result["cross_provider_replay"], "NOT_RUN")
+
+    def test_modified_section_is_hold_even_with_same_marker(self):
+        issue, digest = self.fixture()
+        issue["body"] += "One extra permission clause."
+        result = ctx.verify_optimus_issue(json.dumps(issue), expected_sha256=digest)
+        self.assertEqual(result["state"], "CONTENT_MISMATCH")
+
+    def test_wrong_issue_number_is_not_trusted(self):
+        issue, digest = self.fixture()
+        issue["number"] = 735
+        self.assertEqual(ctx.verify_optimus_issue(
+            json.dumps(issue), expected_sha256=digest)["state"], "SOURCE_ID_MISMATCH")
+
+    def test_closed_policy_source_is_not_admitted(self):
+        issue, digest = self.fixture()
+        issue["state"] = "closed"
+        self.assertEqual(ctx.verify_optimus_issue(
+            json.dumps(issue), expected_sha256=digest)["state"], "SOURCE_NOT_OPEN")
+
+    def test_missing_duplicate_or_wrong_version_marker_is_hold(self):
+        issue, digest = self.fixture()
+        for body in ("different version", issue["body"] + ctx.OPTIMUS_POLICY_MARKER):
+            issue["body"] = body
+            self.assertEqual(ctx.verify_optimus_issue(
+                json.dumps(issue), expected_sha256=digest)["state"],
+                "VERSION_MISSING_OR_AMBIGUOUS")
+
+    def test_bad_source_types_and_transport_are_unknown_not_empty(self):
+        self.assertEqual(ctx.verify_optimus_issue("")["state"], "SOURCE_UNAVAILABLE")
+        self.assertEqual(ctx.verify_optimus_issue("{")["state"], "INVALID_SOURCE")
+        self.assertEqual(ctx.verify_optimus_issue("[]")["state"], "SOURCE_ID_MISMATCH")
+        with patch.object(ctx, "sh", return_value=""):
+            self.assertEqual(ctx.read_optimus_policy()["state"], "SOURCE_UNAVAILABLE")
+
+    def test_quick_never_uses_network_for_policy(self):
+        with patch.object(ctx, "sh", side_effect=AssertionError("network used")):
+            receipt = ctx.read_optimus_policy(quick=True)
+        self.assertEqual(receipt["state"], "UNKNOWN_QUICK")
+        self.assertEqual(receipt["execution_authority"], "NOT_GRANTED")
+
+    def test_policy_hold_survives_verified_main_and_complete_board(self):
+        buf = io.StringIO()
+        with patch.object(ctx, "verify_main_freshness",
+                          return_value={"state": "FRESH", "sha": "a" * 40}), \
+             patch.object(ctx, "sh", return_value=""), \
+             patch.object(ctx, "open_prs", return_value=([], "github")), \
+             patch.object(ctx, "open_issue_board", return_value=([], "github")), \
+             patch.object(ctx, "billing_locked", return_value=None), \
+             patch.object(sys, "argv", ["agent_context.py", "--json", "policy"]), \
+             contextlib.redirect_stdout(buf):
+            ctx.main()
+        data = json.loads(buf.getvalue())
+        self.assertEqual(data["optimus_policy"]["state"], "SOURCE_UNAVAILABLE")
+        self.assertIn("HOLD_OPTIMUS_POLICY_READBACK", data["holon_blockers"])
+        self.assertIn("OPTIMUS_POLICY_READBACK_UNVERIFIED",
+                      data["coordination_blockers"])
+        self.assertEqual(data["holon_disposition"], "HOLD_OPTIMUS_POLICY_READBACK")
 
 
 if __name__ == "__main__":

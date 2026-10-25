@@ -37,6 +37,29 @@ obligation may coexist. The absence of blockers is never permission to merge,
 spend money, deploy or change authority.
 "No title match" does **not** prove that paths or semantics cannot conflict.
 
+## OPTIMUS policy source pin (candidate, advisory only)
+
+Standing directive: [#734](https://github.com/Aegis-Omega/AEGIS-OMEGA/issues/734),
+section `<!-- AEGIS_OPTIMUS_BY_DEFAULT_V1_2026_10_16 -->`, version
+`AEGIS_OPTIMUS_BY_DEFAULT_V1_2026_10_16`.
+Pinned UTF-8 SHA-256 of the marker-to-end policy section, trimmed:
+`e7943f3ede9804438a3f34da0f6bd6f462022cde3bab10fdbc8b3b0442392c46`.
+`python3 scripts/agent_context.py --json "task"` reports
+`optimus_policy.state`, `observed_sha256` and an independent
+`HOLD_OPTIMUS_POLICY_READBACK` blocker on unavailable, changed,
+ambiguous or stale-source evidence. The bounded `--quick` hook never
+fetches this issue and explicitly returns `UNKNOWN_QUICK`, not PASS.
+Any #734 policy edit requires review and a new approved pin; a URL,
+version string, or hash alone does not certify permission or semantic truth.
+
+**Source pinning never grants consent, tenant ACL, secrets, payments, learning
+promotion, privileged execution, merge or deployment authority.** The #752
+authority boundary, #753 lesson provenance/retraction, #758 independent
+evaluation and #746 signed admission remain separate unverified controls.
+No agent or provider may claim it adopted the policy without independent
+versioned readback and task-scoped authorization evidence. This is a draft
+PR #732 integration, not a global rollout or provider admission.
+
 ## 1a. Portable holon task contract (v1 candidate)
 
 For cross-model or cross-domain work, express the Operator's objective,
