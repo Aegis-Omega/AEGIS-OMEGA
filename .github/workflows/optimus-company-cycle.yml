@@ -1,0 +1,42 @@
+name: AEGIS OPTIMUS Company Cycle (bounded source intake)
+on:
+  schedule:
+    - cron: '7 */6 * * *'
+  workflow_dispatch:
+permissions:
+  contents: read
+  issues: write
+concurrency:
+  group: aegis-optimus-zero-spend
+  cancel-in-progress: false
+jobs:
+  intake:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate adapter locally (without inference)
+        run: python3 -m unittest scripts/test_optimus_company_tick.py -v
+      - name: Validate existing issue evolution and no-self-promotion contracts
+        env:
+          PYTHONPATH: ${{ github.workspace }}
+        run: python3 -m unittest agents.tests.test_issue_evolution agents.tests.test_evolution_no_self_promotion -v
+      - name: Read existing GitHub work graph and lease next eligible work
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PYTHONPATH: ${{ github.workspace }}
+        run: |
+          set -euo pipefail
+          python3 scripts/optimus_company_tick.py \
+            --live-repo Aegis-Omega/AEGIS-OMEGA \
+            --source-head "${GITHUB_SHA}" \
+            --tick "run-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}" \
+            --record-checkpoint --checkpoint-issue 734 \
+            --output /tmp/aegis-optimus-receipt.json
+          {
+            echo '## AEGIS OPTIMUS — source-bound read-only cycle'
+            echo 'No model inference/dispatch, no protected-main changes; lease state is QUEUED_UNEXECUTED, never proof of completion. Standard GitHub runner quota/billing applies to private repos.'
+            echo '```json'
+            cat /tmp/aegis-optimus-receipt.json
+            echo '```'
+          } >> "${GITHUB_STEP_SUMMARY}"

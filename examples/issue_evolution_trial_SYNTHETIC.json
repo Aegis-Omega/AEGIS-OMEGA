@@ -1,0 +1,203 @@
+{
+  "schema": "AEGIS_ISSUE_EVOLUTION_TRIAL_V1",
+  "issue": "Aegis-Omega/AEGIS-OMEGA#758",
+  "baseline": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "candidate": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+  "pre_registered_metric": "task_success",
+  "holdout_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+  "rollback_ref": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "paired_results": [
+    {
+      "task_id": "SYNTHETIC_TASK_01",
+      "baseline_score": 0.4,
+      "candidate_score": 0.8,
+      "safety_regression": false
+    },
+    {
+      "task_id": "SYNTHETIC_TASK_02",
+      "baseline_score": 0.4,
+      "candidate_score": 0.8,
+      "safety_regression": false
+    },
+    {
+      "task_id": "SYNTHETIC_TASK_03",
+      "baseline_score": 0.4,
+      "candidate_score": 0.8,
+      "safety_regression": false
+    },
+    {
+      "task_id": "SYNTHETIC_TASK_04",
+      "baseline_score": 0.4,
+      "candidate_score": 0.8,
+      "safety_regression": false
+    },
+    {
+      "task_id": "SYNTHETIC_TASK_05",
+      "baseline_score": 0.4,
+      "candidate_score": 0.8,
+      "safety_regression": false
+    },
+    {
+      "task_id": "SYNTHETIC_TASK_06",
+      "baseline_score": 0.4,
+      "candidate_score": 0.8,
+      "safety_regression": false
+    },
+    {
+      "task_id": "SYNTHETIC_TASK_07",
+      "baseline_score": 0.4,
+      "candidate_score": 0.8,
+      "safety_regression": false
+    },
+    {
+      "task_id": "SYNTHETIC_TASK_08",
+      "baseline_score": 0.4,
+      "candidate_score": 0.8,
+      "safety_regression": false
+    },
+    {
+      "task_id": "SYNTHETIC_TASK_09",
+      "baseline_score": 0.4,
+      "candidate_score": 0.8,
+      "safety_regression": false
+    },
+    {
+      "task_id": "SYNTHETIC_TASK_10",
+      "baseline_score": 0.4,
+      "candidate_score": 0.8,
+      "safety_regression": false
+    },
+    {
+      "task_id": "SYNTHETIC_TASK_11",
+      "baseline_score": 0.4,
+      "candidate_score": 0.8,
+      "safety_regression": false
+    },
+    {
+      "task_id": "SYNTHETIC_TASK_12",
+      "baseline_score": 0.4,
+      "candidate_score": 0.8,
+      "safety_regression": false
+    },
+    {
+      "task_id": "SYNTHETIC_TASK_13",
+      "baseline_score": 0.4,
+      "candidate_score": 0.8,
+      "safety_regression": false
+    },
+    {
+      "task_id": "SYNTHETIC_TASK_14",
+      "baseline_score": 0.4,
+      "candidate_score": 0.8,
+      "safety_regression": false
+    },
+    {
+      "task_id": "SYNTHETIC_TASK_15",
+      "baseline_score": 0.4,
+      "candidate_score": 0.8,
+      "safety_regression": false
+    },
+    {
+      "task_id": "SYNTHETIC_TASK_16",
+      "baseline_score": 0.4,
+      "candidate_score": 0.8,
+      "safety_regression": false
+    },
+    {
+      "task_id": "SYNTHETIC_TASK_17",
+      "baseline_score": 0.4,
+      "candidate_score": 0.8,
+      "safety_regression": false
+    },
+    {
+      "task_id": "SYNTHETIC_TASK_18",
+      "baseline_score": 0.4,
+      "candidate_score": 0.8,
+      "safety_regression": false
+    },
+    {
+      "task_id": "SYNTHETIC_TASK_19",
+      "baseline_score": 0.4,
+      "candidate_score": 0.8,
+      "safety_regression": false
+    },
+    {
+      "task_id": "SYNTHETIC_TASK_20",
+      "baseline_score": 0.4,
+      "candidate_score": 0.8,
+      "safety_regression": false
+    },
+    {
+      "task_id": "SYNTHETIC_TASK_21",
+      "baseline_score": 0.4,
+      "candidate_score": 0.8,
+      "safety_regression": false
+    },
+    {
+      "task_id": "SYNTHETIC_TASK_22",
+      "baseline_score": 0.4,
+      "candidate_score": 0.8,
+      "safety_regression": false
+    },
+    {
+      "task_id": "SYNTHETIC_TASK_23",
+      "baseline_score": 0.4,
+      "candidate_score": 0.8,
+      "safety_regression": false
+    },
+    {
+      "task_id": "SYNTHETIC_TASK_24",
+      "baseline_score": 0.4,
+      "candidate_score": 0.8,
+      "safety_regression": false
+    },
+    {
+      "task_id": "SYNTHETIC_TASK_25",
+      "baseline_score": 0.4,
+      "candidate_score": 0.8,
+      "safety_regression": false
+    },
+    {
+      "task_id": "SYNTHETIC_TASK_26",
+      "baseline_score": 0.4,
+      "candidate_score": 0.8,
+      "safety_regression": false
+    },
+    {
+      "task_id": "SYNTHETIC_TASK_27",
+      "baseline_score": 0.4,
+      "candidate_score": 0.8,
+      "safety_regression": false
+    },
+    {
+      "task_id": "SYNTHETIC_TASK_28",
+      "baseline_score": 0.4,
+      "candidate_score": 0.8,
+      "safety_regression": false
+    },
+    {
+      "task_id": "SYNTHETIC_TASK_29",
+      "baseline_score": 0.4,
+      "candidate_score": 0.8,
+      "safety_regression": false
+    },
+    {
+      "task_id": "SYNTHETIC_TASK_30",
+      "baseline_score": 0.4,
+      "candidate_score": 0.8,
+      "safety_regression": false
+    },
+    {
+      "task_id": "SYNTHETIC_TASK_31",
+      "baseline_score": 0.4,
+      "candidate_score": 0.8,
+      "safety_regression": false
+    },
+    {
+      "task_id": "SYNTHETIC_TASK_32",
+      "baseline_score": 0.4,
+      "candidate_score": 0.8,
+      "safety_regression": false
+    }
+  ]
+}

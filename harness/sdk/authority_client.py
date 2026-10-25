@@ -80,6 +80,7 @@ def authorize_from_environment(*, action_class: str, authority_domain: str, requ
         policy_root=policy_root, current_generation=current_generation,
         approval_reference=identity.approval_reference,
         idempotency_key=idempotency_key, compensation_reference=compensation_reference,
+        action_digest=action_digest,
     )
     decision = AuthorityEvaluator(policy=policy, registry=registry, repository_root=REPO_ROOT).evaluate(request, approval=approval)
     receipt = make_mutation_receipt(
