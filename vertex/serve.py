@@ -21,6 +21,7 @@ from __future__ import annotations
 
 import asyncio
 import hashlib
+import hmac
 import json
 import os
 import sys
@@ -203,11 +204,22 @@ app = FastAPI(
 # Honors the deploy caveat — public Cloud Run exposure requires auth on the
 # cost-incurring routes, error handling, and observability before going live.
 
-PLATFORM_API_KEY = os.environ.get("PLATFORM_API_KEY", "")  # if set, gates cost routes
+PLATFORM_API_KEY = os.environ.get("PLATFORM_API_KEY", "")  # absent => expense routes DENIED
 RATE_LIMIT_PER_MIN = int(os.environ.get("RATE_LIMIT_PER_MIN", "60"))
 
-# Routes that spend compute/money — require the API key when one is configured.
-_GATED_PREFIXES = ("/platform/collaborate", "/agents/run", "/agents/dispatch", "/v1/messages", "/predict")
+# Any endpoint able to perform external inference or launch an agent is gated.
+# /platform/webhooks/github uses its own mandatory GitHub HMAC proof.
+_GATED_PREFIXES = (
+    "/platform/collaborate",
+    "/platform/compare",
+    "/platform/stream",
+    "/platform/schedule/revenue",
+    "/agents/run",
+    "/agents/batch",
+    "/agents/dispatch",
+    "/v1/messages",
+    "/predict",
+)
 
 # In-memory metrics (per-process; Cloud Run logs aggregate across instances).
 METRICS: dict[str, Any] = {
@@ -247,10 +259,19 @@ async def observability_and_guard(request: Request, call_next):
             {"error": "rate_limited", "limit_per_min": RATE_LIMIT_PER_MIN}, status_code=429
         )
 
-    # Auth gate on cost-incurring routes when a key is configured.
-    if PLATFORM_API_KEY and any(path.startswith(p) for p in _GATED_PREFIXES):
-        provided = request.headers.get("x-api-key", "")
-        if provided != PLATFORM_API_KEY:
+    # Fail closed: cost-incurring routes NEVER become public if key is absent.
+    if any(path.startswith(p) for p in _GATED_PREFIXES):
+        if not PLATFORM_API_KEY:
+            METRICS["requests_total"] += 1
+            return JSONResponse({"error": "platform_auth_unconfigured"}, status_code=503)
+        authorization = request.headers.get("authorization", "")
+        bearer = authorization[7:] if authorization[:7].lower() == "bearer " else ""
+        key_header = request.headers.get("x-api-key", "")
+        provided = key_header or bearer
+        if (not provided or not provided.isascii()
+                or (authorization and not bearer)
+                or (key_header and bearer and not hmac.compare_digest(key_header, bearer))
+                or not hmac.compare_digest(provided, PLATFORM_API_KEY)):
             METRICS["requests_total"] += 1
             return JSONResponse({"error": "unauthorized"}, status_code=401)
 
@@ -1189,23 +1210,34 @@ async def github_webhook(request: Request):
     Receive GitHub webhook events and dispatch them to the appropriate agents.
     Handles: push, pull_request, issues, pull_request_review, check_run.
 
-    Verify GITHUB_WEBHOOK_SECRET if set (HMAC-SHA256).
+    Require a configured GitHub HMAC-SHA256 secret, verified before dispatch.
     """
-    import hmac, hashlib as _hl
-
-    # Signature verification
     secret = os.environ.get("GITHUB_WEBHOOK_SECRET", "")
-    if secret:
-        sig_header = request.headers.get("x-hub-signature-256", "")
-        body_raw = await request.body()
-        expected = "sha256=" + hmac.new(secret.encode(), body_raw, _hl.sha256).hexdigest()
-        if not hmac.compare_digest(sig_header, expected):
-            return JSONResponse({"error": "invalid_signature"}, status_code=401)
-        body = json.loads(body_raw)
-    else:
-        body = await request.json()
+    if not secret:
+        return JSONResponse({"error": "webhook_auth_unconfigured"}, status_code=503)
 
-    event_type = request.headers.get("x-github-event", "unknown")
+    sig_header = request.headers.get("x-hub-signature-256", "")
+    body_raw = await request.body()
+    expected = "sha256=" + hmac.new(secret.encode(), body_raw, hashlib.sha256).hexdigest()
+    if not sig_header or not hmac.compare_digest(sig_header, expected):
+        return JSONResponse({"error": "invalid_signature"}, status_code=401)
+
+    try:
+        body = json.loads(body_raw)
+    except (UnicodeDecodeError, json.JSONDecodeError):
+        return JSONResponse({"error": "invalid_json"}, status_code=400)
+    if not isinstance(body, dict):
+        return JSONResponse({"error": "invalid_payload"}, status_code=400)
+
+    # A valid HMAC from an unrelated GitHub repository is still not authority.
+    source_repo = body.get("repository")
+    expected_repo = os.environ.get("AEGIS_GITHUB_REPOSITORY", "Aegis-Omega/AEGIS-OMEGA")
+    if not isinstance(source_repo, dict) or source_repo.get("full_name") != expected_repo:
+        return JSONResponse({"error": "repository_mismatch"}, status_code=403)
+
+    event_type = request.headers.get("x-github-event", "")
+    if event_type not in {"push", "pull_request", "issues", "pull_request_review", "check_run"}:
+        return JSONResponse({"error": "unsupported_webhook_event"}, status_code=400)
 
     # Map GitHub events to agent dispatch
     try:
