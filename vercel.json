@@ -1,7 +1,12 @@
 {
   "framework": "vite",
-  "buildCommand": "cd hub && npm install && npm run build",
+  "buildCommand": "node -e \"if (process.env.VERCEL === '1' && process.env.VERCEL_PROJECT_ID !== 'prj_Y6qVEfvd18cSB31rmeZR5t0u8PId') { console.error('WRONG_PROJECT_ROOT: Hub build requested for non-hub Vercel project'); process.exit(1) }\" && cd hub && npm install && npm run build",
   "outputDirectory": "hub/dist",
   "installCommand": "echo 'install handled per-product'",
-  "rewrites": [{"source": "/(.*)", "destination": "/index.html"}]
+  "rewrites": [
+    {
+      "source": "/(.*)",
+      "destination": "/index.html"
+    }
+  ]
 }

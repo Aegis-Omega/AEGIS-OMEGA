@@ -1,6 +1,6 @@
 import { useState, useEffect, type ReactNode } from 'react'
 import { Shield, Zap, CheckCircle } from 'lucide-react'
-import { verifyServerToken, storeServerToken, getStoredServerToken } from '../lib/access.js'
+import { verifyServerToken, serverGrantAllowsProduct, storeServerToken, getStoredServerToken } from '../lib/access.js'
 
 interface AccessGateProps {
   product: 'platform-picker' | 'hook-generator' | 'content-calendar'
@@ -35,7 +35,7 @@ export function AccessGate({ product, accentColor = '#6366F1', buyUrl, children 
         // Only ECDSA-signed server-issued tokens are accepted.
         // (Legacy client-minted HMAC tokens were forgeable and are no longer honored.)
         const serverPayload = await verifyServerToken(token)
-        if (serverPayload && serverPayload.tools.includes(product)) {
+        if (serverGrantAllowsProduct(serverPayload, product)) {
           storeServerToken(product, token)
           const url = new URL(window.location.href)
           url.searchParams.delete('aegis_token')
@@ -51,7 +51,7 @@ export function AccessGate({ product, accentColor = '#6366F1', buyUrl, children 
       const serverToken = getStoredServerToken(product)
       if (serverToken) {
         const serverPayload = await verifyServerToken(serverToken)
-        if (serverPayload) { setUnlocked(true); setChecking(false); return }
+        if (serverGrantAllowsProduct(serverPayload, product)) { setUnlocked(true); setChecking(false); return }
         localStorage.removeItem(`aegis_srv_${product}`)
       }
 

@@ -50,6 +50,17 @@ export async function verifyServerToken(token: string): Promise<ServerGrantPaylo
   }
 }
 
+/** Permit only a product explicitly named in a verified server grant. */
+export function serverGrantAllowsProduct(
+  payload: ServerGrantPayload | null,
+  product: string,
+): boolean {
+  return payload !== null &&
+    Array.isArray(payload.tools) &&
+    payload.tools.every(tool => typeof tool === 'string') &&
+    payload.tools.includes(product)
+}
+
 function sign(plan: Plan, grantedAt: number): string {
   const str = `${GRANT_SECRET}:${plan}:${grantedAt}`
   let h = 0
