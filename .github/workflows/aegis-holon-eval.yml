@@ -1,0 +1,30 @@
+# Independent, read-only holon evaluation contract. NOT an admission gate.
+name: AEGIS Holon Paired Evaluation
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'scripts/holon_eval.py'
+      - 'scripts/test_holon_eval.py'
+      - 'scripts/holon_gate.py'
+      - '.github/workflows/aegis-holon-eval.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'scripts/holon_eval.py'
+      - 'scripts/test_holon_eval.py'
+      - 'scripts/holon_gate.py'
+      - '.github/workflows/aegis-holon-eval.yml'
+permissions:
+  contents: read
+jobs:
+  paired-evaluation-contract:
+    runs-on: ubuntu-latest
+    timeout-minutes: 4
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Paired outcome, artifact integrity and fail-closed regressions
+        run: python3 -m unittest discover -s scripts -p 'test_holon_eval.py' -v

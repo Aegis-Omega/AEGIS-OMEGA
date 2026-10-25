@@ -1,0 +1,301 @@
+{
+  "schema": "aegis.agent.shared-state.snapshot/1",
+  "observed_date": "2026-10-11",
+  "source": "GitHub PR API and ChatGPT Library read-only inspection",
+  "advisory_only": true,
+  "authority_effect": "NONE",
+  "auto_notifies_agents": false,
+  "scope": [
+    "Aegis-Omega/AEGIS-OMEGA",
+    "tarikskalic33/formal-conjectures"
+  ],
+  "completeness": "SELECTED_ACTIVE_LANES_ONLY",
+  "authority_order": [
+    "live production probe when safely available",
+    "current protected-main Git paths/blobs",
+    "latest exact-head CI jobs with executed steps",
+    "latest PR head/reviews",
+    "Library payload/receipt",
+    "historic docs/claims"
+  ],
+  "required_preflight": "python3 scripts/agent_context.py --json \"#ISSUE goal\"",
+  "refresh_rule": "Before each task, query current GitHub PR SHA, merge/state, changed files, executed CI steps, and relevant Library file bytes; if any differs from this snapshot treat corresponding status as STALE_OR_UNKNOWN.",
+  "blocking_issue": {
+    "repo": "Aegis-Omega/AEGIS-OMEGA",
+    "number": 735,
+    "report": "GitHub Actions billing lock reported in open Issue #735",
+    "verified_runtime": "NO_EXECUTED_NATIVE_CI_VERDICT_IN_SAMPLED_JOBS",
+    "payment_authorized": false
+  },
+  "main_reference": {
+    "repo": "Aegis-Omega/AEGIS-OMEGA",
+    "sha": "495bfd85d79abcb2b4f6898fe9c156488492426a",
+    "status": "OBSERVED_SHARED_PR_BASE_NOT_LIVE_MAIN_AT_RESPONSE_TIME",
+    "verify_again": true
+  },
+  "current_library": {
+    "path": "/AEGIS/Artifact Registry/2026-10-11",
+    "files_at_read": 631,
+    "coverage": "STAGED_ONLY_NOT_WHOLE_LIBRARY",
+    "canonical_index": "/AEGIS Research Archive/00_INDEX/AEGIS_RESEARCH_LIBRARY_INDEX.md",
+    "locator": "/AEGIS Research Archive/00_INDEX/AEGIS_Resource_Locator_2026-10-10.json",
+    "crosswalk": "/AEGIS/Artifact Registry/2026-10-11/06_Portfolio_Operations/AEGIS_Library_Implementation_Crosswalk_V3_2026-10-11.csv"
+  },
+  "lanes": [
+    {
+      "repo": "Aegis-Omega/AEGIS-OMEGA",
+      "pr": 732,
+      "issue": 734,
+      "sha": "237027a806e9a4e2b3e98befe7d56f188b126967",
+      "lane": "cross-model governance",
+      "artifact": "AGENTS.md; scripts/agent_context.py",
+      "status": "DRAFT_BRANCH_NOT_ADMITTED",
+      "observed_head_before_coordination_commit": "237027a806e9a4e2b3e98befe7d56f188b126967",
+      "url": "https://github.com/Aegis-Omega/AEGIS-OMEGA/pull/732",
+      "admission": "NOT_VERIFIED",
+      "deployment": "NOT_VERIFIED",
+      "actor": "UNASSIGNED_NOT_AUTHENTICATED",
+      "head_update": "SELF_REFERENTIAL_HEAD_REQUIRES_FRESH_FETCH"
+    },
+    {
+      "repo": "Aegis-Omega/AEGIS-OMEGA",
+      "pr": 745,
+      "issue": 760,
+      "sha": "40a1033a0b93c39b4bb61a1af146d95b8b63a208",
+      "lane": "product UI Holon Glass",
+      "artifact": "hub/src/HolonGlass.tsx; AEGIS_HOLON_VISUAL_SYSTEM_HANDOFF_2026-10-11.json",
+      "status": "DRAFT_BRANCH_NOT_DEPLOYMENT_VERIFIED",
+      "observed_head_before_coordination_commit": "40a1033a0b93c39b4bb61a1af146d95b8b63a208",
+      "url": "https://github.com/Aegis-Omega/AEGIS-OMEGA/pull/745",
+      "admission": "NOT_VERIFIED",
+      "deployment": "NOT_VERIFIED",
+      "actor": "UNASSIGNED_NOT_AUTHENTICATED",
+      "head_update": "OBSERVED_CHANGED_SINCE_INITIAL_SNAPSHOT"
+    },
+    {
+      "repo": "Aegis-Omega/AEGIS-OMEGA",
+      "pr": 761,
+      "issue": 748,
+      "sha": "593df972640d581ba79585f1796bf1cff038a8ce",
+      "lane": "WorkPack evidence protocol",
+      "artifact": "AEGIS_WorkPack_v0_14_machine_receipt.json",
+      "status": "DRAFT_BRANCH_NOT_ADMITTED",
+      "observed_head_before_coordination_commit": "593df972640d581ba79585f1796bf1cff038a8ce",
+      "url": "https://github.com/Aegis-Omega/AEGIS-OMEGA/pull/761",
+      "admission": "NOT_VERIFIED",
+      "deployment": "NOT_VERIFIED",
+      "actor": "UNASSIGNED_NOT_AUTHENTICATED"
+    },
+    {
+      "repo": "Aegis-Omega/AEGIS-OMEGA",
+      "pr": 766,
+      "issue": 765,
+      "sha": "0879ac5dc1cb1f6e2eee1f4124611aa59b2251d7",
+      "lane": "read-only research intake",
+      "artifact": "AEGIS_UWP13_RFC9112_Close_Framing_20261011.zip",
+      "status": "DRAFT_BRANCH_NOT_ADMITTED",
+      "observed_head_before_coordination_commit": "0879ac5dc1cb1f6e2eee1f4124611aa59b2251d7",
+      "url": "https://github.com/Aegis-Omega/AEGIS-OMEGA/pull/766",
+      "admission": "NOT_VERIFIED",
+      "deployment": "NOT_VERIFIED",
+      "actor": "UNASSIGNED_NOT_AUTHENTICATED"
+    },
+    {
+      "repo": "Aegis-Omega/AEGIS-OMEGA",
+      "pr": 767,
+      "issue": 756,
+      "sha": "51ddc49fd7b8bba112d37caa7779ee3dd7674ce9",
+      "lane": "Circle/Codex MCP bounded preflight",
+      "artifact": "scripts/circle_mcp_preflight.py",
+      "status": "DRAFT_BRANCH_NOT_CONNECTED",
+      "observed_head_before_coordination_commit": "51ddc49fd7b8bba112d37caa7779ee3dd7674ce9",
+      "url": "https://github.com/Aegis-Omega/AEGIS-OMEGA/pull/767",
+      "admission": "NOT_VERIFIED",
+      "deployment": "NOT_VERIFIED",
+      "actor": "UNASSIGNED_NOT_AUTHENTICATED"
+    },
+    {
+      "repo": "Aegis-Omega/AEGIS-OMEGA",
+      "pr": 747,
+      "issue": 746,
+      "sha": "82ed0868176d5316ba44833074c02de5c7497e56",
+      "lane": "Issue evidence admission",
+      "artifact": "AEGIS_Issue_746_v1_5_Receipt.json",
+      "status": "DRAFT_BRANCH_NOT_ADMITTED",
+      "observed_head_before_coordination_commit": "82ed0868176d5316ba44833074c02de5c7497e56",
+      "url": "https://github.com/Aegis-Omega/AEGIS-OMEGA/pull/747",
+      "admission": "NOT_VERIFIED",
+      "deployment": "NOT_VERIFIED",
+      "actor": "UNASSIGNED_NOT_AUTHENTICATED"
+    },
+    {
+      "repo": "Aegis-Omega/AEGIS-OMEGA",
+      "pr": 762,
+      "issue": 749,
+      "sha": "21472b4bc62a8c45ffd36d5efd74ba418d250e3c",
+      "lane": "work contract compiler",
+      "artifact": "E5 work contract compiler",
+      "status": "DRAFT_BRANCH_NOT_ADMITTED",
+      "observed_head_before_coordination_commit": "21472b4bc62a8c45ffd36d5efd74ba418d250e3c",
+      "url": "https://github.com/Aegis-Omega/AEGIS-OMEGA/pull/762",
+      "admission": "NOT_VERIFIED",
+      "deployment": "NOT_VERIFIED",
+      "actor": "UNASSIGNED_NOT_AUTHENTICATED"
+    },
+    {
+      "repo": "Aegis-Omega/AEGIS-OMEGA",
+      "pr": 764,
+      "issue": 763,
+      "sha": "9d6b91723a6b474c0d9cbf64c6fc8af0cf4ffb20",
+      "lane": "CoreMatrix M2 storage",
+      "artifact": "sovereign-omega-v2/python/core_matrix.py",
+      "status": "STACKED_DRAFT_ON_PR720",
+      "observed_head_before_coordination_commit": "9d6b91723a6b474c0d9cbf64c6fc8af0cf4ffb20",
+      "url": "https://github.com/Aegis-Omega/AEGIS-OMEGA/pull/764",
+      "admission": "NOT_VERIFIED",
+      "deployment": "NOT_VERIFIED",
+      "actor": "UNASSIGNED_NOT_AUTHENTICATED"
+    },
+    {
+      "repo": "Aegis-Omega/AEGIS-OMEGA",
+      "pr": 743,
+      "issue": null,
+      "sha": "6cc23e81f4b1259fee624709e4d6782dd961a8de",
+      "lane": "verified output receipts",
+      "artifact": "AEGIS Verified Output v0 SDK",
+      "status": "DRAFT_BRANCH_NOT_ADMITTED",
+      "observed_head_before_coordination_commit": "6cc23e81f4b1259fee624709e4d6782dd961a8de",
+      "url": "https://github.com/Aegis-Omega/AEGIS-OMEGA/pull/743",
+      "admission": "NOT_VERIFIED",
+      "deployment": "NOT_VERIFIED",
+      "actor": "UNASSIGNED_NOT_AUTHENTICATED",
+      "head_update": "OBSERVED_CHANGED_SINCE_INITIAL_SNAPSHOT"
+    },
+    {
+      "repo": "Aegis-Omega/AEGIS-OMEGA",
+      "pr": 730,
+      "issue": null,
+      "sha": "4be0b04fa18ced0f499d20d34632e90940fa0f3a",
+      "lane": "capability-ranked dispatch",
+      "artifact": "agents/coordinator.py",
+      "status": "DRAFT_BRANCH_NOT_ADMITTED",
+      "observed_head_before_coordination_commit": "4be0b04fa18ced0f499d20d34632e90940fa0f3a",
+      "url": "https://github.com/Aegis-Omega/AEGIS-OMEGA/pull/730",
+      "admission": "NOT_VERIFIED",
+      "deployment": "NOT_VERIFIED",
+      "actor": "UNASSIGNED_NOT_AUTHENTICATED"
+    },
+    {
+      "repo": "Aegis-Omega/AEGIS-OMEGA",
+      "pr": 727,
+      "issue": null,
+      "sha": "ce023ece691cb1966804e5564cd4dd2660806acb",
+      "lane": "system foundry",
+      "artifact": "agents/coordinator.py",
+      "status": "DRAFT_BRANCH_NOT_ADMITTED",
+      "observed_head_before_coordination_commit": "ce023ece691cb1966804e5564cd4dd2660806acb",
+      "url": "https://github.com/Aegis-Omega/AEGIS-OMEGA/pull/727",
+      "admission": "NOT_VERIFIED",
+      "deployment": "NOT_VERIFIED",
+      "actor": "UNASSIGNED_NOT_AUTHENTICATED"
+    },
+    {
+      "repo": "Aegis-Omega/AEGIS-OMEGA",
+      "pr": 724,
+      "issue": null,
+      "sha": "957ef8a235ffec320f03c9a423f85c4a68291c26",
+      "lane": "capability truth",
+      "artifact": "vertex/serve.py",
+      "status": "DRAFT_BRANCH_NOT_ADMITTED",
+      "observed_head_before_coordination_commit": "957ef8a235ffec320f03c9a423f85c4a68291c26",
+      "url": "https://github.com/Aegis-Omega/AEGIS-OMEGA/pull/724",
+      "admission": "NOT_VERIFIED",
+      "deployment": "NOT_VERIFIED",
+      "actor": "UNASSIGNED_NOT_AUTHENTICATED"
+    },
+    {
+      "repo": "tarikskalic33/formal-conjectures",
+      "pr": 79,
+      "issue": null,
+      "sha": "f9b1fbc7817ff2556b5131cf1455e05acc00743a",
+      "lane": "RH proof fusion",
+      "artifact": "AEGISOverlay/RHExistingProofFusionV1.lean",
+      "status": "MERGED_PROOF_FUSION_RH_STILL_UNPROVED",
+      "observed_head_before_coordination_commit": "f9b1fbc7817ff2556b5131cf1455e05acc00743a",
+      "url": "https://github.com/tarikskalic33/formal-conjectures/pull/79",
+      "admission": "MERGED_AT_REPOSITORY_LEVEL_ONLY",
+      "deployment": "NOT_APPLICABLE",
+      "actor": "UNASSIGNED_NOT_AUTHENTICATED",
+      "merged_at": "2026-10-11T18:43:24Z",
+      "merge_commit_sha": "e9dd3abf717dc0f844f460b66b3a01c602fc8b43",
+      "head_update": "SAME_PR_HEAD_BUT_LIFECYCLE_ADVANCED"
+    }
+  ],
+  "overlaps": [
+    {
+      "prs": [
+        724,
+        727
+      ],
+      "paths": [
+        ".github/workflows/integration-ledger.yml"
+      ]
+    },
+    {
+      "prs": [
+        724,
+        730
+      ],
+      "paths": [
+        "vertex/serve.py"
+      ]
+    },
+    {
+      "prs": [
+        727,
+        730
+      ],
+      "paths": [
+        "agents/coordinator.py",
+        "sovereign-mesh/nodes/auditor/evaluator.py"
+      ]
+    }
+  ],
+  "shared_rules": [
+    "Search existing Issue and PR before new work; one issue-one accountable work lane where practical.",
+    "Resolve overlaps on existing PRs; do not create replacement frameworks.",
+    "Report each artifact as historical, local-only, branch-only, main-present or release-proven using exact evidence.",
+    "Never convert no-steps failed GitHub checks into source-failure diagnoses or PASS.",
+    "A PR head change invalidates old-head test claims until replayed.",
+    "No autogenerated approval, author authentication, scientific proof, deployed claim, merge, payment, secret change or authority expansion."
+  ],
+  "next_execution_targets": [
+    {
+      "issue": 734,
+      "pr": 732,
+      "objective": "reconcile current agent preflight with shared register; no new coordinator"
+    },
+    {
+      "issue": 735,
+      "pr": null,
+      "objective": "external runner/billing blocker; operator action, no payment performed"
+    },
+    {
+      "issue": 737,
+      "pr": null,
+      "objective": "classify actual PR queue evidence-first; no mass close without approval"
+    },
+    {
+      "issue": 748,
+      "pr": 761,
+      "objective": "replay WorkPack and close signed/CI admission gap"
+    },
+    {
+      "issue": 760,
+      "pr": 745,
+      "objective": "verify actual UI integration and legal asset rights; no deployment claim"
+    }
+  ],
+  "snapshot_refresh_note": "11 October 2026 late observation: #745 and #743 head changed, #79 merged without changing its PR head. Git SHA parity alone does NOT verify PR state, merge, axiom audit, or scientific proof. #732 is self-referential and must be fetched live.",
+  "scope_expanded_by_refresh": false
+}
