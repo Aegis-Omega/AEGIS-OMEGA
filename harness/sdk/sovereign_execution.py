@@ -373,6 +373,9 @@ class ApprovalGrant:
     state: str = "APPROVED"
     signer_key_id: str = "NONE"
     action_digest: str = ZERO_HASH
+    requested_capability: str = "NONE"
+    tool: str = "NONE"
+    target_digest: str = ZERO_HASH
 
 
 def approval_mac_payload(grant: ApprovalGrant) -> bytes:
@@ -389,6 +392,9 @@ def approval_mac_payload(grant: ApprovalGrant) -> bytes:
             "state": grant.state,
             "signer_key_id": grant.signer_key_id,
             "action_digest": grant.action_digest,
+            "requested_capability": grant.requested_capability,
+            "tool": grant.tool,
+            "target_digest": grant.target_digest,
         },
     })
 
@@ -431,7 +437,7 @@ class PolicyDecision:
 
 
 class AuthorityEvaluator:
-    def __init__(self, *, policy: Mapping[str, Mapping[str, Any]] | None, registry: Mapping[str, CapabilityEvidence] | None, repository_root: str | Path | None = None, trusted_approval_keys: Mapping[str, bytes] | None = None, revoked_approval_refs: Iterable[str] = (), revoked_signer_keys: Iterable[str] = ()):
+    def __init__(self, *, policy: Mapping[str, Mapping[str, Any]] | None, registry: Mapping[str, CapabilityEvidence] | None, repository_root: str | Path | None = None, trusted_approval_keys: Mapping[str, bytes] | None = None, revoked_approval_refs: Iterable[str] | None = None, revoked_signer_keys: Iterable[str] | None = None, trusted_revocation_generation: int | None = None):
         self.policy = copy.deepcopy(dict(policy)) if policy is not None else None
         self.registry = dict(registry) if registry is not None else None
         self.repository_root = Path(repository_root).resolve() if repository_root is not None else None
@@ -439,8 +445,9 @@ class AuthorityEvaluator:
         # Host-owned trust only. Never hydrate this mapping from approval JSON, PR body, or a candidate manifest.
         # No protected key provider -> D2/D3/D4 DENIED; never treat a hex digest as identity.
         self._trusted_approval_keys = dict(trusted_approval_keys) if trusted_approval_keys is not None else None
-        self._revoked_approval_refs = frozenset(revoked_approval_refs)
-        self._revoked_signer_keys = frozenset(revoked_signer_keys)
+        self._revoked_approval_refs = frozenset(revoked_approval_refs) if revoked_approval_refs is not None else None
+        self._revoked_signer_keys = frozenset(revoked_signer_keys) if revoked_signer_keys is not None else None
+        self._trusted_revocation_generation = trusted_revocation_generation
 
     def evaluate(self, request: AuthorityRequest, *, approval: ApprovalGrant | None = None) -> PolicyDecision:
         reasons: list[str] = []
@@ -518,8 +525,17 @@ class AuthorityEvaluator:
                 except SovereignExecutionError: reasons.append("APPROVAL_ACTION_DIGEST_UNAVAILABLE")
                 if request.action_digest == ZERO_HASH: reasons.append("APPROVAL_ACTION_DIGEST_UNAVAILABLE")
                 if approval.action_digest != request.action_digest: reasons.append("APPROVAL_ACTION_DIGEST_MISMATCH")
-                if approval.reference in self._revoked_approval_refs: reasons.append("APPROVAL_REFERENCE_REVOKED")
-                if approval.signer_key_id in self._revoked_signer_keys: reasons.append("APPROVAL_SIGNER_REVOKED")
+                if approval.requested_capability != request.requested_capability: reasons.append("APPROVAL_CAPABILITY_MISMATCH")
+                if approval.tool != request.tool: reasons.append("APPROVAL_TOOL_MISMATCH")
+                if approval.target_digest != canonical_hash("AEGIS_AUTHORITY_TARGET_V1", request.target):
+                    reasons.append("APPROVAL_TARGET_MISMATCH")
+                if self._revoked_approval_refs is None or self._revoked_signer_keys is None or type(self._trusted_revocation_generation) is not int:
+                    reasons.append("APPROVAL_REVOCATION_UNKNOWN")
+                else:
+                    if self._trusted_revocation_generation < request.current_generation:
+                        reasons.append("APPROVAL_REVOCATION_STALE")
+                    if approval.reference in self._revoked_approval_refs: reasons.append("APPROVAL_REFERENCE_REVOKED")
+                    if approval.signer_key_id in self._revoked_signer_keys: reasons.append("APPROVAL_SIGNER_REVOKED")
                 valid_shape = True
                 try: _assert_hash("approval.signature_root", approval.signature_root)
                 except SovereignExecutionError:

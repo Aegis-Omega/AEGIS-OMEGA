@@ -57,6 +57,7 @@ class Automaton3Tests(TestCase):
             policy=POLICY, registry={"repository.mutate": self.capability},
             repository_root=self.root,
             trusted_approval_keys={TEST_SIGNER_ID: TEST_SIGNER_KEY},
+            revoked_approval_refs=(), revoked_signer_keys=(), trusted_revocation_generation=5,
         )
 
     def make_identity(self, **changes) -> ExecutionIdentityEnvelope:
@@ -85,7 +86,9 @@ class Automaton3Tests(TestCase):
     def approval(self, **changes) -> ApprovalGrant:
         values = dict(reference=self.approval_ref, authority_domain="github:contents", action_class=D2, source_commit=COMMIT,
                       workspace_binding=self.binding, valid_through_generation=2, signature_root="0"*64,
-                      signer_key_id=TEST_SIGNER_ID, action_digest=self.identity.action_digest)
+                      signer_key_id=TEST_SIGNER_ID, action_digest=self.identity.action_digest,
+                      requested_capability="repository.mutate", tool="git",
+                      target_digest=canonical_hash("AEGIS_AUTHORITY_TARGET_V1", "docs/test.md"))
         values.update(changes)
         grant = ApprovalGrant(**values)
         if "signature_root" not in changes:
@@ -220,7 +223,7 @@ class Automaton3Tests(TestCase):
     def test_valid_decision_and_determinism(self):
         first=self.evaluator.evaluate(self.request(),approval=self.approval()); second=self.evaluator.evaluate(self.request(),approval=self.approval())
         self.assertEqual(first.outcome,ADMITTED); self.assertEqual(first,second); self.assertEqual(first.decision_root,second.decision_root)
-        # Eight adversarial falsifiers inside the existing 41-test native authority suite:
+        # Adversarial falsifiers inside the existing 41-test native authority suite:
         # the trusted evaluator's published suite contract must not be edited by a candidate.
         naked = AuthorityEvaluator(policy=POLICY, registry={"repository.mutate": self.capability}, repository_root=self.root)
         self.assertDenied(naked.evaluate(self.request(), approval=self.approval()), "APPROVAL_TRUST_UNAVAILABLE")
@@ -230,15 +233,40 @@ class Automaton3Tests(TestCase):
         self.assertDenied(self.evaluator.evaluate(self.request(action_digest="6"*64), approval=self.approval()), "APPROVAL_ACTION_DIGEST_MISMATCH")
         revoked_key = AuthorityEvaluator(policy=POLICY, registry={"repository.mutate": self.capability}, repository_root=self.root,
                                          trusted_approval_keys={TEST_SIGNER_ID: TEST_SIGNER_KEY},
-                                         revoked_signer_keys=(TEST_SIGNER_ID,))
+                                         revoked_signer_keys=(TEST_SIGNER_ID,),
+                                         revoked_approval_refs=(), trusted_revocation_generation=5)
         self.assertDenied(revoked_key.evaluate(self.request(), approval=self.approval()), "APPROVAL_SIGNER_REVOKED")
         revoked_ref = AuthorityEvaluator(policy=POLICY, registry={"repository.mutate": self.capability}, repository_root=self.root,
                                          trusted_approval_keys={TEST_SIGNER_ID: TEST_SIGNER_KEY},
-                                         revoked_approval_refs=(self.approval_ref,))
+                                         revoked_approval_refs=(self.approval_ref,),
+                                         revoked_signer_keys=(), trusted_revocation_generation=5)
         self.assertDenied(revoked_ref.evaluate(self.request(), approval=self.approval()), "APPROVAL_REFERENCE_REVOKED")
         bad_key = AuthorityEvaluator(policy=POLICY, registry={"repository.mutate": self.capability}, repository_root=self.root,
-                                     trusted_approval_keys={TEST_SIGNER_ID: b"weak"})
+                                     trusted_approval_keys={TEST_SIGNER_ID: b"weak"},
+                                     revoked_signer_keys=(), revoked_approval_refs=(), trusted_revocation_generation=5)
         self.assertDenied(bad_key.evaluate(self.request(), approval=self.approval()), "APPROVAL_TRUST_KEY_INVALID")
+        # A valid cryptographic grant must not be relayed to a different target/tool/capability.
+        self.assertDenied(self.evaluator.evaluate(self.request(target="docs/other.md"), approval=self.approval()),
+                          "APPROVAL_TARGET_MISMATCH")
+        self.assertDenied(self.evaluator.evaluate(self.request(), approval=self.approval(target_digest="8"*64)),
+                          "APPROVAL_TARGET_MISMATCH")
+        self.assertDenied(self.evaluator.evaluate(self.request(tool="unsafe-tool"), approval=self.approval()),
+                          "APPROVAL_TOOL_MISMATCH")
+        self.assertDenied(self.evaluator.evaluate(self.request(requested_capability="other"), approval=self.approval()),
+                          "APPROVAL_CAPABILITY_MISMATCH")
+        untracked_revocation = AuthorityEvaluator(policy=POLICY, registry={"repository.mutate": self.capability},
+                                                  repository_root=self.root,
+                                                  trusted_approval_keys={TEST_SIGNER_ID: TEST_SIGNER_KEY})
+        self.assertDenied(untracked_revocation.evaluate(self.request(), approval=self.approval()),
+                          "APPROVAL_REVOCATION_UNKNOWN")
+        stale_revocation = AuthorityEvaluator(policy=POLICY, registry={"repository.mutate": self.capability},
+                                             repository_root=self.root,
+                                             trusted_approval_keys={TEST_SIGNER_ID: TEST_SIGNER_KEY},
+                                             revoked_approval_refs=(), revoked_signer_keys=(),
+                                             trusted_revocation_generation=0)
+        self.assertDenied(stale_revocation.evaluate(self.request(), approval=self.approval()),
+                          "APPROVAL_REVOCATION_STALE")
+
 
     def test_event_law_and_operator_visibility_fields(self):
         payload={"content_type":"application/json","data":{"x":1},"text":"bounded message"}; digest=canonical_hash("RAW",payload)
