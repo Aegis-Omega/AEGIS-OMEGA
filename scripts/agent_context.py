@@ -495,6 +495,8 @@ def main():
                           "local_behind_main": behind,
                           "main_freshness": main_receipt,
                           "shared_state": shared_state,
+                           "optimus_policy": optimus_policy,
+                           "optimus_policy_blockers": policy_blockers,
                           "open": len(prs) if source in ("github", "cache") else None,
                           "stacked": len(stacked) if source in ("github", "cache") else None,
                           "source": source, "ci_billing_locked": locked,
