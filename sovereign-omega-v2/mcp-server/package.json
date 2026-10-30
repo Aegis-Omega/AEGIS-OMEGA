@@ -1,7 +1,7 @@
 {
   "name": "@aegis/mcp-server",
   "version": "0.2.0",
-  "description": "AEGIS constitutional agent swarm \u2014 MCP server",
+  "description": "AEGIS constitutional agent swarm — MCP server",
   "type": "module",
   "main": "dist/index.js",
   "bin": {
@@ -13,7 +13,8 @@
     "dev": "tsx src/index.ts",
     "test:resources": "npm run build && node test/resources.mjs",
     "test:automaton3": "npm run build && node test/automaton3-authority.mjs",
-    "test:connections": "npm run build && AEGIS_TEST_LAUNCHER=1 node test/resources.mjs"
+    "test:connections": "npm run build && AEGIS_TEST_LAUNCHER=1 node test/resources.mjs",
+    "test:lab-receipt": "npm run build && node --test test/lab-receipt.mjs"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.12.1"

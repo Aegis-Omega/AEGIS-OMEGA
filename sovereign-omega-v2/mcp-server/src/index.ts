@@ -12,6 +12,7 @@ import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { spawnSync } from 'node:child_process'
 import { createHash } from 'node:crypto'
+import { projectLabObservation } from './lab-receipt.js'
 
 const BRIDGE = (process.env['AEGIS_BRIDGE_URL'] || process.env['AEGIS_BASE_URL'] || 'https://aegis-vertex.aegisomega.com').replace(/\/$/, '')
 const API_KEY = process.env['AEGIS_API_KEY'] ?? ''
@@ -164,6 +165,39 @@ server.tool('aegis_get_execution', 'Read a durable execution through a D0 author
   const denial = denied(authority); if (denial) return denial
   return text({ authority, result: await bridgeGet(`/platform/executions/${execution_id}`, true) })
 })
+
+
+server.tool(
+  'aegis_lab_receipt',
+  'Read an existing lab execution with honest source, worker, artifact and admission states; never starts work.',
+  {
+    work_id: z.string().trim().min(1).max(128),
+    execution_id: z.string().uuid(),
+    expected_source_sha: z.string().regex(/^[0-9a-f]{40}$/),
+  },
+  async ({ work_id, execution_id, expected_source_sha }) => {
+    const requested = { work_id, execution_id, expected_source_sha }
+    // Authenticated Bridge reads are never attempted with an absent key.
+    if (!API_KEY) return text({ ...projectLabObservation(null, requested),
+      observation: 'UNKNOWN', reason: 'API_KEY_UNAVAILABLE', external_effect: 'NOT_EXECUTED' })
+    const target = `/platform/executions/${execution_id}`
+    const authority = authorizeAction({
+      actionClass: 'D0', authorityDomain: 'workflow:read',
+      requestedCapability: 'mcp.lab.receipt', tool: 'aegis_lab_receipt', target,
+      action: { operation: 'read-lab-observation', work_id, execution_id, expected_source_sha },
+    })
+    const denial = denied(authority); if (denial) return denial
+    try {
+      const result = await bridgeGet(target, true)
+      return text({ authority, observation: projectLabObservation(result, requested),
+        external_effect: 'READ_ONLY' })
+    } catch {
+      return text({ authority, observation: { ...projectLabObservation(null, requested),
+        observation: 'UNKNOWN', reason: 'BRIDGE_READ_UNAVAILABLE' },
+        external_effect: 'READ_ONLY' })
+    }
+  },
+)
 
 server.tool(
   'aegis_governed_claude_call',
