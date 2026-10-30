@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { hashString } from '../../src/core/hashing.js'
 import {
   DECLARED_PROVIDER_CATALOG_V1,
   buildProviderMeshSnapshotV1,
@@ -32,9 +33,11 @@ describe('connected provider resource adapters v1', () => {
   })
 
   it('routes symbolic compute to Wolfram only after successful kernel evidence', async () => {
+    // A real hashing primitive produces the branded SHA256Hex expected by the adapter.
+    const verifierRoot = await hashString('AEGIS Wolfram provider connected-resources test fixture v1')
     const wolfram = await observeWolframKernelV1({
       outcome: 'KERNEL_SUCCESS',
-      verifier_root: '888f5cd67e3a9d7eaf1145e8e07aa77328f840be20dafe454fd8b3b325a08bb5',
+      verifier_root: verifierRoot,
       computation_kind: 'provider-selection-cross-check',
     }, '20')
 
@@ -50,9 +53,7 @@ describe('connected provider resource adapters v1', () => {
 
     expect(receipt.outcome).toBe('SELECTED')
     expect(receipt.provider_id).toBe('wolfram')
-    expect(receipt.evidence_hashes).toEqual([
-      '888f5cd67e3a9d7eaf1145e8e07aa77328f840be20dafe454fd8b3b325a08bb5',
-    ])
+    expect(receipt.evidence_hashes).toEqual([verifierRoot])
   })
 
   it('does not promote a failed Wolfram computation', async () => {
