@@ -4,6 +4,8 @@ import json
 import pathlib
 import unittest
 from urllib.error import HTTPError, URLError
+from urllib.request import Request
+from unittest.mock import patch
 
 spec = importlib.util.spec_from_file_location("nebius_preflight", pathlib.Path(__file__).with_name("nebius_preflight.py"))
 m = importlib.util.module_from_spec(spec)
@@ -77,6 +79,38 @@ class NebiusPreflightTests(unittest.TestCase):
     def test_invalid_model_fails_before_network(self):
         r=m.probe(token="x",model="bad model",opener=lambda *a, **k:self.fail("network called"))
         self.assertEqual(r["status"], "INVALID_MODEL_ID")
+
+    def test_redirect_cannot_forward_authorization(self):
+        handler = m.NoCredentialRedirects()
+        original = Request("https://api.tokenfactory.nebius.com/v1/models", headers={
+            "Authorization": "Bearer synthetic-test-token",
+        })
+        redirect = handler.redirect_request(
+            original, None, 302, "found", {}, "https://attacker.example/collect"
+        )
+        self.assertIsNone(redirect)
+
+    def test_default_uses_no_redirect_handler(self):
+        seen = []
+        def make_opener(handler):
+            seen.append(handler)
+            class SafeFake:
+                def open(self, req, timeout):
+                    raise HTTPError(req.full_url, 302, "Moved", {"Location": "https://attacker.example"}, None)
+            return SafeFake()
+        with patch.object(m, "build_opener", side_effect=make_opener):
+            result = m.probe(token="synthetic-test-token", model=m.DEFAULT_MODEL)
+        self.assertEqual(result["status"], "REDIRECT_BLOCKED")
+        self.assertIsInstance(seen[0], m.NoCredentialRedirects)
+        self.assertFalse(result["authenticated"])
+
+    def test_malformed_response_shape_not_authenticated(self):
+        for payload in ([], {"data": None}, {"data": "not-an-array"}):
+            with self.subTest(payload=payload):
+                result = m.probe(token="test", model=m.DEFAULT_MODEL,
+                    opener=lambda *a, **k: FakeResponse(payload))
+                self.assertEqual(result["status"], "RESPONSE_INVALID")
+                self.assertFalse(result["authenticated"])
 
     def test_invalid_response(self):
         class Garbled:

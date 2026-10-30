@@ -13,7 +13,7 @@ import os
 import sys
 from urllib.error import HTTPError, URLError
 from urllib.parse import urlparse
-from urllib.request import Request, urlopen
+from urllib.request import HTTPRedirectHandler, Request, build_opener
 
 DEFAULT_BASE_URL = "https://api.tokenfactory.us-north1.nebius.com/v1/"
 DEFAULT_MODEL = "MiniMaxAI/MiniMax-M3.1-Flash"
@@ -21,6 +21,13 @@ APPROVED_HOSTS = frozenset({
     "api.tokenfactory.us-north1.nebius.com",
     "api.tokenfactory.nebius.com",
 })
+
+
+class NoCredentialRedirects(HTTPRedirectHandler):
+    """Never forward provider credentials to a redirect target."""
+
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        return None
 
 
 def models_url(base_url: str) -> str:
@@ -39,7 +46,7 @@ def models_url(base_url: str) -> str:
 
 
 def probe(*, token: str, model: str, base_url: str = DEFAULT_BASE_URL,
-          opener=urlopen, timeout: float = 12.0) -> dict:
+          opener=None, timeout: float = 12.0) -> dict:
     """Make at most one non-billable model-list GET; return a sanitized receipt."""
     receipt = {
         "schema": "aegis.nebius.preflight.v1",
@@ -68,15 +75,21 @@ def probe(*, token: str, model: str, base_url: str = DEFAULT_BASE_URL,
         "Accept": "application/json",
     })
     try:
-        with opener(req, timeout=timeout) as response:
+        # urllib's default redirect handler forwards Authorization; do not use it.
+        # Injected openers are reserved for unit tests, not production execution.
+        safe_open = opener if opener is not None else build_opener(NoCredentialRedirects()).open
+        with safe_open(req, timeout=timeout) as response:
             # Bounded response; never persist or echo arbitrary provider content.
             raw = response.read(1_000_001)
             if len(raw) > 1_000_000:
                 receipt["status"] = "RESPONSE_TOO_LARGE"
                 return receipt
             data = json.loads(raw)
+            if not isinstance(data, dict) or not isinstance(data.get("data"), list):
+                receipt["status"] = "RESPONSE_INVALID"
+                return receipt
             model_ids = {
-                row.get("id") for row in data.get("data", [])
+                row.get("id") for row in data["data"]
                 if isinstance(row, dict) and isinstance(row.get("id"), str)
             }
             receipt["authenticated"] = True
@@ -84,8 +97,11 @@ def probe(*, token: str, model: str, base_url: str = DEFAULT_BASE_URL,
             receipt["status"] = "MODEL_AVAILABLE" if receipt["model_available"] else "MODEL_NOT_LISTED"
             return receipt
     except HTTPError as exc:
-        receipt["status"] = {401: "AUTH_REJECTED", 403: "AUTH_FORBIDDEN", 429: "RATE_LIMITED"}.get(
-            exc.code, "UPSTREAM_HTTP_ERROR"
+        receipt["status"] = (
+            "REDIRECT_BLOCKED" if exc.code in (301, 302, 303, 307, 308)
+            else {401: "AUTH_REJECTED", 403: "AUTH_FORBIDDEN", 429: "RATE_LIMITED"}.get(
+                exc.code, "UPSTREAM_HTTP_ERROR"
+            )
         )
         receipt["http_status"] = exc.code
         return receipt
