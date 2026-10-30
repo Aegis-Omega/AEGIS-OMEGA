@@ -12,8 +12,9 @@ import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { spawnSync } from 'node:child_process'
 import { createHash } from 'node:crypto'
+import { projectLabObservation } from './lab-receipt.js'
 
-const BRIDGE = (process.env['AEGIS_BRIDGE_URL'] ?? 'http://localhost:7890').replace(/\/$/, '')
+const BRIDGE = (process.env['AEGIS_BRIDGE_URL'] || process.env['AEGIS_BASE_URL'] || 'https://aegis-vertex.aegisomega.com').replace(/\/$/, '')
 const API_KEY = process.env['AEGIS_API_KEY'] ?? ''
 
 const server = new McpServer({ name: 'aegis-constitutional-swarm', version: '0.2.0' })
@@ -111,7 +112,59 @@ function authorizeAction(input: {
   })
   if (!result.stdout) return localDenial('AUTHORITY_SERVICE_UNAVAILABLE')
   try {
-    return JSON.parse(result.stdout) as AuthorityDecision
+    const response: unknown = JSON.parse(result.stdout)
+    if (response === null || typeof response !== 'object' || Array.isArray(response)) {
+      return localDenial('AUTHORITY_RESPONSE_MALFORMED')
+    }
+    const verdict = response as Record<string, unknown>
+    if (verdict['schema_version'] !== '1.0.0') {
+      return localDenial('AUTHORITY_RESPONSE_UNVERIFIED')
+    }
+    // The native helper returns 0 for ADMITTED and 3 for DENIED.
+    // Never consume a positive-looking stdout from a failed process.
+    if (verdict['outcome'] === 'DENIED') {
+      return result.status === 3 && Array.isArray(verdict['denial_codes'])
+        ? verdict as AuthorityDecision
+        : localDenial('AUTHORITY_RESPONSE_UNVERIFIED')
+    }
+    if (result.status !== 0 || verdict['outcome'] !== 'ADMITTED') {
+      return localDenial('AUTHORITY_RESPONSE_UNVERIFIED')
+    }
+    // A bare success word is not a policy decision or a mutation receipt.
+    // Check source-bound identities, request routing and receipt consistency.
+    const policy = verdict['policy_decision']
+    const receipt = verdict['mutation_receipt']
+    if (policy === null || typeof policy !== 'object' || Array.isArray(policy) ||
+        receipt === null || typeof receipt !== 'object' || Array.isArray(receipt)) {
+      return localDenial('AUTHORITY_RESPONSE_UNVERIFIED')
+    }
+    const decision = policy as Record<string, unknown>
+    const mutation = receipt as Record<string, unknown>
+    const sha256 = (value: unknown) => typeof value === 'string' && /^[0-9a-f]{64}$/.test(value)
+    if (decision['schema_version'] !== '1.0.0' ||
+        decision['outcome'] !== 'ADMITTED' ||
+        decision['action_class'] !== input.actionClass ||
+        decision['authority_domain'] !== input.authorityDomain ||
+        decision['requested_capability'] !== input.requestedCapability ||
+        decision['tool'] !== input.tool ||
+        !Array.isArray(decision['denial_codes']) || decision['denial_codes'].length !== 0 ||
+        !sha256(decision['decision_root']) ||
+        !sha256(verdict['execution_identity_root']) ||
+        !sha256(verdict['workspace_binding']) ||
+        decision['identity_root'] !== verdict['execution_identity_root'] ||
+        decision['workspace_binding'] !== verdict['workspace_binding'] ||
+        mutation['receipt_version'] !== '1.0.0' ||
+        mutation['outcome'] !== 'SUCCEEDED' ||
+        mutation['action_class'] !== input.actionClass ||
+        mutation['authority_domain'] !== input.authorityDomain ||
+        mutation['tool'] !== input.tool ||
+        mutation['execution_identity_root'] !== verdict['execution_identity_root'] ||
+        mutation['workspace_binding'] !== verdict['workspace_binding'] ||
+        mutation['policy_decision_root'] !== decision['decision_root'] ||
+        !sha256(verdict['mutation_receipt_root'])) {
+      return localDenial('AUTHORITY_RESPONSE_UNVERIFIED')
+    }
+    return verdict as AuthorityDecision
   } catch {
     return localDenial('AUTHORITY_RESPONSE_MALFORMED')
   }
@@ -159,11 +212,45 @@ server.tool(
   },
 )
 
-server.tool('aegis_get_execution', 'Read a durable execution through a D0 authority decision.', { execution_id: z.string() }, async ({ execution_id }) => {
+server.tool('aegis_get_execution', 'Read a durable execution through a D0 authority decision.', { execution_id: z.string().uuid() }, async ({ execution_id }) => {
+  if (!API_KEY) return text({ error: 'AEGIS_API_KEY not set', external_effect: 'NOT_EXECUTED' })
   const authority = authorizeAction({ actionClass: 'D0', authorityDomain: 'workflow:read', requestedCapability: 'mcp.execution.read', tool: 'aegis_get_execution', target: `/platform/executions/${execution_id}`, action: { operation: 'read-execution', execution_id } })
   const denial = denied(authority); if (denial) return denial
   return text({ authority, result: await bridgeGet(`/platform/executions/${execution_id}`, true) })
 })
+
+
+server.tool(
+  'aegis_lab_receipt',
+  'Read an existing lab execution with honest source, worker, artifact and admission states; never starts work.',
+  {
+    work_id: z.string().trim().min(1).max(128),
+    execution_id: z.string().uuid(),
+    expected_source_sha: z.string().regex(/^[0-9a-f]{40}$/),
+  },
+  async ({ work_id, execution_id, expected_source_sha }) => {
+    const requested = { work_id, execution_id, expected_source_sha }
+    // Authenticated Bridge reads are never attempted with an absent key.
+    if (!API_KEY) return text({ ...projectLabObservation(null, requested),
+      observation: 'UNKNOWN', reason: 'API_KEY_UNAVAILABLE', external_effect: 'NOT_EXECUTED' })
+    const target = `/platform/executions/${execution_id}`
+    const authority = authorizeAction({
+      actionClass: 'D0', authorityDomain: 'workflow:read',
+      requestedCapability: 'mcp.lab.receipt', tool: 'aegis_lab_receipt', target,
+      action: { operation: 'read-lab-observation', work_id, execution_id, expected_source_sha },
+    })
+    const denial = denied(authority); if (denial) return denial
+    try {
+      const result = await bridgeGet(target, true)
+      return text({ authority, observation: projectLabObservation(result, requested),
+        external_effect: 'READ_ONLY' })
+    } catch {
+      return text({ authority, observation: { ...projectLabObservation(null, requested),
+        observation: 'UNKNOWN', reason: 'BRIDGE_READ_UNAVAILABLE' },
+        external_effect: 'READ_ONLY' })
+    }
+  },
+)
 
 server.tool(
   'aegis_governed_claude_call',
