@@ -112,7 +112,59 @@ function authorizeAction(input: {
   })
   if (!result.stdout) return localDenial('AUTHORITY_SERVICE_UNAVAILABLE')
   try {
-    return JSON.parse(result.stdout) as AuthorityDecision
+    const response: unknown = JSON.parse(result.stdout)
+    if (response === null || typeof response !== 'object' || Array.isArray(response)) {
+      return localDenial('AUTHORITY_RESPONSE_MALFORMED')
+    }
+    const verdict = response as Record<string, unknown>
+    if (verdict['schema_version'] !== '1.0.0') {
+      return localDenial('AUTHORITY_RESPONSE_UNVERIFIED')
+    }
+    // The native helper returns 0 for ADMITTED and 3 for DENIED.
+    // Never consume a positive-looking stdout from a failed process.
+    if (verdict['outcome'] === 'DENIED') {
+      return result.status === 3 && Array.isArray(verdict['denial_codes'])
+        ? verdict as AuthorityDecision
+        : localDenial('AUTHORITY_RESPONSE_UNVERIFIED')
+    }
+    if (result.status !== 0 || verdict['outcome'] !== 'ADMITTED') {
+      return localDenial('AUTHORITY_RESPONSE_UNVERIFIED')
+    }
+    // A bare success word is not a policy decision or a mutation receipt.
+    // Check source-bound identities, request routing and receipt consistency.
+    const policy = verdict['policy_decision']
+    const receipt = verdict['mutation_receipt']
+    if (policy === null || typeof policy !== 'object' || Array.isArray(policy) ||
+        receipt === null || typeof receipt !== 'object' || Array.isArray(receipt)) {
+      return localDenial('AUTHORITY_RESPONSE_UNVERIFIED')
+    }
+    const decision = policy as Record<string, unknown>
+    const mutation = receipt as Record<string, unknown>
+    const sha256 = (value: unknown) => typeof value === 'string' && /^[0-9a-f]{64}$/.test(value)
+    if (decision['schema_version'] !== '1.0.0' ||
+        decision['outcome'] !== 'ADMITTED' ||
+        decision['action_class'] !== input.actionClass ||
+        decision['authority_domain'] !== input.authorityDomain ||
+        decision['requested_capability'] !== input.requestedCapability ||
+        decision['tool'] !== input.tool ||
+        !Array.isArray(decision['denial_codes']) || decision['denial_codes'].length !== 0 ||
+        !sha256(decision['decision_root']) ||
+        !sha256(verdict['execution_identity_root']) ||
+        !sha256(verdict['workspace_binding']) ||
+        decision['identity_root'] !== verdict['execution_identity_root'] ||
+        decision['workspace_binding'] !== verdict['workspace_binding'] ||
+        mutation['receipt_version'] !== '1.0.0' ||
+        mutation['outcome'] !== 'SUCCEEDED' ||
+        mutation['action_class'] !== input.actionClass ||
+        mutation['authority_domain'] !== input.authorityDomain ||
+        mutation['tool'] !== input.tool ||
+        mutation['execution_identity_root'] !== verdict['execution_identity_root'] ||
+        mutation['workspace_binding'] !== verdict['workspace_binding'] ||
+        mutation['policy_decision_root'] !== decision['decision_root'] ||
+        !sha256(verdict['mutation_receipt_root'])) {
+      return localDenial('AUTHORITY_RESPONSE_UNVERIFIED')
+    }
+    return verdict as AuthorityDecision
   } catch {
     return localDenial('AUTHORITY_RESPONSE_MALFORMED')
   }
