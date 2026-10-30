@@ -1,4 +1,6 @@
 import assert from 'node:assert/strict'
+import { readFileSync } from 'node:fs'
+import { fileURLToPath } from 'node:url'
 import test from 'node:test'
 import { projectLabObservation } from '../dist/lab-receipt.js'
 
@@ -73,5 +75,20 @@ test('self-reported matching SHA does not authenticate the source', () => {
 test('unknown or fabricated status rejects', () => {
   for (const status of ['success', 'verified', 'approved', null, undefined]) {
     assert.equal(project(envelope(status)).reason, 'INVALID_BRIDGE_STATUS')
+  }
+})
+
+test('lab capability is exactly D0 and bound to the actual MCP tool', () => {
+  const filename = fileURLToPath(new URL('../../../harness/policies/capability-map.v1.json', import.meta.url))
+  const source = JSON.parse(readFileSync(filename, 'utf8'))
+  const permission = source.capabilities['mcp.lab.receipt']
+  assert.deepEqual(permission, {
+    skill_id: 'orchestration_routing',
+    allowed_action_classes: ['D0'],
+    allowed_tools: ['aegis_lab_receipt'],
+  })
+  assert.deepEqual(source.capabilities['mcp.execution.read'].allowed_tools, ['aegis_get_execution'])
+  for (const permission of [permission, source.capabilities['mcp.execution.read']]) {
+    assert.deepEqual(permission.allowed_action_classes, ['D0'])
   }
 })
