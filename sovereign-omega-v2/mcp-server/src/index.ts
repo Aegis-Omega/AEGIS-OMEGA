@@ -160,7 +160,8 @@ server.tool(
   },
 )
 
-server.tool('aegis_get_execution', 'Read a durable execution through a D0 authority decision.', { execution_id: z.string() }, async ({ execution_id }) => {
+server.tool('aegis_get_execution', 'Read a durable execution through a D0 authority decision.', { execution_id: z.string().uuid() }, async ({ execution_id }) => {
+  if (!API_KEY) return text({ error: 'AEGIS_API_KEY not set', external_effect: 'NOT_EXECUTED' })
   const authority = authorizeAction({ actionClass: 'D0', authorityDomain: 'workflow:read', requestedCapability: 'mcp.execution.read', tool: 'aegis_get_execution', target: `/platform/executions/${execution_id}`, action: { operation: 'read-execution', execution_id } })
   const denial = denied(authority); if (denial) return denial
   return text({ authority, result: await bridgeGet(`/platform/executions/${execution_id}`, true) })

@@ -52,6 +52,10 @@ jobs:
             npm run test:lab-receipt >> "$RUNNER_TEMP/mcp-resources.log" 2>&1
             status=$?
           fi
+          if [ "$status" -eq 0 ]; then
+            npm run test:automaton3 >> "$RUNNER_TEMP/mcp-resources.log" 2>&1
+            status=$?
+          fi
           cat "$RUNNER_TEMP/mcp-resources.log"
           exit "$status"
 

@@ -31,6 +31,29 @@ try {
   const readParsed = JSON.parse(read.content[0].text)
   assert.equal(readParsed.authority.outcome, 'DENIED')
   assert.equal(bridgeRequests, 0)
+  // Executions are UUID-keyed by the Bridge. Reject path and query injection
+  // at MCP schema validation, before any authority or network request.
+  for (const execution_id of ['../health', 'abc?source=x', 'not-a-uuid', '123e4567-e89b-42d3-a456-426614174000/../node']) {
+    let schemaRejected = false
+    try {
+      const response = await client.callTool({ name: 'aegis_get_execution', arguments: { execution_id } })
+      schemaRejected = response.isError === true
+    } catch {
+      schemaRejected = true
+    }
+    assert.equal(schemaRejected, true, `invalid execution id must fail MCP validation: ${execution_id}`)
+  }
+  const validId = '123e4567-e89b-42d3-a456-426614174000'
+  const validRead = await client.callTool({ name: 'aegis_get_execution', arguments: { execution_id: validId } })
+  const validReadResult = JSON.parse(validRead.content[0].text)
+  assert.deepEqual(validReadResult, { authority: { outcome: 'DENIED', denial_codes: ['IDENTITY_UNAVAILABLE'] }, external_effect: 'NOT_EXECUTED' })
+  const lab = await client.callTool({ name: 'aegis_lab_receipt', arguments: {
+    work_id: 'AEGIS-734', execution_id: validId, expected_source_sha: 'a'.repeat(40),
+  } })
+  const labResult = JSON.parse(lab.content[0].text)
+  assert.deepEqual(labResult, { authority: { outcome: 'DENIED', denial_codes: ['IDENTITY_UNAVAILABLE'] }, external_effect: 'NOT_EXECUTED' })
+  assert.equal(bridgeRequests, 0, 'validation and D0 denial must remain network-free')
+
   console.log('AUTOMATON3_MCP_PASS fail-closed before bridge side effects')
 } finally {
   await client.close().catch(() => {})
