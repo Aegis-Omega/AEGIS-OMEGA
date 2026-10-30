@@ -208,3 +208,41 @@ describe('opt-in Azure OpenAI backend gating', () => {
     expect(r.model).not.toBe('client-requested-model')
   })
 })
+
+describe('Nebius exact-provider no-fallback contract', () => {
+  it('never invokes a backend when Nebius is disabled client-side', async () => {
+    vi.stubEnv('VITE_DASHSCOPE_API_KEY', 'synthetic-test-value')
+    fetchMock.mockResolvedValue({ ok: true, json: async () => ({ reply: 'wrong provider' }) })
+    await expect(routeInference({ systemPrompt: 'S', userMessage: 'U', backend: 'nebius-token-factory' }))
+      .rejects.toThrow(/All inference backends failed/)
+    expect(fetchMock).not.toHaveBeenCalled()
+  })
+
+  it('never falls back to another provider on Nebius server denial', async () => {
+    vi.stubEnv('VITE_ENABLE_NEBIUS', 'true')
+    vi.stubEnv('VITE_DASHSCOPE_API_KEY', 'synthetic-test-value')
+    fetchMock.mockResolvedValue({ ok: true,
+      json: async () => ({ error: 'AI unavailable', provider_status: 'disabled' }) })
+    await expect(routeInference({ systemPrompt: 'S', userMessage: 'U', backend: 'nebius-token-factory' }))
+      .rejects.toThrow(/All inference backends failed/)
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+    expect(String(fetchMock.mock.calls[0]?.[0])).toContain('/functions/v1/chat')
+  })
+
+  it('records server-returned MiniMax identity on exact success', async () => {
+    vi.stubEnv('VITE_ENABLE_NEBIUS', 'true')
+    fetchMock.mockResolvedValue({ ok: true,
+      json: async () => ({ reply: '{"ok":true}', model: 'MiniMaxAI/MiniMax-M3.1-Flash' }) })
+    const result = await routeInference({ systemPrompt: 'S', userMessage: 'U', backend: 'nebius-token-factory' })
+    expect(result.backend).toBe('nebius-token-factory')
+    expect(result.model).toBe('MiniMaxAI/MiniMax-M3.1-Flash')
+    expect(result.fallback_count).toBe(0)
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+  })
+
+  it('rejects unknown backend without making HTTP calls', async () => {
+    await expect(routeInference({ systemPrompt: 'S', userMessage: 'U', backend: 'invalid' as never }))
+      .rejects.toThrow(/Unknown inference backend/)
+    expect(fetchMock).not.toHaveBeenCalled()
+  })
+})

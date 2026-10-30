@@ -16,6 +16,8 @@ export interface InferenceRequest {
   systemPrompt: string
   userMessage: string
   model?: string
+  /** Explicit backend selection disables cross-provider failover. */
+  backend?: BackendType
 }
 
 export interface InferenceResponse {
@@ -287,16 +289,20 @@ export interface RouterResult {
  */
 export async function routeInference(req: InferenceRequest): Promise<RouterResult> {
   const errors: string[] = []
-
-  for (const [, fn] of BACKEND_CHAIN) {
+  // An explicit backend selection may never execute a different provider.
+  const chain = req.backend === undefined
+    ? BACKEND_CHAIN
+    : BACKEND_CHAIN.filter(([id]) => id === req.backend)
+  if (chain.length === 0) throw new Error(`Unknown inference backend: ${String(req.backend)}`)
+  for (const [id, fn] of chain) {
     try {
       const result = await fn(req)
+      if (result.backend !== id) throw new Error(`Inference provider mismatch: expected ${id}, received ${result.backend}`)
       return { ...result, fallback_count: errors.length }
     } catch (e) {
       errors.push(e instanceof Error ? e.message : String(e))
     }
   }
-
   throw new Error(`All inference backends failed:\n${errors.map((e, i) => `  [${i}] ${e}`).join('\n')}`)
 }
 

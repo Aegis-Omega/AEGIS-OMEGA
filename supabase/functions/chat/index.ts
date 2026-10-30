@@ -15,7 +15,7 @@ const NEBIUS_MODEL = Deno.env.get('NEBIUS_MODEL') ?? ''
 // Server-side provider gates. `provider` arrives in the public request body, so
 // the client-side VITE_ENABLE_* flags cannot actually gate the paid backends.
 // A requested provider is only honored when its server flag is explicitly 'true';
-// otherwise the request falls back to the default (dashscope).
+// Nebius denies without fallback; other legacy providers retain their behavior.
 const CHAT_ENABLE_OPENAI = Deno.env.get('CHAT_ENABLE_OPENAI') === 'true'
 const CHAT_ENABLE_NEBIUS = Deno.env.get('CHAT_ENABLE_NEBIUS') === 'true'
 const CHAT_ENABLE_AZURE  = Deno.env.get('CHAT_ENABLE_AZURE') === 'true'
@@ -87,8 +87,16 @@ Deno.serve(async (req) => {
       useOpenAI = false
     }
     if (useNebius && !CHAT_ENABLE_NEBIUS) {
-      console.error('Nebius provider requested but CHAT_ENABLE_NEBIUS is not "true" — falling back to dashscope')
-      useNebius = false
+      // Deny exact Nebius requests; never silently invoke another provider.
+      return new Response(JSON.stringify({
+        error: 'AI unavailable',
+        reply: 'Nebius is disabled. No alternative provider was called.',
+        provider_status: 'disabled',
+        provider: 'nebius-token-factory',
+      }), {
+        status: 200,
+        headers: { ...CORS, 'Content-Type': 'application/json' },
+      })
     }
     if (useAzure && !CHAT_ENABLE_AZURE) {
       console.error('Azure provider requested but CHAT_ENABLE_AZURE is not "true" — falling back to dashscope')
