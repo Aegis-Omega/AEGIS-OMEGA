@@ -88,7 +88,7 @@ test('lab capability is exactly D0 and bound to the actual MCP tool', () => {
     allowed_tools: ['aegis_lab_receipt'],
   })
   assert.deepEqual(source.capabilities['mcp.execution.read'].allowed_tools, ['aegis_get_execution'])
-  for (const permission of [permission, source.capabilities['mcp.execution.read']]) {
-    assert.deepEqual(permission.allowed_action_classes, ['D0'])
+  for (const rule of [permission, source.capabilities['mcp.execution.read']]) {
+    assert.deepEqual(rule.allowed_action_classes, ['D0'])
   }
 })
