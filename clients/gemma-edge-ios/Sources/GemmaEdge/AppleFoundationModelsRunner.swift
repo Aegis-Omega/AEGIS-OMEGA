@@ -9,6 +9,7 @@ public enum AppleFoundationModelsError: Error, Equatable {
     case unsupportedModelName(String)
     case modelUnavailable(String)
     case notInitialized
+    case invalidReceipt
     case invalidPrompt
     case invalidMaxTokens(Int)
     case invalidTemperature(Float)
@@ -194,6 +195,11 @@ public final class AppleFoundationModelsRunner: EdgeInferenceRunning, Sendable {
                 maxTokens: maxTokens,
                 temperature: temperature
             )
+            // A self-consistent digest is required before exposing a receipt.
+            // This does not authenticate the model or grant any authority.
+            guard receipt.verifyContent(prompt: prompt, output: output) else {
+                throw AppleFoundationModelsError.invalidReceipt
+            }
             return AppleFoundationModelsExecution(output: output, receipt: receipt)
         }
         #endif
