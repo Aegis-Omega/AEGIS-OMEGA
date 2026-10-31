@@ -11,6 +11,9 @@ on:
       - .github/workflows/sovereignty-contracts.yml
       - scripts/nebius_preflight.py
       - scripts/test_nebius_preflight.py
+      - scripts/test_nebius_budget_pg.py
+      - supabase/migrations/20261031010000_nebius_attempt_budget_v1.sql
+      - supabase/functions/_shared/nebius-budget.ts
       - supabase/functions/chat/index.ts
       - supabase/functions/_shared/nebius-auth.ts
       - packages/shared/lib/inference-router.ts
@@ -71,3 +74,45 @@ jobs:
 
       - name: Run network-free Nebius preflight regression
         run: python -m unittest discover -s scripts -p 'test_nebius_preflight.py' -v
+
+  nebius-budget-postgres-v1:
+    name: Nebius atomic budget in isolated PostgreSQL
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: local-test-only
+          POSTGRES_DB: aegis_budget_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d aegis_budget_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 12
+    env:
+      AEGIS_LOCAL_PG_TEST: '1'
+      PGHOST: 127.0.0.1
+      PGPORT: '5432'
+      PGDATABASE: aegis_budget_test
+      PGUSER: postgres
+      PGPASSWORD: local-test-only
+    steps:
+      - name: Checkout exact candidate without persisted credentials
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+
+      - name: Ensure local PostgreSQL client available
+        run: |
+          if ! command -v psql >/dev/null; then
+            sudo apt-get update
+            sudo apt-get install -y postgresql-client
+          fi
+
+      - name: Execute migration and 12 concurrent reservations
+        run: python3 scripts/test_nebius_budget_pg.py
