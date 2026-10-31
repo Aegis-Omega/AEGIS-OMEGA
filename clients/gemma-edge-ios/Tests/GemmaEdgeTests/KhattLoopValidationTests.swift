@@ -80,4 +80,22 @@ final class KhattLoopValidationTests: XCTestCase {
         XCTAssertFalse(result)
         XCTAssertTrue(runner.capturedPrompt?.contains("DROP_CONSENSUS") == true)
     }
+
+    func testWhitespaceWrappedApprovalMustFailClosed() async {
+        // Regression: trim-and-compare previously transformed an invalid response
+        // into an authoritative approval. Only byte-exact verdict may pass.
+        let malformed = [
+            " VERDICT: APPROVED", "VERDICT: APPROVED ",
+            "\nVERDICT: APPROVED", "VERDICT: APPROVED\n",
+            "\tVERDICT: APPROVED\t",
+        ]
+        for verdict in malformed {
+            let runner = MockEdgeRunner()
+            runner.result = verdict
+            let validator = KhattLoopValidation(runner: runner)
+            let decision = await validator.verifySequenceBlock(blockId: 4, stateData: "unit-test")
+            XCTAssertFalse(decision, "Non-exact approval must be denied: \(String(reflecting: verdict))")
+        }
+    }
+
 }

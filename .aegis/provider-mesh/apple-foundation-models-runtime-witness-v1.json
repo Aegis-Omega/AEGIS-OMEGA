@@ -1,0 +1,79 @@
+{
+  "schema": "AEGIS_APPLE_FOUNDATION_MODELS_RUNTIME_WITNESS_V1",
+  "authority_effect": "NONE",
+  "stack_base_pr": 585,
+  "stack_base_sha": "ca0b1e41333918fb0d8f4920f4ac9ee0bea304c5",
+  "runtime_provider": "apple-foundation-models",
+  "swift_package": "clients/gemma-edge-ios",
+  "implementation": {
+    "edge_protocol": "EdgeInferenceRunning",
+    "runner": "AppleFoundationModelsRunner",
+    "receipt": "AppleInferenceReceipt",
+    "model_name": "apple-foundation-models-default",
+    "maximum_prompt_bytes": 16384,
+    "maximum_response_tokens": 1024,
+    "temperature_range": [
+      0,
+      1
+    ]
+  },
+  "apple_api_contract": {
+    "framework": "FoundationModels",
+    "model": "SystemLanguageModel.default",
+    "availability_gate": "SystemLanguageModel.availability",
+    "session": "LanguageModelSession",
+    "generation_options": [
+      "temperature",
+      "maximumResponseTokens"
+    ]
+  },
+  "verification_boundary": {
+    "source_implemented": true,
+    "deterministic_receipt_fixture_defined": true,
+    "swift_test": "NOT_RUN",
+    "xcode_26_build": "NOT_RUN",
+    "apple_intelligence_capable_device_execution": "NOT_RUN",
+    "on_device_model_availability": "NOT_EVALUATED",
+    "production_governance_admission": "NOT_GRANTED",
+    "hosted_code_failure": "NOT_ESTABLISHED",
+    "hosted_runner_prestart_failure": "ESTABLISHED"
+  },
+  "non_claims": {
+    "apple_developer_account_connected": false,
+    "app_store_connect_access": false,
+    "signing_authority": false,
+    "apple_business_manager_authority": false,
+    "mdm_authority": false,
+    "external_side_effects": false
+  },
+  "hosted_replay": {
+    "disposition": "PRESTART_OR_STARTUP_FAILURE",
+    "code_failure_established": false,
+    "swift_test": "NOT_RUN",
+    "xcode_26_build": "NOT_RUN",
+    "attempts": [
+      {
+        "head_sha": "eadd956efd97ee49a48c30bdfee500fbdae6f943",
+        "runner_label": "macos-26",
+        "workflow_run_id": 35664985654,
+        "job_id": 106548599763,
+        "conclusion": "failure",
+        "executed_steps": 0,
+        "runner_name": null,
+        "log_fetch": "BLOB_NOT_FOUND"
+      },
+      {
+        "head_sha": "ce540936f7fffef5efc0435b454955aaa9055f5e",
+        "runner_label": "macos-latest",
+        "environment_guard": "REQUIRE_MACOS_26_AND_XCODE_26",
+        "workflow_run_id": 35665076587,
+        "job_id": 106548886936,
+        "conclusion": "failure",
+        "executed_steps": 0,
+        "runner_name": null,
+        "log_fetch": "BLOB_NOT_FOUND"
+      }
+    ],
+    "authority_effect": "NONE"
+  }
+}

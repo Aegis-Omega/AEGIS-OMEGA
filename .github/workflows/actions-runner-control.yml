@@ -1,0 +1,22 @@
+name: Actions Runner Control
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/actions-runner-control.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  ubuntu-control:
+    name: ubuntu-latest control
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Prove runner execution
+        run: |
+          set -euo pipefail
+          echo "AEGIS_ACTIONS_RUNNER_CONTROL=PASS"
+          uname -a
