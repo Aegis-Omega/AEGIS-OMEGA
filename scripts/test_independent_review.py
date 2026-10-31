@@ -5,6 +5,7 @@ import unittest
 
 from independent_review import (
     SCHEMA,
+    Invalid,
     assess,
     canonical_digest,
     select_challenges,
@@ -138,6 +139,15 @@ class IndependentReviewTests(unittest.TestCase):
         reviewer = receipt["review"]["reviewer"]
         reviewer["github_id"] = 21 if reviewer["github_id"] == 20 else 20
         self.reject(receipt, identity_snapshot(), "REVIEWER_IDENTITY_MISMATCH")
+
+    def test_noninteger_github_id_alias_fails_before_deduplication(self):
+        # Python considers 1 == True == 1.0 for set membership; validate raw IDs.
+        for alias in (True, 1.0):
+            with self.subTest(alias=repr(alias)):
+                roster = identity_snapshot()
+                roster["identities"][1]["github_ids"] = [1, alias]
+                with self.assertRaisesRegex(Invalid, "GITHUB_ID_INVALID"):
+                    select_reviewer(HEAD, "agent:submitter", roster, SEED)
 
     def test_forged_reviewer_account_is_rejected(self):
         receipt = good_receipt()
