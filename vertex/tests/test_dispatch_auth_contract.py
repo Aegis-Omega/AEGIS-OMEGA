@@ -36,7 +36,6 @@ def source_middleware(key):
         raise AssertionError("expected one production middleware function")
     function = candidates[0]
     function.decorator_list = []
-    tree = ast.fix_missing_locations(ast.Module(body=[function], type_ignores=[]))
     metrics = {
         "requests_total": 0,
         "errors_total": 0,
@@ -53,6 +52,11 @@ def source_middleware(key):
     if len(gate_nodes) != 1:
         raise AssertionError("expected one production gated route list")
     protected_paths = ast.literal_eval(gate_nodes[0])
+    # Isolate only the real middleware AFTER reading source-level constants.
+    # Otherwise the shortened AST cannot contain _GATED_PREFIXES.
+    middleware_only = ast.fix_missing_locations(
+        ast.Module(body=[function], type_ignores=[])
+    )
     scope = {
         "Request": object,
         "PLATFORM_API_KEY": key,
@@ -66,7 +70,7 @@ def source_middleware(key):
         "json": json,
         "hmac": hmac,
     }
-    exec(compile(tree, str(PROXY_SOURCE), "exec"), scope)
+    exec(compile(middleware_only, str(PROXY_SOURCE), "exec"), scope)
     return scope["observability_and_guard"]
 
 
