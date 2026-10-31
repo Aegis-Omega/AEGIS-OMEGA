@@ -169,7 +169,7 @@ jobs:
           # Fail-closed: validate response and error on any unexpected status
           response=$(curl -s -w "\n%{http_code}" -X POST "$PROXY_URL/agents/dispatch" \
             -H "Content-Type: application/json" \
-            -H "Authorization: Bearer $PLATFORM_KEY" \
+            -H "X-API-Key: $PLATFORM_KEY" \
             --fail-with-body \
             -d "$(jq -n \
               --arg event_type "$DISPATCH_EVENT_TYPE" \

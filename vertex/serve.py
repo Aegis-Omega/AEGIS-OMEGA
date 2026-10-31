@@ -21,6 +21,7 @@ from __future__ import annotations
 
 import asyncio
 import hashlib
+import hmac
 import json
 import os
 import sys
@@ -247,10 +248,16 @@ async def observability_and_guard(request: Request, call_next):
             {"error": "rate_limited", "limit_per_min": RATE_LIMIT_PER_MIN}, status_code=429
         )
 
-    # Auth gate on cost-incurring routes when a key is configured.
+    # A privileged agent dispatch MUST NOT be callable when the platform
+    # credential is absent. This blocks the old public-by-default behavior.
+    if path == "/agents/dispatch" and not PLATFORM_API_KEY:
+        METRICS["requests_total"] += 1
+        return JSONResponse({"error": "dispatch_auth_unconfigured"}, status_code=503)
+
+    # Existing cost-route auth, comparing credentials in constant time.
     if PLATFORM_API_KEY and any(path.startswith(p) for p in _GATED_PREFIXES):
         provided = request.headers.get("x-api-key", "")
-        if provided != PLATFORM_API_KEY:
+        if not hmac.compare_digest(provided, PLATFORM_API_KEY):
             METRICS["requests_total"] += 1
             return JSONResponse({"error": "unauthorized"}, status_code=401)
 
