@@ -189,7 +189,7 @@ public final class AppleFoundationModelsRunner: EdgeInferenceRunning, Sendable {
                 availability: probeAvailability()
             )
             let output = response.content
-            let receipt = AppleInferenceReceipt.succeeded(
+            let receipt = try AppleInferenceReceipt.succeeded(
                 prompt: prompt,
                 output: output,
                 maxTokens: maxTokens,

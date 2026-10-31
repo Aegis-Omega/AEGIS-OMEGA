@@ -12,8 +12,34 @@ final class AppleInferenceReceiptTests: XCTestCase {
             from: JSONSerialization.data(withJSONObject: fields))
     }
 
+    func testPublicReceiptFactoryRejectsInvalidInputs() throws {
+        for bad in [Float.nan, .infinity, -.infinity, -0.01, 1.01] {
+            XCTAssertThrowsError(try AppleInferenceReceipt.succeeded(
+                prompt: "valid", output: "output", maxTokens: 32, temperature: bad
+            )) { error in
+                guard case AppleFoundationModelsError.invalidTemperature(_) = error else {
+                    XCTFail("Unexpected error for invalid temperature: \(error)")
+                    return
+                }
+            }
+        }
+        for maxTokens in [0, -1, AppleFoundationModelsRunner.maximumResponseTokens + 1] {
+            XCTAssertThrowsError(try AppleInferenceReceipt.succeeded(
+                prompt: "valid", output: "output", maxTokens: maxTokens, temperature: 0.2
+            ))
+        }
+        for prompt in ["", String(repeating: "x", count: AppleFoundationModelsRunner.maximumPromptBytes + 1)] {
+            XCTAssertThrowsError(try AppleInferenceReceipt.succeeded(
+                prompt: prompt, output: "output", maxTokens: 32, temperature: 0.2
+            ))
+        }
+        XCTAssertTrue(try AppleInferenceReceipt.succeeded(
+            prompt: "valid", output: "output", maxTokens: 32, temperature: 0.2
+        ).verifyContent(prompt: "valid", output: "output"))
+    }
+
     func testReceiptCanVerifyIntegrityAndContent() throws {
-        let receipt = AppleInferenceReceipt.succeeded(
+        let receipt = try AppleInferenceReceipt.succeeded(
             prompt: "private prompt", output: "private output",
             maxTokens: 16, temperature: 0.2001)
         XCTAssertTrue(receipt.verifyIntegrity())
@@ -26,7 +52,7 @@ final class AppleInferenceReceiptTests: XCTestCase {
     }
 
     func testReceiptTamperingCannotPassVerifier() throws {
-        let good = AppleInferenceReceipt.succeeded(
+        let good = try AppleInferenceReceipt.succeeded(
             prompt: "private prompt", output: "private output",
             maxTokens: 16, temperature: 0.2001)
         XCTAssertFalse(try tamper(good, key: "authority_effect", value: "REPO_WRITE").verifyIntegrity())
@@ -59,7 +85,7 @@ final class AppleInferenceReceiptTests: XCTestCase {
     }
 
     func testNewReceiptRoundTripsExactTemperatureBits() throws {
-        let receipt = AppleInferenceReceipt.succeeded(
+        let receipt = try AppleInferenceReceipt.succeeded(
             prompt: "same", output: "same", maxTokens: 32, temperature: 0.2001
         )
         let decoded = try JSONDecoder().decode(AppleInferenceReceipt.self,
@@ -68,21 +94,21 @@ final class AppleInferenceReceiptTests: XCTestCase {
         XCTAssertNotNil(decoded.temperature_float_bits_hex)
     }
 
-    func testDistinctTemperatureMustNotShareReceiptDigest() {
+    func testDistinctTemperatureMustNotShareReceiptDigest() throws {
         // The exact model parameters differ, even if a deterministic model
         // happens to return the same content for both requests.
-        let a = AppleInferenceReceipt.succeeded(
+        let a = try AppleInferenceReceipt.succeeded(
             prompt: "same", output: "same", maxTokens: 32, temperature: 0.2001
         )
-        let b = AppleInferenceReceipt.succeeded(
+        let b = try AppleInferenceReceipt.succeeded(
             prompt: "same", output: "same", maxTokens: 32, temperature: 0.2002
         )
         XCTAssertNotEqual(a.receipt_sha256, b.receipt_sha256,
             "Distinct model temperature inputs must remain distinguishable")
     }
 
-    func testReceiptIsDeterministicAndContentAddressed() {
-        let receipt = AppleInferenceReceipt.succeeded(
+    func testReceiptIsDeterministicAndContentAddressed() throws {
+        let receipt = try AppleInferenceReceipt.succeeded(
             prompt: "hello",
             output: "world",
             maxTokens: 32,
@@ -110,7 +136,7 @@ final class AppleInferenceReceiptTests: XCTestCase {
     }
 
     func testReceiptDoesNotContainPromptOrOutputText() throws {
-        let receipt = AppleInferenceReceipt.succeeded(
+        let receipt = try AppleInferenceReceipt.succeeded(
             prompt: "private prompt",
             output: "private output",
             maxTokens: 16,

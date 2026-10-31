@@ -34,7 +34,12 @@ public struct AppleInferenceReceipt: Codable, Equatable, Sendable {
         output: String,
         maxTokens: Int,
         temperature: Float
-    ) -> AppleInferenceReceipt {
+    ) throws -> AppleInferenceReceipt {
+        // The public factory must uphold the same bounds as the inference runner.
+        // In particular, NaN or infinity would trap in Float-to-Int conversion.
+        try AppleFoundationModelsRunner.validateRequest(
+            prompt: prompt, maxTokens: maxTokens, temperature: temperature
+        )
         let promptHash = sha256Hex(prompt)
         let outputHash = sha256Hex(output)
         let temperatureMilli = Int((Double(temperature) * 1000.0).rounded())
