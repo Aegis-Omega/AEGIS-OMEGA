@@ -83,6 +83,39 @@ describe('AEGIS cross-cloud executable federation is evidence-only', () => {
       expect(r.provider_id).toBeNull()
     }
   })
+  it('rejects numeric generations in provider observations and selection requests', async () => {
+    await expect(buildProviderMeshSnapshotV1(DECLARED_PROVIDER_CATALOG_V1, [
+      { ...makeEvidence('azure-devops-pipelines', 'OBSERVED_AVAILABLE', ['REPOSITORY_WORKFLOW']),
+        observation_generation: 42 as never },
+    ])).rejects.toThrow('observation_generation must be canonical unsigned decimal')
+
+    const snapshot = await buildProviderMeshSnapshotV1(DECLARED_PROVIDER_CATALOG_V1, [])
+    await expect(selectProviderV1(snapshot, {
+      ...request, current_generation: 42 as never,
+    })).rejects.toThrow('current_generation must be canonical unsigned decimal')
+    await expect(selectProviderV1(snapshot, {
+      ...request, max_observation_age_generations: 2 as never,
+    })).rejects.toThrow('max_observation_age_generations must be canonical unsigned decimal')
+  })
+
+  it('rejects a forged SHA-256-looking object before canonicalization', async () => {
+    const fakeHex = { toString: () => 'a'.repeat(64) }
+    await expect(buildProviderMeshSnapshotV1(DECLARED_PROVIDER_CATALOG_V1, [
+      { ...makeEvidence('azure-devops-pipelines', 'OBSERVED_AVAILABLE', ['REPOSITORY_WORKFLOW']),
+        evidence_hash: fakeHex as never },
+    ])).rejects.toThrow('evidence_hash must be lowercase SHA-256 hex')
+  })
+
+  it('rejects a string-coercible non-string provider identity', async () => {
+    const fakeId = { toString: () => 'azure-devops-pipelines' }
+    const invalid = {
+      ...DECLARED_PROVIDER_CATALOG_V1[0]!,
+      provider_id: fakeId as never,
+    }
+    await expect(buildProviderMeshSnapshotV1([invalid], []))
+      .rejects.toThrow('provider_id is invalid')
+  })
+
   it('never confuses a configured Codespace or stopped Vercel sandbox with usable compute', async () => {
     const s = await buildProviderMeshSnapshotV1(DECLARED_PROVIDER_CATALOG_V1, [
       makeEvidence('github-codespaces', 'CONFIGURED', []),

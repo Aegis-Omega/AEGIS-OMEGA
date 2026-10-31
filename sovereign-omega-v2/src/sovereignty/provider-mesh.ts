@@ -166,15 +166,15 @@ const ALL_STATES = new Set<ProviderObservationStateV1>([
 ])
 
 function assertProviderId(field: string, value: string): void {
-  if (!PROVIDER_ID_PATTERN.test(value)) throw new TypeError(`${field} is invalid`)
+  if (typeof value !== 'string' || !PROVIDER_ID_PATTERN.test(value)) throw new TypeError(`${field} is invalid`)
 }
 
 function assertHash(field: string, value: string): asserts value is SHA256Hex {
-  if (!SHA256_PATTERN.test(value)) throw new TypeError(`${field} must be lowercase SHA-256 hex`)
+  if (typeof value !== 'string' || !SHA256_PATTERN.test(value)) throw new TypeError(`${field} must be lowercase SHA-256 hex`)
 }
 
 function assertDecimal(field: string, value: string): void {
-  if (!DECIMAL_PATTERN.test(value)) throw new TypeError(`${field} must be canonical unsigned decimal`)
+  if (typeof value !== 'string' || !DECIMAL_PATTERN.test(value)) throw new TypeError(`${field} must be canonical unsigned decimal`)
 }
 
 function sortedUnique<T extends string>(values: readonly T[]): T[] {
