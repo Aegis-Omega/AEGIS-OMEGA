@@ -355,6 +355,77 @@ class GithubWebhookSignatureContract(unittest.IsolatedAsyncioTestCase):
                 result = await source_webhook()(req)
             self.assertEqual(result.status_code, 403)
 
+    async def test_signed_webhooks_route_only_canonical_coordinator_events(self):
+        secret = "test-signing-key"
+        base = {"repository": {"full_name": "Aegis-Omega/AEGIS-OMEGA"},
+                "sender": {"login": "trusted-owner"}}
+        examples = [
+            ("pull_request", dict(base, action="opened", pull_request={
+                "user": {"login": "trusted-owner"}, "author_association": "OWNER",
+                "head": {"repo": {"full_name": "Aegis-Omega/AEGIS-OMEGA"}},
+                "title": "Review source", "number": 569, "html_url": "https://github.com/example"
+            }), "github_pr_opened", "title"),
+            ("issues", dict(base, action="opened", issue={
+                "user": {"login": "trusted-owner"}, "author_association": "OWNER",
+                "title": "Fix issue", "number": 10, "body": "Minimal description"
+            }), "github_issue_opened", "title"),
+            ("pull_request_review", dict(base, action="submitted",
+                review={"user": {"login": "trusted-owner"},
+                        "author_association": "OWNER", "body": "Review body"},
+                pull_request={"number": 569, "head": {"repo": {
+                    "full_name": "Aegis-Omega/AEGIS-OMEGA"}}}
+            ), "github_pr_comment", "body"),
+            ("check_run", dict(base, action="completed",
+                check_run={"app": {"slug": "github-actions"},
+                           "check_suite": {"head_branch": "main"},
+                           "conclusion": "failure", "id": 42,
+                           "name": "static gate"}
+            ), "github_ci_failure", "failures"),
+        ]
+        for kind, payload, expected, required_field in examples:
+            with self.subTest(kind=kind):
+                seen = []
+                async def fake_dispatch(event, data):
+                    seen.append((event, data))
+                    return [object()]
+                agents = types.ModuleType("agents")
+                coordinator = types.ModuleType("agents.coordinator")
+                coordinator.dispatch_event = fake_dispatch
+                agents.coordinator = coordinator
+                raw = json.dumps(payload).encode("utf8")
+                sig = "sha256=" + hmac.new(
+                    secret.encode(), raw, hashlib.sha256).hexdigest()
+                with patch.dict(os.environ, {"GITHUB_WEBHOOK_SECRET": secret}):
+                    with patch.dict(sys.modules, {"agents": agents,
+                                                   "agents.coordinator": coordinator}):
+                        req = FakeWebhookRequest(raw, {
+                            "x-hub-signature-256": sig, "x-github-event": kind})
+                        response = await source_webhook()(req)
+                self.assertEqual(response["dispatched_to_agents"], 1)
+                self.assertEqual(len(seen), 1)
+                self.assertEqual(seen[0][0], expected)
+                self.assertIn(required_field, seen[0][1])
+                self.assertNotIn("repository", seen[0][1])
+                self.assertNotIn("sender", seen[0][1])
+
+    async def test_signed_nonfinal_check_run_cannot_route_agents(self):
+        secret = "test-signing-key"
+        payload = {"repository": {"full_name": "Aegis-Omega/AEGIS-OMEGA"},
+                   "sender": {"login": "github-actions[bot]"},
+                   "action": "completed",
+                   "check_run": {"app": {"slug": "github-actions"},
+                                 "check_suite": {"head_branch": "main"},
+                                 "conclusion": "neutral"}}
+        raw = json.dumps(payload).encode("utf8")
+        sig = "sha256=" + hmac.new(
+            secret.encode(), raw, hashlib.sha256).hexdigest()
+        with patch.dict(os.environ, {"GITHUB_WEBHOOK_SECRET": secret}):
+            req = FakeWebhookRequest(raw, {
+                "x-hub-signature-256": sig, "x-github-event": "check_run"})
+            response = await source_webhook()(req)
+        self.assertEqual(response.status_code, 422)
+        self.assertEqual(response.body["error"], "unsupported_check_conclusion")
+
     async def test_signed_valid_event_invokes_only_stubbed_agent(self):
         secret = "test-signing-key"
         body = (b'{"repository":{"full_name":"Aegis-Omega/AEGIS-OMEGA"},'
@@ -383,8 +454,9 @@ class GithubWebhookSignatureContract(unittest.IsolatedAsyncioTestCase):
                 response = await source_webhook()(req)
         self.assertEqual(response["dispatched_to_agents"], 1)
         self.assertEqual(len(seen), 1)
-        self.assertEqual(seen[0][0], "push")
-        self.assertEqual(seen[0][1]["repository"]["full_name"], "Aegis-Omega/AEGIS-OMEGA")
+        self.assertEqual(seen[0][0], "github_main_push")
+        self.assertEqual(seen[0][1]["branch"], "main")
+        self.assertNotIn("repository", seen[0][1])
 
 
 if __name__ == "__main__":

@@ -763,6 +763,7 @@ def _record_evolution(role: str, capabilities: list[str], succeeded: bool) -> No
 
 EVENT_ROUTING: dict[str, list[AgentRole]] = {
     # Engineering events
+    "github_main_push":          [AgentRole.ENGINEERING],
     "github_pr_opened":          [AgentRole.ENGINEERING],
     "github_pr_comment":         [AgentRole.ENGINEERING],
     "github_issue_opened":       [AgentRole.ENGINEERING],
@@ -867,6 +868,14 @@ async def dispatch_event(event_type: str, payload: dict) -> list[AgentResult]:
 def _event_to_instruction(event_type: str, payload: dict, role: AgentRole) -> str:
     """Convert an event + payload into a concrete agent instruction."""
     templates = {
+        "github_main_push": (
+            "Protected main updated on {branch}, commit {after}. "
+            "Inspect the available CI evidence, verify the exact head, and report blockers."
+        ),
+        "github_issue_opened": (
+            "Issue #{number} opened: {title}. Inspect repository context and "
+            "produce a bounded technical next step."
+        ),
         "github_pr_opened": (
             "A new PR has been opened: {title} (#{number}). "
             "Review the changes, assess architectural impact, and provide actionable feedback."

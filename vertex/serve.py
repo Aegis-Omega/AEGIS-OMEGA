@@ -1295,12 +1295,56 @@ async def github_webhook(request: Request):
     if not authorized:
         return JSONResponse({"error": "untrusted_webhook_actor"}, status_code=403)
 
-    # Map GitHub events to agent dispatch
+    # GitHub event names and coordinator routing names are different contracts.
+    # Never send raw webhook envelopes to the coordinator's permissive fallback.
+    if event_type == "pull_request":
+        change = obj(body.get("pull_request"))
+        routed_event = "github_pr_opened"
+        task_payload = {
+            "title": str(change.get("title", ""))[:500],
+            "number": change.get("number"),
+            "url": str(change.get("html_url", ""))[:1000],
+        }
+    elif event_type == "issues":
+        issue = obj(body.get("issue"))
+        routed_event = "github_issue_opened"
+        task_payload = {
+            "title": str(issue.get("title", ""))[:500],
+            "number": issue.get("number"),
+            "body": str(issue.get("body") or "")[:4000],
+        }
+    elif event_type == "pull_request_review":
+        review = obj(body.get("review"))
+        change = obj(body.get("pull_request"))
+        routed_event = "github_pr_comment"
+        task_payload = {
+            "number": change.get("number"),
+            "body": str(review.get("body") or "")[:4000],
+        }
+    elif event_type == "check_run":
+        check = obj(body.get("check_run"))
+        conclusion = check.get("conclusion")
+        if conclusion not in {"failure", "success"}:
+            return JSONResponse({"error": "unsupported_check_conclusion"}, status_code=422)
+        routed_event = "github_ci_failure" if conclusion == "failure" else "github_ci_success"
+        task_payload = {
+            "branch": "main",
+            "run_id": check.get("id"),
+            "failures": str(check.get("name") or "")[:200] if conclusion == "failure" else "",
+        }
+    else:
+        routed_event = "github_main_push"
+        task_payload = {
+            "branch": "main",
+            "after": str(body.get("after") or "")[:64],
+        }
+
+    # Dispatch only canonical event types with bounded, purpose-specific data.
     try:
         import sys
         sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
         from agents.coordinator import dispatch_event
-        results = await dispatch_event(event_type, body)
+        results = await dispatch_event(routed_event, task_payload)
         dispatched = len(results)
     except Exception as exc:
         dispatched = 0
