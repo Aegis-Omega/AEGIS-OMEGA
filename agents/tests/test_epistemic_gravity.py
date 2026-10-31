@@ -118,7 +118,6 @@ class TestGravity(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "too many"):
             plan(spec)
 
-
     def test_stale_probe_cannot_hypothetically_bypass_head(self):
         spec = sample()
         spec["heads"]["math"] = "h2"
@@ -177,6 +176,7 @@ class TestGravity(unittest.TestCase):
         spec["evidence"][""] = {"source": "code", "sha": "c1", "verified": False}
         with self.assertRaisesRegex(ValueError, "IDs must be nonempty strings"):
             plan(spec)
+
 
 
 if __name__ == '__main__':
