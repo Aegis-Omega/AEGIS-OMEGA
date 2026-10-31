@@ -11,6 +11,9 @@ on:
       - sovereign-omega-v2/src/core/canonicalize.ts
       - sovereign-omega-v2/src/core/hashing.ts
       - .github/workflows/sovereignty-contracts.yml
+      - .github/workflows/agent-dispatch.yml
+      - vertex/serve.py
+      - vertex/tests/test_dispatch_auth_contract.py
       - scripts/nebius_preflight.py
       - scripts/test_nebius_preflight.py
       - scripts/test_nebius_budget_pg.py
@@ -71,6 +74,9 @@ jobs:
 
       - name: Read-only Cloudflare resource discovery regressions
         run: npx vitest run test/unit/cloudflare-resource-discovery.test.ts
+
+      - name: Constitutional proxy dispatch authentication regression
+        run: cd .. && python3 -m unittest discover -s vertex/tests -p 'test_dispatch_auth_contract.py' -v
 
       - name: Typecheck runtime contracts
         run: npm run typecheck
