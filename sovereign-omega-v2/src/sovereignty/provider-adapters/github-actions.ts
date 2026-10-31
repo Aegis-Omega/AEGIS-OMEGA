@@ -77,6 +77,19 @@ export async function observeGitHubActionsJobV1(
     }
   }
 
+  // A completed job without a conclusion is inconsistent/incomplete evidence.
+  if (job.conclusion === null) {
+    return {
+      schema_version: PROVIDER_MESH_SCHEMA_VERSION,
+      provider_id: 'github-actions',
+      state: 'UNKNOWN',
+      observed_capabilities: [],
+      evidence_hash,
+      observation_generation,
+      authority_effect: 'NONE',
+    }
+  }
+
   // Any completed job that was assigned to a real runner and executed at
   // least one step proves the runner/workflow substrate was available.
   // The workload may still have failed; that is not provider unavailability.
@@ -92,10 +105,10 @@ export async function observeGitHubActionsJobV1(
     }
   }
 
-  // A terminal job that never obtained a runner and executed no steps is a
-  // pre-start infrastructure failure. This is the exact runner_id=0 / steps=[]
-  // condition currently visible on the affected AEGIS workflows.
-  if (job.runner_id === 0 && job.steps_count === 0) {
+  // Skipped or cancelled jobs without runners do NOT prove resource
+  // unavailability. Only an explicit completed failure before runner/steps
+  // can enter the current provider-unavailable state.
+  if (job.runner_id === 0 && job.steps_count === 0 && job.conclusion === 'failure') {
     return {
       schema_version: PROVIDER_MESH_SCHEMA_VERSION,
       provider_id: 'github-actions',

@@ -66,6 +66,9 @@ jobs:
       - name: Cloudflare account collector fixed-GET regression
         run: npx vitest run test/unit/cloudflare-account-collector.test.ts
 
+      - name: GitHub runner observation epistemic regression
+        run: npx vitest run test/unit/provider-github-actions.test.ts
+
       - name: Typecheck runtime contracts
         run: npm run typecheck
 

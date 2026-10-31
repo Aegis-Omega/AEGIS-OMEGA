@@ -66,6 +66,38 @@ describe('GitHub Actions provider adapter v1', () => {
     expect(observed.observed_capabilities).toEqual([])
   })
 
+  it('keeps skipped and cancelled no-runner jobs UNKNOWN, not unavailable', async () => {
+    for (const conclusion of ['skipped', 'cancelled', 'neutral', 'action_required', 'timed_out'] as const) {
+      const observed = await observeGitHubActionsJobV1({
+        run_id: '45',
+        job_id: '103',
+        head_sha: 'e'.repeat(40),
+        status: 'completed',
+        conclusion,
+        runner_id: 0,
+        runner_name: '',
+        steps_count: 0,
+      }, '20')
+      expect(observed.state).toBe('UNKNOWN')
+      expect(observed.observed_capabilities).toEqual([])
+      expect(observed.authority_effect).toBe('NONE')
+    }
+  })
+
+  it('never promotes a completed job with missing conclusion into availability', async () => {
+    const observed = await observeGitHubActionsJobV1({
+      run_id: '46',
+      job_id: '104',
+      head_sha: 'f'.repeat(40),
+      status: 'completed',
+      conclusion: null,
+      runner_id: 8,
+      runner_name: 'GitHub Actions 8',
+      steps_count: 4,
+    }, '20')
+    expect(observed.state).toBe('UNKNOWN')
+  })
+
   it('rejects contradictory zero-runner metadata', async () => {
     await expect(observeGitHubActionsJobV1({
       run_id: '45',
