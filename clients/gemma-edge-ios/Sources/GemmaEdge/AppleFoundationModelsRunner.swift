@@ -202,6 +202,9 @@ public final class AppleFoundationModelsRunner: EdgeInferenceRunning {
         token: UInt64,
         availability: AppleFoundationModelsAvailability
     ) throws {
+        // A model implementation can return after the caller canceled its task.
+        // Cancellation must never produce a successful generation receipt.
+        try Task.checkCancellation()
         guard readiness.isActive(token) else {
             throw AppleFoundationModelsError.notInitialized
         }

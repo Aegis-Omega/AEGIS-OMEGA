@@ -131,6 +131,22 @@ final class AppleFoundationModelsRunnerPolicyTests: XCTestCase {
 }
 
 final class AppleModelReadinessTests: XCTestCase {
+    func testCancelledCompletionMustNotSucceed() async throws {
+        let readiness = AppleModelReadiness()
+        let token = readiness.beginInitialization()
+        XCTAssertTrue(readiness.completeInitialization(token))
+        let check = Task {
+            withUnsafeCurrentTask { $0?.cancel() }
+            XCTAssertThrowsError(try AppleFoundationModelsRunner.validateCompletedGeneration(
+                readiness: readiness, token: token,
+                availability: .init(available: true, reason: nil)
+            )) { error in
+                XCTAssertTrue(error is CancellationError, "Expected CancellationError, got \(error)")
+            }
+        }
+        try await check.value
+    }
+
     func testCompletedGenerationRejectsUnavailableModel() {
         let readiness = AppleModelReadiness()
         let token = readiness.beginInitialization()
