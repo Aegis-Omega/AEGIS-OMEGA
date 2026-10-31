@@ -84,3 +84,12 @@ Prior source treated a missing or `UNKNOWN` `principal_kind` as non-root because
 ### AWS error-code normalization correction (2026-10-31)
 
 The AWS collector already recognized `ForbiddenException` from S3 Tables, but the shared connected-resource intake omitted it from its sanitized error allowlist. Thus a real `ForbiddenException` was being downgraded to an unspecified error in the final hashed receipt. Both allowlists now include this well-defined AWS error code, while raw messages, unrecognized errors and secret-bearing details are still dropped. New negative regression assertions cover collector-to-intake preservation, unknown errors, and unchanged `HOLD`. This correction does not grant AWS access, credits or execution authority.
+
+
+## AWS single-call read-only planning pipeline V1.4 (2026-10-31)
+
+`inspectAwsProviderForPlanningV1` in `src/sovereignty/aws-planning-pipeline.ts` composes the existing injected AWS read-only collector, normalized connected-resource inventory, strict AWS principal observer, and canonical provider-mesh snapshot/selector into **one reproducible planning result**. It requires a caller-owned canonical observation generation and AWS-declared requested capabilities; invalid input fails before making AWS API reads. Cost Explorer is never invoked; additional Bedrock/Glue/Lambda/DynamoDB/S3Tables metadata scans are opt-in. It does not import credentials or an AWS SDK, create resources, or grant execution.
+
+The selector is restricted to AWS and must return `DENIED` with null provider, `HOLD` and authority `NONE`. If a future code change mistakenly makes account-only reads selectable, a fail-closed tripwire rejects the result. The returned local SHA-256 inventory hash proves only byte integrity, **not provider authenticity**. AWS initial Free Plan grant is email-verified; current credit balance and enforcement remain unknown. Caller-supplied generations are not proof of wall-clock freshness. Cross-provider planning remains a separate explicit operation.
+
+Reproduce in the actual project: `cd sovereign-omega-v2 && npx vitest run test/unit/aws-planning-pipeline.test.ts && npm run typecheck`. Isolated local TypeScript checks passed with a **stubbed provider selector** and seven Node regression tests; native current-head project CI is required to validate the real canonical selector and broader test suite.

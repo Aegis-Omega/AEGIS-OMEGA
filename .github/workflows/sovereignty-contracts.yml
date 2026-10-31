@@ -78,6 +78,9 @@ jobs:
       - name: AWS provider-account selection containment
         run: npx vitest run test/unit/provider-aws-account.test.ts
 
+      - name: AWS single-call planning pipeline fail-closed regression
+        run: npx vitest run test/unit/aws-planning-pipeline.test.ts
+
       - name: Cloudflare account collector fixed-GET regression
         run: npx vitest run test/unit/cloudflare-account-collector.test.ts
 
