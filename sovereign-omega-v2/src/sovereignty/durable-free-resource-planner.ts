@@ -71,16 +71,24 @@ export function createDurableFreeResourcePlannerV1(
       return typeof value==='string'&&DEC.test(value)?value:null
     } catch {return null}
   }
+  // A transient storage error or rollback response must never be "healed"
+  // by an untrusted later request on the same planner instance. A fresh
+  // authenticated host bootstrap is required to recover the local gate.
+  let checkpointFailed=false
   const observe=async(generation:string):Promise<boolean>=>{
+    if(checkpointFailed) return false
     try {
       const answer=await checkpoint.observe_and_advance(policyId,generation)
       // Persisted floor must match the requested generation. Anything else
       // is not an independently verified, current generation checkpoint.
-      return answer?.outcome==='ACCEPTED'
+      const accepted=answer?.outcome==='ACCEPTED'
         && typeof answer.persisted_generation==='string'
         && DEC.test(answer.persisted_generation)
         && answer.persisted_generation===generation
+      if(!accepted) checkpointFailed=true
+      return accepted && !checkpointFailed
     } catch {
+      checkpointFailed=true
       return false
     }
   }
@@ -98,6 +106,7 @@ export function createDurableFreeResourcePlannerV1(
       evidence:readonly FreeResourceEvidenceV1[],
       signed:readonly SignedFreeResourceApprovalV1[],
     ):Promise<FreeResourceDecisionV1> {
+      if(checkpointFailed) return hold(snapshot,request,evidence)
       const initial=readGeneration()
       if(initial===null||request?.current_generation!==initial) {
         return hold(snapshot,request,evidence)

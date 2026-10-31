@@ -129,3 +129,21 @@ seeding, revocation provider, cross-region failover fencing, or cloud execution
 has been connected. The trusted host must independently verify these
 obligations before using the adapter. Every result remains
 `authority_effect: NONE` and **does not reserve quota or authorize spend**.
+
+## Local checkpoint-failure latch
+
+The opt-in shared-checkpoint wrapper now latches a persistent per-instance
+`HOLD` after **any** storage-layer rollback, unavailable/missing-row result,
+exception, malformed acknowledgement or wrong committed high-water mark.
+It will not silently resume planning when a transient backend recovers,
+including after a final-check race. This prevents a repeatedly failed
+check from being interpreted as fresh authority by later calls in the same
+planner instance. Recovery requires a new independently authenticated host
+bootstrap. The backing store remains responsible for cross-instance durable
+monotonicity and crash-safe commit; the local latch cannot prove those
+obligations.
+
+Three additional isolated tests cover temporary storage failure followed by
+recovery, final-check rollback followed by a later success-looking answer,
+and a mismatched committed-generation acknowledgement. These tests are
+synthetic and do not establish a production backend or execution authority.

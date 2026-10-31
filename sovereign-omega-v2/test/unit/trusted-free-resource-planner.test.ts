@@ -414,4 +414,57 @@ describe('shared durable high-water checkpoint contract (isolated synthetic stor
     expect(()=>createDurableFreeResourcePlannerV1(c.trust,()=>request.current_generation,null as unknown as AuthenticatedAtomicGenerationCheckpointV1))
       .toThrow('trusted durable checkpoint')
   })
+  it('latches HOLD across transient checkpoint failure even after the backend recovers',async()=>{
+    const c=await context()
+    let calls=0
+    let online=false
+    const store:AuthenticatedAtomicGenerationCheckpointV1={
+      async observe_and_advance(_policy,generation){
+        calls++
+        if(!online) throw new Error('checkpoint temporarily unavailable')
+        return {outcome:'ACCEPTED',persisted_generation:generation}
+      },
+    }
+    const planner=createDurableFreeResourcePlannerV1(c.trust,()=>request.current_generation,store)
+    expect((await planner.plan(c.snapshot,request,[c.evidence],[c.signed])).outcome).toBe('HOLD')
+    online=true
+    expect((await planner.plan(c.snapshot,request,[c.evidence],[c.signed])).outcome).toBe('HOLD')
+    expect(calls).toBe(1)
+    // Only a newly and independently authenticated host bootstrap can retry.
+    const restarted=createDurableFreeResourcePlannerV1(c.trust,()=>request.current_generation,store)
+    expect((await restarted.plan(c.snapshot,request,[c.evidence],[c.signed])).outcome).toBe('PLANNING_ELIGIBLE')
+    expect(calls).toBe(3)
+  })
+  it('latches HOLD after final-checkpoint rollback even if future reads claim recovery',async()=>{
+    const c=await context()
+    let calls=0
+    const store:AuthenticatedAtomicGenerationCheckpointV1={
+      async observe_and_advance(_policy,generation){
+        calls++
+        return calls===2
+          ? {outcome:'ROLLBACK'}
+          : {outcome:'ACCEPTED',persisted_generation:generation}
+      },
+    }
+    const planner=createDurableFreeResourcePlannerV1(c.trust,()=>request.current_generation,store)
+    expect((await planner.plan(c.snapshot,request,[c.evidence],[c.signed])).outcome).toBe('HOLD')
+    expect((await planner.plan(c.snapshot,request,[c.evidence],[c.signed])).outcome).toBe('HOLD')
+    expect(calls).toBe(2)
+  })
+  it('latches HOLD after a forged committed-generation acknowledgement',async()=>{
+    const c=await context()
+    let calls=0
+    const store:AuthenticatedAtomicGenerationCheckpointV1={
+      async observe_and_advance(_policy,generation){
+        calls++
+        if(calls===1) return {outcome:'ACCEPTED',persisted_generation:'9'}
+        return {outcome:'ACCEPTED',persisted_generation:generation}
+      },
+    }
+    const planner=createDurableFreeResourcePlannerV1(c.trust,()=>request.current_generation,store)
+    expect((await planner.plan(c.snapshot,request,[c.evidence],[c.signed])).outcome).toBe('HOLD')
+    expect((await planner.plan(c.snapshot,request,[c.evidence],[c.signed])).outcome).toBe('HOLD')
+    expect(calls).toBe(1)
+  })
+
 })
