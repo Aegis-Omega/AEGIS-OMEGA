@@ -21,6 +21,7 @@ from __future__ import annotations
 
 import asyncio
 import hashlib
+import hmac
 import json
 import os
 import sys
@@ -206,8 +207,13 @@ app = FastAPI(
 PLATFORM_API_KEY = os.environ.get("PLATFORM_API_KEY", "")  # if set, gates cost routes
 RATE_LIMIT_PER_MIN = int(os.environ.get("RATE_LIMIT_PER_MIN", "60"))
 
-# Routes that spend compute/money — require the API key when one is configured.
-_GATED_PREFIXES = ("/platform/collaborate", "/agents/run", "/agents/dispatch", "/v1/messages", "/predict")
+# All agent, inference and compute-spending routes require explicit API auth.
+# The signed GitHub webhook has its own independent HMAC gate.
+_GATED_PREFIXES = (
+    "/platform/collaborate", "/platform/compare", "/platform/stream",
+    "/platform/schedule/revenue", "/agents/run", "/agents/dispatch",
+    "/agents/batch", "/v1/messages", "/predict",
+)
 
 # In-memory metrics (per-process; Cloud Run logs aggregate across instances).
 METRICS: dict[str, Any] = {
@@ -247,10 +253,16 @@ async def observability_and_guard(request: Request, call_next):
             {"error": "rate_limited", "limit_per_min": RATE_LIMIT_PER_MIN}, status_code=429
         )
 
-    # Auth gate on cost-incurring routes when a key is configured.
-    if PLATFORM_API_KEY and any(path.startswith(p) for p in _GATED_PREFIXES):
+    # No configured platform key means NO paid inference/agents, not a
+    # silent public-access fallback. Webhook HMAC protection is independent.
+    if any(path.startswith(p) for p in _GATED_PREFIXES):
+        if not PLATFORM_API_KEY:
+            METRICS["requests_total"] += 1
+            reason = ("dispatch_auth_unconfigured" if path == "/agents/dispatch"
+                      else "platform_auth_unconfigured")
+            return JSONResponse({"error": reason}, status_code=503)
         provided = request.headers.get("x-api-key", "")
-        if provided != PLATFORM_API_KEY:
+        if not hmac.compare_digest(provided, PLATFORM_API_KEY):
             METRICS["requests_total"] += 1
             return JSONResponse({"error": "unauthorized"}, status_code=401)
 
@@ -1189,30 +1201,150 @@ async def github_webhook(request: Request):
     Receive GitHub webhook events and dispatch them to the appropriate agents.
     Handles: push, pull_request, issues, pull_request_review, check_run.
 
-    Verify GITHUB_WEBHOOK_SECRET if set (HMAC-SHA256).
+    Require a configured GITHUB_WEBHOOK_SECRET and an exact HMAC-SHA256 signature.
     """
     import hmac, hashlib as _hl
 
-    # Signature verification
+    # No configured secret means NO webhook-driven agents. GitHub delivery
+    # signatures authenticate the exact bytes; never trust an unsigned payload.
     secret = os.environ.get("GITHUB_WEBHOOK_SECRET", "")
-    if secret:
-        sig_header = request.headers.get("x-hub-signature-256", "")
-        body_raw = await request.body()
-        expected = "sha256=" + hmac.new(secret.encode(), body_raw, _hl.sha256).hexdigest()
-        if not hmac.compare_digest(sig_header, expected):
-            return JSONResponse({"error": "invalid_signature"}, status_code=401)
+    if not secret:
+        return JSONResponse({"error": "webhook_auth_unconfigured"}, status_code=503)
+    sig_header = request.headers.get("x-hub-signature-256", "")
+    body_raw = await request.body()
+    if len(body_raw) > 262_144:
+        return JSONResponse({"error": "webhook_payload_too_large"}, status_code=413)
+    expected = "sha256=" + hmac.new(secret.encode(), body_raw, _hl.sha256).hexdigest()
+    if not hmac.compare_digest(sig_header, expected):
+        return JSONResponse({"error": "invalid_signature"}, status_code=401)
+    try:
         body = json.loads(body_raw)
+    except (json.JSONDecodeError, UnicodeDecodeError):
+        return JSONResponse({"error": "invalid_json"}, status_code=400)
+    if not isinstance(body, dict):
+        return JSONResponse({"error": "invalid_webhook_envelope"}, status_code=400)
+
+    # A valid HMAC is not a repository authorization. Never allow an event
+    # from another repository (or malformed metadata) to spend AEGIS agent work.
+    repo_info = body.get("repository")
+    if not isinstance(repo_info, dict) or repo_info.get("full_name") != "Aegis-Omega/AEGIS-OMEGA":
+        return JSONResponse({"error": "untrusted_webhook_repository"}, status_code=403)
+
+    # Unknown webhook types must not reach the coordinator's default
+    # engineering fallback. Keep only the event kinds this handler documents.
+    event_type = request.headers.get("x-github-event", "")
+    if event_type not in {"push", "pull_request", "issues", "pull_request_review", "check_run"}:
+        return JSONResponse({"error": "unsupported_webhook_event"}, status_code=422)
+
+    # A valid GitHub signature proves delivery integrity, not that every
+    # same-repository actor may spend agent resources. Mirror the separate
+    # Actions dispatch contract's sender, author and fork boundaries here.
+    def obj(value):
+        return value if isinstance(value, dict) else {}
+
+    sender = obj(body.get("sender")).get("login")
+    action = body.get("action")
+    trusted = {"OWNER", "MEMBER", "COLLABORATOR"}
+    if not isinstance(sender, str) or not sender:
+        return JSONResponse({"error": "untrusted_webhook_actor"}, status_code=403)
+
+    if event_type == "pull_request":
+        candidate = obj(body.get("pull_request"))
+        authorized = (
+            action == "opened"
+            and obj(candidate.get("user")).get("login") == sender
+            and candidate.get("author_association") in trusted
+            and obj(obj(candidate.get("head")).get("repo")).get("full_name")
+            == "Aegis-Omega/AEGIS-OMEGA"
+        )
+    elif event_type == "issues":
+        issue = obj(body.get("issue"))
+        authorized = (
+            action == "opened"
+            and obj(issue.get("user")).get("login") == sender
+            and issue.get("author_association") in trusted
+        )
+    elif event_type == "pull_request_review":
+        candidate = obj(body.get("pull_request"))
+        review = obj(body.get("review"))
+        authorized = (
+            action == "submitted"
+            and obj(review.get("user")).get("login") == sender
+            and review.get("author_association") in trusted
+            and obj(obj(candidate.get("head")).get("repo")).get("full_name")
+            == "Aegis-Omega/AEGIS-OMEGA"
+        )
+    elif event_type == "push":
+        # Main is the only branch allowed to trigger privileged pushes.
+        authorized = (
+            body.get("ref") == "refs/heads/main"
+            and body.get("deleted") is False
+            and body.get("forced") is False
+            and obj(body.get("pusher")).get("name") == sender
+        )
     else:
-        body = await request.json()
+        # Check-run observations are only useful when completed by the
+        # GitHub Actions app against the protected main branch.
+        check = obj(body.get("check_run"))
+        authorized = (
+            action == "completed"
+            and obj(check.get("app")).get("slug") == "github-actions"
+            and obj(check.get("check_suite")).get("head_branch") == "main"
+        )
 
-    event_type = request.headers.get("x-github-event", "unknown")
+    if not authorized:
+        return JSONResponse({"error": "untrusted_webhook_actor"}, status_code=403)
 
-    # Map GitHub events to agent dispatch
+    # GitHub event names and coordinator routing names are different contracts.
+    # Never send raw webhook envelopes to the coordinator's permissive fallback.
+    if event_type == "pull_request":
+        change = obj(body.get("pull_request"))
+        routed_event = "github_pr_opened"
+        task_payload = {
+            "title": str(change.get("title", ""))[:500],
+            "number": change.get("number"),
+            "url": str(change.get("html_url", ""))[:1000],
+        }
+    elif event_type == "issues":
+        issue = obj(body.get("issue"))
+        routed_event = "github_issue_opened"
+        task_payload = {
+            "title": str(issue.get("title", ""))[:500],
+            "number": issue.get("number"),
+            "body": str(issue.get("body") or "")[:4000],
+        }
+    elif event_type == "pull_request_review":
+        review = obj(body.get("review"))
+        change = obj(body.get("pull_request"))
+        routed_event = "github_pr_comment"
+        task_payload = {
+            "number": change.get("number"),
+            "body": str(review.get("body") or "")[:4000],
+        }
+    elif event_type == "check_run":
+        check = obj(body.get("check_run"))
+        conclusion = check.get("conclusion")
+        if conclusion not in {"failure", "success"}:
+            return JSONResponse({"error": "unsupported_check_conclusion"}, status_code=422)
+        routed_event = "github_ci_failure" if conclusion == "failure" else "github_ci_success"
+        task_payload = {
+            "branch": "main",
+            "run_id": check.get("id"),
+            "failures": str(check.get("name") or "")[:200] if conclusion == "failure" else "",
+        }
+    else:
+        routed_event = "github_main_push"
+        task_payload = {
+            "branch": "main",
+            "after": str(body.get("after") or "")[:64],
+        }
+
+    # Dispatch only canonical event types with bounded, purpose-specific data.
     try:
         import sys
         sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
         from agents.coordinator import dispatch_event
-        results = await dispatch_event(event_type, body)
+        results = await dispatch_event(routed_event, task_payload)
         dispatched = len(results)
     except Exception as exc:
         dispatched = 0

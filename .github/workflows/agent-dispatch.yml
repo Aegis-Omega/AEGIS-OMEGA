@@ -36,6 +36,13 @@ jobs:
           WF_CONCLUSION: ${{ github.event.workflow_run.conclusion }}
           WF_BRANCH: ${{ github.event.workflow_run.head_branch }}
           WF_RUN_ID: ${{ github.event.workflow_run.id }}
+          WF_SOURCE_REPO: ${{ github.event.workflow_run.head_repository.full_name }}
+          TARGET_REPO: ${{ github.repository }}
+          EVENT_ACTION: ${{ github.event.action }}
+          EVENT_SENDER: ${{ github.event.sender.login }}
+          # PR author association belongs to the author, not the webhook sender.
+          PR_AUTHOR: ${{ github.event.pull_request.user.login }}
+          PR_SOURCE_REPO: ${{ github.event.pull_request.head.repo.full_name }}
           PR_TITLE: ${{ github.event.pull_request.title }}
           PR_NUMBER: ${{ github.event.number }}
           PR_URL: ${{ github.event.pull_request.html_url }}
@@ -45,7 +52,7 @@ jobs:
           COMMENT_BODY: ${{ github.event.comment.body }}
           COMMENT_ISSUE_NUMBER: ${{ github.event.issue.number }}
           ACTOR: ${{ github.actor }}
-          ACTOR_TYPE: ${{ github.actor_association }}
+          ACTOR_TYPE: ${{ github.event.comment.author_association || github.event.pull_request.author_association || github.event.issue.author_association || '' }}
         run: |
           set -euo pipefail
 
@@ -58,9 +65,40 @@ jobs:
             esac
           }
 
-          # External events require trusted actor
+          # The event-specific author association is meaningful only for its
+          # creator. Verify webhook sender == workflow actor before trusting it.
           if [[ "$EVENT_NAME" != "workflow_run" ]]; then
+            if [[ -z "$ACTOR" || "$ACTOR" != "$EVENT_SENDER" ]]; then
+              echo "DENIED: event sender does not match workflow actor" >&2
+              exit 1
+            fi
+            # pull_request.author_association authenticates the PR author ONLY,
+            # not whoever sent a synchronize/review_requested webhook.
+            # Do not let an untrusted actor borrow the author's authority.
+            if [[ "$EVENT_NAME" = "pull_request" ]]; then
+              if [[ -z "$PR_AUTHOR" || "$EVENT_SENDER" != "$PR_AUTHOR" || "$PR_SOURCE_REPO" != "$TARGET_REPO" ]]; then
+                echo "NO_DISPATCH: PR webhook sender/author/source not independently trusted" >&2
+                printf 'event_type=\npayload={}\n' >> "$GITHUB_OUTPUT"
+                exit 0
+              fi
+            fi
+            # For an issue labeled by someone other than its author, the issue
+            # author's association cannot authenticate the labeler.
+            if [[ "$EVENT_NAME" = "issues" && "$EVENT_ACTION" != "opened" ]]; then
+              echo "NO_DISPATCH: issue labeler identity not independently verified" >&2
+              printf 'event_type=\npayload={}\n' >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
             validate_actor "$ACTOR_TYPE" || exit 1
+          else
+            # workflow_run is privileged. Only successful/failed completed runs
+            # originating from protected main in this exact repository may
+            # reach the broker; PR/fork workflows are not trusted dispatches.
+            if [[ "$WF_SOURCE_REPO" != "$TARGET_REPO" || "$WF_BRANCH" != "main" ]]; then
+              echo "NO_DISPATCH: workflow run not from protected repository main" >&2
+              printf 'event_type=\npayload={}\n' >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
           fi
 
           EVENT_TYPE=""
@@ -69,21 +107,21 @@ jobs:
           if [ "$EVENT_NAME" = "workflow_run" ]; then
             if [ "$WF_CONCLUSION" = "failure" ]; then
               EVENT_TYPE="github_ci_failure"
-              PAYLOAD=$(jq -n \
+              PAYLOAD=$(jq -cn \
                 --arg branch "$WF_BRANCH" \
                 --arg run_id "$WF_RUN_ID" \
                 --arg conclusion "$WF_CONCLUSION" \
                 '{"branch": $branch, "run_id": $run_id, "failures": $conclusion}')
             elif [ "$WF_CONCLUSION" = "success" ]; then
               EVENT_TYPE="github_ci_success"
-              PAYLOAD=$(jq -n \
+              PAYLOAD=$(jq -cn \
                 --arg branch "$WF_BRANCH" \
                 '{"branch": $branch}')
             fi
 
           elif [ "$EVENT_NAME" = "pull_request" ]; then
             EVENT_TYPE="github_pr_opened"
-            PAYLOAD=$(jq -n \
+            PAYLOAD=$(jq -cn \
               --arg title "$PR_TITLE" \
               --arg number "$PR_NUMBER" \
               --arg url "$PR_URL" \
@@ -91,7 +129,7 @@ jobs:
 
           elif [ "$EVENT_NAME" = "issues" ]; then
             EVENT_TYPE="github_issue_opened"
-            PAYLOAD=$(jq -n \
+            PAYLOAD=$(jq -cn \
               --arg title "$ISSUE_TITLE" \
               --arg number "$ISSUE_NUMBER" \
               --arg body "$ISSUE_BODY" \
@@ -101,7 +139,7 @@ jobs:
             # Only dispatch if comment mentions @aegis-agent
             if echo "$COMMENT_BODY" | grep -q "@aegis-agent"; then
               EVENT_TYPE="github_pr_comment"
-              PAYLOAD=$(jq -n \
+              PAYLOAD=$(jq -cn \
                 --arg body "$COMMENT_BODY" \
                 --arg number "$COMMENT_ISSUE_NUMBER" \
                 '{"body": $body, "number": $number}')
@@ -117,6 +155,12 @@ jobs:
         with:
           workload_identity_provider: ${{ secrets.GCP_WIF_PROVIDER }}
           service_account: ${{ secrets.GCP_SERVICE_ACCOUNT }}
+
+      - name: Install Cloud SDK for WIF-backed Secret Manager lookup
+        if: steps.classify.outputs.event_type != ''
+        uses: google-github-actions/setup-gcloud@v3
+        with:
+          version: '>= 363.0.0'
 
       - name: Broker platform key at execution time
         if: steps.classify.outputs.event_type != ''
@@ -135,23 +179,64 @@ jobs:
           DISPATCH_PAYLOAD: ${{ steps.classify.outputs.payload }}
           PLATFORM_KEY: ${{ steps.platform_key.outputs.key }}
         run: |
-          # Fail-closed: validate response and error on any unexpected status
-          response=$(curl -s -w "\n%{http_code}" -X POST "$PROXY_URL/agents/dispatch" \
-            -H "Content-Type: application/json" \
-            -H "Authorization: Bearer $PLATFORM_KEY" \
-            --fail-with-body \
-            -d "$(jq -n \
-              --arg event_type "$DISPATCH_EVENT_TYPE" \
-              --argjson payload "$DISPATCH_PAYLOAD" \
-              '{"event_type": $event_type, "payload": $payload}')")
-          
-          http_code=$(echo "$response" | tail -n1)
-          body=$(echo "$response" | head -n-1)
-          
-          if [ "$http_code" != "200" ]; then
-            echo "Dispatch failed with HTTP $http_code" >&2
-            echo "$body" >&2
+          set -euo pipefail
+          # Refuse non-HTTPS and non-origin URLs before using brokered secrets.
+          python3 - "$PROXY_URL" <<'PY'
+          import sys
+          from urllib.parse import urlsplit
+          try:
+              value = sys.argv[1]
+              u = urlsplit(value)
+              allowed = (
+                  u.scheme == 'https' and bool(u.hostname)
+                  and not u.username and not u.password
+                  and not u.query and not u.fragment
+                  and u.path in ('', '/')
+                  and u.port in (None, 443)
+                  and not any(c in value for c in '\r\n\t ')
+              )
+          except ValueError:
+              allowed = False
+          if not allowed:
+              sys.exit('DENIED: PROXY_URL must be an HTTPS origin')
+          PY
+
+          response_file=$(mktemp)
+          trap 'rm -f "$response_file"' EXIT
+          request_json=$(jq -cn \
+            --arg event_type "$DISPATCH_EVENT_TYPE" \
+            --argjson payload "$DISPATCH_PAYLOAD" \
+            '{"event_type": $event_type, "payload": $payload}')
+          http_code=$(curl --silent --show-error \
+            --proto '=https' --max-redirs 0 \
+            --connect-timeout 8 --max-time 30 --retry 0 \
+            --request POST "$PROXY_URL/agents/dispatch" \
+            --header 'Content-Type: application/json' \
+            --header "X-API-Key: $PLATFORM_KEY" \
+            --output "$response_file" --write-out '%{http_code}' \
+            --data-binary "$request_json")
+          if [[ "$http_code" != 200 ]]; then
+            echo "Dispatch rejected with HTTP $http_code" >&2
             exit 1
           fi
-          
-          echo "$body" | jq '.results[] | {role, ralph_cycles, is_valid, output: (.output | .[0:500])}'
+          # Reject empty/invalid agent results. Never print returned task data.
+          if ! jq -e '(.results | type == "array" and length > 0) and all(.results[]; (.role | type) == "string" and .is_valid == true)' "$response_file" >/dev/null; then
+            echo 'DENIED: agent result envelope invalid or unverified' >&2
+            exit 1
+          fi
+          jq -c '{agent_result_count:(.results|length), valid_result_count:([.results[]|select(.is_valid == true)]|length)}' "$response_file"
+
+  agent-dispatch-contract-v1:
+    name: Verify dispatch safety using synthetic data (no credentials)
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout candidate without persisted credentials
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          persist-credentials: false
+      - name: Run network-free HTTPS, output and denial regressions
+        run: python3 -m unittest discover -s scripts -p 'test_agent_dispatch_contract.py' -v

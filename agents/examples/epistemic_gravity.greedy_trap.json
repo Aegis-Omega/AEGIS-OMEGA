@@ -1,0 +1,57 @@
+{
+  "schema_version": "0.1",
+  "heads": {
+    "experiment": "trial-head-1"
+  },
+  "evidence": {
+    "joint_a": {
+      "source": "experiment",
+      "sha": "trial-head-1",
+      "verified": false
+    },
+    "joint_b": {
+      "source": "experiment",
+      "sha": "trial-head-1",
+      "verified": false
+    },
+    "solo": {
+      "source": "experiment",
+      "sha": "trial-head-1",
+      "verified": false
+    }
+  },
+  "claims": {
+    "complementary_research": {
+      "value": 11,
+      "alternatives": [
+        [
+          "joint_a",
+          "joint_b"
+        ]
+      ]
+    },
+    "standalone_check": {
+      "value": 7,
+      "alternatives": [
+        [
+          "solo"
+        ]
+      ]
+    }
+  },
+  "probes": {
+    "joint_check_a": {
+      "produces": "joint_a",
+      "cost": 3
+    },
+    "joint_check_b": {
+      "produces": "joint_b",
+      "cost": 3
+    },
+    "solo_check": {
+      "produces": "solo",
+      "cost": 4
+    }
+  },
+  "budget": 6
+}

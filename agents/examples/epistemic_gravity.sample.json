@@ -1,0 +1,19 @@
+{
+  "schema_version": "0.1",
+  "heads": {"formal_math": "head-2026-10-31-a", "app": "head-2026-10-31-b"},
+  "evidence": {
+    "formal_lemma": {"source": "formal_math", "sha": "head-2026-10-31-a", "verified": true},
+    "universal_bridge": {"source": "formal_math", "sha": "head-2026-10-31-a", "verified": false},
+    "ui_eval": {"source": "app", "sha": "head-2026-10-31-b", "verified": false}
+  },
+  "claims": {
+    "formal_milestone": {"value": 15, "alternatives": [["formal_lemma", "universal_bridge"]]},
+    "released_demo": {"value": 5, "alternatives": [["ui_eval"]]},
+    "public_science_demo": {"value": 30, "alternatives": [["formal_milestone", "released_demo"]]}
+  },
+  "probes": {
+    "kernel_replay": {"produces": "universal_bridge", "cost": 2},
+    "ui_benchmark": {"produces": "ui_eval", "cost": 3}
+  },
+  "budget": 5
+}

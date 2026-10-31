@@ -1,0 +1,30 @@
+# AEGIS Ω cross-CI federation, not an Azure pipeline admission receipt.
+# Registration requires explicit Azure DevOps project, repository access and
+# independently confirmed hosted-agent entitlement. This YAML provisions nothing.
+# No automatic PR/branch executions, deployment, secrets or spend.
+name: AEGIS-Federated-Gates-$(Date:yyyyMMdd)$(Rev:.r)
+trigger: none
+pr: none
+pool:
+  vmImage: ubuntu-latest
+jobs:
+  - job: evidence_only
+    displayName: Exact-source AEGIS evidence-only checks
+    timeoutInMinutes: 25
+    steps:
+      - checkout: self
+        persistCredentials: false
+        clean: true
+      - script: python3 -m unittest discover -s scripts -p 'test_devcontainer_config.py' -v
+        displayName: Codespaces config regression (no cloud mutation)
+      - task: NodeTool@0
+        displayName: Node 22
+        inputs:
+          versionSpec: '22.x'
+      - script: |
+          set -euo pipefail
+          npm ci
+          ./node_modules/.bin/vitest run test/unit/provider-mesh.test.ts test/unit/provider-federation.test.ts test/unit/chat-provider-gate.test.ts test/unit/provider-azure-devops.test.ts
+          npm run typecheck
+        workingDirectory: sovereign-omega-v2
+        displayName: Provider-mesh federation and TypeScript checks

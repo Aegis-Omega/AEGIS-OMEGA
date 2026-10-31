@@ -128,6 +128,40 @@ def test_identical_central_inputs_produce_identical_routing_receipts(tmp_path: P
     assert first_role.receipt_hash == second_role.receipt_hash
 
 
+def test_unregistered_dispatch_event_denies_before_repository_or_authority(monkeypatch: Any) -> None:
+    # A signed transport or valid API key cannot grant unregistered event
+    # names a default engineering dispatch, even when metadata is malformed.
+    role = coordinator.AgentRole.ENGINEERING
+    monkeypatch.setattr(
+        coordinator._legacy, "EVENT_ROUTING",
+        {"registered_event": [role]},
+    )
+
+    def forbidden_repository_knowledge(**_kwargs: Any) -> Any:
+        raise AssertionError("unknown event must deny before repository access")
+
+    def forbidden_authority(**_kwargs: Any) -> Any:
+        raise AssertionError("unknown event must deny before central authority")
+
+    async def forbidden_agent(_task: Any) -> Any:
+        raise AssertionError("unknown event must never execute an agent")
+
+    monkeypatch.setattr(coordinator, "establish_repository_knowledge",
+                        forbidden_repository_knowledge)
+    monkeypatch.setattr(coordinator, "authorize_from_environment",
+                        forbidden_authority)
+    monkeypatch.setattr(coordinator._legacy, "run_agent", forbidden_agent)
+
+    for value in ("unrecognized_webhook", "", None, ["registered_event"]):
+        assert asyncio.run(coordinator.dispatch_event(value, {})) == []
+        receipts = coordinator.last_dispatch_receipts()
+        assert len(receipts) == 1
+        assert receipts[0]["outcome"] == "DENIED"
+        assert receipts[0]["authority_score"] == 0.0
+        assert receipts[0]["reason_codes"] == ("UNREGISTERED_DISPATCH_EVENT",)
+        assert len(receipts[0]["receipt_hash"]) == 64
+
+
 def test_dispatch_does_not_execute_denied_role(tmp_path: Path, monkeypatch: Any) -> None:
     instance = router(tmp_path, {"declared_cap": "declared"})
     monkeypatch.setattr(coordinator, "authorize_from_environment", lambda **_kwargs: denied_decision("IDENTITY_UNAVAILABLE"))

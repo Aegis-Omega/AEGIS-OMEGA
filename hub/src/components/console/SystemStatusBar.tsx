@@ -43,7 +43,7 @@ function Field({ label, value, color }: { label: string; value: string; color?: 
 
 export function VerificationPanel({ snap }: { snap: ConsoleSnapshot }) {
   return (
-    <div style={{ ...glass(T.green), padding: 20 }}>
+    <div style={{ ...glass(snap.source === 'live' ? T.green : T.amber), padding: 20 }}>
       <Heading>VERIFICATION · loud by design</Heading>
       <p style={{ fontSize: 12, color: T.muted, marginTop: 6, marginBottom: 16, lineHeight: 1.5 }}>
         No silent degradation. Every check states its reason — a failing system tells you why.

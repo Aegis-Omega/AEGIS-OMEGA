@@ -5,14 +5,42 @@ on:
     branches: [main]
     paths:
       - sovereign-omega-v2/src/sovereignty/**
-      - sovereign-omega-v2/test/unit/sovereignty-contracts.test.ts
+      # Protect test-only PRs: all sovereignty contract and provider unit tests.
+      - sovereign-omega-v2/test/unit/**
+      - sovereign-omega-v2/test/shared/**
       - sovereign-omega-v2/src/core/canonicalize.ts
       - sovereign-omega-v2/src/core/hashing.ts
       - .github/workflows/sovereignty-contracts.yml
+      - .devcontainer/devcontainer.json
+      - azure-pipelines.yml
+      - scripts/test_azure_pipeline_config.py
+      - scripts/test_devcontainer_config.py
+      - .github/workflows/agent-dispatch.yml
+      - vertex/serve.py
+      - vertex/tests/test_dispatch_auth_contract.py
+      - scripts/nebius_preflight.py
+      - scripts/test_nebius_preflight.py
+      - scripts/test_nebius_budget_pg.py
+      - scripts/test_durable_generation_checkpoint_pg.py
+      - scripts/sql/isolated_durable_generation_checkpoint_v1.sql
+      - supabase/migrations/20261031010000_nebius_attempt_budget_v1.sql
+      - supabase/functions/_shared/nebius-budget.ts
+      - supabase/functions/_shared/nebius-endpoint.ts
+      - supabase/functions/chat/index.ts
+      - supabase/functions/_shared/nebius-auth.ts
+      - packages/shared/lib/inference-router.ts
+      - sovereign-omega-v2/test/shared/inference-router.test.ts
+      - sovereign-omega-v2/test/unit/nebius-caller-auth.test.ts
   merge_group:
     branches: [main]
   push:
     branches: [main]
+
+# Preserve active exact-head evidence; replace only superseded pending PR runs.
+# This avoids accumulating three jobs per outdated candidate commit.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: false
 
 permissions:
   contents: read
@@ -28,6 +56,12 @@ jobs:
       - name: Checkout candidate
         uses: actions/checkout@v4
 
+      - name: Validate existing Codespaces devcontainer JSON
+        run: cd .. && python3 -m unittest discover -s scripts -p 'test_devcontainer_config.py' -v
+
+      - name: Validate manual-only Azure Pipelines guard
+        run: cd .. && python3 -m unittest discover -s scripts -p 'test_azure_pipeline_config.py' -v
+
       - name: Set up Node
         uses: actions/setup-node@v4
         with:
@@ -41,5 +75,116 @@ jobs:
       - name: Run sovereignty golden vectors
         run: npx vitest run test/unit/sovereignty-contracts.test.ts
 
+      - name: Cross-cloud provider federation fail-closed tests
+        run: npx vitest run test/unit/provider-federation.test.ts
+
+      - name: Nebius caller authorization and browser proxy regression
+        run: npx vitest run test/unit/nebius-caller-auth.test.ts test/shared/inference-router.test.ts
+
+      - name: Chat explicit-provider fail-closed routing
+        run: npx vitest run test/unit/chat-provider-gate.test.ts
+
+      - name: No-spend resource planning source and trust regressions
+        run: npx vitest run test/unit/free-resource-planning.test.ts
+
+      - name: Connected resource account-read intake regressions
+        run: npx vitest run test/unit/connected-resource-intake.test.ts
+
+      - name: AWS dynamic no-spend collector regression
+        run: npx vitest run test/unit/aws-readonly-collector.test.ts
+
+      - name: AWS provider-account selection containment
+        run: npx vitest run test/unit/provider-aws-account.test.ts
+
+      - name: AWS single-call planning pipeline fail-closed regression
+        run: npx vitest run test/unit/aws-planning-pipeline.test.ts
+
+      - name: Hub demo verification truth boundary
+        run: npx vitest run test/unit/hub-demo-verification.test.ts
+
+      - name: Cloudflare account collector fixed-GET regression
+        run: npx vitest run test/unit/cloudflare-account-collector.test.ts
+
+      - name: GitHub runner observation epistemic regression
+        run: npx vitest run test/unit/provider-github-actions.test.ts
+
+      - name: GitLab exact-source CI evidence adapter regression
+        run: npx vitest run test/unit/provider-gitlab-ci.test.ts
+
+      - name: Azure DevOps run and agent timeline exact-source regression
+        run: npx vitest run test/unit/provider-azure-devops.test.ts
+
+      - name: Read-only Cloudflare resource discovery regressions
+        run: npx vitest run test/unit/cloudflare-resource-discovery.test.ts
+
+      - name: Constitutional proxy dispatch authentication regression
+        run: cd .. && python3 -m unittest discover -s vertex/tests -p 'test_dispatch_auth_contract.py' -v
+
+      - name: Signed free-resource approval trust and revocation regressions
+        run: npx vitest run test/unit/trusted-free-resource-planner.test.ts
+
       - name: Typecheck runtime contracts
         run: npm run typecheck
+
+  nebius-preflight-v1:
+    name: Nebius key-safe model preflight regression
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout exact candidate (read only)
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Run network-free Nebius preflight regression
+        run: python -m unittest discover -s scripts -p 'test_nebius_preflight.py' -v
+
+  nebius-budget-postgres-v1:
+    name: Nebius atomic budget in isolated PostgreSQL
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: local-test-only
+          POSTGRES_DB: aegis_budget_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d aegis_budget_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 12
+    env:
+      AEGIS_LOCAL_PG_TEST: '1'
+      PGHOST: 127.0.0.1
+      PGPORT: '5432'
+      PGDATABASE: aegis_budget_test
+      PGUSER: postgres
+      PGPASSWORD: local-test-only
+    steps:
+      - name: Checkout exact candidate without persisted credentials
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+
+      - name: Ensure local PostgreSQL client available
+        run: |
+          if ! command -v psql >/dev/null; then
+            sudo apt-get update
+            sudo apt-get install -y postgresql-client
+          fi
+
+      - name: Execute migration and 12 concurrent reservations
+        run: python3 scripts/test_nebius_budget_pg.py
+
+      - name: Verify atomic high-water checkpoint in same isolated PostgreSQL
+        run: python3 scripts/test_durable_generation_checkpoint_pg.py

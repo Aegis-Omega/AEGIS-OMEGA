@@ -1,0 +1,65 @@
+{
+  "schema": "AEGIS_CLOUDFLARE_BEHAVIOR_WITNESS_V1",
+  "observed_at": "2026-09-21T15:41:21.324Z",
+  "host": "aegis-vertex.aegisomega.com",
+  "authority_effect": "NONE",
+  "live_behavior": {
+    "health": {
+      "status": 200,
+      "legacy_pgcs_passes_true": true
+    },
+    "node": {
+      "status": 200,
+      "t0_verdict_true": true,
+      "corruption_count_zero": true,
+      "drift_risk": "0.0003"
+    },
+    "telemetry": {
+      "status": 200,
+      "avg_vcg_error": "0.0012",
+      "pgcs_passes_true": true,
+      "failsafe_state": "NOMINAL",
+      "gate_acceptance_rate": "0.9987"
+    },
+    "resonance": {
+      "status": 200,
+      "is_resonant_true": true,
+      "is_certified_true": true,
+      "phi_convergent_true": true,
+      "resonance_depth": 7
+    },
+    "block": {
+      "status": 200,
+      "synthetic_state_root_present": true,
+      "t0_verdict_true": true,
+      "is_replay_reconstructable_true": true
+    },
+    "platform_status": {
+      "status": 200,
+      "chain_valid_true": true,
+      "is_replay_reconstructable_true": true,
+      "audit_chain_hash_present": true
+    }
+  },
+  "repository_boundary": {
+    "pre_fix_parent_commit": "5b82e0367274acd26a9d127108bcf083aaf7ca87",
+    "pre_fix_worker_blob": "a678f92ae8e5aa43d4938ae2ea8827ff9fdb4f1b",
+    "honesty_fix_commit": "6afa5e13ff47ef0dc98c01fba0f4a4b8d24e6641",
+    "honesty_fix_worker_blob": "e5ee982b2c302f449557e21ed5c5cb4708a3496d",
+    "honesty_fix_signature_verified": true
+  },
+  "disposition": {
+    "worker_runtime": "NETWORK_REACHABLE",
+    "governed_execution": "NOT_ROUTABLE",
+    "blocker": "DEPLOYED_BEHAVIOR_PRE_FIX",
+    "behavioral_match": "CONSISTENT_WITH_PRE_FIX_PARENT",
+    "exact_deployed_commit": "NOT_ESTABLISHED",
+    "exact_deployed_bundle": "NOT_ESTABLISHED",
+    "anthopic_bridge": "CREDENTIAL_MISSING"
+  },
+  "non_claims": [
+    "This witness does not establish the exact deployed Cloudflare commit or bundle.",
+    "Legacy edge verdict fields are not accepted as measured governance evidence.",
+    "Worker liveness does not grant execution authority."
+  ]
+}

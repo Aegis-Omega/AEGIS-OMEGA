@@ -7,6 +7,10 @@
 // the operator always knows whether they're seeing live data or demo, and why.
 
 import { useEffect, useState } from 'react'
+import { deriveChecks } from './verificationChecks.js'
+import type { SystemCheck } from './verificationChecks.js'
+export { deriveChecks } from './verificationChecks.js'
+export type { SystemCheck } from './verificationChecks.js'
 
 // ── Mirrored contract shapes (source of truth: @shared/lib/platform-contract) ──
 
@@ -43,12 +47,6 @@ export interface PlatformStatus {
 }
 
 // A single legible verification line — the loud-failure primitive.
-export interface SystemCheck {
-  label: string
-  ok: boolean
-  reason: string
-}
-
 export interface ConsoleSnapshot {
   source: 'live' | 'demo'
   reason: string
@@ -91,27 +89,6 @@ const DEMO_SNAPSHOT: ConsoleSnapshot = {
 }
 
 // ── Loud verification: derive a legible check list from the live/demo state ────
-
-export function deriveChecks(
-  source: 'live' | 'demo',
-  status: PlatformStatus,
-  cal: CalibrationStatus,
-): SystemCheck[] {
-  return [
-    { label: 'Bridge reachable', ok: source === 'live',
-      reason: source === 'live' ? 'connected' : 'unreachable — demo fallback engaged' },
-    { label: 'Contract version', ok: status.contract_version === '1.0.0',
-      reason: status.contract_version === '1.0.0' ? 'v1.0.0 matched' : `mismatch: ${status.contract_version}` },
-    { label: 'Hash chain valid', ok: status.chain_valid,
-      reason: status.chain_valid ? 'corruption_count=0 · drift<1/φ' : 'corruption detected — T0_ABORT' },
-    { label: 'Homeostasis', ok: cal.homeostasis_zone === 'optimal' || cal.homeostasis_zone === 'slack',
-      reason: `${cal.homeostasis_zone} · ${cal.recommendation}` },
-    { label: 'Stagnation guard', ok: cal.stagnation_rate < 0.5,
-      reason: `${Math.round(cal.stagnation_rate * 100)}% of recent runs flagged` },
-    { label: 'Constitutional factor', ok: cal.constitutional_factor_mean >= 0.7,
-      reason: `mean ${cal.constitutional_factor_mean.toFixed(2)} (APPROVED=1.0 · FLAG=0.70)` },
-  ]
-}
 
 async function getData<T>(path: string, signal: AbortSignal): Promise<T | undefined> {
   try {

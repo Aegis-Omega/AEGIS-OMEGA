@@ -1,6 +1,11 @@
+import { createClient } from 'jsr:@supabase/supabase-js@2'
 import { CORS } from '../_shared/cors.ts'
+import { authorizeNebiusCaller, isNebiusRequestBounded, logNebiusUpstreamFailure } from '../_shared/nebius-auth.ts'
+import { reserveNebiusAttempt } from '../_shared/nebius-budget.ts'
+import { getNebiusChatUrl } from '../_shared/nebius-endpoint.ts'
+import { routeChatProviderV1 } from '../_shared/chat-provider-gate.ts'
 
-const DASHSCOPE_API_KEY = Deno.env.get('DASHSCOPE_API_KEY') ?? ''
+const DASHSCOPE_API_KEY_ENV = Deno.env.get('DASHSCOPE_API_KEY') ?? ''
 const DASHSCOPE_URL = 'https://dashscope-intl.aliyuncs.com/compatible-mode/v1/chat/completions'
 const OPENAI_API_KEY = Deno.env.get('OPENAI_API_KEY') ?? ''
 const OPENAI_URL = 'https://api.openai.com/v1/chat/completions'
@@ -8,17 +13,50 @@ const OPENAI_URL = 'https://api.openai.com/v1/chat/completions'
 // an invalid/guessed model id would be rejected by the paid backend. If unset,
 // the OpenAI branch returns the friendly-unavailable response instead of calling out.
 const OPENAI_MODEL = Deno.env.get('OPENAI_MODEL') ?? ''
+const NEBIUS_API_KEY = Deno.env.get('NEBIUS_API_KEY') ?? ''
+const NEBIUS_URL = getNebiusChatUrl(Deno.env.get('NEBIUS_BASE_URL') ?? 'https://api.tokenfactory.nebius.com/v1/')
+const NEBIUS_MODEL = Deno.env.get('NEBIUS_MODEL') ?? ''
 // Server-side provider gates. `provider` arrives in the public request body, so
 // the client-side VITE_ENABLE_* flags cannot actually gate the paid backends.
 // A requested provider is only honored when its server flag is explicitly 'true';
-// otherwise the request falls back to the default (dashscope).
+// Every explicit provider must fail closed if disabled; no paid-provider fallback.
 const CHAT_ENABLE_OPENAI = Deno.env.get('CHAT_ENABLE_OPENAI') === 'true'
+const CHAT_ENABLE_NEBIUS = Deno.env.get('CHAT_ENABLE_NEBIUS') === 'true'
 const CHAT_ENABLE_AZURE  = Deno.env.get('CHAT_ENABLE_AZURE') === 'true'
 const AZURE_OPENAI_ENDPOINT = Deno.env.get('AZURE_OPENAI_ENDPOINT') ?? ''
 const AZURE_OPENAI_API_KEY = Deno.env.get('AZURE_OPENAI_API_KEY') ?? ''
 const AZURE_OPENAI_DEPLOYMENT = Deno.env.get('AZURE_OPENAI_DEPLOYMENT') ?? ''
 const AZURE_OPENAI_API_VERSION = Deno.env.get('AZURE_OPENAI_API_VERSION') ?? '2024-10-21'
 const DEFAULT_SYSTEM = `You are the AEGIS Omega AI assistant helping content creators. Be concise, direct, and practical.`
+
+let dashScopeKeyCache: string | null | undefined
+
+async function loadDashScopeApiKey(): Promise<string> {
+  if (DASHSCOPE_API_KEY_ENV) return DASHSCOPE_API_KEY_ENV
+  if (dashScopeKeyCache !== undefined) return dashScopeKeyCache ?? ''
+
+  const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? ''
+  const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+  if (!supabaseUrl || !serviceRoleKey) {
+    dashScopeKeyCache = null
+    return ''
+  }
+
+  const supabase = createClient(supabaseUrl, serviceRoleKey, {
+    auth: { persistSession: false },
+  })
+  const { data, error } = await supabase.rpc('get_provider_secret_v1', {
+    p_name: 'aegis-dashscope-api-key',
+  })
+  if (error || typeof data !== 'string' || !data) {
+    if (error) console.error('DashScope Vault lookup failed:', error.message)
+    dashScopeKeyCache = null
+    return ''
+  }
+
+  dashScopeKeyCache = data
+  return data
+}
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response(null, { headers: CORS })
@@ -29,11 +67,42 @@ Deno.serve(async (req) => {
       message: string
       history?: { role: string; content: string }[]
       system?: string
-      provider?: 'dashscope' | 'openai' | 'azure'
+      provider?: unknown
     }
 
     if (!message?.trim()) {
       return new Response(JSON.stringify({ error: 'message required' }), { status: 400, headers: { ...CORS, 'Content-Type': 'application/json' } })
+    }
+
+    // Route the requested provider exactly. Never substitute DashScope when
+    // OpenAI, Nebius or Azure is disabled, and reject unknown JSON values.
+    const route = routeChatProviderV1(provider, {
+      openai: CHAT_ENABLE_OPENAI,
+      nebius: CHAT_ENABLE_NEBIUS,
+      azure: CHAT_ENABLE_AZURE,
+    })
+    if (route.outcome === 'DENIED') {
+      if (route.denial_code === 'INVALID_PROVIDER') {
+        return new Response(JSON.stringify({ error: 'unsupported provider' }), {
+          status: 400, headers: { ...CORS, 'Content-Type': 'application/json' },
+        })
+      }
+      return new Response(JSON.stringify({
+        error: 'AI unavailable',
+        reply: 'The requested AI provider is disabled. No alternative provider was called.',
+        provider_status: 'disabled',
+        provider: route.provider_id,
+      }), {
+        status: 200, headers: { ...CORS, 'Content-Type': 'application/json' },
+      })
+    }
+
+    // Validate the complete caller-controlled structure BEFORE history.filter:
+    // malformed/oversized Nebius history must not throw before the auth gate.
+    if (provider === 'nebius' && !isNebiusRequestBounded(message, system, history)) {
+      return new Response(JSON.stringify({ error: 'Nebius request exceeds server input limits' }), {
+        status: 413, headers: { ...CORS, 'Content-Type': 'application/json' },
+      })
     }
 
     const messages = [
@@ -42,23 +111,102 @@ Deno.serve(async (req) => {
       { role: 'user', content: message },
     ]
 
-    let useOpenAI = provider === 'openai'
-    let useAzure = provider === 'azure'
+    const useOpenAI = route.provider === 'openai'
+    const useNebius = route.provider === 'nebius'
+    const useAzure = route.provider === 'azure'
+    const providerId = route.provider_id
 
-    // Server-side gate: a client cannot force a paid backend by setting `provider`.
-    // If the provider's server flag is off, fall back to the default (dashscope).
-    if (useOpenAI && !CHAT_ENABLE_OPENAI) {
-      console.error('OpenAI provider requested but CHAT_ENABLE_OPENAI is not "true" — falling back to dashscope')
-      useOpenAI = false
-    }
-    if (useAzure && !CHAT_ENABLE_AZURE) {
-      console.error('Azure provider requested but CHAT_ENABLE_AZURE is not "true" — falling back to dashscope')
-      useAzure = false
+    const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? ''
+    const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+    if (!supabaseUrl || !serviceRoleKey) {
+      console.error('Provider Mesh gate unavailable: Supabase runtime credentials missing')
+      return new Response(JSON.stringify({
+        error: 'AI unavailable',
+        reply: "I'm having trouble connecting right now. Try again in a moment.",
+        provider_status: 'mesh_unavailable',
+      }), {
+        status: 200,
+        headers: { ...CORS, 'Content-Type': 'application/json' },
+      })
     }
 
-    // OpenAI requires an explicit model — never send a guessed/invalid model id.
+    if (useNebius) {
+      // The deployed function currently allows unauthenticated gateway entry.
+      // Never call a paid provider based on the public anon key alone.
+      const authorized = await authorizeNebiusCaller(
+        req.headers.get('Authorization'),
+        Deno.env.get('CHAT_NEBIUS_ALLOWED_USER_IDS') ?? '',
+        async (jwt) => {
+          const authClient = createClient(supabaseUrl, serviceRoleKey, {
+            auth: { persistSession: false },
+          })
+          const { data, error } = await authClient.auth.getUser(jwt)
+          return error ? null : data.user?.id ?? null
+        },
+      )
+      if (!authorized) {
+        return new Response(JSON.stringify({ error: 'Nebius requires an approved authenticated user' }), {
+          status: 401,
+          headers: { ...CORS, 'Content-Type': 'application/json' },
+        })
+      }
+      if (!isNebiusRequestBounded(message, system, history)) {
+        return new Response(JSON.stringify({ error: 'Nebius request exceeds server input limits' }), {
+          status: 413,
+          headers: { ...CORS, 'Content-Type': 'application/json' },
+        })
+      }
+    }
+
+    const providerMesh = createClient(supabaseUrl, serviceRoleKey, {
+      auth: { persistSession: false },
+    })
+    const { data: candidates, error: candidateError } = await providerMesh.rpc(
+      'get_provider_runtime_candidate_v1',
+      {
+        p_capability: 'MODEL_INFERENCE',
+        p_provider_id: providerId,
+      },
+    )
+    const candidate = Array.isArray(candidates) && candidates.length > 0
+      ? candidates[0]
+      : null
+
+    if (candidateError || !candidate) {
+      if (candidateError) {
+        console.error('Provider Mesh candidate lookup failed:', candidateError.message)
+      }
+      return new Response(JSON.stringify({
+        error: 'AI unavailable',
+        reply: "I'm having trouble connecting right now. Try again in a moment.",
+        provider_status: candidateError ? 'mesh_error' : 'not_observed_available',
+        provider: providerId,
+      }), {
+        status: 200,
+        headers: { ...CORS, 'Content-Type': 'application/json' },
+      })
+    }
+
+    // OpenAI and Nebius require explicit models — never send guessed model ids.
     if (useOpenAI && !OPENAI_MODEL) {
       console.error('OpenAI error: OPENAI_MODEL must be set (no hardcoded default)')
+      return new Response(JSON.stringify({ error: 'AI unavailable', reply: "I'm having trouble connecting right now. Try again in a moment." }), {
+        status: 200, headers: { ...CORS, 'Content-Type': 'application/json' },
+      })
+    }
+
+    if (useNebius && !NEBIUS_URL) {
+      // Deny before budget reservation or credential-bearing fetch.
+      return new Response(JSON.stringify({
+        error: 'Unapproved Nebius Token Factory endpoint',
+        provider_status: 'invalid_endpoint',
+      }), {
+        status: 503, headers: { ...CORS, 'Content-Type': 'application/json' },
+      })
+    }
+
+    if (useNebius && (!NEBIUS_MODEL || !NEBIUS_API_KEY)) {
+      console.error('Nebius error: NEBIUS_MODEL and NEBIUS_API_KEY must be set')
       return new Response(JSON.stringify({ error: 'AI unavailable', reply: "I'm having trouble connecting right now. Try again in a moment." }), {
         status: 200, headers: { ...CORS, 'Content-Type': 'application/json' },
       })
@@ -71,17 +219,55 @@ Deno.serve(async (req) => {
       })
     }
 
+    const dashScopeApiKey = useOpenAI || useNebius || useAzure
+      ? ''
+      : await loadDashScopeApiKey()
+
+    if (!useOpenAI && !useNebius && !useAzure && !dashScopeApiKey) {
+      console.error('DashScope error: no environment or Vault credential is configured')
+      return new Response(JSON.stringify({ error: 'AI unavailable', reply: "I'm having trouble connecting right now. Try again in a moment." }), {
+        status: 200, headers: { ...CORS, 'Content-Type': 'application/json' },
+      })
+    }
+
     const url = useAzure
       ? `${AZURE_OPENAI_ENDPOINT}/openai/deployments/${AZURE_OPENAI_DEPLOYMENT}/chat/completions?api-version=${AZURE_OPENAI_API_VERSION}`
-      : useOpenAI ? OPENAI_URL : DASHSCOPE_URL
+      : useOpenAI ? OPENAI_URL
+        : useNebius ? NEBIUS_URL!
+          : DASHSCOPE_URL
+
+    if (useNebius) {
+      // Single durable reservation before any potentially billable request.
+      // Missing RPC, exhausted cap or database failure MUST deny the call.
+      const reserved = await reserveNebiusAttempt(() =>
+        providerMesh.rpc('reserve_nebius_inference_attempt_v1'))
+      if (!reserved) {
+        return new Response(JSON.stringify({
+          error: 'Nebius funded attempt budget unavailable or exhausted',
+          provider_status: 'budget_denied',
+          provider: 'nebius-token-factory',
+        }), {
+          status: 429,
+          headers: { ...CORS, 'Content-Type': 'application/json' },
+        })
+      }
+    }
 
     const resp = await fetch(url, {
       method: 'POST',
+      // Block all HTTP redirect hops for credential-bearing Nebius requests.
+      redirect: useNebius ? 'error' : 'follow',
       headers: {
         'Content-Type': 'application/json',
         ...(useAzure
           ? { 'api-key': AZURE_OPENAI_API_KEY }
-          : { 'Authorization': `Bearer ${useOpenAI ? OPENAI_API_KEY : DASHSCOPE_API_KEY}` }),
+          : {
+              'Authorization': `Bearer ${useOpenAI
+                ? OPENAI_API_KEY
+                : useNebius
+                  ? NEBIUS_API_KEY
+                  : dashScopeApiKey}`,
+            }),
       },
       body: JSON.stringify(useAzure ? {
         // model is implied by the Azure deployment; gpt-5-family deployments
@@ -92,6 +278,10 @@ Deno.serve(async (req) => {
         model: OPENAI_MODEL,
         messages,
         max_completion_tokens: 1024,
+      } : useNebius ? {
+        model: NEBIUS_MODEL,
+        messages,
+        max_tokens: 256,
       } : {
         model: 'qwen-plus',
         messages,
@@ -101,8 +291,22 @@ Deno.serve(async (req) => {
     })
 
     if (!resp.ok) {
-      const err = await resp.text()
-      console.error(useAzure ? 'Azure OpenAI error:' : useOpenAI ? 'OpenAI error:' : 'DashScope error:', resp.status, err)
+      if (useNebius) {
+        // Some providers echo prompts, credential fragments or account
+        // metadata in upstream errors. Never read the body into logs.
+        logNebiusUpstreamFailure(resp, (label, status) => console.error(label, status))
+      } else {
+        const err = await resp.text()
+        console.error(
+          useAzure
+            ? 'Azure OpenAI error:'
+            : useOpenAI
+              ? 'OpenAI error:'
+              : 'DashScope error:',
+          resp.status,
+          err,
+        )
+      }
       return new Response(JSON.stringify({ error: 'AI unavailable', reply: "I'm having trouble connecting right now. Try again in a moment." }), {
         status: 200, headers: { ...CORS, 'Content-Type': 'application/json' },
       })
@@ -113,7 +317,7 @@ Deno.serve(async (req) => {
 
     // Report the model/deployment actually used so callers (inference-router)
     // record real provenance instead of a client-side guess.
-    const usedModel = useAzure ? AZURE_OPENAI_DEPLOYMENT : useOpenAI ? OPENAI_MODEL : 'qwen-plus'
+    const usedModel = useAzure ? AZURE_OPENAI_DEPLOYMENT : useOpenAI ? OPENAI_MODEL : useNebius ? NEBIUS_MODEL : 'qwen-plus'
 
     return new Response(JSON.stringify({ reply, model: usedModel }), {
       headers: { ...CORS, 'Content-Type': 'application/json' },
