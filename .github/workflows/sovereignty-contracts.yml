@@ -69,6 +69,9 @@ jobs:
       - name: GitHub runner observation epistemic regression
         run: npx vitest run test/unit/provider-github-actions.test.ts
 
+      - name: Read-only Cloudflare resource discovery regressions
+        run: npx vitest run test/unit/cloudflare-resource-discovery.test.ts
+
       - name: Typecheck runtime contracts
         run: npm run typecheck
 
