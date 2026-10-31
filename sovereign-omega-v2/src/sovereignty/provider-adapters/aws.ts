@@ -37,8 +37,9 @@ export async function observeAwsAccountForProviderMeshV1(
   return {
     schema_version: PROVIDER_MESH_SCHEMA_VERSION,
     provider_id: 'aws',
-    // Source-derived account observation, NOT execution availability.
-    state: inventory.aws.identity === 'OBSERVED' && inventory.aws.principal_kind !== 'ROOT'
+    // An absent or UNKNOWN principal is not proof of a non-root identity.
+    // Even a recognized IAM principal conveys no execution permission.
+    state: inventory.aws.identity === 'OBSERVED' && inventory.aws.principal_kind === 'IAM_PRINCIPAL'
       ? 'ACCOUNT_CONFIGURED' : 'UNKNOWN',
     observed_capabilities: [],
     evidence_hash: integrity_root,

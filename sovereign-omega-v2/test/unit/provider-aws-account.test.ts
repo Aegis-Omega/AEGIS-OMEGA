@@ -35,7 +35,7 @@ describe('AWS provider mesh observer: no compute admission from mere account acc
     expect(d).toBeDefined()
     expect(d?.authority_effect).toBe('NONE')
     expect(d?.declared_capabilities).toContain('SERVERLESS_FUNCTION')
-    const i=await inventory(reads())
+    const i=await inventory(reads({principal_kind:'IAM_PRINCIPAL'}))
     const o=await observeAwsAccountForProviderMeshV1(i)
     expect(o.state).toBe('ACCOUNT_CONFIGURED')
     expect(o.observed_capabilities).toEqual([])
@@ -96,7 +96,7 @@ describe('AWS provider mesh observer: no compute admission from mere account acc
   })
   it('closes the read-only collector -> intake -> mesh -> denied-selection chain',async()=>{
     const callback:AwsReadCallV1=async request=>{
-      if(request.operation_name==='GetCallerIdentity')return {Account:'123456789012'}
+      if(request.operation_name==='GetCallerIdentity')return {Account:'123456789012',Arn:'arn:aws:iam::123456789012:user/ScopedReadOnly'}
       const names:Record<string,string>={
         ListBuckets:'Buckets',DescribeRegions:'Regions',ListBillingViews:'billingViews',
         DescribeBudgets:'Budgets',GetFreeTierUsage:'freeTierUsages',
@@ -127,4 +127,20 @@ it('root AWS principal is not promoted even to ACCOUNT_CONFIGURED',async()=>{
 it('malformed forged AWS principal-kind is rejected',async()=>{
   await expect(inventory(reads({principal_kind:'ROOT_USER_WITH_ACCESS' as never})))
     .rejects.toThrow('principal_kind')
+})
+
+it('omitted AWS principal-kind is UNKNOWN even when STS is successful',async()=>{
+  const i=await inventory(reads())
+  const o=await observeAwsAccountForProviderMeshV1(i)
+  expect(o.state).toBe('UNKNOWN')
+  expect(o.observed_capabilities).toEqual([])
+  const s=await buildProviderMeshSnapshotV1(DECLARED_PROVIDER_CATALOG_V1,[o])
+  expect((await selectProviderV1(s,selectionRequest)).outcome).toBe('DENIED')
+})
+
+it('explicit UNKNOWN AWS principal-kind never promotes account configuration',async()=>{
+  const i=await inventory(reads({principal_kind:'UNKNOWN'}))
+  const o=await observeAwsAccountForProviderMeshV1(i)
+  expect(o.state).toBe('UNKNOWN')
+  expect(o.observed_capabilities).toEqual([])
 })
