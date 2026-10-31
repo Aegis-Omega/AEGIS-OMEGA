@@ -61,6 +61,9 @@ jobs:
       - name: Connected resource account-read intake regressions
         run: npx vitest run test/unit/connected-resource-intake.test.ts
 
+      - name: Cloudflare account collector fixed-GET regression
+        run: npx vitest run test/unit/cloudflare-account-collector.test.ts
+
       - name: Typecheck runtime contracts
         run: npm run typecheck
 
