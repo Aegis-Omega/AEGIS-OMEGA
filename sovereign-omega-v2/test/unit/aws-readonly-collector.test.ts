@@ -124,7 +124,9 @@ it('classifies STS root without persisting ARN, account or UserId',async()=>{
       ListBuckets:'Buckets',DescribeRegions:'Regions',ListBillingViews:'billingViews',
       DescribeBudgets:'Budgets',GetFreeTierUsage:'freeTierUsages',
     }
-    return {[fields[r.operation_name]]:[]}
+    const field=fields[r.operation_name]
+    if(!field) throw new Error('unexpected AWS operation: '+r.operation_name)
+    return {[field]:[]}
   }
   const result=await collectAwsResourceReadsV1(call,{region:'eu-central-1'})
   expect(result.principal_kind).toBe('ROOT')
@@ -165,7 +167,9 @@ describe('AWS optional read-only service discovery',()=>{
       }
       if(r.operation_name==='GetCallerIdentity')
         return {Account:'123456789012',Arn:'arn:aws:iam::123456789012:root'}
-      return overrides[r.operation_name]??{[fields[r.operation_name]]:[]}
+      const field=fields[r.operation_name]
+      if(!field) throw new Error('unexpected AWS operation: '+r.operation_name)
+      return overrides[r.operation_name]??{[field]:[]}
     }
     return {result:await collectAwsResourceReadsV1(call,{region:'eu-central-1',include_service_discovery:true}),calls}
   }
@@ -176,7 +180,9 @@ describe('AWS optional read-only service discovery',()=>{
       if (r.operation_name==='GetCallerIdentity')return {Account:'123456789012'}
       const fields:Record<string,string>={ListBuckets:'Buckets',DescribeRegions:'Regions',
         ListBillingViews:'billingViews',DescribeBudgets:'Budgets',GetFreeTierUsage:'freeTierUsages'}
-      return {[fields[r.operation_name]]:[]}
+      const field=fields[r.operation_name]
+    if(!field) throw new Error('unexpected AWS operation: '+r.operation_name)
+    return {[field]:[]}
     }
     const d=await collectAwsResourceReadsV1(call,{region:'eu-central-1'})
     expect(d.service_discovery).toBeUndefined()

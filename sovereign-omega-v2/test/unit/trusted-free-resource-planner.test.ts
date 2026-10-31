@@ -332,8 +332,7 @@ describe('trusted free-resource Ed25519 approval boundary (synthetic only)',()=>
   })
 })
 
-describe('shared durable high-water checkpoint contract (isolated synthetic store)',()=>{
-  function seededStore(initial:string|null='10'){
+function seededStore(initial:string|null='10'){
     let floor=initial
     const seen:string[]=[]
     const store:AuthenticatedAtomicGenerationCheckpointV1={
@@ -347,6 +346,7 @@ describe('shared durable high-water checkpoint contract (isolated synthetic stor
     }
     return {store,seen,getFloor:()=>floor}
   }
+describe('shared durable high-water checkpoint contract (isolated synthetic store)',()=>{
   it('accepts signed evidence only when a preseeded durable floor is atomically checked twice',async()=>{
     const c=await context()
     const durable=seededStore()
@@ -493,7 +493,7 @@ describe('SQL-to-Ed25519 planner integration contract (synthetic parameterized c
     expect(result.outcome).toBe('PLANNING_ELIGIBLE')
     expect(result.authority_effect).toBe('NONE')
     expect(sqlCalls).toHaveLength(2)
-    expect(sqlCalls[0].sql).toBe(
+    expect(sqlCalls[0]!.sql).toBe(
       'SELECT outcome, persisted_generation FROM public.aegis_test_observe_advance_v1($1::text,$2::text)',
     )
     expect(sqlCalls.map(x=>x.args)).toEqual([
