@@ -17,6 +17,8 @@ on:
       - scripts/nebius_preflight.py
       - scripts/test_nebius_preflight.py
       - scripts/test_nebius_budget_pg.py
+      - scripts/test_durable_generation_checkpoint_pg.py
+      - scripts/sql/isolated_durable_generation_checkpoint_v1.sql
       - supabase/migrations/20261031010000_nebius_attempt_budget_v1.sql
       - supabase/functions/_shared/nebius-budget.ts
       - supabase/functions/_shared/nebius-endpoint.ts
@@ -161,3 +163,6 @@ jobs:
 
       - name: Execute migration and 12 concurrent reservations
         run: python3 scripts/test_nebius_budget_pg.py
+
+      - name: Verify atomic high-water checkpoint in same isolated PostgreSQL
+        run: python3 scripts/test_durable_generation_checkpoint_pg.py
