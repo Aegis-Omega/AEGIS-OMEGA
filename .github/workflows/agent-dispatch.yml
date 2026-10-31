@@ -166,23 +166,64 @@ jobs:
           DISPATCH_PAYLOAD: ${{ steps.classify.outputs.payload }}
           PLATFORM_KEY: ${{ steps.platform_key.outputs.key }}
         run: |
-          # Fail-closed: validate response and error on any unexpected status
-          response=$(curl -s -w "\n%{http_code}" -X POST "$PROXY_URL/agents/dispatch" \
-            -H "Content-Type: application/json" \
-            -H "X-API-Key: $PLATFORM_KEY" \
-            --fail-with-body \
-            -d "$(jq -n \
-              --arg event_type "$DISPATCH_EVENT_TYPE" \
-              --argjson payload "$DISPATCH_PAYLOAD" \
-              '{"event_type": $event_type, "payload": $payload}')")
-          
-          http_code=$(echo "$response" | tail -n1)
-          body=$(echo "$response" | head -n-1)
-          
-          if [ "$http_code" != "200" ]; then
-            echo "Dispatch failed with HTTP $http_code" >&2
-            echo "$body" >&2
+          set -euo pipefail
+          # Refuse non-HTTPS and non-origin URLs before using brokered secrets.
+          python3 - "$PROXY_URL" <<'PY'
+          import sys
+          from urllib.parse import urlsplit
+          try:
+              value = sys.argv[1]
+              u = urlsplit(value)
+              allowed = (
+                  u.scheme == 'https' and bool(u.hostname)
+                  and not u.username and not u.password
+                  and not u.query and not u.fragment
+                  and u.path in ('', '/')
+                  and u.port in (None, 443)
+                  and not any(c in value for c in '\r\n\t ')
+              )
+          except ValueError:
+              allowed = False
+          if not allowed:
+              sys.exit('DENIED: PROXY_URL must be an HTTPS origin')
+          PY
+
+          response_file=$(mktemp)
+          trap 'rm -f "$response_file"' EXIT
+          request_json=$(jq -cn \
+            --arg event_type "$DISPATCH_EVENT_TYPE" \
+            --argjson payload "$DISPATCH_PAYLOAD" \
+            '{"event_type": $event_type, "payload": $payload}')
+          http_code=$(curl --silent --show-error \
+            --proto '=https' --max-redirs 0 \
+            --connect-timeout 8 --max-time 30 --retry 0 \
+            --request POST "$PROXY_URL/agents/dispatch" \
+            --header 'Content-Type: application/json' \
+            --header "X-API-Key: $PLATFORM_KEY" \
+            --output "$response_file" --write-out '%{http_code}' \
+            --data-binary "$request_json")
+          if [[ "$http_code" != 200 ]]; then
+            echo "Dispatch rejected with HTTP $http_code" >&2
             exit 1
           fi
-          
-          echo "$body" | jq '.results[] | {role, ralph_cycles, is_valid, output: (.output | .[0:500])}'
+          # Reject empty/invalid agent results. Never print returned task data.
+          if ! jq -e '(.results | type == "array" and length > 0) and all(.results[]; (.role | type) == "string" and .is_valid == true)' "$response_file" >/dev/null; then
+            echo 'DENIED: agent result envelope invalid or unverified' >&2
+            exit 1
+          fi
+          jq -c '{agent_result_count:(.results|length), valid_result_count:([.results[]|select(.is_valid == true)]|length)}' "$response_file"
+
+  agent-dispatch-contract-v1:
+    name: Verify dispatch safety using synthetic data (no credentials)
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout candidate without persisted credentials
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          persist-credentials: false
+      - name: Run network-free HTTPS, output and denial regressions
+        run: python3 -m unittest discover -s scripts -p 'test_agent_dispatch_contract.py' -v
