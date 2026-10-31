@@ -32,6 +32,40 @@ public struct AppleFoundationModelsAvailability: Equatable, Sendable {
 ///
 /// Authority boundary: model output is data only. This runner cannot grant repository,
 /// cloud, App Store, signing, Apple Business Manager, MDM, or governance authority.
+/// Revocable readiness lease for an asynchronous model generation.
+/// A generation must not report success after its initialization was revoked.
+/// All shared state is synchronized because initialize and inference can overlap.
+internal final class AppleModelReadiness: @unchecked Sendable {
+    private let lock = NSLock()
+    private var revision: UInt64 = 0
+    private var initialized = false
+
+    func beginInitialization() -> UInt64 {
+        lock.withLock {
+            revision &+= 1
+            initialized = false
+            return revision
+        }
+    }
+
+    @discardableResult
+    func completeInitialization(_ token: UInt64) -> Bool {
+        lock.withLock {
+            guard revision == token else { return false }
+            initialized = true
+            return true
+        }
+    }
+
+    func activeToken() -> UInt64? {
+        lock.withLock { initialized ? revision : nil }
+    }
+
+    func isActive(_ token: UInt64) -> Bool {
+        lock.withLock { initialized && revision == token }
+    }
+}
+
 public final class AppleFoundationModelsRunner: EdgeInferenceRunning {
     public static let modelName = "apple-foundation-models-default"
 
@@ -39,7 +73,7 @@ public final class AppleFoundationModelsRunner: EdgeInferenceRunning {
     public static let maximumPromptBytes = 16_384
     public static let maximumResponseTokens = 1_024
 
-    private var initialized = false
+    private let readiness = AppleModelReadiness()
 
     public init() {}
 
@@ -70,8 +104,8 @@ public final class AppleFoundationModelsRunner: EdgeInferenceRunning {
     }
 
     public func initializeModel(named modelName: String) async throws {
-        // A failed reinitialization must never preserve a prior ready state.
-        initialized = false
+        // Invalidate all prior and in-flight generations before checking readiness.
+        let token = readiness.beginInitialization()
         guard modelName == Self.modelName else {
             throw AppleFoundationModelsError.unsupportedModelName(modelName)
         }
@@ -83,7 +117,9 @@ public final class AppleFoundationModelsRunner: EdgeInferenceRunning {
             )
         }
 
-        initialized = true
+        guard readiness.completeInitialization(token) else {
+            throw AppleFoundationModelsError.notInitialized
+        }
     }
 
     public func executeInference(
@@ -103,7 +139,7 @@ public final class AppleFoundationModelsRunner: EdgeInferenceRunning {
         maxTokens: Int = 128,
         temperature: Float = 0.2
     ) async throws -> AppleFoundationModelsExecution {
-        guard initialized else {
+        guard let token = readiness.activeToken() else {
             throw AppleFoundationModelsError.notInitialized
         }
 
@@ -140,6 +176,10 @@ public final class AppleFoundationModelsRunner: EdgeInferenceRunning {
             )
 
             let response = try await session.respond(to: prompt, options: options)
+            // Readiness may have been revoked while generation was suspended.
+            guard readiness.isActive(token) else {
+                throw AppleFoundationModelsError.notInitialized
+            }
             let output = response.content
             let receipt = AppleInferenceReceipt.succeeded(
                 prompt: prompt,

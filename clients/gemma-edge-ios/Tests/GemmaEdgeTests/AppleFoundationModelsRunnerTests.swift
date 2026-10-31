@@ -129,3 +129,38 @@ final class AppleFoundationModelsRunnerPolicyTests: XCTestCase {
         }
     }
 }
+
+final class AppleModelReadinessTests: XCTestCase {
+    func testNoLeaseBeforeInitialization() {
+        let readiness = AppleModelReadiness()
+        XCTAssertNil(readiness.activeToken())
+    }
+
+    func testSuccessfulInitializationEnablesLease() {
+        let readiness = AppleModelReadiness()
+        let token = readiness.beginInitialization()
+        XCTAssertTrue(readiness.completeInitialization(token))
+        XCTAssertEqual(readiness.activeToken(), token)
+        XCTAssertTrue(readiness.isActive(token))
+    }
+
+    func testReinitializationRevokesInFlightLease() {
+        let readiness = AppleModelReadiness()
+        let old = readiness.beginInitialization()
+        XCTAssertTrue(readiness.completeInitialization(old))
+        let next = readiness.beginInitialization()
+        XCTAssertFalse(readiness.isActive(old))
+        XCTAssertNil(readiness.activeToken())
+        XCTAssertTrue(readiness.completeInitialization(next))
+        XCTAssertFalse(readiness.isActive(old))
+        XCTAssertTrue(readiness.isActive(next))
+    }
+
+    func testStaleSuccessfulCompletionCannotReenableRevokedLease() {
+        let readiness = AppleModelReadiness()
+        let stale = readiness.beginInitialization()
+        _ = readiness.beginInitialization()
+        XCTAssertFalse(readiness.completeInitialization(stale))
+        XCTAssertNil(readiness.activeToken())
+    }
+}
