@@ -129,6 +129,11 @@ def select_challenges(source_digest, challenge_pool, seed, count, submitter):
         _require(item.get("expected_answer_visible") is False
                  and "expected_answer" not in item,
                  "CHALLENGE_ANSWER_LEAKED")
+        _require(set(item) == {
+            "id", "class", "source_snapshot_sha256",
+            "prompt_sha256", "expected_answer_visible",
+            "generator_principal_id",
+        }, "CHALLENGE_FIELDS_INVALID")
         _require(item.get("class") in {
             "counterexample", "contradiction", "provenance", "robustness",
         }, "CHALLENGE_CLASS_INVALID")

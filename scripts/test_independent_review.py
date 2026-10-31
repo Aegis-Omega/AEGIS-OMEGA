@@ -233,6 +233,27 @@ class IndependentReviewTests(unittest.TestCase):
         receipt["review"]["challenge_pool"][0]["expected_answer"] = "private answer"
         self.reject(receipt, identity_snapshot(), "CHALLENGE_ANSWER_LEAKED")
 
+    def test_hidden_answer_alias_cannot_pass_challenge_schema(self):
+        receipt = good_receipt()
+        review = receipt["review"]
+        sentinel = "PRIVATE_EXPECTED_ANSWER_ALIAS"
+        review["challenge_set"][0]["expected_answer_text"] = sentinel
+        review["challenge_set_sha256"] = canonical_digest(review["challenge_set"])
+        result = assess(receipt, identity_snapshot())
+        self.assertEqual(result["disposition"], "NOT_ADMITTED")
+        self.assertEqual(result["reason"], "CHALLENGE_FIELDS_INVALID")
+        self.assertNotIn(sentinel, json.dumps(result, sort_keys=True))
+
+    def test_extra_challenge_metadata_fails_before_selection(self):
+        receipt = good_receipt()
+        review = receipt["review"]
+        review["challenge_pool"][0]["arbitrary_private_data"] = "SECRET"
+        with self.assertRaisesRegex(Invalid, "CHALLENGE_FIELDS_INVALID"):
+            select_challenges(
+                review["source_snapshot_sha256"], review["challenge_pool"],
+                SEED, review["challenge_count"], "agent:submitter",
+            )
+
     def test_challenge_pool_is_drawn_independently_and_deterministically(self):
         receipt = good_receipt()
         review = receipt["review"]
