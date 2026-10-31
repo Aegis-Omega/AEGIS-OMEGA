@@ -158,7 +158,7 @@ class IndependentReviewTests(unittest.TestCase):
                 roster["sha256"] = canonical_digest({
                     key: value for key, value in roster.items() if key != "sha256"
                 })
-                self.reject(receipt, roster, "GITHUB_ID_INVALID")
+                self.reject(receipt, roster, "IDENTITY_INVALID")
 
     def test_float_alias_of_reviewer_github_id_is_rejected(self):
         receipt = good_receipt()
