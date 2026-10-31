@@ -28,9 +28,9 @@ jobs:
         with:
           fetch-depth: 1
 
-      - name: Run enforcement verifier regressions
+      - name: Run enforcement and independent review regressions
         working-directory: scripts
-        run: python3 -m unittest test_check_repository_enforcement.py -v
+        run: python3 -m unittest test_check_repository_enforcement test_independent_review -v
 
       - name: Verify GitHub enforcement boundary
         env:
