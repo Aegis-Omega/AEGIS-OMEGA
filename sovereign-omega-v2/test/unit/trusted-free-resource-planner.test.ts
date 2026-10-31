@@ -1,4 +1,8 @@
 import {describe,expect,it} from 'vitest'
+import {
+  createDurableFreeResourcePlannerV1,
+  type AuthenticatedAtomicGenerationCheckpointV1,
+} from '../../src/sovereignty/durable-free-resource-planner.js'
 import {generateKeypair,signBytes} from '../../src/consensus/crypto.js'
 import type {SHA256Hex} from '../../src/core/types.js'
 import {
@@ -321,5 +325,93 @@ describe('trusted free-resource Ed25519 approval boundary (synthetic only)',()=>
     const x=await createTrustedFreeResourcePlannerV1(c.trust,()=>request.current_generation).plan(c.snapshot,request,[c.evidence],[])
     expect(x.outcome).toBe('HOLD')
     expect(x.provider_id).toBeNull()
+  })
+})
+
+describe('shared durable high-water checkpoint contract (isolated synthetic store)',()=>{
+  function seededStore(initial:string|null='10'){
+    let floor=initial
+    const seen:string[]=[]
+    const store:AuthenticatedAtomicGenerationCheckpointV1={
+      async observe_and_advance(policy_id,generation){
+        seen.push(policy_id+':'+generation)
+        if(floor===null) return {outcome:'UNAVAILABLE'}
+        if(BigInt(generation)<BigInt(floor)) return {outcome:'ROLLBACK'}
+        floor=generation
+        return {outcome:'ACCEPTED',persisted_generation:floor}
+      },
+    }
+    return {store,seen,getFloor:()=>floor}
+  }
+  it('accepts signed evidence only when a preseeded durable floor is atomically checked twice',async()=>{
+    const c=await context()
+    const durable=seededStore()
+    const planner=createDurableFreeResourcePlannerV1(c.trust,()=>request.current_generation,durable.store)
+    const result=await planner.plan(c.snapshot,request,[c.evidence],[c.signed])
+    expect(result.outcome).toBe('PLANNING_ELIGIBLE')
+    expect(result.authority_effect).toBe('NONE')
+    expect(planner.authority_effect).toBe('NONE')
+    expect(durable.seen).toEqual(['offline-test-policy:10','offline-test-policy:10'])
+  })
+  it('holds on an absent durable row rather than silently seeding a reset high water mark',async()=>{
+    const c=await context()
+    const durable=seededStore(null)
+    const planner=createDurableFreeResourcePlannerV1(c.trust,()=>request.current_generation,durable.store)
+    expect((await planner.plan(c.snapshot,request,[c.evidence],[c.signed])).outcome).toBe('HOLD')
+    expect(durable.getFloor()).toBeNull()
+  })
+  it('holds the older planner after a second process advances a shared durable floor',async()=>{
+    const c=await context()
+    const shared=seededStore('10')
+    const old=createDurableFreeResourcePlannerV1(c.trust,()=>request.current_generation,shared.store)
+    const nextRequest={...request,current_generation:'11'}
+    const nextSigned=await c.sign({...c.payload,request_root:await freeResourceRequestRootV1(nextRequest)})
+    const newer=createDurableFreeResourcePlannerV1(c.trust,()=>nextRequest.current_generation,shared.store)
+    expect((await old.plan(c.snapshot,request,[c.evidence],[c.signed])).outcome).toBe('PLANNING_ELIGIBLE')
+    expect((await newer.plan(c.snapshot,nextRequest,[c.evidence],[nextSigned])).outcome).toBe('PLANNING_ELIGIBLE')
+    expect(shared.getFloor()).toBe('11')
+    // Recreating the old planner (simulating process restart) cannot reset the shared floor.
+    const restarted=createDurableFreeResourcePlannerV1(c.trust,()=>request.current_generation,shared.store)
+    expect((await restarted.plan(c.snapshot,request,[c.evidence],[c.signed])).outcome).toBe('HOLD')
+    expect(shared.getFloor()).toBe('11')
+  })
+  it('holds when the durable adapter fails or fabricates a mismatched committed floor',async()=>{
+    const c=await context()
+    const broken:AuthenticatedAtomicGenerationCheckpointV1={
+      async observe_and_advance(){throw new Error('storage unavailable')},
+    }
+    const mismatched:AuthenticatedAtomicGenerationCheckpointV1={
+      async observe_and_advance(){return {outcome:'ACCEPTED',persisted_generation:'9'}},
+    }
+    for(const store of [broken,mismatched]){
+      const planner=createDurableFreeResourcePlannerV1(c.trust,()=>request.current_generation,store)
+      expect((await planner.plan(c.snapshot,request,[c.evidence],[c.signed])).outcome).toBe('HOLD')
+    }
+  })
+  it('holds when the final transaction loses a race to a newer persisted floor',async()=>{
+    const c=await context()
+    let reads=0
+    const race:AuthenticatedAtomicGenerationCheckpointV1={
+      async observe_and_advance(_policy,generation){
+        reads++
+        if(reads===1) return {outcome:'ACCEPTED',persisted_generation:generation}
+        return {outcome:'ROLLBACK'}
+      },
+    }
+    const planner=createDurableFreeResourcePlannerV1(c.trust,()=>request.current_generation,race)
+    const decision=await planner.plan(c.snapshot,request,[c.evidence],[c.signed])
+    expect(reads).toBe(2)
+    expect(decision.outcome).toBe('HOLD')
+    expect(decision.capacity_root).toBeNull()
+  })
+  it('refuses untrusted request time and missing transactional checkpoint',async()=>{
+    const c=await context()
+    const durable=seededStore('10')
+    const planner=createDurableFreeResourcePlannerV1(c.trust,()=>request.current_generation,durable.store)
+    const stale={...request,current_generation:'9'}
+    expect((await planner.plan(c.snapshot,stale,[c.evidence],[c.signed])).outcome).toBe('HOLD')
+    expect(durable.seen).toEqual([])
+    expect(()=>createDurableFreeResourcePlannerV1(c.trust,()=>request.current_generation,null as unknown as AuthenticatedAtomicGenerationCheckpointV1))
+      .toThrow('trusted durable checkpoint')
   })
 })

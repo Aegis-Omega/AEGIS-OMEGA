@@ -96,3 +96,36 @@ permission to consume capacity. There is still no trusted production signer,
 durable approval-ID register, authenticated revocation provider, or
 provider-side hard no-overage guarantee. The module returns no execution
 authority.
+
+## Shared checkpoint contract for restarts and multiple workers (candidate)
+
+`createDurableFreeResourcePlannerV1(policy, readAuthenticatedGeneration, checkpoint)`
+adds a deliberately **optional** fail-closed guard around the existing
+Ed25519 planner. This guard supplies no database client and performs no
+provider call, deployment, cloud write or billing operation itself.
+
+The host must supply an authenticated
+`AuthenticatedAtomicGenerationCheckpointV1.observe_and_advance(policy_id,
+observed_generation)` implementation with a **preseeded durable row** keyed by
+the stable, operator-controlled policy ID. The backend is required to do one
+serializable transaction: read and lock that row; reject missing or untrusted
+rows, reject a generation below the stored high-water mark, otherwise
+atomically persist the maximum; commit before returning
+`{outcome:'ACCEPTED',persisted_generation:observed_generation}`.
+Timeouts, rollback, unavailable storage, a missing row, or any mismatch
+must return HOLD. In particular, silently recreating a missing row at the
+caller's requested generation is forbidden.
+
+The wrapper checks the shared durable floor **before and after** the
+asynchronous signed-planner calculation. A newer worker can advance the floor,
+causing an older in-flight plan to fail closed at the final check. Shared
+synthetic-store regression tests exercise ordinary planning, absent storage,
+restart rollback, cross-instance floor advancement, adapter failures, and a
+racing final read.
+
+**What is NOT established:** the isolated fixture is not production-durable.
+No real authenticated storage, transaction isolation, migrations, bootstrap
+seeding, revocation provider, cross-region failover fencing, or cloud execution
+has been connected. The trusted host must independently verify these
+obligations before using the adapter. Every result remains
+`authority_effect: NONE` and **does not reserve quota or authorize spend**.
