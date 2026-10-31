@@ -209,7 +209,6 @@ def _assess(receipt, roster):
              and reviewer.get("github_id") == selected["github_id"],
              "REVIEWER_IDENTITY_MISMATCH")
     submitter_identity = _identity(roster, submitter_principal)
-    reviewer_identity = _identity(roster, reviewer_principal)
     _require(type(submitter.get("github_id")) is int
              and submitter["github_id"] in submitter_identity["github_ids"],
              "SUBMITTER_IDENTITY_MISMATCH")
