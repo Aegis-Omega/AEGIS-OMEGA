@@ -153,6 +153,36 @@ describe('AWS read-only observation is never spending authority',()=>{
     const g=awsFixture();g.aws!.operator_reported_credit_usd='100 USD'
     await expect(observeConnectedResourcesV1(g)).rejects.toThrow('unsigned decimal')
   })
+  it('never hashes counts from failed or unknown AWS service reads',async()=>{
+    const f=awsFixture()
+    f.aws!.service_discovery={
+      bedrock:{outcome:'ERROR',error_code:'ForbiddenException',count:700},
+      glue:{outcome:'UNKNOWN',error_code:null,count:800},
+      lambda:null,dynamodb:null,s3tables:null,
+    }
+    const a=await observeConnectedResourcesV1(f)
+    expect(a.aws?.service_discovery?.bedrock).toEqual({
+      outcome:'ERROR',error_code:'ForbiddenException',count:null,
+    })
+    expect(a.aws?.service_discovery?.glue).toEqual({
+      outcome:'UNKNOWN',error_code:null,count:null,
+    })
+    const g=awsFixture()
+    g.aws!.service_discovery={
+      bedrock:{outcome:'ERROR',error_code:'ForbiddenException',count:70},
+      glue:{outcome:'UNKNOWN',error_code:null,count:80},
+      lambda:null,dynamodb:null,s3tables:null,
+    }
+    const b=await observeConnectedResourcesV1(g)
+    // Unsupported purported counts must not perturb the canonical evidence root.
+    expect(b.integrity_root).toBe(a.integrity_root)
+    g.aws!.service_discovery.bedrock={outcome:'SUCCESS',error_code:null,count:55}
+    const valid=await observeConnectedResourcesV1(g)
+    expect(valid.aws?.service_discovery?.bedrock?.count).toBe(55)
+    expect(valid.integrity_root).not.toBe(a.integrity_root)
+    expect(valid.aws?.paid_aws_workloads).toBe('HOLD')
+    expect(valid.authority_effect).toBe('NONE')
+  })
   it('hashes status changes but preserves same-input checksum',async()=>{
     const a=await observeConnectedResourcesV1(awsFixture())
     expect((await observeConnectedResourcesV1(awsFixture())).integrity_root).toBe(a.integrity_root)

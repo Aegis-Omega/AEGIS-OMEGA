@@ -117,7 +117,8 @@ function awsObservation(x: AwsApiObservationV1 | null): AwsApiObservationV1 {
   // Unknown error codes and unexpected fields are discarded, never hashed.
   const safeCode=x.outcome==='ERROR' && typeof x.error_code==='string' && AWS_ERROR_CODES.has(x.error_code)
     ? x.error_code : null
-  return {outcome:x.outcome,error_code:safeCode,count:x.count}
+  // A failed or unknown read cannot carry a measured capacity in an integrity receipt.
+  return {outcome:x.outcome,error_code:safeCode,count:x.outcome==='SUCCESS' ? x.count : null}
 }
 function awsApiStatus<T extends string>(
   read:AwsApiObservationV1, code:string, status:T,
