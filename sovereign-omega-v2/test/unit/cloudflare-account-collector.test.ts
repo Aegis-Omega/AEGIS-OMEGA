@@ -106,7 +106,7 @@ describe('Cloudflare read-only collector for AEGIS Resource Mesh', () => {
     expect(f).not.toHaveBeenCalled()
   })
   it('does not infer free Workers AI neuron balance from AI Gateway prepaid credit', async () => {
-    const f=normal();f[0]={success:true,result:{balance:100000}}
+    const f=normal();f[0]={success:true,result:{balance:100000,token:'NEVER_EXPOSED',has_default_payment_method:false}}
     const r=await execute(collector(f))
     expect(r.inventory.cloudflare.ai_gateway_prepaid).toBe('POSITIVE_NOT_FREE')
     expect(r.inventory.cloudflare.workers_ai_free_quota).toBe('UNKNOWN')
