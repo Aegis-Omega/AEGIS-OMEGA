@@ -502,6 +502,13 @@ export const DECLARED_PROVIDER_CATALOG_V1: readonly ProviderDescriptorV1[] = [
   },
   {
     schema_version: PROVIDER_MESH_SCHEMA_VERSION,
+    provider_id: 'aws',
+    planes: ['EXECUTION', 'INTELLIGENCE'],
+    declared_capabilities: ['CONTAINER_RUNTIME', 'DATABASE', 'MODEL_INFERENCE', 'SERVERLESS_FUNCTION'],
+    authority_effect: 'NONE',
+  },
+  {
+    schema_version: PROVIDER_MESH_SCHEMA_VERSION,
     provider_id: 'cloudflare-anthropic',
     planes: ['INTELLIGENCE'],
     declared_capabilities: ['AGENT_EXECUTION', 'MODEL_INFERENCE'],

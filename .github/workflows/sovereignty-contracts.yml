@@ -69,6 +69,9 @@ jobs:
       - name: AWS dynamic no-spend collector regression
         run: npx vitest run test/unit/aws-readonly-collector.test.ts
 
+      - name: AWS provider-account selection containment
+        run: npx vitest run test/unit/provider-aws-account.test.ts
+
       - name: Cloudflare account collector fixed-GET regression
         run: npx vitest run test/unit/cloudflare-account-collector.test.ts
 
