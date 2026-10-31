@@ -3,6 +3,7 @@ import { CORS } from '../_shared/cors.ts'
 import { authorizeNebiusCaller, isNebiusRequestBounded, logNebiusUpstreamFailure } from '../_shared/nebius-auth.ts'
 import { reserveNebiusAttempt } from '../_shared/nebius-budget.ts'
 import { getNebiusChatUrl } from '../_shared/nebius-endpoint.ts'
+import { routeChatProviderV1 } from '../_shared/chat-provider-gate.ts'
 
 const DASHSCOPE_API_KEY_ENV = Deno.env.get('DASHSCOPE_API_KEY') ?? ''
 const DASHSCOPE_URL = 'https://dashscope-intl.aliyuncs.com/compatible-mode/v1/chat/completions'
@@ -18,7 +19,7 @@ const NEBIUS_MODEL = Deno.env.get('NEBIUS_MODEL') ?? ''
 // Server-side provider gates. `provider` arrives in the public request body, so
 // the client-side VITE_ENABLE_* flags cannot actually gate the paid backends.
 // A requested provider is only honored when its server flag is explicitly 'true';
-// Nebius denies without fallback; other legacy providers retain their behavior.
+// Every explicit provider must fail closed if disabled; no paid-provider fallback.
 const CHAT_ENABLE_OPENAI = Deno.env.get('CHAT_ENABLE_OPENAI') === 'true'
 const CHAT_ENABLE_NEBIUS = Deno.env.get('CHAT_ENABLE_NEBIUS') === 'true'
 const CHAT_ENABLE_AZURE  = Deno.env.get('CHAT_ENABLE_AZURE') === 'true'
@@ -66,11 +67,34 @@ Deno.serve(async (req) => {
       message: string
       history?: { role: string; content: string }[]
       system?: string
-      provider?: 'dashscope' | 'openai' | 'nebius' | 'azure'
+      provider?: unknown
     }
 
     if (!message?.trim()) {
       return new Response(JSON.stringify({ error: 'message required' }), { status: 400, headers: { ...CORS, 'Content-Type': 'application/json' } })
+    }
+
+    // Route the requested provider exactly. Never substitute DashScope when
+    // OpenAI, Nebius or Azure is disabled, and reject unknown JSON values.
+    const route = routeChatProviderV1(provider, {
+      openai: CHAT_ENABLE_OPENAI,
+      nebius: CHAT_ENABLE_NEBIUS,
+      azure: CHAT_ENABLE_AZURE,
+    })
+    if (route.outcome === 'DENIED') {
+      if (route.denial_code === 'INVALID_PROVIDER') {
+        return new Response(JSON.stringify({ error: 'unsupported provider' }), {
+          status: 400, headers: { ...CORS, 'Content-Type': 'application/json' },
+        })
+      }
+      return new Response(JSON.stringify({
+        error: 'AI unavailable',
+        reply: 'The requested AI provider is disabled. No alternative provider was called.',
+        provider_status: 'disabled',
+        provider: route.provider_id,
+      }), {
+        status: 200, headers: { ...CORS, 'Content-Type': 'application/json' },
+      })
     }
 
     // Validate the complete caller-controlled structure BEFORE history.filter:
@@ -87,40 +111,10 @@ Deno.serve(async (req) => {
       { role: 'user', content: message },
     ]
 
-    let useOpenAI = provider === 'openai'
-    let useNebius = provider === 'nebius'
-    let useAzure = provider === 'azure'
-
-    // Server-side gate: a client cannot force a paid backend by setting `provider`.
-    // If the provider's server flag is off, fall back to the default (dashscope).
-    if (useOpenAI && !CHAT_ENABLE_OPENAI) {
-      console.error('OpenAI provider requested but CHAT_ENABLE_OPENAI is not "true" — falling back to dashscope')
-      useOpenAI = false
-    }
-    if (useNebius && !CHAT_ENABLE_NEBIUS) {
-      // Deny exact Nebius requests; never silently invoke another provider.
-      return new Response(JSON.stringify({
-        error: 'AI unavailable',
-        reply: 'Nebius is disabled. No alternative provider was called.',
-        provider_status: 'disabled',
-        provider: 'nebius-token-factory',
-      }), {
-        status: 200,
-        headers: { ...CORS, 'Content-Type': 'application/json' },
-      })
-    }
-    if (useAzure && !CHAT_ENABLE_AZURE) {
-      console.error('Azure provider requested but CHAT_ENABLE_AZURE is not "true" — falling back to dashscope')
-      useAzure = false
-    }
-
-    const providerId = useAzure
-      ? 'azure-openai'
-      : useOpenAI
-        ? 'openai'
-        : useNebius
-          ? 'nebius-token-factory'
-          : 'dashscope'
+    const useOpenAI = route.provider === 'openai'
+    const useNebius = route.provider === 'nebius'
+    const useAzure = route.provider === 'azure'
+    const providerId = route.provider_id
 
     const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? ''
     const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''

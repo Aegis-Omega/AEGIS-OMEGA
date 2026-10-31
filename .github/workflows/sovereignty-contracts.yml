@@ -68,6 +68,9 @@ jobs:
       - name: Nebius caller authorization and browser proxy regression
         run: npx vitest run test/unit/nebius-caller-auth.test.ts test/shared/inference-router.test.ts
 
+      - name: Chat explicit-provider fail-closed routing
+        run: npx vitest run test/unit/chat-provider-gate.test.ts
+
       - name: No-spend resource planning source and trust regressions
         run: npx vitest run test/unit/free-resource-planning.test.ts
 
