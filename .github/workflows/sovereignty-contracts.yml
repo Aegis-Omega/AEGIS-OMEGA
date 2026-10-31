@@ -54,6 +54,9 @@ jobs:
       - name: Nebius caller authorization and browser proxy regression
         run: npx vitest run test/unit/nebius-caller-auth.test.ts test/shared/inference-router.test.ts
 
+      - name: No-spend resource planning source and trust regressions
+        run: npx vitest run test/unit/free-resource-planning.test.ts
+
       - name: Typecheck runtime contracts
         run: npm run typecheck
 
