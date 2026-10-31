@@ -1,10 +1,15 @@
 #!/usr/bin/env python3
 """Source-exact middleware tests without Redis, Anthropic, network or paid agents."""
 import ast
+import hashlib
 import hmac
 import json
+import os
+import sys
 import time
+import types
 import unittest
+from unittest.mock import AsyncMock, patch
 from collections import defaultdict
 from pathlib import Path
 from types import SimpleNamespace
@@ -73,6 +78,41 @@ async def check_middleware(key, headers, path="/agents/dispatch"):
     return response, counter[0]
 
 
+
+def source_webhook():
+    """Execute the exact production webhook AST without optional cloud clients."""
+    tree = ast.parse(PROXY_SOURCE.read_text(encoding="utf-8"))
+    handlers = [n for n in tree.body
+                if isinstance(n, ast.AsyncFunctionDef) and n.name == "github_webhook"]
+    if len(handlers) != 1:
+        raise AssertionError("expected exactly one GitHub webhook handler")
+    handler = handlers[0]
+    handler.decorator_list = []
+    scope = {
+        "Request": object,
+        "os": os,
+        "json": json,
+        "JSONResponse": FakeResponse,
+        "state": SimpleNamespace(append=AsyncMock()),
+        "__file__": str(PROXY_SOURCE),
+    }
+    module = ast.fix_missing_locations(ast.Module(body=[handler], type_ignores=[]))
+    exec(compile(module, str(PROXY_SOURCE), "exec"), scope)
+    return scope["github_webhook"]
+
+
+class FakeWebhookRequest:
+    def __init__(self, raw_body=b"{}", headers=None):
+        self.raw_body = raw_body
+        self.headers = headers or {}
+
+    async def body(self):
+        return self.raw_body
+
+    async def json(self):
+        return json.loads(self.raw_body)
+
+
 class DispatchAuthContract(unittest.IsolatedAsyncioTestCase):
     async def test_missing_platform_key_denies_before_dispatch(self):
         response, calls = await check_middleware("", {})
@@ -115,6 +155,65 @@ class DispatchAuthContract(unittest.IsolatedAsyncioTestCase):
         self.assertNotIn('Authorization: Bearer $PLATFORM_KEY', content)
         self.assertIn('google-github-actions/setup-gcloud@v3', content)
         self.assertEqual(content.count("PAYLOAD=$(jq -cn"), 5)
+
+
+
+class GithubWebhookSignatureContract(unittest.IsolatedAsyncioTestCase):
+    async def test_unconfigured_secret_denies_before_json_or_dispatch(self):
+        req = FakeWebhookRequest(b'{"synthetic": true}', {"x-github-event": "push"})
+        with patch.dict(os.environ, {"GITHUB_WEBHOOK_SECRET": ""}):
+            response = await source_webhook()(req)
+        self.assertEqual(response.status_code, 503)
+        self.assertEqual(response.body["error"], "webhook_auth_unconfigured")
+
+    async def test_bad_or_missing_signature_denied(self):
+        body = b'{"repository":{"full_name":"Aegis-Omega/AEGIS-OMEGA"}}'
+        with patch.dict(os.environ, {"GITHUB_WEBHOOK_SECRET": "test-signing-key"}):
+            for sig in ("", "sha256=" + "0" * 64, "sha1=invalid"):
+                req = FakeWebhookRequest(body, {
+                    "x-hub-signature-256": sig, "x-github-event": "push"})
+                response = await source_webhook()(req)
+                self.assertEqual(response.status_code, 401)
+
+    async def test_valid_signature_required_even_for_malformed_json(self):
+        secret = "test-signing-key"
+        for body, expected_status in [(b"not json", 400), (b"[]", 400),
+                                      (b"x" * 262145, 413)]:
+            sig = "sha256=" + hmac.new(
+                secret.encode(), body, hashlib.sha256).hexdigest()
+            with patch.dict(os.environ, {"GITHUB_WEBHOOK_SECRET": secret}):
+                req = FakeWebhookRequest(body, {
+                    "x-hub-signature-256": sig, "x-github-event": "push"})
+                response = await source_webhook()(req)
+            self.assertEqual(response.status_code, expected_status)
+
+    async def test_signed_valid_event_invokes_only_stubbed_agent(self):
+        secret = "test-signing-key"
+        body = b'{"repository":{"full_name":"Aegis-Omega/AEGIS-OMEGA"}}'
+        signature = "sha256=" + hmac.new(
+            secret.encode(), body, hashlib.sha256).hexdigest()
+        seen = []
+        async def fake_dispatch(event, payload):
+            seen.append((event, payload))
+            return [object()]
+        agents = types.ModuleType("agents")
+        coordinator = types.ModuleType("agents.coordinator")
+        coordinator.dispatch_event = fake_dispatch
+        agents.coordinator = coordinator
+        with patch.dict(os.environ, {"GITHUB_WEBHOOK_SECRET": secret}):
+            with patch.dict(sys.modules, {
+                "agents": agents,
+                "agents.coordinator": coordinator,
+            }):
+                req = FakeWebhookRequest(body, {
+                    "x-hub-signature-256": signature,
+                    "x-github-event": "push",
+                })
+                response = await source_webhook()(req)
+        self.assertEqual(response["dispatched_to_agents"], 1)
+        self.assertEqual(len(seen), 1)
+        self.assertEqual(seen[0][0], "push")
+        self.assertEqual(seen[0][1]["repository"]["full_name"], "Aegis-Omega/AEGIS-OMEGA")
 
 
 if __name__ == "__main__":

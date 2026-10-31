@@ -1196,21 +1196,28 @@ async def github_webhook(request: Request):
     Receive GitHub webhook events and dispatch them to the appropriate agents.
     Handles: push, pull_request, issues, pull_request_review, check_run.
 
-    Verify GITHUB_WEBHOOK_SECRET if set (HMAC-SHA256).
+    Require a configured GITHUB_WEBHOOK_SECRET and an exact HMAC-SHA256 signature.
     """
     import hmac, hashlib as _hl
 
-    # Signature verification
+    # No configured secret means NO webhook-driven agents. GitHub delivery
+    # signatures authenticate the exact bytes; never trust an unsigned payload.
     secret = os.environ.get("GITHUB_WEBHOOK_SECRET", "")
-    if secret:
-        sig_header = request.headers.get("x-hub-signature-256", "")
-        body_raw = await request.body()
-        expected = "sha256=" + hmac.new(secret.encode(), body_raw, _hl.sha256).hexdigest()
-        if not hmac.compare_digest(sig_header, expected):
-            return JSONResponse({"error": "invalid_signature"}, status_code=401)
+    if not secret:
+        return JSONResponse({"error": "webhook_auth_unconfigured"}, status_code=503)
+    sig_header = request.headers.get("x-hub-signature-256", "")
+    body_raw = await request.body()
+    if len(body_raw) > 262_144:
+        return JSONResponse({"error": "webhook_payload_too_large"}, status_code=413)
+    expected = "sha256=" + hmac.new(secret.encode(), body_raw, _hl.sha256).hexdigest()
+    if not hmac.compare_digest(sig_header, expected):
+        return JSONResponse({"error": "invalid_signature"}, status_code=401)
+    try:
         body = json.loads(body_raw)
-    else:
-        body = await request.json()
+    except (json.JSONDecodeError, UnicodeDecodeError):
+        return JSONResponse({"error": "invalid_json"}, status_code=400)
+    if not isinstance(body, dict):
+        return JSONResponse({"error": "invalid_webhook_envelope"}, status_code=400)
 
     event_type = request.headers.get("x-github-event", "unknown")
 
