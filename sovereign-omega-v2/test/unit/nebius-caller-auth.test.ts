@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
 import { reserveNebiusAttempt } from '../../../supabase/functions/_shared/nebius-budget.ts'
+import { getNebiusChatUrl } from '../../../supabase/functions/_shared/nebius-endpoint.ts'
 import {
   authorizeNebiusCaller,
   isNebiusRequestBounded,
@@ -64,5 +65,29 @@ describe('Nebius atomic attempt budget gate', () => {
   it('denies database errors, absent migration and failed network', async () => {
     expect(await reserveNebiusAttempt(async () => ({ data: true, error: { code: 'PGRST202' } }))).toBe(false)
     expect(await reserveNebiusAttempt(async () => { throw Error('connection failed') })).toBe(false)
+  })
+})
+
+describe('Nebius endpoint origin protection', () => {
+  it('resolves exact approved EU and US Token Factory model hosts', () => {
+    expect(getNebiusChatUrl('https://api.tokenfactory.nebius.com/v1/'))
+      .toBe('https://api.tokenfactory.nebius.com/v1/chat/completions')
+    expect(getNebiusChatUrl('https://api.tokenfactory.us-north1.nebius.com/v1/'))
+      .toBe('https://api.tokenfactory.us-north1.nebius.com/v1/chat/completions')
+    expect(getNebiusChatUrl('https://api.tokenfactory.us-central1.nebius.com/v1'))
+      .toBe('https://api.tokenfactory.us-central1.nebius.com/v1/chat/completions')
+  })
+  it('rejects spoofed hosts, HTTP, injected credentials, ports, redirects and paths', () => {
+    const bad = [
+      '', 'not-a-url', 'http://api.tokenfactory.nebius.com/v1/',
+      'https://attacker.test/v1/',
+      'https://api.tokenfactory.nebius.com.attacker.test/v1/',
+      'https://user:pass@api.tokenfactory.nebius.com/v1/',
+      'https://api.tokenfactory.nebius.com:444/v1/',
+      'https://api.tokenfactory.nebius.com/v1/chat/completions',
+      'https://api.tokenfactory.nebius.com/v1/?redirect=evil',
+      'https://api.tokenfactory.nebius.com/v1/#secret',
+    ]
+    for (const v of bad) expect(getNebiusChatUrl(v), v).toBeNull()
   })
 })

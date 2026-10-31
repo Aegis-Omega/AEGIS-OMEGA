@@ -14,6 +14,7 @@ on:
       - scripts/test_nebius_budget_pg.py
       - supabase/migrations/20261031010000_nebius_attempt_budget_v1.sql
       - supabase/functions/_shared/nebius-budget.ts
+      - supabase/functions/_shared/nebius-endpoint.ts
       - supabase/functions/chat/index.ts
       - supabase/functions/_shared/nebius-auth.ts
       - packages/shared/lib/inference-router.ts

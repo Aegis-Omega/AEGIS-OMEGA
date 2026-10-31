@@ -2,6 +2,7 @@ import { createClient } from 'jsr:@supabase/supabase-js@2'
 import { CORS } from '../_shared/cors.ts'
 import { authorizeNebiusCaller, isNebiusRequestBounded } from '../_shared/nebius-auth.ts'
 import { reserveNebiusAttempt } from '../_shared/nebius-budget.ts'
+import { getNebiusChatUrl } from '../_shared/nebius-endpoint.ts'
 
 const DASHSCOPE_API_KEY_ENV = Deno.env.get('DASHSCOPE_API_KEY') ?? ''
 const DASHSCOPE_URL = 'https://dashscope-intl.aliyuncs.com/compatible-mode/v1/chat/completions'
@@ -12,7 +13,7 @@ const OPENAI_URL = 'https://api.openai.com/v1/chat/completions'
 // the OpenAI branch returns the friendly-unavailable response instead of calling out.
 const OPENAI_MODEL = Deno.env.get('OPENAI_MODEL') ?? ''
 const NEBIUS_API_KEY = Deno.env.get('NEBIUS_API_KEY') ?? ''
-const NEBIUS_URL = 'https://api.tokenfactory.nebius.com/v1/chat/completions'
+const NEBIUS_URL = getNebiusChatUrl(Deno.env.get('NEBIUS_BASE_URL') ?? 'https://api.tokenfactory.nebius.com/v1/')
 const NEBIUS_MODEL = Deno.env.get('NEBIUS_MODEL') ?? ''
 // Server-side provider gates. `provider` arrives in the public request body, so
 // the client-side VITE_ENABLE_* flags cannot actually gate the paid backends.
@@ -192,6 +193,16 @@ Deno.serve(async (req) => {
       })
     }
 
+    if (useNebius && !NEBIUS_URL) {
+      // Deny before budget reservation or credential-bearing fetch.
+      return new Response(JSON.stringify({
+        error: 'Unapproved Nebius Token Factory endpoint',
+        provider_status: 'invalid_endpoint',
+      }), {
+        status: 503, headers: { ...CORS, 'Content-Type': 'application/json' },
+      })
+    }
+
     if (useNebius && (!NEBIUS_MODEL || !NEBIUS_API_KEY)) {
       console.error('Nebius error: NEBIUS_MODEL and NEBIUS_API_KEY must be set')
       return new Response(JSON.stringify({ error: 'AI unavailable', reply: "I'm having trouble connecting right now. Try again in a moment." }), {
@@ -220,7 +231,7 @@ Deno.serve(async (req) => {
     const url = useAzure
       ? `${AZURE_OPENAI_ENDPOINT}/openai/deployments/${AZURE_OPENAI_DEPLOYMENT}/chat/completions?api-version=${AZURE_OPENAI_API_VERSION}`
       : useOpenAI ? OPENAI_URL
-        : useNebius ? NEBIUS_URL
+        : useNebius ? NEBIUS_URL!
           : DASHSCOPE_URL
 
     if (useNebius) {
@@ -242,6 +253,8 @@ Deno.serve(async (req) => {
 
     const resp = await fetch(url, {
       method: 'POST',
+      // Block all HTTP redirect hops for credential-bearing Nebius requests.
+      redirect: useNebius ? 'error' : 'follow',
       headers: {
         'Content-Type': 'application/json',
         ...(useAzure
