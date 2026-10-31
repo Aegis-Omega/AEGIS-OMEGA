@@ -19,6 +19,7 @@ private struct LabView: View {
     @State private var modelAvailable = false
     @State private var availabilityReason = "Not checked"
     @State private var running = false
+    @State private var activeGeneration: Task<Void, Never>?
 
     var body: some View {
         NavigationStack {
@@ -32,10 +33,18 @@ private struct LabView: View {
                 Section("Prompt") {
                     TextEditor(text: $prompt)
                         .frame(minHeight: 100)
+                        .disabled(running)
                     Button(running ? "Generating…" : "Generate locally") {
-                        Task { await generate() }
+                        // Mark busy synchronously to prevent double-start before Task scheduling.
+                        running = true
+                        activeGeneration = Task { await generate() }
                     }
                     .disabled(running || !modelAvailable || prompt.isEmpty || prompt.utf8.count > AppleFoundationModelsRunner.maximumPromptBytes)
+                    if running {
+                        Button("Cancel generation", role: .cancel) {
+                            activeGeneration?.cancel()
+                        }
+                    }
                 }
 
                 Section("Result") {
@@ -52,6 +61,7 @@ private struct LabView: View {
             }
             .navigationTitle("AEGIS Ω Lab")
             .task { refreshAvailability() }
+            .onDisappear { activeGeneration?.cancel() }
         }
     }
 
@@ -62,8 +72,10 @@ private struct LabView: View {
     }
 
     private func generate() async {
-        running = true
-        defer { running = false }
+        defer {
+            running = false
+            activeGeneration = nil
+        }
         output = ""
         receiptHash = ""
         let runner = AppleFoundationModelsRunner()
@@ -74,10 +86,13 @@ private struct LabView: View {
                 maxTokens: 256,
                 temperature: 0.2
             )
+            // Cancellation after the model returns must not update the visible result.
+            try Task.checkCancellation()
             output = result.output
             receiptHash = result.receipt.receipt_sha256
         } catch {
-            output = "FAIL-CLOSED: \(error)"
+            // A canceled generation has no successful output or receipt.
+            output = Task.isCancelled ? "CANCELLED" : "FAIL-CLOSED: \(error)"
         }
     }
 }
