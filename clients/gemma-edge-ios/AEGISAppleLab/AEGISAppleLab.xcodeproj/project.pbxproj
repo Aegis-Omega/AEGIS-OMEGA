@@ -1,0 +1,53 @@
+// !$*UTF8*$!
+{
+  archiveVersion = 1;
+  classes = {};
+  objectVersion = 60;
+  objects = {
+    /* Begin PBXBuildFile section */
+    77C40C23D94E41634FDF6B10 /* AEGISAppleLabApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7E7FFB6C76AF7B855B44F3DD /* AEGISAppleLabApp.swift */; };
+    AADFA5EDB089AE93AD544749 /* GemmaEdge in Frameworks */ = {isa = PBXBuildFile; productRef = B649636C6500D1A498F4344B /* GemmaEdge */; };
+    /* End PBXBuildFile section */
+    /* Begin PBXFileReference section */
+    7E7FFB6C76AF7B855B44F3DD /* AEGISAppleLabApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AEGISAppleLabApp.swift; sourceTree = "<group>"; };
+    DDA212875B129AF8A38A2055 /* AEGISAppleLab.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = AEGISAppleLab.app; sourceTree = BUILT_PRODUCTS_DIR; };
+    /* End PBXFileReference section */
+    /* Begin PBXFrameworksBuildPhase section */
+    689C52233C5905549B0AE2CF /* Frameworks */ = {isa = PBXFrameworksBuildPhase; buildActionMask = 2147483647; files = (AADFA5EDB089AE93AD544749 /* GemmaEdge in Frameworks */, ); runOnlyForDeploymentPostprocessing = 0; };
+    /* End PBXFrameworksBuildPhase section */
+    /* Begin PBXGroup section */
+    0A35C9465EBF6D807E3953E6 = {isa = PBXGroup; children = (FA50F520BBD7633D8999EE43 /* Sources */, 74810C924FFC698E368F02FE /* Products */, ); sourceTree = "<group>"; };
+    FA50F520BBD7633D8999EE43 /* Sources */ = {isa = PBXGroup; children = (7E7FFB6C76AF7B855B44F3DD /* AEGISAppleLabApp.swift */, ); path = Sources; sourceTree = "<group>"; };
+    74810C924FFC698E368F02FE /* Products */ = {isa = PBXGroup; children = (DDA212875B129AF8A38A2055 /* AEGISAppleLab.app */, ); name = Products; sourceTree = "<group>"; };
+    /* End PBXGroup section */
+    /* Begin PBXNativeTarget section */
+    F8229CB246A1E9A28F21EB7F /* AEGISAppleLab */ = {isa = PBXNativeTarget; buildConfigurationList = 70C00DD01F256075786C696D /* Build configuration list for PBXNativeTarget "AEGISAppleLab" */; buildPhases = (E55E836D68BBD4FAEDFE9FCA /* Sources */, 689C52233C5905549B0AE2CF /* Frameworks */, 4FC22A5871C445A9B40070EB /* Resources */, ); buildRules = (); dependencies = (); name = AEGISAppleLab; packageProductDependencies = (B649636C6500D1A498F4344B /* GemmaEdge */, ); productName = AEGISAppleLab; productReference = DDA212875B129AF8A38A2055 /* AEGISAppleLab.app */; productType = "com.apple.product-type.application"; };
+    /* End PBXNativeTarget section */
+    /* Begin PBXProject section */
+    D2789D2A2F71E57920A2E193 /* Project object */ = {isa = PBXProject; attributes = { BuildIndependentTargetsInParallel = 1; LastUpgradeCheck = 2600; TargetAttributes = { F8229CB246A1E9A28F21EB7F = { CreatedOnToolsVersion = 26.0; }; }; }; buildConfigurationList = BC3647CDD6ADF71FCCFAAEBB /* Build configuration list for PBXProject "AEGISAppleLab" */; compatibilityVersion = "Xcode 15.0"; developmentRegion = en; hasScannedForEncodings = 0; knownRegions = (en, Base); mainGroup = 0A35C9465EBF6D807E3953E6; packageReferences = (9EFC305FB9FA35283CBD5AC2 /* XCLocalSwiftPackageReference ".." */, ); productRefGroup = 74810C924FFC698E368F02FE /* Products */; projectDirPath = ""; projectRoot = ""; targets = (F8229CB246A1E9A28F21EB7F /* AEGISAppleLab */, ); };
+    /* End PBXProject section */
+    /* Begin PBXResourcesBuildPhase section */
+    4FC22A5871C445A9B40070EB /* Resources */ = {isa = PBXResourcesBuildPhase; buildActionMask = 2147483647; files = (); runOnlyForDeploymentPostprocessing = 0; };
+    /* End PBXResourcesBuildPhase section */
+    /* Begin PBXSourcesBuildPhase section */
+    E55E836D68BBD4FAEDFE9FCA /* Sources */ = {isa = PBXSourcesBuildPhase; buildActionMask = 2147483647; files = (77C40C23D94E41634FDF6B10 /* AEGISAppleLabApp.swift in Sources */, ); runOnlyForDeploymentPostprocessing = 0; };
+    /* End PBXSourcesBuildPhase section */
+    /* Begin XCBuildConfiguration section */
+    5D20E82D93B84BDDEBC02A59 /* Debug */ = {isa = XCBuildConfiguration; buildSettings = { ALWAYS_SEARCH_USER_PATHS = NO; CLANG_ENABLE_MODULES = YES; DEBUG_INFORMATION_FORMAT = dwarf; ENABLE_TESTABILITY = YES; IPHONEOS_DEPLOYMENT_TARGET = 26.0; SDKROOT = iphoneos; SWIFT_VERSION = 5.0; }; name = Debug; };
+    5E7445BA59256E4572CA80E6 /* Release */ = {isa = XCBuildConfiguration; buildSettings = { ALWAYS_SEARCH_USER_PATHS = NO; CLANG_ENABLE_MODULES = YES; DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym"; IPHONEOS_DEPLOYMENT_TARGET = 26.0; SDKROOT = iphoneos; SWIFT_COMPILATION_MODE = wholemodule; SWIFT_VERSION = 5.0; }; name = Release; };
+    56989D7E4F85782BF2DC679C /* Debug */ = {isa = XCBuildConfiguration; buildSettings = { CODE_SIGN_STYLE = Automatic; CURRENT_PROJECT_VERSION = 1; GENERATE_INFOPLIST_FILE = YES; INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES; INFOPLIST_KEY_UILaunchScreen_Generation = YES; INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight"; INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight"; IPHONEOS_DEPLOYMENT_TARGET = 26.0; LD_RUNPATH_SEARCH_PATHS = ("$(inherited)", "@executable_path/Frameworks", ); MARKETING_VERSION = 0.1.0; PRODUCT_BUNDLE_IDENTIFIER = "org.aegisomega.applelab.UNREGISTERED"; PRODUCT_NAME = "$(TARGET_NAME)"; SUPPORTED_PLATFORMS = "iphoneos iphonesimulator"; SWIFT_VERSION = 5.0; TARGETED_DEVICE_FAMILY = "1,2"; }; name = Debug; };
+    C6E58E287973F926A0BA5D36 /* Release */ = {isa = XCBuildConfiguration; buildSettings = { CODE_SIGN_STYLE = Automatic; CURRENT_PROJECT_VERSION = 1; GENERATE_INFOPLIST_FILE = YES; INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES; INFOPLIST_KEY_UILaunchScreen_Generation = YES; INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight"; INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight"; IPHONEOS_DEPLOYMENT_TARGET = 26.0; LD_RUNPATH_SEARCH_PATHS = ("$(inherited)", "@executable_path/Frameworks", ); MARKETING_VERSION = 0.1.0; PRODUCT_BUNDLE_IDENTIFIER = "org.aegisomega.applelab.UNREGISTERED"; PRODUCT_NAME = "$(TARGET_NAME)"; SUPPORTED_PLATFORMS = "iphoneos iphonesimulator"; SWIFT_VERSION = 5.0; TARGETED_DEVICE_FAMILY = "1,2"; }; name = Release; };
+    /* End XCBuildConfiguration section */
+    /* Begin XCConfigurationList section */
+    BC3647CDD6ADF71FCCFAAEBB /* Build configuration list for PBXProject "AEGISAppleLab" */ = {isa = XCConfigurationList; buildConfigurations = (5D20E82D93B84BDDEBC02A59 /* Debug */, 5E7445BA59256E4572CA80E6 /* Release */, ); defaultConfigurationIsVisible = 0; defaultConfigurationName = Release; };
+    70C00DD01F256075786C696D /* Build configuration list for PBXNativeTarget "AEGISAppleLab" */ = {isa = XCConfigurationList; buildConfigurations = (56989D7E4F85782BF2DC679C /* Debug */, C6E58E287973F926A0BA5D36 /* Release */, ); defaultConfigurationIsVisible = 0; defaultConfigurationName = Release; };
+    /* End XCConfigurationList section */
+    /* Begin XCLocalSwiftPackageReference section */
+    9EFC305FB9FA35283CBD5AC2 /* XCLocalSwiftPackageReference ".." */ = {isa = XCLocalSwiftPackageReference; relativePath = ".."; };
+    /* End XCLocalSwiftPackageReference section */
+    /* Begin XCSwiftPackageProductDependency section */
+    B649636C6500D1A498F4344B /* GemmaEdge */ = {isa = XCSwiftPackageProductDependency; package = 9EFC305FB9FA35283CBD5AC2 /* XCLocalSwiftPackageReference ".." */; productName = GemmaEdge; };
+    /* End XCSwiftPackageProductDependency section */
+  };
+  rootObject = D2789D2A2F71E57920A2E193 /* Project object */;
+}

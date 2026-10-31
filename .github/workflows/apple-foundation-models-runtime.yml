@@ -17,7 +17,7 @@ concurrency:
 jobs:
   swift-foundation-models:
     name: Apple Foundation Models / swift test
-    runs-on: macos-latest
+    runs-on: macos-26
     timeout-minutes: 15
 
     steps:
@@ -48,3 +48,15 @@ jobs:
         run: |
           set -euo pipefail
           swift test --parallel
+
+      - name: Build AEGISAppleLab against Apple iOS SDK (no signing)
+        run: |
+          set -euo pipefail
+          PROJECT="clients/gemma-edge-ios/AEGISAppleLab/AEGISAppleLab.xcodeproj"
+          xcodebuild -project "$PROJECT" -list
+          xcodebuild \
+            -project "$PROJECT" \
+            -scheme AEGISAppleLab \
+            -configuration Debug \
+            -destination 'generic/platform=iOS Simulator' \
+            CODE_SIGNING_ALLOWED=NO build
