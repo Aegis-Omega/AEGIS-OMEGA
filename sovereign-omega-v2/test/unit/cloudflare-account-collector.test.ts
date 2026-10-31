@@ -78,6 +78,14 @@ describe('Cloudflare read-only collector for AEGIS Resource Mesh', () => {
     expect(r.inventory.cloudflare.ai_gateway_auto_topup).toBe('UNKNOWN')
     expect(r.inventory.zero_spend_admission).toBe('HOLD')
   })
+  it('never treats a redirect response as a valid resource balance', async () => {
+    const f=collector(normal(),[302,200,200,200])
+    const r=await execute(f)
+    expect(r.inventory.cloudflare.ai_gateway_prepaid).toBe('UNKNOWN')
+    expect(r.inventory.cloudflare.ai_gateway_auto_topup).toBe('OFF_CONFIRMED')
+    expect(r.inventory.zero_spend_admission).toBe('HOLD')
+    expect(f).toHaveBeenCalledTimes(4)
+  })
   it('rejects redirects or invalid JSON without leaking response payloads', async () => {
     const f=vi.fn(async (_url:string,_init:RequestInit)=>({
       status:200,
