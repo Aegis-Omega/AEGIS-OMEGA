@@ -32,3 +32,11 @@ export function isNebiusRequestBounded(
     && history.every(h => h !== null && typeof h === 'object'
       && typeof h.content === 'string' && h.content.length <= maxChars)
 }
+
+/** Log only transport status for a funded provider, never upstream error text. */
+export function logNebiusUpstreamFailure(
+  response: Pick<Response, 'status'>,
+  report: (label: string, status: number) => void,
+): void {
+  report('Nebius Token Factory HTTP failure', response.status)
+}

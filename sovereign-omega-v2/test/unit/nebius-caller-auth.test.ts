@@ -4,6 +4,7 @@ import { getNebiusChatUrl } from '../../../supabase/functions/_shared/nebius-end
 import {
   authorizeNebiusCaller,
   isNebiusRequestBounded,
+  logNebiusUpstreamFailure,
 } from '../../../supabase/functions/_shared/nebius-auth.ts'
 
 const jwt = 'header.payload.signature'
@@ -89,5 +90,22 @@ describe('Nebius endpoint origin protection', () => {
       'https://api.tokenfactory.nebius.com/v1/#secret',
     ]
     for (const v of bad) expect(getNebiusChatUrl(v), v).toBeNull()
+  })
+})
+
+describe('Nebius upstream-error data minimization', () => {
+  it('logs only the HTTP status without reading error response bodies', () => {
+    const text = vi.fn(async () => 'sensitive-body-including-prompt')
+    const report = vi.fn()
+    const upstream = { status: 401, text }
+    logNebiusUpstreamFailure(upstream, report)
+    expect(report).toHaveBeenCalledExactlyOnceWith('Nebius Token Factory HTTP failure', 401)
+    expect(text).not.toHaveBeenCalled()
+    expect(JSON.stringify(report.mock.calls)).not.toContain('sensitive-body')
+  })
+  it('denies malformed Nebius history before message construction', () => {
+    expect(isNebiusRequestBounded('prompt','system','evil' as never)).toBe(false)
+    expect(isNebiusRequestBounded('prompt','system',[null] as never)).toBe(false)
+    expect(isNebiusRequestBounded('prompt','system',[{ content: 55 }] as never)).toBe(false)
   })
 })

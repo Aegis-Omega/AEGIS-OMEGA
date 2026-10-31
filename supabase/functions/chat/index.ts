@@ -1,6 +1,6 @@
 import { createClient } from 'jsr:@supabase/supabase-js@2'
 import { CORS } from '../_shared/cors.ts'
-import { authorizeNebiusCaller, isNebiusRequestBounded } from '../_shared/nebius-auth.ts'
+import { authorizeNebiusCaller, isNebiusRequestBounded, logNebiusUpstreamFailure } from '../_shared/nebius-auth.ts'
 import { reserveNebiusAttempt } from '../_shared/nebius-budget.ts'
 import { getNebiusChatUrl } from '../_shared/nebius-endpoint.ts'
 
@@ -71,6 +71,14 @@ Deno.serve(async (req) => {
 
     if (!message?.trim()) {
       return new Response(JSON.stringify({ error: 'message required' }), { status: 400, headers: { ...CORS, 'Content-Type': 'application/json' } })
+    }
+
+    // Validate the complete caller-controlled structure BEFORE history.filter:
+    // malformed/oversized Nebius history must not throw before the auth gate.
+    if (provider === 'nebius' && !isNebiusRequestBounded(message, system, history)) {
+      return new Response(JSON.stringify({ error: 'Nebius request exceeds server input limits' }), {
+        status: 413, headers: { ...CORS, 'Content-Type': 'application/json' },
+      })
     }
 
     const messages = [
@@ -289,18 +297,22 @@ Deno.serve(async (req) => {
     })
 
     if (!resp.ok) {
-      const err = await resp.text()
-      console.error(
-        useAzure
-          ? 'Azure OpenAI error:'
-          : useOpenAI
-            ? 'OpenAI error:'
-            : useNebius
-              ? 'Nebius Token Factory error:'
+      if (useNebius) {
+        // Some providers echo prompts, credential fragments or account
+        // metadata in upstream errors. Never read the body into logs.
+        logNebiusUpstreamFailure(resp, (label, status) => console.error(label, status))
+      } else {
+        const err = await resp.text()
+        console.error(
+          useAzure
+            ? 'Azure OpenAI error:'
+            : useOpenAI
+              ? 'OpenAI error:'
               : 'DashScope error:',
-        resp.status,
-        err,
-      )
+          resp.status,
+          err,
+        )
+      }
       return new Response(JSON.stringify({ error: 'AI unavailable', reply: "I'm having trouble connecting right now. Try again in a moment." }), {
         status: 200, headers: { ...CORS, 'Content-Type': 'application/json' },
       })
