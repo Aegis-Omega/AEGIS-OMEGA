@@ -256,7 +256,18 @@ def _knowledge_denial_receipts(
 
 async def dispatch_event(event_type: str, payload: dict) -> list["AgentResult"]:
     global _last_dispatch_receipts
-    candidate_roles = _legacy.EVENT_ROUTING.get(event_type, [_legacy.AgentRole.ENGINEERING])
+    # Unknown names must not silently inherit the engineering role. Deny
+    # before reading repository knowledge or asking central authority.
+    if not isinstance(event_type, str) or event_type not in _legacy.EVENT_ROUTING:
+        _last_dispatch_receipts = _knowledge_denial_receipts(
+            [_legacy.AgentRole.ENGINEERING],
+            {
+                "status": "DENIED",
+                "reason_codes": ["UNREGISTERED_DISPATCH_EVENT"],
+            },
+        )
+        return []
+    candidate_roles = _legacy.EVENT_ROUTING[event_type]
 
     knowledge = establish_repository_knowledge(repo_root=_legacy._REPO_ROOT)
     if knowledge.get("status") != "ESTABLISHED":
