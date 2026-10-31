@@ -34,3 +34,12 @@ Never synthesize `OBSERVED_AVAILABLE` from an invitation, a connector installati
 ## Minimum real follow-up
 
 Read Azure DevOps **project and pipeline IDs, repository service connection, and parallel-job entitlement** through an authorized Azure DevOps connection; inspect without starting or billing. Then, once a terminal execution receipt at an exact requested commit exists, translate it to the existing ProviderObservationV1 and run the *same* selector that handles GitLab, GitHub and Vercel. No new standalone optimizer, user database, or fork is required.
+
+
+## Executed-job GitLab adapter V1.1
+
+`src/sovereignty/provider-adapters/gitlab-ci.ts` consumes a **sanitized pair** of GitLab REST pipeline and job responses, obtained by a trusted, authenticated caller using the same `project_id`. The adapter checks `pipeline_id = job_pipeline_id`, `pipeline_head_sha = job_head_sha = expected_head_sha`, terminal statuses, a positive assigned `runner_id`, and actual start/end timestamps. If any of these is absent or mismatched, output is `UNKNOWN` with zero observed capabilities. The domain-separated SHA-256 is a **local integrity checksum**, not a GitLab signature or independently authenticated REST transcript. A failed workload that actually ran is valid evidence of runner substrate use, not successful workload execution.
+
+2026-10-31 read-only connector witness: project `84781556`, pipeline `2953906140` status `success` (Oct 16), job `17223279657` status `success`, runner `54907241`, pipeline and job source `69cbb9b398c8fe036ed340e37fb630872d8c0706`. This is *historical* and will produce `UNKNOWN` when the selector's trusted caller requires any other SHA, including PR #569. Unit tests preserve this mismatch gate, and the existing Sovereignty Contracts GitHub Actions workflow runs them. No GitLab runner is triggered, no GitLab branch is pushed, and production observations remain unchanged.
+
+**HOLD:** Executed GitLab job metadata can establish an observed substrate at a specified source, but it is not a signed attestation, successful execution of the caller's task, current billing entitlement, or privilege grant. Caller must independently authenticate the GitLab responses and enforce separate operator authority.

@@ -108,6 +108,9 @@ jobs:
       - name: GitHub runner observation epistemic regression
         run: npx vitest run test/unit/provider-github-actions.test.ts
 
+      - name: GitLab exact-source CI evidence adapter regression
+        run: npx vitest run test/unit/provider-gitlab-ci.test.ts
+
       - name: Read-only Cloudflare resource discovery regressions
         run: npx vitest run test/unit/cloudflare-resource-discovery.test.ts
 
