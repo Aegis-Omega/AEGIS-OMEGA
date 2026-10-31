@@ -149,6 +149,13 @@ class IndependentReviewTests(unittest.TestCase):
                 with self.assertRaisesRegex(Invalid, "GITHUB_ID_INVALID"):
                     select_reviewer(HEAD, "agent:submitter", roster, SEED)
 
+    def test_float_alias_of_reviewer_github_id_is_rejected(self):
+        receipt = good_receipt()
+        receipt["review"]["reviewer"]["github_id"] = float(
+            receipt["review"]["reviewer"]["github_id"]
+        )
+        self.reject(receipt, identity_snapshot(), "REVIEWER_IDENTITY_MISMATCH")
+
     def test_forged_reviewer_account_is_rejected(self):
         receipt = good_receipt()
         receipt["review"]["reviewer"]["github_id"] = 999
