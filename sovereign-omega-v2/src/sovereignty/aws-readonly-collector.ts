@@ -68,21 +68,30 @@ async function observe(
   }
 }
 
+function classifyPrincipal(account: string, rawArn: unknown): 'ROOT' | 'IAM_PRINCIPAL' | 'UNKNOWN' {
+  if (typeof rawArn !== 'string') return 'UNKNOWN'
+  if (rawArn === `arn:aws:iam::${account}:root`) return 'ROOT'
+  if (rawArn.startsWith(`arn:aws:iam::${account}:user/`) ||
+      rawArn.startsWith(`arn:aws:iam::${account}:role/`) ||
+      rawArn.startsWith(`arn:aws:sts::${account}:assumed-role/`)) return 'IAM_PRINCIPAL'
+  return 'UNKNOWN'
+}
+
 async function observeIdentity(
   call: AwsReadCallV1,
-): Promise<{observation:AwsApiObservationV1;accountId:string|null}> {
+): Promise<{observation:AwsApiObservationV1;accountId:string|null;principalKind:'ROOT' | 'IAM_PRINCIPAL' | 'UNKNOWN'}> {
   try {
     const raw = object(await call({
       service_name:'sts',operation_name:'GetCallerIdentity',region_name:'us-east-1',params:{},
     }))
     const account = raw?.Account
     if (typeof account !== 'string' || !ID.test(account)) {
-      return {observation:unknownRead(),accountId:null}
+      return {observation:unknownRead(),accountId:null,principalKind:'UNKNOWN'}
     }
     // Account id is transient. Never copy it into returned evidence or logs.
-    return {observation:{outcome:'SUCCESS',error_code:null,count:null},accountId:account}
+    return {observation:{outcome:'SUCCESS',error_code:null,count:null},accountId:account,principalKind:classifyPrincipal(account,raw?.Arn)}
   } catch (error) {
-    return {observation:{outcome:'ERROR',error_code:codeFromError(error),count:null},accountId:null}
+    return {observation:{outcome:'ERROR',error_code:codeFromError(error),count:null},accountId:null,principalKind:'UNKNOWN'}
   }
 }
 
@@ -136,6 +145,7 @@ export async function collectAwsResourceReadsV1(
   return {
     sts:identity.observation,s3,ec2,cost_explorer:costExplorer,
     billing_views:billing,budgets,free_tier:freeTier,
+    principal_kind:identity.principalKind,
     operator_reported_credit_usd:options.operator_reported_credit_usd ?? null,
   }
 }

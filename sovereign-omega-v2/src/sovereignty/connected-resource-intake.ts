@@ -30,6 +30,8 @@ export interface AwsResourceReadsV1 {
   budgets: AwsApiObservationV1 | null
   free_tier: AwsApiObservationV1 | null
   operator_reported_credit_usd: string | null
+  /** Derived from STS ARN; raw ARN/account are never returned or hashed. */
+  principal_kind?: 'ROOT' | 'IAM_PRINCIPAL' | 'UNKNOWN'
 }
 export interface AwsResourceInventoryV1 {
   identity: 'OBSERVED' | 'UNKNOWN'
@@ -42,6 +44,7 @@ export interface AwsResourceInventoryV1 {
   budgets_count: number | null
   free_tier_usage_count: number | null
   operator_reported_credit_usd: string | null
+  principal_kind?: 'ROOT' | 'IAM_PRINCIPAL' | 'UNKNOWN'
   remaining_credit_verified: 'UNKNOWN'
   effective_hard_budget_stop: 'UNKNOWN'
   paid_aws_workloads: 'HOLD'
@@ -127,6 +130,9 @@ function observeAws(reads:AwsResourceReadsV1):AwsResourceInventoryV1 {
   const budgets=awsObservation(reads.budgets)
   const free=awsObservation(reads.free_tier)
   const reported=reads.operator_reported_credit_usd
+  if (reads.principal_kind !== undefined && !(['ROOT','IAM_PRINCIPAL','UNKNOWN'] as string[]).includes(reads.principal_kind)) {
+    throw new TypeError('invalid AWS principal_kind')
+  }
   if(reported!==null && (typeof reported!=='string' || reported.length>24 ||
     !/^(0|[1-9][0-9]*)(\.[0-9]{1,2})?$/.test(reported))) {
     throw new TypeError('operator_reported_credit_usd must be unsigned decimal or null')
@@ -142,6 +148,7 @@ function observeAws(reads:AwsResourceReadsV1):AwsResourceInventoryV1 {
     budgets_count:awsCount(budgets),
     free_tier_usage_count:awsCount(free),
     operator_reported_credit_usd:reported,
+    ...(reads.principal_kind === undefined ? {} : {principal_kind:reads.principal_kind}),
     // Credit and hard overage ceilings cannot be inferred from read-only API metadata.
     remaining_credit_verified:'UNKNOWN',
     effective_hard_budget_stop:'UNKNOWN',

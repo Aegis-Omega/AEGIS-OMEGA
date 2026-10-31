@@ -38,7 +38,8 @@ export async function observeAwsAccountForProviderMeshV1(
     schema_version: PROVIDER_MESH_SCHEMA_VERSION,
     provider_id: 'aws',
     // Source-derived account observation, NOT execution availability.
-    state: inventory.aws.identity === 'OBSERVED' ? 'ACCOUNT_CONFIGURED' : 'UNKNOWN',
+    state: inventory.aws.identity === 'OBSERVED' && inventory.aws.principal_kind !== 'ROOT'
+      ? 'ACCOUNT_CONFIGURED' : 'UNKNOWN',
     observed_capabilities: [],
     evidence_hash: integrity_root,
     observation_generation: inventory.observation_generation,

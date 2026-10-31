@@ -115,3 +115,16 @@ describe('AWS provider mesh observer: no compute admission from mere account acc
     expect(raw.cost_explorer?.outcome).toBe('UNKNOWN')
   })
 })
+
+it('root AWS principal is not promoted even to ACCOUNT_CONFIGURED',async()=>{
+  const i=await inventory(reads({principal_kind:'ROOT'}))
+  const o=await observeAwsAccountForProviderMeshV1(i)
+  expect(o.state).toBe('UNKNOWN')
+  expect(o.observed_capabilities).toEqual([])
+  const s=await buildProviderMeshSnapshotV1(DECLARED_PROVIDER_CATALOG_V1,[o])
+  expect((await selectProviderV1(s,selectionRequest)).outcome).toBe('DENIED')
+})
+it('malformed forged AWS principal-kind is rejected',async()=>{
+  await expect(inventory(reads({principal_kind:'ROOT_USER_WITH_ACCESS' as never})))
+    .rejects.toThrow('principal_kind')
+})

@@ -112,3 +112,41 @@ describe('AWS read-only collector, provider-bound input not hardcoded',()=>{
     expect(a.integrity_root).toBe(b.integrity_root)
   })
 })
+
+it('classifies STS root without persisting ARN, account or UserId',async()=>{
+  const seen: string[]=[]
+  const call:AwsReadCallV1=async r=>{
+    seen.push(r.operation_name)
+    if(r.operation_name==='GetCallerIdentity')return {
+      Account:'123456789012',Arn:'arn:aws:iam::123456789012:root',UserId:'PRIVATE_USER_ID',
+    }
+    const fields:Record<string,string>={
+      ListBuckets:'Buckets',DescribeRegions:'Regions',ListBillingViews:'billingViews',
+      DescribeBudgets:'Budgets',GetFreeTierUsage:'freeTierUsages',
+    }
+    return {[fields[r.operation_name]]:[]}
+  }
+  const result=await collectAwsResourceReadsV1(call,{region:'eu-central-1'})
+  expect(result.principal_kind).toBe('ROOT')
+  expect(result.sts?.outcome).toBe('SUCCESS')
+  expect(JSON.stringify(result)).not.toContain('123456789012')
+  expect(JSON.stringify(result)).not.toContain('PRIVATE_USER_ID')
+  expect(seen).not.toContain('GetCostAndUsage')
+})
+it('classifies an assumed IAM role only for the same STS account',async()=>{
+  const roleCall:AwsReadCallV1=async r=>r.operation_name==='GetCallerIdentity'
+    ? {Account:'123456789012',Arn:'arn:aws:sts::123456789012:assumed-role/ScopedRole/session'}
+    : {Buckets:[],Regions:[],billingViews:[],Budgets:[],freeTierUsages:[]}
+  const result=await collectAwsResourceReadsV1(roleCall,{region:'eu-central-1'})
+  expect(result.principal_kind).toBe('IAM_PRINCIPAL')
+  expect(JSON.stringify(result)).not.toContain('ScopedRole')
+})
+it('unknown or cross-account STS ARN never proves non-root identity',async()=>{
+  for(const Arn of [undefined,'arn:aws:iam::999999999999:role/Scope','arn:aws:iam::123456789012:root/fake']){
+    const call:AwsReadCallV1=async r=>r.operation_name==='GetCallerIdentity'
+      ? {Account:'123456789012',Arn}
+      : {Buckets:[],Regions:[],billingViews:[],Budgets:[],freeTierUsages:[]}
+    const result=await collectAwsResourceReadsV1(call,{region:'eu-central-1'})
+    expect(result.principal_kind).toBe('UNKNOWN')
+  }
+})
