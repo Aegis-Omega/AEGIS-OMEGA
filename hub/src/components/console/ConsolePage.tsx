@@ -108,13 +108,13 @@ export function ConsolePage() {
             background: 'rgba(9,10,15,0.86)', border: `1px solid rgba(255,255,255,0.10)`,
             backdropFilter: 'blur(16px) saturate(140%)', boxShadow: '0 24px 70px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.06)',
           }}>
-            <StatChip label="departments" value={String(snap.status.total_agents)} color={T.text} />
+            <StatChip label="departments" value={live ? String(snap.status.total_agents) : 'DEMO'} color={live ? T.text : T.amber} />
             <Divider />
-            <StatChip label="homeostasis" value={snap.calibration.homeostasis_zone} color={T.green} />
+            <StatChip label="homeostasis" value={live ? snap.calibration.homeostasis_zone : 'unverified'} color={live ? T.green : T.amber} />
             <Divider />
             <StatChip label="contract" value={`v${snap.status.contract_version}`} color={T.text} />
             <Divider />
-            <StatChip label="chain" value={snap.status.chain_valid ? 'valid' : 'broken'} color={snap.status.chain_valid ? T.green : T.red} />
+            <StatChip label="chain" value={live ? (snap.status.chain_valid ? 'valid' : 'broken') : 'unverified'} color={!live ? T.amber : snap.status.chain_valid ? T.green : T.red} />
           </div>
 
           <div style={{ marginTop: 40, fontSize: 11, color: T.muted, fontFamily: MONO, letterSpacing: '0.1em' }}>

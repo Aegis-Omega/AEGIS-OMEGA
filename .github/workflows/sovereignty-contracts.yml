@@ -81,6 +81,9 @@ jobs:
       - name: AWS single-call planning pipeline fail-closed regression
         run: npx vitest run test/unit/aws-planning-pipeline.test.ts
 
+      - name: Hub demo verification truth boundary
+        run: npx vitest run test/unit/hub-demo-verification.test.ts
+
       - name: Cloudflare account collector fixed-GET regression
         run: npx vitest run test/unit/cloudflare-account-collector.test.ts
 
