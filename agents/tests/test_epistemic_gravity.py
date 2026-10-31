@@ -118,6 +118,7 @@ class TestGravity(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "too many"):
             plan(spec)
 
+
     def test_stale_probe_cannot_hypothetically_bypass_head(self):
         spec = sample()
         spec["heads"]["math"] = "h2"
