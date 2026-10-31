@@ -12,6 +12,31 @@ final class AppleInferenceReceiptTests: XCTestCase {
             from: JSONSerialization.data(withJSONObject: fields))
     }
 
+    func testDecodedReceiptRejectsUncommittedAuthorityField() throws {
+        let receipt = try AppleInferenceReceipt.succeeded(
+            prompt: "hello", output: "world", maxTokens: 32, temperature: 0.1)
+        let encoded = try JSONEncoder().encode(receipt)
+        var fields = try XCTUnwrap(JSONSerialization.jsonObject(with: encoded) as? [String: Any])
+        fields["authority_override"] = "REPO_WRITE"
+        let injected = try JSONSerialization.data(withJSONObject: fields)
+        XCTAssertThrowsError(try JSONDecoder().decode(AppleInferenceReceipt.self, from: injected),
+                             "Swift must reject fields that independent Python verification rejects")
+    }
+
+    func testDecodedReceiptRejectsLegacyV11FieldAndMissingV11Bits() throws {
+        let receipt = try AppleInferenceReceipt.succeeded(
+            prompt: "hello", output: "world", maxTokens: 32, temperature: 0.1)
+        let encoded = try JSONEncoder().encode(receipt)
+        var fields = try XCTUnwrap(JSONSerialization.jsonObject(with: encoded) as? [String: Any])
+        fields.removeValue(forKey: "temperature_float_bits_hex")
+        XCTAssertThrowsError(try JSONDecoder().decode(AppleInferenceReceipt.self,
+             from: JSONSerialization.data(withJSONObject: fields)))
+        fields["schema_version"] = "1.0.0"
+        fields["temperature_float_bits_hex"] = NSNull()
+        XCTAssertThrowsError(try JSONDecoder().decode(AppleInferenceReceipt.self,
+             from: JSONSerialization.data(withJSONObject: fields)))
+    }
+
     func testPublicReceiptFactoryRejectsInvalidInputs() throws {
         for bad in [Float.nan, .infinity, -.infinity, -0.01, 1.01] {
             XCTAssertThrowsError(try AppleInferenceReceipt.succeeded(
@@ -62,7 +87,7 @@ final class AppleInferenceReceiptTests: XCTestCase {
         XCTAssertFalse(try tamper(good, key: "prompt_bytes", value: 500).verifyIntegrity())
         XCTAssertFalse(try tamper(good, key: "temperature_float_bits_hex", value: "3e4cdd2e").verifyIntegrity())
         XCTAssertFalse(try tamper(good, key: "temperature_float_bits_hex", value: "zzzzzzzz").verifyIntegrity())
-        XCTAssertFalse(try tamper(good, key: "schema_version", value: "9.9.9").verifyIntegrity())
+        XCTAssertThrowsError(try tamper(good, key: "schema_version", value: "9.9.9"))
         XCTAssertFalse(try tamper(good, key: "receipt_sha256", value: "0" + good.receipt_sha256.dropFirst()).verifyIntegrity())
     }
 
@@ -72,7 +97,7 @@ final class AppleInferenceReceiptTests: XCTestCase {
         XCTAssertTrue(receipt.verifyIntegrity())
         XCTAssertTrue(receipt.verifyContent(prompt: "hello", output: "world"))
         XCTAssertFalse(try tamper(receipt, key: "temperature_milli", value: 101).verifyIntegrity())
-        XCTAssertFalse(try tamper(receipt, key: "temperature_float_bits_hex", value: "3dcccccd").verifyIntegrity())
+        XCTAssertThrowsError(try tamper(receipt, key: "temperature_float_bits_hex", value: "3dcccccd"))
     }
 
     func testHistoricV10ReceiptRemainsDecodable() throws {
