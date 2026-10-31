@@ -38,7 +38,7 @@ class NebiusPreflightTests(unittest.TestCase):
         self.assertEqual(r["status"], "MODEL_AVAILABLE")
         self.assertTrue(r["authenticated"])
         self.assertEqual(called[0][1], "GET")
-        self.assertEqual(called[0][0], "https://api.tokenfactory.us-north1.nebius.com/v1/models")
+        self.assertEqual(called[0][0], "https://api.tokenfactory.nebius.com/v1/models")
         self.assertEqual(r["paid_inference_calls"], 0)
         self.assertNotIn("synthetic-test-token", json.dumps(r))
 
@@ -47,6 +47,17 @@ class NebiusPreflightTests(unittest.TestCase):
         self.assertEqual(r["status"], "MODEL_NOT_LISTED")
         self.assertTrue(r["authenticated"])
         self.assertFalse(r["model_available"])
+
+    def test_explicit_us_north1_model_catalog(self):
+        self.assertEqual(
+            m.models_url("https://api.tokenfactory.us-north1.nebius.com/v1/"),
+            "https://api.tokenfactory.us-north1.nebius.com/v1/models",
+        )
+
+    def test_default_matches_server_fallback(self):
+        chat_file = pathlib.Path(__file__).resolve().parents[1] / "supabase/functions/chat/index.ts"
+        server_source = chat_file.read_text(encoding="utf-8")
+        self.assertIn("Deno.env.get('NEBIUS_BASE_URL') ?? '" + m.DEFAULT_BASE_URL + "'", server_source)
 
     def test_auth_401(self):
         def opener(req, timeout):

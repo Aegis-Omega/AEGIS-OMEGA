@@ -15,7 +15,7 @@ from urllib.error import HTTPError, URLError
 from urllib.parse import urlparse
 from urllib.request import HTTPRedirectHandler, Request, build_opener
 
-DEFAULT_BASE_URL = "https://api.tokenfactory.us-north1.nebius.com/v1/"
+DEFAULT_BASE_URL = "https://api.tokenfactory.nebius.com/v1/"
 DEFAULT_MODEL = "MiniMaxAI/MiniMax-M3.1-Flash"
 APPROVED_HOSTS = frozenset({
     "api.tokenfactory.us-north1.nebius.com",
