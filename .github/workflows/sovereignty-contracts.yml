@@ -57,6 +57,9 @@ jobs:
       - name: No-spend resource planning source and trust regressions
         run: npx vitest run test/unit/free-resource-planning.test.ts
 
+      - name: Connected resource account-read intake regressions
+        run: npx vitest run test/unit/connected-resource-intake.test.ts
+
       - name: Typecheck runtime contracts
         run: npm run typecheck
 
