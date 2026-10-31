@@ -227,9 +227,11 @@ def _assess(receipt, roster):
     _require(isinstance(isolation, dict)
              and isolation.get("source_snapshot_sha256") == source_digest,
              "REVIEW_SOURCE_MISMATCH")
-    _require(isolation.get("submitter_identity_visible") is False,
+    _require(isolation.get("submitter_identity_visible") is False
+             and "submitter_identity" not in isolation,
              "SUBMITTER_IDENTITY_LEAKED")
-    _require(isolation.get("expected_answer_visible") is False,
+    _require(isolation.get("expected_answer_visible") is False
+             and "expected_answer" not in isolation,
              "EXPECTED_ANSWER_LEAKED")
 
     challenge_pool = review.get("challenge_pool")

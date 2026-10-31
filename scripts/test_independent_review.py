@@ -188,6 +188,18 @@ class IndependentReviewTests(unittest.TestCase):
         receipt["review"]["source_isolation"]["expected_answer_visible"] = True
         self.reject(receipt, identity_snapshot(), "EXPECTED_ANSWER_LEAKED")
 
+    def test_embedded_expected_answer_in_isolation_is_rejected(self):
+        receipt = good_receipt()
+        receipt["review"]["source_isolation"]["expected_answer"] = "private answer"
+        self.reject(receipt, identity_snapshot(), "EXPECTED_ANSWER_LEAKED")
+
+    def test_embedded_submitter_identity_in_isolation_is_rejected(self):
+        receipt = good_receipt()
+        receipt["review"]["source_isolation"]["submitter_identity"] = {
+            "principal_id": "agent:submitter",
+        }
+        self.reject(receipt, identity_snapshot(), "SUBMITTER_IDENTITY_LEAKED")
+
     def test_challenge_answer_leak_is_rejected(self):
         receipt = good_receipt()
         receipt["review"]["challenge_pool"][0]["expected_answer_visible"] = True
