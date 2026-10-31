@@ -235,7 +235,7 @@ describe('Nebius exact-provider no-fallback contract', () => {
     vi.stubEnv('VITE_DASHSCOPE_API_KEY', 'synthetic-test-value')
     fetchMock.mockResolvedValue({ ok: true,
       json: async () => ({ error: 'AI unavailable', provider_status: 'disabled' }) })
-    await expect(routeInference({ systemPrompt: 'S', userMessage: 'U', backend: 'nebius-token-factory' }))
+    await expect(routeInference({ systemPrompt: 'S', userMessage: 'U', backend: 'nebius-token-factory', userAccessToken: 'header.payload.signature' }))
       .rejects.toThrow(/All inference backends failed/)
     expect(fetchMock).toHaveBeenCalledTimes(1)
     expect(String(fetchMock.mock.calls[0]?.[0])).toContain('/functions/v1/chat')
@@ -245,7 +245,7 @@ describe('Nebius exact-provider no-fallback contract', () => {
     vi.stubEnv('VITE_ENABLE_NEBIUS', 'true')
     fetchMock.mockResolvedValue({ ok: true,
       json: async () => ({ reply: '{"ok":true}', model: 'MiniMaxAI/MiniMax-M3.1-Flash' }) })
-    const result = await routeInference({ systemPrompt: 'S', userMessage: 'U', backend: 'nebius-token-factory' })
+    const result = await routeInference({ systemPrompt: 'S', userMessage: 'U', backend: 'nebius-token-factory', userAccessToken: 'header.payload.signature' })
     expect(result.backend).toBe('nebius-token-factory')
     expect(result.model).toBe('MiniMaxAI/MiniMax-M3.1-Flash')
     expect(result.fallback_count).toBe(0)
