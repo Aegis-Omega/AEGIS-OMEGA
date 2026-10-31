@@ -11,6 +11,8 @@ on:
       - sovereign-omega-v2/src/core/canonicalize.ts
       - sovereign-omega-v2/src/core/hashing.ts
       - .github/workflows/sovereignty-contracts.yml
+      - .devcontainer/devcontainer.json
+      - scripts/test_devcontainer_config.py
       - .github/workflows/agent-dispatch.yml
       - vertex/serve.py
       - vertex/tests/test_dispatch_auth_contract.py
@@ -51,6 +53,9 @@ jobs:
     steps:
       - name: Checkout candidate
         uses: actions/checkout@v4
+
+      - name: Validate existing Codespaces devcontainer JSON
+        run: cd .. && python3 -m unittest discover -s scripts -p 'test_devcontainer_config.py' -v
 
       - name: Set up Node
         uses: actions/setup-node@v4
