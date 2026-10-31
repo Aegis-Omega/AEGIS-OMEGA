@@ -34,7 +34,9 @@ export interface AwsResourceReadsV1 {
 export interface AwsResourceInventoryV1 {
   identity: 'OBSERVED' | 'UNKNOWN'
   s3: 'API_SUCCESS' | 'NOT_SIGNED_UP' | 'UNKNOWN'
+  s3_bucket_count: number | null
   ec2: 'API_SUCCESS' | 'OPT_IN_REQUIRED' | 'UNKNOWN'
+  ec2_region_count: number | null
   cost_explorer: 'API_SUCCESS' | 'SUBSCRIPTION_REQUIRED' | 'UNKNOWN'
   billing_views_count: number | null
   budgets_count: number | null
@@ -132,7 +134,9 @@ function observeAws(reads:AwsResourceReadsV1):AwsResourceInventoryV1 {
   return {
     identity:sts.outcome==='SUCCESS'?'OBSERVED':'UNKNOWN',
     s3:awsApiStatus(s3,'NotSignedUp','NOT_SIGNED_UP'),
+    s3_bucket_count:awsCount(s3),
     ec2:awsApiStatus(ec2,'OptInRequired','OPT_IN_REQUIRED'),
+    ec2_region_count:awsCount(ec2),
     cost_explorer:awsApiStatus(ce,'SubscriptionRequiredException','SUBSCRIPTION_REQUIRED'),
     billing_views_count:awsCount(billing),
     budgets_count:awsCount(budgets),
