@@ -3,6 +3,52 @@ import XCTest
 
 final class AppleInferenceReceiptTests: XCTestCase {
 
+    private func tamper(_ receipt: AppleInferenceReceipt,
+                        key: String, value: Any) throws -> AppleInferenceReceipt {
+        let encoded = try JSONEncoder().encode(receipt)
+        var fields = try XCTUnwrap(JSONSerialization.jsonObject(with: encoded) as? [String: Any])
+        fields[key] = value
+        return try JSONDecoder().decode(AppleInferenceReceipt.self,
+            from: JSONSerialization.data(withJSONObject: fields))
+    }
+
+    func testReceiptCanVerifyIntegrityAndContent() throws {
+        let receipt = AppleInferenceReceipt.succeeded(
+            prompt: "private prompt", output: "private output",
+            maxTokens: 16, temperature: 0.2001)
+        XCTAssertTrue(receipt.verifyIntegrity())
+        XCTAssertTrue(receipt.verifyContent(prompt: "private prompt", output: "private output"))
+        XCTAssertFalse(receipt.verifyContent(prompt: "wrong prompt", output: "private output"))
+        XCTAssertFalse(receipt.verifyContent(prompt: "private prompt", output: "wrong output"))
+        let decoded = try JSONDecoder().decode(AppleInferenceReceipt.self,
+            from: JSONEncoder().encode(receipt))
+        XCTAssertTrue(decoded.verifyIntegrity())
+    }
+
+    func testReceiptTamperingCannotPassVerifier() throws {
+        let good = AppleInferenceReceipt.succeeded(
+            prompt: "private prompt", output: "private output",
+            maxTokens: 16, temperature: 0.2001)
+        XCTAssertFalse(try tamper(good, key: "authority_effect", value: "REPO_WRITE").verifyIntegrity())
+        XCTAssertFalse(try tamper(good, key: "outcome", value: "FAILED").verifyIntegrity())
+        XCTAssertFalse(try tamper(good, key: "provider_id", value: "fabricated-provider").verifyIntegrity())
+        XCTAssertFalse(try tamper(good, key: "max_tokens", value: 512).verifyIntegrity())
+        XCTAssertFalse(try tamper(good, key: "prompt_bytes", value: 500).verifyIntegrity())
+        XCTAssertFalse(try tamper(good, key: "temperature_float_bits_hex", value: "3e4cdd2e").verifyIntegrity())
+        XCTAssertFalse(try tamper(good, key: "temperature_float_bits_hex", value: "zzzzzzzz").verifyIntegrity())
+        XCTAssertFalse(try tamper(good, key: "schema_version", value: "9.9.9").verifyIntegrity())
+        XCTAssertFalse(try tamper(good, key: "receipt_sha256", value: "0" + good.receipt_sha256.dropFirst()).verifyIntegrity())
+    }
+
+    func testLegacyV10GoldenReceiptIntegrityVerifies() throws {
+        let raw = #"{"schema_version":"1.0.0","provider_id":"apple-foundation-models","model_id":"apple-system-language-model-default","prompt_sha256":"2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824","output_sha256":"486ea46224d1bb4fb680f34f7c9ad96a8f24ec88be73ea8e5a6c65260e9cb8a7","prompt_bytes":5,"output_bytes":5,"max_tokens":32,"temperature_milli":100,"outcome":"SUCCEEDED","authority_effect":"NONE","receipt_sha256":"167cb2cdc67d04b374b68a851783dc3ec0a63ba20a0619550676535b3c8211eb"}"#
+        let receipt = try JSONDecoder().decode(AppleInferenceReceipt.self, from: Data(raw.utf8))
+        XCTAssertTrue(receipt.verifyIntegrity())
+        XCTAssertTrue(receipt.verifyContent(prompt: "hello", output: "world"))
+        XCTAssertFalse(try tamper(receipt, key: "temperature_milli", value: 101).verifyIntegrity())
+        XCTAssertFalse(try tamper(receipt, key: "temperature_float_bits_hex", value: "3dcccccd").verifyIntegrity())
+    }
+
     func testHistoricV10ReceiptRemainsDecodable() throws {
         // This is the immutable v1.0.0 golden receipt, not regenerated as v1.1.0.
         let legacyJSON = #"{"schema_version":"1.0.0","provider_id":"apple-foundation-models","model_id":"apple-system-language-model-default","prompt_sha256":"2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824","output_sha256":"486ea46224d1bb4fb680f34f7c9ad96a8f24ec88be73ea8e5a6c65260e9cb8a7","prompt_bytes":5,"output_bytes":5,"max_tokens":32,"temperature_milli":100,"outcome":"SUCCEEDED","authority_effect":"NONE","receipt_sha256":"167cb2cdc67d04b374b68a851783dc3ec0a63ba20a0619550676535b3c8211eb"}"#

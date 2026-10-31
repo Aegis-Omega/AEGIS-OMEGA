@@ -63,6 +63,68 @@ public struct AppleInferenceReceipt: Codable, Equatable, Sendable {
         )
     }
 
+    /// Checks internal consistency of the receipt, including the canonical digest.
+    /// This is NOT an issuer signature or proof that inference actually occurred.
+    /// Historical schema 1.0.0 is supported without reconstructing lost Float32 bits.
+    public func verifyIntegrity() -> Bool {
+        guard provider_id == Self.providerId,
+              model_id == Self.modelId,
+              outcome == "SUCCEEDED",
+              authority_effect == "NONE",
+              prompt_bytes > 0,
+              prompt_bytes <= AppleFoundationModelsRunner.maximumPromptBytes,
+              output_bytes >= 0,
+              max_tokens > 0,
+              max_tokens <= AppleFoundationModelsRunner.maximumResponseTokens,
+              (0...1000).contains(temperature_milli),
+              Self.isLowercaseSHA256(prompt_sha256),
+              Self.isLowercaseSHA256(output_sha256),
+              Self.isLowercaseSHA256(receipt_sha256)
+        else { return false }
+
+        let base = #"{"authority_effect":"NONE","max_tokens":\#(max_tokens),"model_id":"apple-system-language-model-default","outcome":"SUCCEEDED","output_bytes":\#(output_bytes),"output_sha256":"\#(output_sha256)","prompt_bytes":\#(prompt_bytes),"prompt_sha256":"\#(prompt_sha256)","provider_id":"apple-foundation-models""#
+        let preimage: String
+        switch schema_version {
+        case "1.0.0":
+            // A v1 receipt must not silently carry uncommitted v1.1 metadata.
+            guard temperature_float_bits_hex == nil else { return false }
+            preimage = base + #","schema_version":"1.0.0","temperature_milli":\#(temperature_milli)}"#
+        case "1.1.0":
+            guard let bitsHex = temperature_float_bits_hex,
+                  bitsHex.count == 8,
+                  let bits = UInt32(bitsHex, radix: 16),
+                  bitsHex == String(format: "%08x", bits)
+            else { return false }
+            let temperature = Float(bitPattern: bits)
+            guard temperature.isFinite,
+                  temperature >= 0,
+                  temperature <= 1,
+                  Int((Double(temperature) * 1000.0).rounded()) == temperature_milli
+            else { return false }
+            preimage = base
+                + #","schema_version":"1.1.0","temperature_float_bits_hex":"\#(bitsHex)","temperature_milli":\#(temperature_milli)}"#
+        default:
+            return false
+        }
+        return Self.sha256Hex(preimage) == receipt_sha256
+    }
+
+    /// Also checks the actual supplied prompt/output bytes against the receipt.
+    /// A valid hash alone cannot establish that a model produced the output.
+    public func verifyContent(prompt: String, output: String) -> Bool {
+        verifyIntegrity()
+            && prompt.utf8.count == prompt_bytes
+            && output.utf8.count == output_bytes
+            && Self.sha256Hex(prompt) == prompt_sha256
+            && Self.sha256Hex(output) == output_sha256
+    }
+
+    private static func isLowercaseSHA256(_ digest: String) -> Bool {
+        digest.utf8.count == 64 && digest.utf8.allSatisfy { byte in
+            (48...57).contains(byte) || (97...102).contains(byte)
+        }
+    }
+
     static func sha256Hex(_ value: String) -> String {
         SHA256.hash(data: Data(value.utf8))
             .map { String(format: "%02x", $0) }
