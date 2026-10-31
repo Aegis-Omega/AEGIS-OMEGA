@@ -13,17 +13,18 @@ CREATE TABLE IF NOT EXISTS public.aegis_test_generation_floor_v1 (
   policy_id text PRIMARY KEY CHECK (policy_id ~ '^[a-zA-Z0-9._:-]{1,128}$'),
   generation text NOT NULL CHECK (generation ~ '^(0|[1-9][0-9]*)$')
 );
+-- Even the service API role MUST NOT update the floor directly. Only the
+-- owner-executed, pinned transaction function may lock/advance that row.
 REVOKE ALL ON TABLE public.aegis_test_generation_floor_v1
-  FROM PUBLIC, anon, authenticated;
-GRANT SELECT, UPDATE ON TABLE public.aegis_test_generation_floor_v1 TO service_role;
-REVOKE INSERT, DELETE, TRUNCATE ON TABLE public.aegis_test_generation_floor_v1
-  FROM service_role;
+  FROM PUBLIC, anon, authenticated, service_role;
 
 CREATE OR REPLACE FUNCTION public.aegis_test_observe_advance_v1(
   p_policy_id text, p_generation text
 )
 RETURNS TABLE(outcome text, persisted_generation text)
-LANGUAGE plpgsql SECURITY INVOKER SET search_path = ''
+-- Created and owned by the dedicated PostgreSQL test owner (postgres).
+-- This fixture is NOT a deployable production SECURITY DEFINER migration.
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = ''
 AS $checkpoint$
 DECLARE
   prior text;

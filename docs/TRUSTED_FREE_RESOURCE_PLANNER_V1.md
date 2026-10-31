@@ -147,3 +147,19 @@ Three additional isolated tests cover temporary storage failure followed by
 recovery, final-check rollback followed by a later success-looking answer,
 and a mismatched committed-generation acknowledgement. These tests are
 synthetic and do not establish a production backend or execution authority.
+
+## Isolated SQL privilege boundary (not a production migration)
+
+The SQL replay fixture for `aegis_budget_test` uses an owner-executed
+`SECURITY DEFINER` function with `search_path = ''`, and gives the isolated
+`service_role` **EXECUTE on that function only**. That role has no direct
+SELECT, UPDATE, INSERT, or DELETE permission on the checkpoint floor table;
+it cannot bypass the monotonic check by writing a smaller generation directly.
+`anon` and `authenticated` cannot call the function or read the table.
+
+The Python regression checks both privilege metadata and actual denied SQL
+operations. A denial assertion requires PostgreSQL's **table permission
+denied** error: transport or syntax failures may not masquerade as a PASS.
+This fixture is created by the test database owner and intentionally has
+no production deployment path. A real adapter still needs independent trust,
+policy-bound access, revocation freshness and operational verification.

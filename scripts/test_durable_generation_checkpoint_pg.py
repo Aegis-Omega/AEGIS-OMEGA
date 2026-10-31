@@ -36,8 +36,26 @@ def expect(actual: str, expected: str, label: str) -> None:
     print("PASS", label, flush=True)
 
 
+def assert_service_statement_denied(statement: str, label: str) -> None:
+    # Test the real SQL permissions, not only has_table_privilege metadata.
+    result = subprocess.run(
+        ["psql", "-X", "-qAt", "-v", "ON_ERROR_STOP=1",
+         "-c", "SET ROLE service_role;\n" + statement],
+        capture_output=True, text=True, timeout=30, check=False,
+    )
+    if (result.returncode == 0
+            or "permission denied" not in result.stderr.lower()
+            or "aegis_test_generation_floor_v1" not in result.stderr):
+        raise AssertionError(
+            f"{label}: expected table permission denial; "
+            f"rc={result.returncode}; stderr={result.stderr[-350:]}"
+        )
+    print("PASS", label, flush=True)
+
+
 def observe(policy: str, generation: str) -> str:
-    # The role has only SELECT/UPDATE plus the restricted function EXECUTE.
+    # service_role may EXECUTE the restricted function but cannot read/write
+    # the high-water table directly.
     return psql(
         "SELECT outcome || ':' || COALESCE(persisted_generation, '-') "
         "FROM public.aegis_test_observe_advance_v1("
@@ -76,12 +94,30 @@ def main() -> int:
     expect(psql("SELECT has_table_privilege('anon',"
                 "'public.aegis_test_generation_floor_v1','SELECT');"),
            "f", "anon cannot read checkpoint floor")
+    for privilege in ("SELECT", "UPDATE", "INSERT", "DELETE"):
+        expect(psql("SELECT has_table_privilege('service_role',"
+                    "'public.aegis_test_generation_floor_v1',"
+                    f"'{privilege}');"),
+               "f", "service API cannot directly " + privilege.lower() + " floor")
+    expect(psql(f"SELECT has_function_privilege('service_role',{fn},'EXECUTE');"),
+           "t", "service API can use only the atomic checkpoint function")
 
     expect(observe("missing-policy", "10"), "UNAVAILABLE:-",
            "missing policy row fails closed")
     # Only privileged fixture setup may preseed the row.
     psql("INSERT INTO public.aegis_test_generation_floor_v1 "
          "(policy_id,generation) VALUES ('offline-policy','100');")
+    assert_service_statement_denied(
+        "UPDATE public.aegis_test_generation_floor_v1 "
+        "SET generation='0' WHERE policy_id='offline-policy';",
+        "service API cannot overwrite high-water mark")
+    assert_service_statement_denied(
+        "SELECT generation FROM public.aegis_test_generation_floor_v1 "
+        "WHERE policy_id='offline-policy';",
+        "service API cannot read raw generation floor")
+    expect(psql("SELECT generation FROM public.aegis_test_generation_floor_v1 "
+                "WHERE policy_id='offline-policy';"),
+           "100", "attempted direct rollback leaves durable state unchanged")
     expect(observe("offline-policy", "99"), "ROLLBACK:-",
            "older generation denied")
     expect(observe("offline-policy", "100"), "ACCEPTED:100",
