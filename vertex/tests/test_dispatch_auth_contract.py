@@ -42,11 +42,21 @@ def source_middleware(key):
         "errors_total": 0,
         "by_path": defaultdict(lambda: {"count": 0, "errors": 0, "latency_ms_sum": 0}),
     }
+    # Read the real production route list; never hide a missing gate behind
+    # test-only duplicated constants.
+    gate_nodes = [
+        stmt.value for stmt in tree.body
+        if isinstance(stmt, ast.Assign)
+        and any(isinstance(t, ast.Name) and t.id == "_GATED_PREFIXES"
+                for t in stmt.targets)
+    ]
+    if len(gate_nodes) != 1:
+        raise AssertionError("expected one production gated route list")
+    protected_paths = ast.literal_eval(gate_nodes[0])
     scope = {
         "Request": object,
         "PLATFORM_API_KEY": key,
-        "_GATED_PREFIXES": ("/platform/collaborate", "/agents/run",
-                            "/agents/dispatch", "/v1/messages", "/predict"),
+        "_GATED_PREFIXES": protected_paths,
         "_client_id": lambda request: "test-client",
         "_rate_limited": lambda client: False,
         "METRICS": metrics,
@@ -148,6 +158,44 @@ class DispatchAuthContract(unittest.IsolatedAsyncioTestCase):
             "test-secret", {}, "/agents/run")
         self.assertEqual(response.status_code, 401)
         self.assertEqual(calls, 0)
+
+
+    async def test_all_compute_routes_deny_without_platform_key(self):
+        routes = (
+            "/platform/collaborate", "/platform/compare", "/platform/stream",
+            "/platform/schedule/revenue", "/agents/run", "/agents/dispatch",
+            "/agents/batch", "/v1/messages", "/predict",
+        )
+        for path in routes:
+            with self.subTest(path=path):
+                response, calls = await check_middleware("", {}, path)
+                self.assertEqual(response.status_code, 503)
+                self.assertEqual(calls, 0)
+
+    async def test_all_compute_routes_reject_invalid_platform_key(self):
+        routes = (
+            "/platform/collaborate", "/platform/compare", "/platform/stream",
+            "/platform/schedule/revenue", "/agents/run", "/agents/dispatch",
+            "/agents/batch", "/v1/messages", "/predict",
+        )
+        for path in routes:
+            with self.subTest(path=path):
+                response, calls = await check_middleware(
+                    "test-secret", {"x-api-key": "wrong"}, path)
+                self.assertEqual(response.status_code, 401)
+                self.assertEqual(calls, 0)
+
+    async def test_all_compute_routes_require_correct_platform_key(self):
+        for path in (
+            "/platform/collaborate", "/platform/compare", "/platform/stream",
+            "/platform/schedule/revenue", "/agents/run", "/agents/dispatch",
+            "/agents/batch", "/v1/messages", "/predict",
+        ):
+            with self.subTest(path=path):
+                response, calls = await check_middleware(
+                    "test-secret", {"x-api-key": "test-secret"}, path)
+                self.assertEqual(response.status_code, 200)
+                self.assertEqual(calls, 1)
 
     def test_github_dispatch_uses_same_header_as_proxy(self):
         content = DISPATCH_WORKFLOW.read_text(encoding="utf-8")

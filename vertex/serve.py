@@ -207,8 +207,13 @@ app = FastAPI(
 PLATFORM_API_KEY = os.environ.get("PLATFORM_API_KEY", "")  # if set, gates cost routes
 RATE_LIMIT_PER_MIN = int(os.environ.get("RATE_LIMIT_PER_MIN", "60"))
 
-# Routes that spend compute/money — require the API key when one is configured.
-_GATED_PREFIXES = ("/platform/collaborate", "/agents/run", "/agents/dispatch", "/v1/messages", "/predict")
+# All agent, inference and compute-spending routes require explicit API auth.
+# The signed GitHub webhook has its own independent HMAC gate.
+_GATED_PREFIXES = (
+    "/platform/collaborate", "/platform/compare", "/platform/stream",
+    "/platform/schedule/revenue", "/agents/run", "/agents/dispatch",
+    "/agents/batch", "/v1/messages", "/predict",
+)
 
 # In-memory metrics (per-process; Cloud Run logs aggregate across instances).
 METRICS: dict[str, Any] = {
@@ -248,14 +253,14 @@ async def observability_and_guard(request: Request, call_next):
             {"error": "rate_limited", "limit_per_min": RATE_LIMIT_PER_MIN}, status_code=429
         )
 
-    # A privileged agent dispatch MUST NOT be callable when the platform
-    # credential is absent. This blocks the old public-by-default behavior.
-    if path == "/agents/dispatch" and not PLATFORM_API_KEY:
-        METRICS["requests_total"] += 1
-        return JSONResponse({"error": "dispatch_auth_unconfigured"}, status_code=503)
-
-    # Existing cost-route auth, comparing credentials in constant time.
-    if PLATFORM_API_KEY and any(path.startswith(p) for p in _GATED_PREFIXES):
+    # No configured platform key means NO paid inference/agents, not a
+    # silent public-access fallback. Webhook HMAC protection is independent.
+    if any(path.startswith(p) for p in _GATED_PREFIXES):
+        if not PLATFORM_API_KEY:
+            METRICS["requests_total"] += 1
+            reason = ("dispatch_auth_unconfigured" if path == "/agents/dispatch"
+                      else "platform_auth_unconfigured")
+            return JSONResponse({"error": reason}, status_code=503)
         provided = request.headers.get("x-api-key", "")
         if not hmac.compare_digest(provided, PLATFORM_API_KEY):
             METRICS["requests_total"] += 1
