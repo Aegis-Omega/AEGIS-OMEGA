@@ -92,6 +92,21 @@ final class AppleFoundationModelsRunnerPolicyTests: XCTestCase {
         } catch AppleFoundationModelsError.notInitialized { }
     }
 
+    func testCancelledTaskRejectedByPreflightGuard() async {
+        let task = Task {
+            withUnsafeCurrentTask { $0?.cancel() }
+            do {
+                try AppleFoundationModelsRunner.checkTaskCancellation()
+                XCTFail("A canceled task must fail before invoking a model")
+            } catch is CancellationError {
+                // Canceled tasks must not reach generation.
+            } catch {
+                XCTFail("Unexpected cancellation error: \(error)")
+            }
+        }
+        await task.value
+    }
+
     func testRequestBoundsFailClosed() {
         XCTAssertThrowsError(
             try AppleFoundationModelsRunner.validateRequest(

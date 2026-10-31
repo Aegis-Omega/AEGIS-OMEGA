@@ -139,6 +139,8 @@ public final class AppleFoundationModelsRunner: EdgeInferenceRunning, Sendable {
         maxTokens: Int = 128,
         temperature: Float = 0.2
     ) async throws -> AppleFoundationModelsExecution {
+        // Cancellation before invocation must not consume on-device model work.
+        try Self.checkTaskCancellation()
         guard let token = readiness.activeToken() else {
             throw AppleFoundationModelsError.notInitialized
         }
@@ -175,6 +177,8 @@ public final class AppleFoundationModelsRunner: EdgeInferenceRunning, Sendable {
                 maximumResponseTokens: maxTokens
             )
 
+            // Recheck immediately before invoking the device model.
+            try Self.checkTaskCancellation()
             let response = try await session.respond(to: prompt, options: options)
             // The device model or the caller's readiness lease may have changed
             // during the suspension. Neither condition may yield a success receipt.
@@ -197,6 +201,10 @@ public final class AppleFoundationModelsRunner: EdgeInferenceRunning, Sendable {
         throw AppleFoundationModelsError.frameworkUnavailable
     }
 
+    static func checkTaskCancellation() throws {
+        try Task.checkCancellation()
+    }
+
     static func validateCompletedGeneration(
         readiness: AppleModelReadiness,
         token: UInt64,
@@ -204,7 +212,7 @@ public final class AppleFoundationModelsRunner: EdgeInferenceRunning, Sendable {
     ) throws {
         // A model implementation can return after the caller canceled its task.
         // Cancellation must never produce a successful generation receipt.
-        try Task.checkCancellation()
+        try checkTaskCancellation()
         guard readiness.isActive(token) else {
             throw AppleFoundationModelsError.notInitialized
         }
