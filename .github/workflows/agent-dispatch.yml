@@ -143,6 +143,12 @@ jobs:
           workload_identity_provider: ${{ secrets.GCP_WIF_PROVIDER }}
           service_account: ${{ secrets.GCP_SERVICE_ACCOUNT }}
 
+      - name: Install Cloud SDK for WIF-backed Secret Manager lookup
+        if: steps.classify.outputs.event_type != ''
+        uses: google-github-actions/setup-gcloud@v3
+        with:
+          version: '>= 363.0.0'
+
       - name: Broker platform key at execution time
         if: steps.classify.outputs.event_type != ''
         id: platform_key
