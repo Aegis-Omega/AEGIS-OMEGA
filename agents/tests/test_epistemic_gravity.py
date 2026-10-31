@@ -118,6 +118,65 @@ class TestGravity(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "too many"):
             plan(spec)
 
+    def test_stale_probe_cannot_hypothetically_bypass_head(self):
+        spec = sample()
+        spec["heads"]["math"] = "h2"
+        result = plan(spec)
+        self.assertEqual(result["blocked_probes"], {"check_bridge": "STALE_SOURCE_BINDING"})
+        self.assertEqual(result["proposed_probes"], ["check_test"])
+        self.assertNotIn("formal_lane", result["hypothetical_newly_supported"])
+        self.assertIsNone(result["minimal_proof_debt"]["composed"])
+        self.assertNotIn("formal_lane", supported(spec, ("check_bridge",)))
+
+    def test_wrongly_typed_dependency_is_controlled_rejection(self):
+        spec = sample()
+        spec["claims"]["formal_lane"]["alternatives"] = [[{"malformed": "dict"}]]
+        with self.assertRaisesRegex(ValueError, "dependency IDs"):
+            plan(spec)
+
+    def test_bool_dependency_is_controlled_rejection(self):
+        spec = sample()
+        spec["claims"]["formal_lane"]["alternatives"] = [[True]]
+        with self.assertRaisesRegex(ValueError, "dependency IDs"):
+            plan(spec)
+
+    def test_malformed_claim_and_probe_identifiers_rejected(self):
+        spec = sample()
+        spec["probes"][1] = {"produces": "bridge", "cost": 1}
+        with self.assertRaisesRegex(ValueError, "IDs must be nonempty strings"):
+            plan(spec)
+        spec = sample()
+        spec["claims"][""] = {"value": 1, "alternatives": [["lemma"]]}
+        with self.assertRaisesRegex(ValueError, "IDs must be nonempty strings"):
+            plan(spec)
+
+    def test_source_rebind_allows_probe_only_after_new_snapshot(self):
+        spec = sample()
+        spec["heads"]["math"] = "h2"
+        stale = plan(spec)
+        spec["evidence"]["bridge"]["sha"] = "h2"
+        # The old verified lemma is still stale. Only an explicitly refreshed
+        # snapshot with new lemma evidence can recover dependent claims.
+        self.assertNotIn("formal_lane", plan(spec)["hypothetical_newly_supported"])
+        spec["evidence"]["lemma"]["sha"] = "h2"
+        updated = plan(spec)
+        self.assertEqual(updated["blocked_probes"], {})
+        self.assertIn("formal_lane", updated["hypothetical_newly_supported"])
+        self.assertNotEqual(stale["source_snapshot_digest"], updated["source_snapshot_digest"])
+
+    def test_multiple_stale_probes_cannot_unlock_alternative(self):
+        spec = sample()
+        spec["heads"]["code"] = "c2"
+        p = plan(spec)
+        self.assertEqual(set(p["blocked_probes"]), {"check_test", "check_alternative"})
+        self.assertNotIn("product_lane", p["hypothetical_newly_supported"])
+
+    def test_empty_evidence_id_is_rejected(self):
+        spec = sample()
+        spec["evidence"][""] = {"source": "code", "sha": "c1", "verified": False}
+        with self.assertRaisesRegex(ValueError, "IDs must be nonempty strings"):
+            plan(spec)
+
 
 if __name__ == '__main__':
     unittest.main()
