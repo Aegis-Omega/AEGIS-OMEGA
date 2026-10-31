@@ -105,7 +105,7 @@ function validNonnegativeCount(n: unknown): n is number {
   return typeof n === 'number' && Number.isSafeInteger(n) && n >= 0
 }
 
-const AWS_ERROR_CODES = new Set(['NotSignedUp','OptInRequired','SubscriptionRequiredException','AccessDeniedException'])
+const AWS_ERROR_CODES = new Set(['NotSignedUp','OptInRequired','SubscriptionRequiredException','AccessDeniedException','ForbiddenException'])
 function awsObservation(x: AwsApiObservationV1 | null): AwsApiObservationV1 {
   if (x === null) return {outcome:'UNKNOWN',error_code:null,count:null}
   if (!x || !(['SUCCESS','ERROR','UNKNOWN'] as string[]).includes(x.outcome)) {

@@ -79,3 +79,8 @@ Connected read-only AWS scan in `eu-central-1` on 2026-10-31 observed: Bedrock `
 ### AWS principal-kind fail-closed correction (2026-10-31)
 
 Prior source treated a missing or `UNKNOWN` `principal_kind` as non-root because it checked only `principal_kind !== 'ROOT'`. That incorrectly promoted unclassified STS evidence to `ACCOUNT_CONFIGURED`. The adapter now requires **explicit `principal_kind === 'IAM_PRINCIPAL'`** plus a verified STS identity before even observational account configuration. Missing, unknown and root principals remain `UNKNOWN` with zero observed capabilities, and cannot be selected for cloud execution. Existing unit checks that previously promoted missing principal-kind are corrected to use an explicitly recognized IAM fixture, and new negative tests cover omitted/UNKNOWN principals. IAM principal classification still does not establish least privilege or authorization. No AWS permissions, service subscriptions, resources or spending changed.
+
+
+### AWS error-code normalization correction (2026-10-31)
+
+The AWS collector already recognized `ForbiddenException` from S3 Tables, but the shared connected-resource intake omitted it from its sanitized error allowlist. Thus a real `ForbiddenException` was being downgraded to an unspecified error in the final hashed receipt. Both allowlists now include this well-defined AWS error code, while raw messages, unrecognized errors and secret-bearing details are still dropped. New negative regression assertions cover collector-to-intake preservation, unknown errors, and unchanged `HOLD`. This correction does not grant AWS access, credits or execution authority.

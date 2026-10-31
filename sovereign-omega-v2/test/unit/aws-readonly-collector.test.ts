@@ -201,10 +201,29 @@ describe('AWS optional read-only service discovery',()=>{
       aws:result,
     })
     expect(observed.aws?.service_discovery?.bedrock?.count).toBe(55)
+    // Collector and intake must agree on safe, standard AWS denial codes.
+    expect(observed.aws?.service_discovery?.s3tables?.outcome).toBe('ERROR')
+    expect(observed.aws?.service_discovery?.s3tables?.error_code).toBe('ForbiddenException')
+    expect(observed.aws?.service_discovery?.s3tables?.count).toBeNull()
     expect(observed.aws?.paid_aws_workloads).toBe('HOLD')
     expect(observed.authority_effect).toBe('NONE')
     expect(JSON.stringify(observed)).not.toContain('private-')
     expect(JSON.stringify(observed)).not.toContain('Private error')
+  })
+  it('does not include secret-bearing or unrecognized errors in the normalized digest',async()=>{
+    const {result}=await discover({},{
+      ListTableBuckets:Object.assign(new Error('internal secret'),{code:'NotAnAwsError'}),
+    })
+    const observed=await observeConnectedResourcesV1({
+      observation_generation:'7',
+      cloudflare:{ai_gateway_credit_balance:null,ai_gateway_topup_config:null,
+        worker_account_settings:null,worker_scripts:null},
+      hugging_face:{account_plan:'UNKNOWN',jobs_total:null},
+      aws:result,
+    })
+    expect(observed.aws?.service_discovery?.s3tables?.error_code).toBeNull()
+    expect(JSON.stringify(observed)).not.toContain('internal secret')
+    expect(observed.aws?.paid_aws_workloads).toBe('HOLD')
   })
   it('treats service-specific pagination markers as unknown rather than complete',async()=>{
     const {result}=await discover({
