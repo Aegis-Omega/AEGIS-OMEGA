@@ -17,6 +17,7 @@
 - `budget`: integer planning budget; zero causes no proposal.
 - `minimal_proof_debt`: cheapest candidate probe set to hypothetically satisfy each currently unsupported modeled claim.
 - `source_snapshot_digest`: SHA-256 of canonical input. A source head change changes both the plan digest and downstream model-level support.
+- `blocked_probes`: stale-source probe IDs mapped to `STALE_SOURCE_BINDING`; blocked checks never enter counterfactual unlocked claims. Renew the input snapshot with independently established current source-head evidence before planning again.
 
 The optimizer exactly enumerates a maximum of 16 probes, chooses the budget-feasible subset maximizing newly supported **declared** claim value, with smaller cost and lexicographic tie-breaking. This finite, explicit bound prevents pretending the algorithm scales unboundedly.
 
@@ -33,9 +34,9 @@ Demonstration fixture is synthetic. Expected proposed probes: `kernel_replay` an
 
 ## Local receipt
 
-2026-10-31: 14/14 stdlib `unittest` regressions PASS in an offline container for exact source content: `agents/epistemic_gravity.py` Git blob `e19d68d87da3cae06147712999fefc374681d86d`, tests Git blob `f74980f9e7a36c2afa01328a590667c4fa7d2693`. Source hashes were independently compared with GitHub blob readback. These local results do **not** imply hosted CI PASS.
+2026-10-31: 21/21 stdlib `unittest` regressions PASS in an offline container for exact source content: `agents/epistemic_gravity.py` Git blob `949391ba00bbecb3af773e89c9bb6070ff387b75`, tests Git blob `bc7ac084062ec60a5d22cc55ead060c78ec971d3`. Source hashes were independently compared with GitHub blob readback. These local results do **not** imply hosted CI PASS.
 
-Tests include: competing proof alternatives, multi-hop dependencies, exact minimum debt, budget insufficiency, stale-head revocation propagation, input immutability, deterministic receipts, missing sources, dependency cycles, noninteger costs, and bounded search.
+Tests include: competing proof alternatives, multi-hop dependencies, exact minimum debt, budget insufficiency, stale-head revocation propagation, **rejection of stale-source counterfactual probes**, explicit source rebind requirements, input immutability, deterministic receipts, invalid/empty/non-string dependency rejection, missing sources, dependency cycles, noninteger costs, and bounded search.
 
 ## Explicit security boundary
 
