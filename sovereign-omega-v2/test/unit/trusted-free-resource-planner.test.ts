@@ -1,5 +1,9 @@
 import {describe,expect,it} from 'vitest'
 import {
+  createIsolatedPostgresGenerationCheckpointV1,
+  type AuthenticatedParameterizedPostgresV1,
+} from '../../src/sovereignty/postgres-generation-checkpoint.js'
+import {
   createDurableFreeResourcePlannerV1,
   type AuthenticatedAtomicGenerationCheckpointV1,
 } from '../../src/sovereignty/durable-free-resource-planner.js'
@@ -467,4 +471,123 @@ describe('shared durable high-water checkpoint contract (isolated synthetic stor
     expect(calls).toBe(1)
   })
 
+})
+
+describe('SQL-to-Ed25519 planner integration contract (synthetic parameterized client)',()=>{
+  it('composes a parameterized PostgreSQL RPC with complete signed planning and two floor checks',async()=>{
+    const c=await context()
+    const sqlCalls:{sql:string;args:readonly string[]}[]=[]
+    let highWater=10n
+    const client:AuthenticatedParameterizedPostgresV1={
+      async query(sql,parameters){
+        sqlCalls.push({sql,args:parameters})
+        const generation=BigInt(parameters[1])
+        if(generation<highWater) return {rows:[{outcome:'ROLLBACK',persisted_generation:null}]}
+        highWater=generation
+        return {rows:[{outcome:'ACCEPTED',persisted_generation:generation.toString()}]}
+      },
+    }
+    const adapter=createIsolatedPostgresGenerationCheckpointV1(client)
+    const planner=createDurableFreeResourcePlannerV1(c.trust,()=>request.current_generation,adapter)
+    const result=await planner.plan(c.snapshot,request,[c.evidence],[c.signed])
+    expect(result.outcome).toBe('PLANNING_ELIGIBLE')
+    expect(result.authority_effect).toBe('NONE')
+    expect(sqlCalls).toHaveLength(2)
+    expect(sqlCalls[0].sql).toBe(
+      'SELECT outcome, persisted_generation FROM public.aegis_test_observe_advance_v1($1::text,$2::text)',
+    )
+    expect(sqlCalls.map(x=>x.args)).toEqual([
+      ['offline-test-policy','10'],['offline-test-policy','10'],
+    ])
+  })
+  it('detects another worker advancing the SQL floor before signed planning finishes',async()=>{
+    const c=await context()
+    let calls=0
+    const client:AuthenticatedParameterizedPostgresV1={
+      async query(_sql,params){
+        calls++
+        return calls===1
+          ? {rows:[{outcome:'ACCEPTED',persisted_generation:params[1]}]}
+          : {rows:[{outcome:'ROLLBACK',persisted_generation:null}]}
+      },
+    }
+    const planner=createDurableFreeResourcePlannerV1(
+      c.trust,()=>request.current_generation,
+      createIsolatedPostgresGenerationCheckpointV1(client),
+    )
+    const result=await planner.plan(c.snapshot,request,[c.evidence],[c.signed])
+    expect(result.outcome).toBe('HOLD')
+    expect(result.capacity_root).toBeNull()
+    expect(calls).toBe(2)
+    expect((await planner.plan(c.snapshot,request,[c.evidence],[c.signed])).outcome).toBe('HOLD')
+    expect(calls).toBe(2)
+  })
+  it('rejects malformed SQL acknowledgements without permitting retry on the same planner',async()=>{
+    const c=await context()
+    for(const rows of [
+      [],[{},{}],[{outcome:'ACCEPTED',persisted_generation:'9'}],
+      [{outcome:'ACCEPTED',persisted_generation:'010'}],
+      [{outcome:'ACCEPTED',persisted_generation:10}],
+      [{outcome:'ROLLBACK',persisted_generation:'10'}],
+      [{outcome:'SURPRISE',persisted_generation:null}],
+      [null],
+    ]){
+      let queries=0
+      const client:AuthenticatedParameterizedPostgresV1={
+        async query(_sql,params){
+          queries++
+          return {rows:queries===1?rows:[{
+            outcome:'ACCEPTED',persisted_generation:params[1],
+          }]}
+        },
+      }
+      const planner=createDurableFreeResourcePlannerV1(
+        c.trust,()=>request.current_generation,
+        createIsolatedPostgresGenerationCheckpointV1(client),
+      )
+      expect((await planner.plan(c.snapshot,request,[c.evidence],[c.signed])).outcome).toBe('HOLD')
+      expect((await planner.plan(c.snapshot,request,[c.evidence],[c.signed])).outcome).toBe('HOLD')
+      expect(queries).toBe(1)
+    }
+  })
+  it('denies malformed policy/generation before SQL calls and missing client at bootstrap',async()=>{
+    let queries=0
+    const client:AuthenticatedParameterizedPostgresV1={
+      async query(){queries++;return {rows:[{outcome:'ACCEPTED',persisted_generation:'10'}]}}
+    }
+    const adapter=createIsolatedPostgresGenerationCheckpointV1(client)
+    expect(await adapter.observe_and_advance('bad; DROP TABLE x','10')).toEqual({outcome:'UNAVAILABLE'})
+    expect(await adapter.observe_and_advance('offline-test-policy','01')).toEqual({outcome:'UNAVAILABLE'})
+    expect(queries).toBe(0)
+    expect(()=>createIsolatedPostgresGenerationCheckpointV1(
+      null as unknown as AuthenticatedParameterizedPostgresV1,
+    )).toThrow('trusted parameterized PostgreSQL client required')
+  })
+  it('converts SQL connection failure to HOLD, never treating errors as valid receipts',async()=>{
+    const c=await context()
+    const client:AuthenticatedParameterizedPostgresV1={
+      async query(){throw new Error('offline SQL connection')}
+    }
+    const planner=createDurableFreeResourcePlannerV1(
+      c.trust,()=>request.current_generation,
+      createIsolatedPostgresGenerationCheckpointV1(client),
+    )
+    expect((await planner.plan(c.snapshot,request,[c.evidence],[c.signed])).outcome).toBe('HOLD')
+    expect(planner.authority_effect).toBe('NONE')
+  })
+  it('still holds unsigned provider quota even with a good SQL checkpoint',async()=>{
+    const c=await context()
+    const client:AuthenticatedParameterizedPostgresV1={
+      async query(_sql,parameters){
+        return {rows:[{outcome:'ACCEPTED',persisted_generation:parameters[1]}]}
+      },
+    }
+    const planner=createDurableFreeResourcePlannerV1(
+      c.trust,()=>request.current_generation,
+      createIsolatedPostgresGenerationCheckpointV1(client),
+    )
+    const result=await planner.plan(c.snapshot,request,[c.evidence],[])
+    expect(result.outcome).toBe('HOLD')
+    expect(result.authority_effect).toBe('NONE')
+  })
 })

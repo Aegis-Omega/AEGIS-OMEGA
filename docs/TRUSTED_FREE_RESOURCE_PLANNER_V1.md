@@ -163,3 +163,34 @@ denied** error: transport or syntax failures may not masquerade as a PASS.
 This fixture is created by the test database owner and intentionally has
 no production deployment path. A real adapter still needs independent trust,
 policy-bound access, revocation freshness and operational verification.
+
+## Combined SQL-to-signed-planner integration contract
+
+`createIsolatedPostgresGenerationCheckpointV1(authenticated_client)`
+provides a concrete, parameterized adapter between the opt-in durable
+TypeScript planner and the exact test-only PostgreSQL function already
+exercised by native Actions. The **sole** SQL statement contains two
+bound parameters, `policy_id` and canonical decimal generation.
+A query must yield exactly one valid two-column acknowledgement; empty,
+multi-row, malformed, mismatched, failed or unavailable responses become
+`UNAVAILABLE`. The durable planner then latches `HOLD`. The
+integration regression exercises a signed Ed25519 request, both atomic
+checkpoint reads, a concurrent advance, malformed database responses,
+transport failure, and rejection of unsigned quota evidence. The native
+PostgreSQL regression also checks the two-column function return shape.
+
+**Scope:** the pinned SQL call refers to
+`public.aegis_test_observe_advance_v1` on the isolated
+`aegis_budget_test` database. This is a **test-only proof-of-contract**,
+not a production adapter or permission grant. Its parameterized client is
+provided by an authenticated host, never by the caller. No database
+credentials, connection URI, cloud account, signer, or bootstrap policy is
+created. Production requires a separately reviewed migration/routine,
+stable policy-scoped durable seeding, independently authenticated generation
+and revocations, and a real provider-side hard no-overage guarantee.
+
+**Acceptance:** only a clean exact-head CI run including the PostgreSQL job,
+the TS integration suite and `npm run typecheck` establishes this candidate's
+hosted test success. Partial/old-head green results are not acceptance.
+`authority_effect = NONE` throughout; no inference, quota reservation,
+spending permission, merge or deployment is enabled by these changes.

@@ -122,6 +122,12 @@ def main() -> int:
            "older generation denied")
     expect(observe("offline-policy", "100"), "ACCEPTED:100",
            "equal trusted generation admitted")
+    # Exact two-column result consumed by the TS parameterized SQL adapter.
+    expect(psql(
+        "SELECT outcome, persisted_generation "
+        "FROM public.aegis_test_observe_advance_v1("
+        "'offline-policy','100');", service=True,
+    ), "ACCEPTED|100", "runtime adapter SQL result shape is stable")
     expect(observe("offline-policy", "bad"), "UNAVAILABLE:-",
            "noncanonical generation denied")
     expect(observe("offline-policy", "0100"), "UNAVAILABLE:-",
