@@ -14,6 +14,7 @@ import {
 import {
   createTrustedFreeResourcePlannerV1,
   signedFreeResourceApprovalBytesV1,
+  freeResourceRequestRootV1,
   type FreeResourceApprovalPayloadV1,
   type SignedFreeResourceApprovalV1,
   type TrustedFreeResourcePolicyV1,
@@ -64,6 +65,7 @@ async function context(){
     policy_id:'offline-test-policy',
     approval_id:h('b'),
     evidence_root:evidence.evidence_root,
+    request_root:await freeResourceRequestRootV1(request),
     provider_id:evidence.provider_id,
     snapshot_root:snapshot.snapshot_root,
     observation_evidence_hash:observation.evidence_hash,
@@ -174,6 +176,30 @@ describe('trusted free-resource Ed25519 approval boundary (synthetic only)',()=>
       const planner=createTrustedFreeResourcePlannerV1(c.trust,source)
       expect((await planner.plan(c.snapshot,request,[c.evidence],[c.signed])).outcome).toBe('HOLD')
     }
+  })
+  it('holds a valid signature reused for a larger task budget within remaining capacity',async()=>{
+    const c=await context()
+    const changedRequest={...request,worst_case_units:'150'}
+    const decision=await createTrustedFreeResourcePlannerV1(c.trust,()=>request.current_generation)
+      .plan(c.snapshot,changedRequest,[c.evidence],[c.signed])
+    expect(decision.outcome).toBe('HOLD')
+  })
+  it('holds valid signature reused with different allowed/preferred provider controls',async()=>{
+    const c=await context()
+    const planner=createTrustedFreeResourcePlannerV1(c.trust,()=>request.current_generation)
+    for(const changedRequest of [
+      {...request,allowed_providers:['cloudflare-anthropic']},
+      {...request,preferred_provider_order:['cloudflare-anthropic']},
+      {...request,max_observation_age_generations:'0'},
+    ]){
+      expect((await planner.plan(c.snapshot,changedRequest,[c.evidence],[c.signed])).outcome).toBe('HOLD')
+    }
+  })
+  it('holds an approval signed for another exact request digest',async()=>{
+    const c=await context()
+    const signed=await c.sign({...c.payload,request_root:h('c')})
+    expect((await createTrustedFreeResourcePlannerV1(c.trust,()=>request.current_generation)
+      .plan(c.snapshot,request,[c.evidence],[signed])).outcome).toBe('HOLD')
   })
   it('keeps unsigned quota evidence on HOLD even if every evidence hash is well-formed',async()=>{
     const c=await context()

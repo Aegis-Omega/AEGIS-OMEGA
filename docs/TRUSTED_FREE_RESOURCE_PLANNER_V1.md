@@ -21,3 +21,20 @@ Verification: `cd sovereign-omega-v2 && npx vitest run test/unit/trusted-free-re
 The trusted runtime MUST inject a monotonic and authenticated `read_authenticated_generation` callback during initialization. The signer policy also sets `max_observation_age_generations`. Both are host-controlled. An untrusted request cannot backdate `current_generation`, expand observation age or supply the clock itself to make an expired signed approval eligible. A missing, throwing, or malformed trusted clock returns `HOLD`. An unchanged snapshot and signed witness are not enough to evade the runtime's advanced generation.
 
 Production must still authenticate the source of the clock/revocation/policy and ensure these values are not sourced from a request, model output or mutable provider response. This module remains a planning-only contract.
+
+## Task-specific signed request binding
+
+A capacity witness cannot authorize arbitrary tasks, even when the same provider,
+snapshot and measured free capacity remain unchanged. The signed approval
+payload now includes `request_root`, computed using SHA-256 over the canonical
+**entire** `FreeResourceRequestV1` object with domain
+`AEGIS_FREE_RESOURCE_REQUEST_V1`.
+
+The digest commits to the requested unit, worst-case units, required capabilities,
+allowed providers, provider preference and generation/freshness constraints.
+Any change requires a new approval signed by a trusted signer. Older signed
+approvals lacking `request_root` fail closed.
+
+This is still **planning only**: no provider-side reserve, live free allowance,
+no-overage verification, independently authenticated trust bootstrap, consumption
+or deployment is established. No credentials or production admission are added.

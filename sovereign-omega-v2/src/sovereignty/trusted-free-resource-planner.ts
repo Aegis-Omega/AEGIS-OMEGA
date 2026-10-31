@@ -7,6 +7,7 @@
  * Still only creates a planning receipt. Never reserves quota or grants spending.
  */
 import { canonicalizeJCS } from '../core/canonicalize.js'
+import { sha256Hex } from '../core/hashing.js'
 import { verifyBytes } from '../consensus/crypto.js'
 import type { SHA256Hex } from '../core/types.js'
 import {
@@ -43,6 +44,8 @@ export interface FreeResourceApprovalPayloadV1 {
   policy_id:string
   approval_id:SHA256Hex
   evidence_root:SHA256Hex
+  /** Prevent reuse of one approved quota for a different task or budget. */
+  request_root:SHA256Hex
   provider_id:string
   snapshot_root:SHA256Hex
   observation_evidence_hash:SHA256Hex
@@ -63,6 +66,10 @@ export interface TrustedFreeResourcePlannerV1 {
   )=>Promise<FreeResourceDecisionV1>
 }
 
+/** Source-bound, task-specific SHA256 root for the full planning request. */
+export async function freeResourceRequestRootV1(request:FreeResourceRequestV1):Promise<SHA256Hex> {
+  return sha256Hex(canonicalizeJCS({domain:'AEGIS_FREE_RESOURCE_REQUEST_V1',request}))
+}
 export function signedFreeResourceApprovalBytesV1(payload:FreeResourceApprovalPayloadV1):Uint8Array {
   return canonicalizeJCS({domain:DOMAIN,approval:payload})
 }
@@ -101,6 +108,7 @@ function approvalMatches(
   approval:SignedFreeResourceApprovalV1,
   snapshot:ProviderMeshSnapshotV1,
   request:FreeResourceRequestV1,
+  requestRoot:SHA256Hex,
   evidence:ReadonlyMap<string,FreeResourceEvidenceV1>,
   policyId:string,
 ):boolean {
@@ -108,9 +116,10 @@ function approvalMatches(
   if(!a||a.schema!=='AEGIS_FREE_RESOURCE_APPROVAL_V1'||a.audience!==AUDIENCE
     ||a.policy_id!==policyId||typeof a.provider_id!=='string'
     ||!HEX32.test(a.approval_id)||!HEX32.test(a.evidence_root)
+    ||!HEX32.test(a.request_root)
     ||!HEX32.test(a.snapshot_root)||!HEX32.test(a.observation_evidence_hash)
     ||!decimal(a.issued_generation)||!decimal(a.expires_generation)) return false
-  if(a.snapshot_root!==snapshot.snapshot_root) return false
+  if(a.snapshot_root!==snapshot.snapshot_root||a.request_root!==requestRoot) return false
   const witness=evidence.get(a.evidence_root)
   if(!witness||witness.provider_id!==a.provider_id
     ||witness.snapshot_root!==a.snapshot_root
@@ -167,6 +176,7 @@ export function createTrustedFreeResourcePlannerV1(
       for(const item of evidence){
         if(item&&typeof item.evidence_root==='string') byRoot.set(item.evidence_root,item)
       }
+      const requestRoot=await freeResourceRequestRootV1(request)
       const approved=new Set<SHA256Hex>()
       const seenApprovalIds=new Set<string>()
       for(const signed of untrusted_approvals){
@@ -181,7 +191,7 @@ export function createTrustedFreeResourcePlannerV1(
         seenApprovalIds.add(id)
         if(!trusted.signers.has(key)||trusted.revokedSigners.has(key)
           ||trusted.revokedApprovals.has(id)) continue
-        if(!approvalMatches(signed,snapshot,request,byRoot,trusted.policy_id)) continue
+        if(!approvalMatches(signed,snapshot,request,requestRoot,byRoot,trusted.policy_id)) continue
         let valid=false
         try {
           valid=await verifyBytes(key,signedFreeResourceApprovalBytesV1(signed.payload),sig)
