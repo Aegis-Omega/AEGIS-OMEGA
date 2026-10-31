@@ -1,0 +1,38 @@
+{
+  "schema": "AEGIS_SUPABASE_DEPLOYED_SOURCE_SNAPSHOT_V1",
+  "project_ref": "rwehltdwpsncnwxzkwik",
+  "edge_function_slug": "chat",
+  "edge_function_version": 7,
+  "active_at_capture": true,
+  "verify_jwt_at_capture": false,
+  "deployed_function_updated_at": 1791095833328,
+  "deployed_bundle_sha256": "7d9b312c8517310dcc47709bd6ddb421a406babf9d7c70a2a6bde02a2023f731",
+  "captured_date": "2026-10-31",
+  "source": "Supabase get_edge_function read-only result",
+  "authority_effect": "NONE",
+  "deployment_performed": false,
+  "purpose": "Immutable source recovery for diff and review; not canonical replacement and not evidence of current deploy once source changes",
+  "files": [
+    {
+      "source_relative_path": "chat/index.ts",
+      "snapshot_path": "supabase/production-snapshots/chat-v7/chat/index.ts",
+      "git_blob_sha": "70f031659bc3ec0f8f233eafa4cc98fe3538f431"
+    },
+    {
+      "source_relative_path": "_shared/cors.ts",
+      "snapshot_path": "supabase/production-snapshots/chat-v7/_shared/cors.ts",
+      "git_blob_sha": "1f010a81ee4a413776710a80a3fdfd6f63abde38"
+    },
+    {
+      "source_relative_path": "_shared/http.ts",
+      "snapshot_path": "supabase/production-snapshots/chat-v7/_shared/http.ts",
+      "git_blob_sha": "9e417840b6db48f0ba28da51a548162118f3915f"
+    }
+  ],
+  "cautions": [
+    "Actual production chat/index.ts does not match current tracked supabase/functions/chat/index.ts",
+    "This snapshot is outside supabase/functions, never deploy from this directory",
+    "verify_jwt=false at capture; do not interpret as authorization evidence",
+    "Never execute paid inference or billing changes from recovery"
+  ]
+}
