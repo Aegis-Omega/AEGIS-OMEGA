@@ -111,6 +111,9 @@ jobs:
       - name: GitLab exact-source CI evidence adapter regression
         run: npx vitest run test/unit/provider-gitlab-ci.test.ts
 
+      - name: Azure DevOps run and agent timeline exact-source regression
+        run: npx vitest run test/unit/provider-azure-devops.test.ts
+
       - name: Read-only Cloudflare resource discovery regressions
         run: npx vitest run test/unit/cloudflare-resource-discovery.test.ts
 

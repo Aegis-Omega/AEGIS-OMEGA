@@ -32,6 +32,7 @@ class AzurePipelineContractTest(unittest.TestCase):
             'test/unit/provider-mesh.test.ts',
             'test/unit/provider-federation.test.ts',
             'test/unit/chat-provider-gate.test.ts',
+            'test/unit/provider-azure-devops.test.ts',
             'npm run typecheck',
         ):
             self.assertIn(snippet, self.source)
