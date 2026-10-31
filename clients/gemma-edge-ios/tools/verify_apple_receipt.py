@@ -114,7 +114,11 @@ def main(argv=None):
     if (args.prompt_file is None) != (args.output_file is None):
         parser.error('--prompt-file and --output-file must be supplied together')
     try:
-        raw = sys.stdin.buffer.read(MAX_RECEIPT_BYTES + 1) if args.receipt == '-' else Path(args.receipt).read_bytes()
+        if args.receipt == '-':
+            raw = sys.stdin.buffer.read(MAX_RECEIPT_BYTES + 1)
+        else:
+            with open(args.receipt, 'rb') as fh:
+                raw = fh.read(MAX_RECEIPT_BYTES + 1)
         receipt = read_receipt(raw)
         verify_integrity(receipt)
         if args.prompt_file is not None:

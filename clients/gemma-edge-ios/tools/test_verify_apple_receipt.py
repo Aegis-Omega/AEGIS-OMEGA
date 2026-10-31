@@ -72,6 +72,15 @@ class CrossLanguageReceiptTests(unittest.TestCase):
         with self.assertRaises(InvalidReceipt): read_receipt(b'{"x":NaN}')
         with self.assertRaises(InvalidReceipt): read_receipt(b'[' + b' '*65536 + b']')
 
+    def test_cli_rejects_oversized_receipt_without_full_file_read(self):
+        with tempfile.TemporaryDirectory() as td:
+            oversized = Path(td)/'oversized.json'
+            oversized.write_bytes(b' ' * 100000)
+            command = [sys.executable, str(Path(__file__).with_name('verify_apple_receipt.py')), str(oversized)]
+            result = subprocess.run(command, capture_output=True, text=True)
+            self.assertEqual(result.returncode, 1)
+            self.assertIn('receipt too large', result.stderr)
+
     def test_content_and_cli(self):
         with tempfile.TemporaryDirectory() as td:
             tmp = Path(td)
