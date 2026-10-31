@@ -201,6 +201,29 @@ describe('trusted free-resource Ed25519 approval boundary (synthetic only)',()=>
     expect((await createTrustedFreeResourcePlannerV1(c.trust,()=>request.current_generation)
       .plan(c.snapshot,request,[c.evidence],[signed])).outcome).toBe('HOLD')
   })
+  it('ignores an untrusted fake signed envelope with the same ID before a valid approval',async()=>{
+    const c=await context()
+    const forged=await c.sign(c.payload,c.other.privateKey,c.other.publicKey)
+    const planner=createTrustedFreeResourcePlannerV1(c.trust,()=>request.current_generation)
+    const decision=await planner.plan(c.snapshot,request,[c.evidence],[forged,c.signed])
+    expect(decision.outcome).toBe('PLANNING_ELIGIBLE')
+    expect(decision.authority_effect).toBe('NONE')
+  })
+  it('does not reserve an ID after cryptographic signature tampering',async()=>{
+    const c=await context()
+    const tampered={...c.signed,signature_hex:'1'.repeat(128)}
+    const decision=await createTrustedFreeResourcePlannerV1(c.trust,()=>request.current_generation)
+      .plan(c.snapshot,request,[c.evidence],[tampered,c.signed])
+    expect(decision.outcome).toBe('PLANNING_ELIGIBLE')
+  })
+  it('still rejects an independently revoked approval even when a forged duplicate is prepended',async()=>{
+    const c=await context()
+    const trust={...c.trust,revoked_approval_ids:[c.payload.approval_id]}
+    const forged=await c.sign(c.payload,c.other.privateKey,c.other.publicKey)
+    const decision=await createTrustedFreeResourcePlannerV1(trust,()=>request.current_generation)
+      .plan(c.snapshot,request,[c.evidence],[forged,c.signed])
+    expect(decision.outcome).toBe('HOLD')
+  })
   it('keeps unsigned quota evidence on HOLD even if every evidence hash is well-formed',async()=>{
     const c=await context()
     const x=await createTrustedFreeResourcePlannerV1(c.trust,()=>request.current_generation).plan(c.snapshot,request,[c.evidence],[])

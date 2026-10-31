@@ -38,3 +38,14 @@ approvals lacking `request_root` fail closed.
 This is still **planning only**: no provider-side reserve, live free allowance,
 no-overage verification, independently authenticated trust bootstrap, consumption
 or deployment is established. No credentials or production admission are added.
+
+## Duplicate approval IDs and untrusted ordering
+
+The trusted verifier only marks an approval ID as seen **after its signature has
+been independently verified** using an authorized non-revoked key. A forged
+or malformed envelope with the same ID cannot suppress a later legitimate
+approval merely by appearing first in the untrusted array. An ID in the trusted
+revocation list is still rejected regardless of ordering.
+
+This is an integrity/availability repair for the non-authorizing planning
+contract, **not** permission to spend, reserve quota or execute workloads.

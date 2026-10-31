@@ -188,7 +188,8 @@ export function createTrustedFreeResourcePlannerV1(
           ||typeof sig!=='string'||!HEX64.test(sig)
           ||typeof id!=='string'||!HEX32.test(id)
           ||seenApprovalIds.has(id)) continue
-        seenApprovalIds.add(id)
+        // Untrusted malformed or forged envelopes must never reserve a
+        // legitimate approval ID before cryptographic verification.
         if(!trusted.signers.has(key)||trusted.revokedSigners.has(key)
           ||trusted.revokedApprovals.has(id)) continue
         if(!approvalMatches(signed,snapshot,request,requestRoot,byRoot,trusted.policy_id)) continue
@@ -198,7 +199,10 @@ export function createTrustedFreeResourcePlannerV1(
         } catch {
           valid=false
         }
-        if(valid) approved.add(signed.payload.evidence_root)
+        if(valid) {
+          seenApprovalIds.add(id)
+          approved.add(signed.payload.evidence_root)
+        }
       }
       return planFreeResourceV1(snapshot,request,evidence,[...approved])
     },
