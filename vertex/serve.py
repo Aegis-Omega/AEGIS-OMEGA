@@ -1224,7 +1224,17 @@ async def github_webhook(request: Request):
     if not isinstance(body, dict):
         return JSONResponse({"error": "invalid_webhook_envelope"}, status_code=400)
 
-    event_type = request.headers.get("x-github-event", "unknown")
+    # A valid HMAC is not a repository authorization. Never allow an event
+    # from another repository (or malformed metadata) to spend AEGIS agent work.
+    repo_info = body.get("repository")
+    if not isinstance(repo_info, dict) or repo_info.get("full_name") != "Aegis-Omega/AEGIS-OMEGA":
+        return JSONResponse({"error": "untrusted_webhook_repository"}, status_code=403)
+
+    # Unknown webhook types must not reach the coordinator's default
+    # engineering fallback. Keep only the event kinds this handler documents.
+    event_type = request.headers.get("x-github-event", "")
+    if event_type not in {"push", "pull_request", "issues", "pull_request_review", "check_run"}:
+        return JSONResponse({"error": "unsupported_webhook_event"}, status_code=422)
 
     # Map GitHub events to agent dispatch
     try:

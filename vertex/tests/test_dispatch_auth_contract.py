@@ -235,6 +235,43 @@ class GithubWebhookSignatureContract(unittest.IsolatedAsyncioTestCase):
                 response = await source_webhook()(req)
             self.assertEqual(response.status_code, expected_status)
 
+    async def test_signed_other_repo_cannot_dispatch(self):
+        secret = "test-signing-key"
+        for body in (
+            b'{"repository":{"full_name":"attacker/other"}}',
+            b'{"repository":{"full_name":"Aegis-Omega/AEGIS-OMEGA-fork"}}',
+            b'{"repository":null}',
+            b'{"repository":"Aegis-Omega/AEGIS-OMEGA"}',
+            b'{}',
+        ):
+            with self.subTest(body=body):
+                sig = "sha256=" + hmac.new(
+                    secret.encode(), body, hashlib.sha256).hexdigest()
+                with patch.dict(os.environ, {"GITHUB_WEBHOOK_SECRET": secret}):
+                    req = FakeWebhookRequest(body, {
+                        "x-hub-signature-256": sig,
+                        "x-github-event": "push",
+                    })
+                    response = await source_webhook()(req)
+                self.assertEqual(response.status_code, 403)
+                self.assertEqual(response.body["error"], "untrusted_webhook_repository")
+
+    async def test_signed_unknown_event_cannot_dispatch(self):
+        secret = "test-signing-key"
+        body = b'{"repository":{"full_name":"Aegis-Omega/AEGIS-OMEGA"}}'
+        sig = "sha256=" + hmac.new(
+            secret.encode(), body, hashlib.sha256).hexdigest()
+        for event in ("", "deployment", "untrusted_external", "workflow_dispatch"):
+            with self.subTest(event=event):
+                with patch.dict(os.environ, {"GITHUB_WEBHOOK_SECRET": secret}):
+                    req = FakeWebhookRequest(body, {
+                        "x-hub-signature-256": sig,
+                        "x-github-event": event,
+                    })
+                    response = await source_webhook()(req)
+                self.assertEqual(response.status_code, 422)
+                self.assertEqual(response.body["error"], "unsupported_webhook_event")
+
     async def test_signed_valid_event_invokes_only_stubbed_agent(self):
         secret = "test-signing-key"
         body = b'{"repository":{"full_name":"Aegis-Omega/AEGIS-OMEGA"}}'
