@@ -149,6 +149,17 @@ class IndependentReviewTests(unittest.TestCase):
                 with self.assertRaisesRegex(Invalid, "GITHUB_ID_INVALID"):
                     select_reviewer(HEAD, "agent:submitter", roster, SEED)
 
+    def test_empty_github_id_roster_fails_closed(self):
+        for position in range(3):
+            with self.subTest(identity_index=position):
+                receipt = good_receipt()
+                roster = identity_snapshot()
+                roster["identities"][position]["github_ids"] = []
+                roster["sha256"] = canonical_digest({
+                    key: value for key, value in roster.items() if key != "sha256"
+                })
+                self.reject(receipt, roster, "GITHUB_ID_INVALID")
+
     def test_float_alias_of_reviewer_github_id_is_rejected(self):
         receipt = good_receipt()
         receipt["review"]["reviewer"]["github_id"] = float(
