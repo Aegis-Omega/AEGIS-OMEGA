@@ -10,7 +10,9 @@ import type { AwsApiObservationV1, AwsResourceReadsV1 } from './connected-resour
 export type AwsReadOperationV1 =
   | 'GetCallerIdentity' | 'ListBuckets' | 'DescribeRegions' | 'GetCostAndUsage'
   | 'ListBillingViews' | 'DescribeBudgets' | 'GetFreeTierUsage'
+  | 'ListFoundationModels' | 'GetDatabases' | 'ListFunctions' | 'ListTables' | 'ListTableBuckets'
 export type AwsReadServiceV1 = 'sts' | 's3' | 'ec2' | 'ce' | 'billing' | 'budgets' | 'freetier'
+  | 'bedrock' | 'glue' | 'lambda' | 'dynamodb' | 's3tables'
 export interface AwsReadRequestV1 {
   service_name: AwsReadServiceV1
   operation_name: AwsReadOperationV1
@@ -23,6 +25,8 @@ export interface AwsCollectorOptionsV1 {
   cost_period?: { start: string; end: string }
   /** Some Cost Explorer API requests are chargeable; disabled by default. */
   include_cost_explorer?: boolean
+  /** Read-only service metadata probes, opt-in, not runtime entitlement. */
+  include_service_discovery?: boolean
   /** Operator statement, never an authenticated provider balance. */
   operator_reported_credit_usd?: string | null
 }
@@ -31,7 +35,7 @@ const REGION = /^[a-z]{2}(?:-gov)?-[a-z]+-\d+$/
 const DAY = /^\d{4}-\d{2}-\d{2}$/
 const ID = /^\d{12}$/
 const ERROR_CODES = new Set([
-  'NotSignedUp', 'OptInRequired', 'SubscriptionRequiredException', 'AccessDeniedException',
+  'NotSignedUp', 'OptInRequired', 'SubscriptionRequiredException', 'AccessDeniedException', 'ForbiddenException',
 ])
 type JsonObject = Record<string, unknown>
 const object = (x: unknown): JsonObject | null =>
@@ -58,8 +62,11 @@ async function observe(
     const raw = object(await call(request))
     if (!raw || !Array.isArray(raw[arrayField])) return unknownRead()
     // The injected reader must return all pages. Never certify a partial count.
-    if ((typeof raw.NextToken === 'string' && raw.NextToken.length > 0) ||
-        (typeof raw.nextToken === 'string' && raw.nextToken.length > 0)) return unknownRead()
+    // AWS has service-specific pagination tokens. A non-exhaustive page is UNKNOWN.
+    if (['NextToken','nextToken','NextMarker','nextMarker','Marker','ContinuationToken',
+      'continuationToken','NextPageToken','LastEvaluatedTableName','LastEvaluatedKey']
+      .some(k => raw[k] !== undefined && raw[k] !== null && raw[k] !== '') ||
+      raw.IsTruncated === true || raw.isTruncated === true) return unknownRead()
     const count = (raw[arrayField] as unknown[]).length
     if (!Number.isSafeInteger(count)) return unknownRead()
     return {outcome:'SUCCESS',error_code:null,count}
@@ -142,7 +149,19 @@ export async function collectAwsResourceReadsV1(
     observe(call,req('freetier','GetFreeTierUsage',{MaxResults:20},'us-east-1'),'freeTierUsages'),
     ce,
   ])
+  const discovery = options.include_service_discovery ? await Promise.all([
+    observe(call,req('bedrock','ListFoundationModels',{}),'modelSummaries'),
+    observe(call,req('glue','GetDatabases',{MaxResults:100}),'DatabaseList'),
+    observe(call,req('lambda','ListFunctions',{MaxItems:50}),'Functions'),
+    observe(call,req('dynamodb','ListTables',{Limit:100}),'TableNames'),
+    observe(call,req('s3tables','ListTableBuckets',{maxBuckets:100}),'tableBuckets'),
+  ]) : null
   return {
+    ...(discovery === null ? {} : {service_discovery:{
+      bedrock:discovery[0]!,glue:discovery[1]!,
+      lambda:discovery[2]!,dynamodb:discovery[3]!,
+      s3tables:discovery[4]!,
+    }}),
     sts:identity.observation,s3,ec2,cost_explorer:costExplorer,
     billing_views:billing,budgets,free_tier:freeTier,
     principal_kind:identity.principalKind,

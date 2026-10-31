@@ -21,6 +21,13 @@ export interface AwsApiObservationV1 {
   error_code: string | null
   count: number | null
 }
+export interface AwsServiceDiscoveryReadsV1 {
+  bedrock: AwsApiObservationV1 | null
+  glue: AwsApiObservationV1 | null
+  lambda: AwsApiObservationV1 | null
+  dynamodb: AwsApiObservationV1 | null
+  s3tables: AwsApiObservationV1 | null
+}
 export interface AwsResourceReadsV1 {
   sts: AwsApiObservationV1 | null
   s3: AwsApiObservationV1 | null
@@ -32,6 +39,7 @@ export interface AwsResourceReadsV1 {
   operator_reported_credit_usd: string | null
   /** Derived from STS ARN; raw ARN/account are never returned or hashed. */
   principal_kind?: 'ROOT' | 'IAM_PRINCIPAL' | 'UNKNOWN'
+  service_discovery?: AwsServiceDiscoveryReadsV1
 }
 export interface AwsResourceInventoryV1 {
   identity: 'OBSERVED' | 'UNKNOWN'
@@ -45,6 +53,7 @@ export interface AwsResourceInventoryV1 {
   free_tier_usage_count: number | null
   operator_reported_credit_usd: string | null
   principal_kind?: 'ROOT' | 'IAM_PRINCIPAL' | 'UNKNOWN'
+  service_discovery?: AwsServiceDiscoveryReadsV1
   remaining_credit_verified: 'UNKNOWN'
   effective_hard_budget_stop: 'UNKNOWN'
   paid_aws_workloads: 'HOLD'
@@ -149,6 +158,13 @@ function observeAws(reads:AwsResourceReadsV1):AwsResourceInventoryV1 {
     free_tier_usage_count:awsCount(free),
     operator_reported_credit_usd:reported,
     ...(reads.principal_kind === undefined ? {} : {principal_kind:reads.principal_kind}),
+    ...(reads.service_discovery === undefined ? {} : {service_discovery:{
+      bedrock:awsObservation(reads.service_discovery.bedrock),
+      glue:awsObservation(reads.service_discovery.glue),
+      lambda:awsObservation(reads.service_discovery.lambda),
+      dynamodb:awsObservation(reads.service_discovery.dynamodb),
+      s3tables:awsObservation(reads.service_discovery.s3tables),
+    }}),
     // Credit and hard overage ceilings cannot be inferred from read-only API metadata.
     remaining_credit_verified:'UNKNOWN',
     effective_hard_budget_stop:'UNKNOWN',

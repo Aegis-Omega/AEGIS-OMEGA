@@ -150,3 +150,84 @@ it('unknown or cross-account STS ARN never proves non-root identity',async()=>{
     expect(result.principal_kind).toBe('UNKNOWN')
   }
 })
+
+describe('AWS optional read-only service discovery',()=>{
+  async function discover(overrides:Record<string,unknown> = {},errors:Record<string,unknown> = {}){
+    const calls:string[]=[]
+    const call:AwsReadCallV1=async r=>{
+      calls.push(r.operation_name)
+      if (r.operation_name in errors) throw errors[r.operation_name]
+      const fields:Record<string,string>={
+        ListBuckets:'Buckets',DescribeRegions:'Regions',ListBillingViews:'billingViews',
+        DescribeBudgets:'Budgets',GetFreeTierUsage:'freeTierUsages',
+        ListFoundationModels:'modelSummaries',GetDatabases:'DatabaseList',
+        ListFunctions:'Functions',ListTables:'TableNames',ListTableBuckets:'tableBuckets',
+      }
+      if(r.operation_name==='GetCallerIdentity')
+        return {Account:'123456789012',Arn:'arn:aws:iam::123456789012:root'}
+      return overrides[r.operation_name]??{[fields[r.operation_name]]:[]}
+    }
+    return {result:await collectAwsResourceReadsV1(call,{region:'eu-central-1',include_service_discovery:true}),calls}
+  }
+  it('does not call Bedrock, Glue, Lambda, DynamoDB or S3 Tables by default',async()=>{
+    const calls: string[]=[]
+    const call:AwsReadCallV1=async r=>{
+      calls.push(r.operation_name)
+      if (r.operation_name==='GetCallerIdentity')return {Account:'123456789012'}
+      const fields:Record<string,string>={ListBuckets:'Buckets',DescribeRegions:'Regions',
+        ListBillingViews:'billingViews',DescribeBudgets:'Budgets',GetFreeTierUsage:'freeTierUsages'}
+      return {[fields[r.operation_name]]:[]}
+    }
+    const d=await collectAwsResourceReadsV1(call,{region:'eu-central-1'})
+    expect(d.service_discovery).toBeUndefined()
+    expect(calls).not.toContain('ListFoundationModels')
+    expect(calls).not.toContain('GetCostAndUsage')
+  })
+  it('measures 55 Bedrock metadata rows and zero Glue databases without enabling inference',async()=>{
+    const {result}=await discover(
+      {ListFoundationModels:{modelSummaries:Array.from({length:55},(_,n)=>({modelId:'private-'+n}))}},
+      {ListFunctions:Object.assign(new Error('Private error'),{code:'SubscriptionRequiredException'}),
+        ListTables:Object.assign(new Error('Private error'),{code:'SubscriptionRequiredException'}),
+        ListTableBuckets:Object.assign(new Error('Private error'),{code:'ForbiddenException'})})
+    expect(result.service_discovery?.bedrock?.count).toBe(55)
+    expect(result.service_discovery?.glue?.count).toBe(0)
+    expect(result.service_discovery?.lambda?.error_code).toBe('SubscriptionRequiredException')
+    expect(result.service_discovery?.dynamodb?.error_code).toBe('SubscriptionRequiredException')
+    expect(result.service_discovery?.s3tables?.error_code).toBe('ForbiddenException')
+    const observed=await observeConnectedResourcesV1({
+      observation_generation:'7',
+      cloudflare:{ai_gateway_credit_balance:null,ai_gateway_topup_config:null,worker_account_settings:null,worker_scripts:null},
+      hugging_face:{account_plan:'UNKNOWN',jobs_total:null},
+      aws:result,
+    })
+    expect(observed.aws?.service_discovery?.bedrock?.count).toBe(55)
+    expect(observed.aws?.paid_aws_workloads).toBe('HOLD')
+    expect(observed.authority_effect).toBe('NONE')
+    expect(JSON.stringify(observed)).not.toContain('private-')
+    expect(JSON.stringify(observed)).not.toContain('Private error')
+  })
+  it('treats service-specific pagination markers as unknown rather than complete',async()=>{
+    const {result}=await discover({
+      ListFunctions:{Functions:[],NextMarker:'more'},
+      ListTables:{TableNames:[],LastEvaluatedTableName:'next'},
+      ListTableBuckets:{tableBuckets:[],continuationToken:'next'},
+    })
+    expect(result.service_discovery?.lambda?.outcome).toBe('UNKNOWN')
+    expect(result.service_discovery?.dynamodb?.outcome).toBe('UNKNOWN')
+    expect(result.service_discovery?.s3tables?.outcome).toBe('UNKNOWN')
+  })
+  it('hash changes when actual Bedrock discovery count changes',async()=>{
+    const a=(await discover({ListFoundationModels:{modelSummaries:[]}})).result
+    const b=(await discover({ListFoundationModels:{modelSummaries:[{modelId:'one'}]}})).result
+    const toInventory=(aws:typeof a)=>observeConnectedResourcesV1({
+      observation_generation:'7',
+      cloudflare:{ai_gateway_credit_balance:null,ai_gateway_topup_config:null,worker_account_settings:null,worker_scripts:null},
+      hugging_face:{account_plan:'UNKNOWN' as const,jobs_total:null},aws,
+    })
+    const ia=await toInventory(a)
+    const ib=await toInventory(b)
+    expect(ia.integrity_root).not.toBe(ib.integrity_root)
+    expect(ib.aws?.remaining_credit_verified).toBe('UNKNOWN')
+    expect(ib.zero_spend_admission).toBe('HOLD')
+  })
+})
