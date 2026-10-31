@@ -66,7 +66,7 @@ internal final class AppleModelReadiness: @unchecked Sendable {
     }
 }
 
-public final class AppleFoundationModelsRunner: EdgeInferenceRunning {
+public final class AppleFoundationModelsRunner: EdgeInferenceRunning, Sendable {
     public static let modelName = "apple-foundation-models-default"
 
     /// Hard execution bounds for the first governed adapter revision.
