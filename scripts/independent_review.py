@@ -233,6 +233,11 @@ def _assess(receipt, roster):
     _require(isolation.get("expected_answer_visible") is False
              and "expected_answer" not in isolation,
              "EXPECTED_ANSWER_LEAKED")
+    _require(set(isolation) == {
+        "source_snapshot_sha256",
+        "submitter_identity_visible",
+        "expected_answer_visible",
+    }, "REVIEW_ISOLATION_FIELDS_INVALID")
 
     challenge_pool = review.get("challenge_pool")
     challenge_count = review.get("challenge_count")
@@ -320,30 +325,29 @@ def _assess(receipt, roster):
     }
 
 
-def _failure_record(receipt):
+def _failure_record(receipt, reason):
+    """On denial, never echo untrusted payloads into audit output."""
     if not isinstance(receipt, dict):
         return {}
-    candidate = receipt.get("candidate")
-    source = candidate.get("source_snapshot") if isinstance(candidate, dict) else None
     review = receipt.get("review")
     review = review if isinstance(review, dict) else {}
-    reviewer = review.get("reviewer")
-    isolation = review.get("source_isolation")
-    challenges = review.get("challenge_set")
     falsifiers = review.get("falsifier_results")
-    return {
-        "reviewer_identity": reviewer if isinstance(reviewer, dict) else {},
-        "source_isolation": isolation if isinstance(isolation, dict) else {},
-        "source_snapshot_sha256": (
-            source.get("sha256") if isinstance(source, dict) else None
-        ),
-        "challenge_set": challenges if isinstance(challenges, list) else [],
-        "failed_falsifiers": [
-            item["id"] for item in (falsifiers or [])
+    # IDs are usable only after _assess completed coverage and type checks.
+    # Other denials must not reflect attacker-controlled challenge identifiers.
+    failed_falsifiers = []
+    if reason == "FALSIFIER_TRIGGERED" and isinstance(falsifiers, list):
+        failed_falsifiers = [
+            item["id"] for item in falsifiers
             if isinstance(item, dict) and isinstance(item.get("id"), str)
             and item.get("result") == "triggered"
-        ] if isinstance(falsifiers, list) else [],
-        "residual_uncertainty": review.get("residual_uncertainty"),
+        ]
+    return {
+        "reviewer_identity": {},
+        "source_isolation": {},
+        "source_snapshot_sha256": None,
+        "challenge_set": [],
+        "failed_falsifiers": failed_falsifiers,
+        "residual_uncertainty": None,
     }
 
 
@@ -356,14 +360,14 @@ def assess(receipt, trusted_identity_snapshot):
             "disposition": "NOT_ADMITTED",
             "authority_effect": "NONE",
             "reason": reason,
-            "record": _failure_record(receipt),
+            "record": _failure_record(receipt, reason),
         }
     except (KeyError, TypeError, ValueError, AttributeError):
         return {
             "disposition": "NOT_ADMITTED",
             "authority_effect": "NONE",
             "reason": "RECEIPT_INVALID",
-            "record": _failure_record(receipt),
+            "record": _failure_record(receipt, "RECEIPT_INVALID"),
         }
     return {
         "disposition": "OFFLINE_SIMULATION_ONLY",

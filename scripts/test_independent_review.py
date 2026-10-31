@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Offline attack fixtures for the independent-review reducer."""
 import hashlib
+import json
 import unittest
 
 from independent_review import (
@@ -199,6 +200,28 @@ class IndependentReviewTests(unittest.TestCase):
             "principal_id": "agent:submitter",
         }
         self.reject(receipt, identity_snapshot(), "SUBMITTER_IDENTITY_LEAKED")
+
+    def test_unknown_isolation_field_denied_without_echo(self):
+        receipt = good_receipt()
+        sentinel = "SECRET_SENTINEL_DO_NOT_ECHO"
+        receipt["review"]["source_isolation"]["arbitrary_hint"] = sentinel
+        receipt["review"]["reviewer"]["private_email"] = sentinel
+        receipt["review"]["challenge_set"][0]["unexpected_payload"] = sentinel
+        receipt["review"]["residual_uncertainty"] = sentinel
+        result = assess(receipt, identity_snapshot())
+        self.assertEqual(result["reason"], "REVIEW_ISOLATION_FIELDS_INVALID")
+        self.assertEqual(result["disposition"], "NOT_ADMITTED")
+        self.assertNotIn(sentinel, json.dumps(result, sort_keys=True))
+        self.assertEqual(result["record"]["challenge_set"], [])
+        self.assertEqual(result["record"]["source_isolation"], {})
+
+    def test_denied_embedded_answer_is_not_echoed(self):
+        receipt = good_receipt()
+        sentinel = "SECRET_SENTINEL_EXPECTED_ANSWER"
+        receipt["review"]["source_isolation"]["expected_answer"] = sentinel
+        result = assess(receipt, identity_snapshot())
+        self.assertEqual(result["reason"], "EXPECTED_ANSWER_LEAKED")
+        self.assertNotIn(sentinel, json.dumps(result, sort_keys=True))
 
     def test_challenge_answer_leak_is_rejected(self):
         receipt = good_receipt()
