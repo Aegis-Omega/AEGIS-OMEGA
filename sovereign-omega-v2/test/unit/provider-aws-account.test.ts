@@ -74,9 +74,11 @@ describe('AWS provider mesh observer: no compute admission from mere account acc
   })
   it('requires explicit AWS HOLD fields and never processes missing AWS section',async()=>{
     const i=await inventory(reads())
-    await expect(observeAwsAccountForProviderMeshV1({
-      ...i,aws:undefined,
-    })).rejects.toThrow('non-HOLD')
+    // Omit the optional field rather than assign undefined:
+    // exactOptionalPropertyTypes must remain enabled.
+    const withoutAws = {...i}
+    delete withoutAws.aws
+    await expect(observeAwsAccountForProviderMeshV1(withoutAws)).rejects.toThrow('non-HOLD')
     await expect(observeAwsAccountForProviderMeshV1({
       ...i,aws:{...i.aws!,paid_aws_workloads:'ENABLED' as never},
     })).rejects.toThrow('checksum mismatch')
