@@ -40,6 +40,9 @@ jobs:
           TARGET_REPO: ${{ github.repository }}
           EVENT_ACTION: ${{ github.event.action }}
           EVENT_SENDER: ${{ github.event.sender.login }}
+          # PR author association belongs to the author, not the webhook sender.
+          PR_AUTHOR: ${{ github.event.pull_request.user.login }}
+          PR_SOURCE_REPO: ${{ github.event.pull_request.head.repo.full_name }}
           PR_TITLE: ${{ github.event.pull_request.title }}
           PR_NUMBER: ${{ github.event.number }}
           PR_URL: ${{ github.event.pull_request.html_url }}
@@ -68,6 +71,16 @@ jobs:
             if [[ -z "$ACTOR" || "$ACTOR" != "$EVENT_SENDER" ]]; then
               echo "DENIED: event sender does not match workflow actor" >&2
               exit 1
+            fi
+            # pull_request.author_association authenticates the PR author ONLY,
+            # not whoever sent a synchronize/review_requested webhook.
+            # Do not let an untrusted actor borrow the author's authority.
+            if [[ "$EVENT_NAME" = "pull_request" ]]; then
+              if [[ -z "$PR_AUTHOR" || "$EVENT_SENDER" != "$PR_AUTHOR" || "$PR_SOURCE_REPO" != "$TARGET_REPO" ]]; then
+                echo "NO_DISPATCH: PR webhook sender/author/source not independently trusted" >&2
+                printf 'event_type=\npayload={}\n' >> "$GITHUB_OUTPUT"
+                exit 0
+              fi
             fi
             # For an issue labeled by someone other than its author, the issue
             # author's association cannot authenticate the labeler.
