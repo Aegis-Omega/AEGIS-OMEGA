@@ -65,6 +65,7 @@ def _select_identity(candidate_head, submitter_principal, roster, seed, role,
         _require(isinstance(principal, str) and principal, "IDENTITY_INVALID")
         _require(isinstance(accounts, list) and accounts, "IDENTITY_INVALID")
         _require(principal not in principals, "IDENTITY_NOT_UNIQUE")
+        _require(bool(accounts), "GITHUB_ID_INVALID")
         _require(all(type(account) is int and account > 0 for account in accounts),
                  "GITHUB_ID_INVALID")
         normalized = sorted(set(accounts))
