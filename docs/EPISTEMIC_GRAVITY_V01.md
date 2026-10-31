@@ -32,9 +32,13 @@ python3 agents/epistemic_gravity.py agents/examples/epistemic_gravity.sample.jso
 
 Demonstration fixture is synthetic. Expected proposed probes: `kernel_replay` and `ui_benchmark`; hypothetical unlocked value: 50 units, cost: 5 units; **zero actual verified proof outcomes**. No Lean theorem is claimed.
 
+## Bounded baseline comparison (synthetic)
+
+`agents/examples/epistemic_gravity.greedy_trap.json` is a 3-probe, 2-claim complementarity case: cost budget 6, myopic one-probe-gain baseline returns declared value 7 (solo probe), exact subset optimizer returns declared value 11 (two joint probes, cost 6), a 4-unit / 57.1% improvement **for that one synthetic case only**. No actual real-world improvement or new verified fact is claimed. The same scenario is a regression test. The optimization cost is abstract and is not charged money.
+
 ## Local receipt
 
-2026-10-31: 21/21 stdlib `unittest` regressions PASS in an offline container for exact source content: `agents/epistemic_gravity.py` Git blob `949391ba00bbecb3af773e89c9bb6070ff387b75`, tests Git blob `bc7ac084062ec60a5d22cc55ead060c78ec971d3`. Source hashes were independently compared with GitHub blob readback. These local results do **not** imply hosted CI PASS.
+2026-10-31: 22/22 stdlib `unittest` regressions PASS in an offline container for exact source content: `agents/epistemic_gravity.py` Git blob `949391ba00bbecb3af773e89c9bb6070ff387b75`, tests Git blob `44f0dc794ed7d5cd4d707c0c60c78b1cbbfbc52f`. Source hashes were independently compared with GitHub blob readback. These local results do **not** imply hosted CI PASS.
 
 Tests include: competing proof alternatives, multi-hop dependencies, exact minimum debt, budget insufficiency, stale-head revocation propagation, **rejection of stale-source counterfactual probes**, explicit source rebind requirements, input immutability, deterministic receipts, invalid/empty/non-string dependency rejection, missing sources, dependency cycles, noninteger costs, and bounded search.
 
