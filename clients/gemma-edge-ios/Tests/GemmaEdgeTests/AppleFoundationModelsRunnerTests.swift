@@ -2,6 +2,39 @@ import XCTest
 @testable import GemmaEdge
 
 final class AppleInferenceReceiptTests: XCTestCase {
+
+    func testHistoricV10ReceiptRemainsDecodable() throws {
+        // This is the immutable v1.0.0 golden receipt, not regenerated as v1.1.0.
+        let legacyJSON = #"{"schema_version":"1.0.0","provider_id":"apple-foundation-models","model_id":"apple-system-language-model-default","prompt_sha256":"2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824","output_sha256":"486ea46224d1bb4fb680f34f7c9ad96a8f24ec88be73ea8e5a6c65260e9cb8a7","prompt_bytes":5,"output_bytes":5,"max_tokens":32,"temperature_milli":100,"outcome":"SUCCEEDED","authority_effect":"NONE","receipt_sha256":"167cb2cdc67d04b374b68a851783dc3ec0a63ba20a0619550676535b3c8211eb"}"#
+        let old = try JSONDecoder().decode(AppleInferenceReceipt.self, from: Data(legacyJSON.utf8))
+        XCTAssertEqual(old.schema_version, "1.0.0")
+        XCTAssertEqual(old.receipt_sha256, "167cb2cdc67d04b374b68a851783dc3ec0a63ba20a0619550676535b3c8211eb")
+        XCTAssertNil(old.temperature_float_bits_hex)
+    }
+
+    func testNewReceiptRoundTripsExactTemperatureBits() throws {
+        let receipt = AppleInferenceReceipt.succeeded(
+            prompt: "same", output: "same", maxTokens: 32, temperature: 0.2001
+        )
+        let decoded = try JSONDecoder().decode(AppleInferenceReceipt.self,
+            from: JSONEncoder().encode(receipt))
+        XCTAssertEqual(decoded, receipt)
+        XCTAssertNotNil(decoded.temperature_float_bits_hex)
+    }
+
+    func testDistinctTemperatureMustNotShareReceiptDigest() {
+        // The exact model parameters differ, even if a deterministic model
+        // happens to return the same content for both requests.
+        let a = AppleInferenceReceipt.succeeded(
+            prompt: "same", output: "same", maxTokens: 32, temperature: 0.2001
+        )
+        let b = AppleInferenceReceipt.succeeded(
+            prompt: "same", output: "same", maxTokens: 32, temperature: 0.2002
+        )
+        XCTAssertNotEqual(a.receipt_sha256, b.receipt_sha256,
+            "Distinct model temperature inputs must remain distinguishable")
+    }
+
     func testReceiptIsDeterministicAndContentAddressed() {
         let receipt = AppleInferenceReceipt.succeeded(
             prompt: "hello",
@@ -21,10 +54,12 @@ final class AppleInferenceReceiptTests: XCTestCase {
         XCTAssertEqual(receipt.prompt_bytes, 5)
         XCTAssertEqual(receipt.output_bytes, 5)
         XCTAssertEqual(receipt.temperature_milli, 100)
+        XCTAssertEqual(receipt.temperature_float_bits_hex, "3dcccccd")
+        XCTAssertEqual(receipt.schema_version, "1.1.0")
         XCTAssertEqual(receipt.authority_effect, "NONE")
         XCTAssertEqual(
             receipt.receipt_sha256,
-            "167cb2cdc67d04b374b68a851783dc3ec0a63ba20a0619550676535b3c8211eb"
+            "119c321bc677117cc1f7672fde05a8c4b8a5539033eb7e5bf105946411425ce9"
         )
     }
 

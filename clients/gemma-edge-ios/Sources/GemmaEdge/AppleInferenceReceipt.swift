@@ -9,7 +9,7 @@ import Foundation
 ///   provider/model identifiers are committed.
 /// - authority_effect is permanently NONE.
 public struct AppleInferenceReceipt: Codable, Equatable, Sendable {
-    public static let schemaVersion = "1.0.0"
+    public static let schemaVersion = "1.1.0"
     public static let providerId = "apple-foundation-models"
     public static let modelId = "apple-system-language-model-default"
 
@@ -22,6 +22,9 @@ public struct AppleInferenceReceipt: Codable, Equatable, Sendable {
     public let output_bytes: Int
     public let max_tokens: Int
     public let temperature_milli: Int
+    /// Exact IEEE-754 Float32 bits for the actual model temperature.
+    /// Optional to retain decoding of historical schema 1.0.0 receipts.
+    public let temperature_float_bits_hex: String?
     public let outcome: String
     public let authority_effect: String
     public let receipt_sha256: String
@@ -35,12 +38,13 @@ public struct AppleInferenceReceipt: Codable, Equatable, Sendable {
         let promptHash = sha256Hex(prompt)
         let outputHash = sha256Hex(output)
         let temperatureMilli = Int((Double(temperature) * 1000.0).rounded())
+        let temperatureBitsHex = String(format: "%08x", temperature.bitPattern)
 
         // This flat object contains only ASCII-safe fixed strings, lowercase hex,
         // and integers. The explicit lexicographic key order is therefore its JCS
         // representation without requiring a general-purpose JSON canonicalizer.
         let preimage =
-            #"{"authority_effect":"NONE","max_tokens":\#(maxTokens),"model_id":"apple-system-language-model-default","outcome":"SUCCEEDED","output_bytes":\#(output.utf8.count),"output_sha256":"\#(outputHash)","prompt_bytes":\#(prompt.utf8.count),"prompt_sha256":"\#(promptHash)","provider_id":"apple-foundation-models","schema_version":"1.0.0","temperature_milli":\#(temperatureMilli)}"#
+            #"{"authority_effect":"NONE","max_tokens":\#(maxTokens),"model_id":"apple-system-language-model-default","outcome":"SUCCEEDED","output_bytes":\#(output.utf8.count),"output_sha256":"\#(outputHash)","prompt_bytes":\#(prompt.utf8.count),"prompt_sha256":"\#(promptHash)","provider_id":"apple-foundation-models","schema_version":"1.1.0","temperature_float_bits_hex":"\#(temperatureBitsHex)","temperature_milli":\#(temperatureMilli)}"#
 
         return AppleInferenceReceipt(
             schema_version: schemaVersion,
@@ -52,6 +56,7 @@ public struct AppleInferenceReceipt: Codable, Equatable, Sendable {
             output_bytes: output.utf8.count,
             max_tokens: maxTokens,
             temperature_milli: temperatureMilli,
+            temperature_float_bits_hex: temperatureBitsHex,
             outcome: "SUCCEEDED",
             authority_effect: "NONE",
             receipt_sha256: sha256Hex(preimage)
