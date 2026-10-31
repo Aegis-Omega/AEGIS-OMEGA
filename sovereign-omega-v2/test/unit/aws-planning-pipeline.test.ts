@@ -93,4 +93,13 @@ describe('AWS single-call read-only planning pipeline', () => {
     })).rejects.toThrow('unique')
     expect(f.calls).toEqual([])
   })
+  it('rejects numeric or boolean generation before any AWS API request',async()=>{
+    for(const generation of [73,true]) {
+      const f=fixture()
+      await expect(inspectAwsProviderForPlanningV1(f.call,{
+        ...request,observation_generation:generation as never,
+      })).rejects.toThrow('canonical unsigned decimal')
+      expect(f.calls).toEqual([])
+    }
+  })
 })

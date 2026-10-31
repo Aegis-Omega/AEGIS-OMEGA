@@ -174,7 +174,7 @@ function observeAws(reads:AwsResourceReadsV1):AwsResourceInventoryV1 {
 }
 
 export async function observeConnectedResourcesV1(reads: ConnectedResourceReadsV1): Promise<ConnectedResourceInventoryV1> {
-  if (!/^(0|[1-9][0-9]*)$/.test(reads.observation_generation)) {
+  if (typeof reads.observation_generation !== 'string' || !/^(0|[1-9][0-9]*)$/.test(reads.observation_generation)) {
     throw new TypeError('observation_generation must be canonical unsigned decimal')
   }
   const credit = record(usable(reads.cloudflare.ai_gateway_credit_balance))

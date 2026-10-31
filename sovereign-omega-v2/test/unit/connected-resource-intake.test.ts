@@ -160,3 +160,10 @@ describe('AWS read-only observation is never spending authority',()=>{
     expect((await observeConnectedResourcesV1(f)).integrity_root).not.toBe(a.integrity_root)
   })
 })
+
+it('rejects a numeric generation in the connected-resource intake',async()=>{
+  const f=fixture()
+  await expect(observeConnectedResourcesV1({
+    ...f,observation_generation:23 as never,
+  })).rejects.toThrow('canonical unsigned decimal')
+})

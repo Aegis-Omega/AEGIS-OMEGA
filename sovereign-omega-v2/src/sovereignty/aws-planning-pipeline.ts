@@ -24,7 +24,7 @@ export async function inspectAwsProviderForPlanningV1(
   call: AwsReadCallV1,
   request: AwsPlanningRequestV1,
 ) {
-  if (!request || !/^(0|[1-9][0-9]*)$/.test(request.observation_generation)) {
+  if (!request || typeof request.observation_generation !== 'string' || !/^(0|[1-9][0-9]*)$/.test(request.observation_generation)) {
     throw new TypeError('observation_generation must be canonical unsigned decimal')
   }
   if (!Array.isArray(request.required_capabilities) || request.required_capabilities.length === 0) {
