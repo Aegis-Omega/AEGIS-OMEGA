@@ -12,6 +12,8 @@ on:
       - sovereign-omega-v2/src/core/hashing.ts
       - .github/workflows/sovereignty-contracts.yml
       - .devcontainer/devcontainer.json
+      - azure-pipelines.yml
+      - scripts/test_azure_pipeline_config.py
       - scripts/test_devcontainer_config.py
       - .github/workflows/agent-dispatch.yml
       - vertex/serve.py
@@ -57,6 +59,9 @@ jobs:
       - name: Validate existing Codespaces devcontainer JSON
         run: cd .. && python3 -m unittest discover -s scripts -p 'test_devcontainer_config.py' -v
 
+      - name: Validate manual-only Azure Pipelines guard
+        run: cd .. && python3 -m unittest discover -s scripts -p 'test_azure_pipeline_config.py' -v
+
       - name: Set up Node
         uses: actions/setup-node@v4
         with:
@@ -69,6 +74,9 @@ jobs:
 
       - name: Run sovereignty golden vectors
         run: npx vitest run test/unit/sovereignty-contracts.test.ts
+
+      - name: Cross-cloud provider federation fail-closed tests
+        run: npx vitest run test/unit/provider-federation.test.ts
 
       - name: Nebius caller authorization and browser proxy regression
         run: npx vitest run test/unit/nebius-caller-auth.test.ts test/shared/inference-router.test.ts

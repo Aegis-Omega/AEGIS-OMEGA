@@ -509,6 +509,20 @@ export const DECLARED_PROVIDER_CATALOG_V1: readonly ProviderDescriptorV1[] = [
   },
   {
     schema_version: PROVIDER_MESH_SCHEMA_VERSION,
+    provider_id: 'azure-devops-pipelines',
+    planes: ['EXECUTION'],
+    declared_capabilities: ['DURABLE_RUNNER','REPOSITORY_WORKFLOW'],
+    authority_effect: 'NONE',
+  },
+  {
+    schema_version: PROVIDER_MESH_SCHEMA_VERSION,
+    provider_id: 'digitalocean',
+    planes: ['EXECUTION'],
+    declared_capabilities: ['CONTAINER_RUNTIME','DURABLE_RUNNER'],
+    authority_effect: 'NONE',
+  },
+  {
+    schema_version: PROVIDER_MESH_SCHEMA_VERSION,
     provider_id: 'cloudflare-anthropic',
     planes: ['INTELLIGENCE'],
     declared_capabilities: ['AGENT_EXECUTION', 'MODEL_INFERENCE'],
@@ -545,6 +559,20 @@ export const DECLARED_PROVIDER_CATALOG_V1: readonly ProviderDescriptorV1[] = [
 
   {
     schema_version: PROVIDER_MESH_SCHEMA_VERSION,
+    provider_id: 'gitlab-ci',
+    planes: ['EXECUTION'],
+    declared_capabilities: ['DURABLE_RUNNER','REPOSITORY_WORKFLOW'],
+    authority_effect: 'NONE',
+  },
+  {
+    schema_version: PROVIDER_MESH_SCHEMA_VERSION,
+    provider_id: 'github-codespaces',
+    planes: ['EXECUTION'],
+    declared_capabilities: ['CONTAINER_RUNTIME'],
+    authority_effect: 'NONE',
+  },
+  {
+    schema_version: PROVIDER_MESH_SCHEMA_VERSION,
     provider_id: 'google-cloud',
     planes: ['EXECUTION', 'INTELLIGENCE'],
     declared_capabilities: ['AGENT_EXECUTION', 'CONTAINER_RUNTIME', 'DURABLE_RUNNER', 'MODEL_INFERENCE'],
@@ -555,6 +583,13 @@ export const DECLARED_PROVIDER_CATALOG_V1: readonly ProviderDescriptorV1[] = [
     provider_id: 'hugging-face-jobs',
     planes: ['EXECUTION'],
     declared_capabilities: ['CONTAINER_RUNTIME', 'DURABLE_RUNNER', 'GPU_COMPUTE'],
+    authority_effect: 'NONE',
+  },
+  {
+    schema_version: PROVIDER_MESH_SCHEMA_VERSION,
+    provider_id: 'microsoft-azure',
+    planes: ['EXECUTION','INTELLIGENCE'],
+    declared_capabilities: ['CONTAINER_RUNTIME','DATABASE','SERVERLESS_FUNCTION','MODEL_INFERENCE'],
     authority_effect: 'NONE',
   },
   {
@@ -604,6 +639,13 @@ export const DECLARED_PROVIDER_CATALOG_V1: readonly ProviderDescriptorV1[] = [
     provider_id: 'tavily',
     planes: ['INTELLIGENCE'],
     declared_capabilities: ['WEB_RESEARCH'],
+    authority_effect: 'NONE',
+  },
+  {
+    schema_version: PROVIDER_MESH_SCHEMA_VERSION,
+    provider_id: 'vercel-sandbox',
+    planes: ['EXECUTION'],
+    declared_capabilities: ['CONTAINER_RUNTIME','DURABLE_RUNNER'],
     authority_effect: 'NONE',
   },
   {
