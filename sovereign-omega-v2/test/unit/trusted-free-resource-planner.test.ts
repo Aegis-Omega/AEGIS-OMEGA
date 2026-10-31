@@ -224,6 +224,41 @@ describe('trusted free-resource Ed25519 approval boundary (synthetic only)',()=>
       .plan(c.snapshot,request,[c.evidence],[forged,c.signed])
     expect(decision.outcome).toBe('HOLD')
   })
+  it('latches HOLD when trusted generation rolls backwards even after valid earlier planning',async()=>{
+    const c=await context()
+    let actual='10'
+    const planner=createTrustedFreeResourcePlannerV1(c.trust,()=>actual)
+    expect((await planner.plan(c.snapshot,request,[c.evidence],[c.signed])).outcome).toBe('PLANNING_ELIGIBLE')
+    actual='12'
+    expect((await planner.plan(c.snapshot,{...request,current_generation:'12'},[c.evidence],[c.signed])).outcome).toBe('HOLD')
+    actual='10'
+    expect((await planner.plan(c.snapshot,request,[c.evidence],[c.signed])).outcome).toBe('HOLD')
+    // Reaching the former maximum must not clear the rollback alarm.
+    actual='12'
+    expect((await planner.plan(c.snapshot,{...request,current_generation:'12'},[c.evidence],[c.signed])).outcome).toBe('HOLD')
+  })
+  it('records trusted generation advance despite stale caller request, then blocks rollback',async()=>{
+    const c=await context()
+    let actual='10'
+    const planner=createTrustedFreeResourcePlannerV1(c.trust,()=>actual)
+    expect((await planner.plan(c.snapshot,request,[c.evidence],[c.signed])).outcome).toBe('PLANNING_ELIGIBLE')
+    actual='12'
+    expect((await planner.plan(c.snapshot,request,[c.evidence],[c.signed])).outcome).toBe('HOLD')
+    actual='10'
+    expect((await planner.plan(c.snapshot,request,[c.evidence],[c.signed])).outcome).toBe('HOLD')
+  })
+  it('still allows monotonic fresh signed requests within trusted limits',async()=>{
+    const c=await context()
+    let actual='10'
+    const planner=createTrustedFreeResourcePlannerV1(c.trust,()=>actual)
+    expect((await planner.plan(c.snapshot,request,[c.evidence],[c.signed])).outcome).toBe('PLANNING_ELIGIBLE')
+    actual='11'
+    const nextRequest={...request,current_generation:'11'}
+    const next=await c.sign({...c.payload,request_root:await freeResourceRequestRootV1(nextRequest)})
+    const decision=await planner.plan(c.snapshot,nextRequest,[c.evidence],[next])
+    expect(decision.outcome).toBe('PLANNING_ELIGIBLE')
+    expect(decision.authority_effect).toBe('NONE')
+  })
   it('keeps unsigned quota evidence on HOLD even if every evidence hash is well-formed',async()=>{
     const c=await context()
     const x=await createTrustedFreeResourcePlannerV1(c.trust,()=>request.current_generation).plan(c.snapshot,request,[c.evidence],[])

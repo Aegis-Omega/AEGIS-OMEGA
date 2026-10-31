@@ -49,3 +49,20 @@ revocation list is still rejected regardless of ordering.
 
 This is an integrity/availability repair for the non-authorizing planning
 contract, **not** permission to spend, reserve quota or execute workloads.
+
+## Runtime generation rollback latch
+
+A once-trusted generation reader may temporarily regress due to clock reset,
+cache rollback, or stale replica. The planner now remembers the highest
+authenticated generation it **observed**, even if a caller supplied an outdated
+request generation and no approval was accepted. If a later authenticated read
+is lower, the planner instance latches `HOLD` for **all subsequent calls**.
+This cannot be reset by the request, signer, or a later clock recovery; creating
+a new planner requires a fresh, independently authenticated bootstrap policy.
+A monotonic advance with a newly signed request continues to be planning-only.
+
+The monotonic guarantee is **per process/planner instance**, not durable across
+process restarts or distributed workers. Production still needs an independently
+authenticated durable high-water mark and an unforgeable clock/revocation
+source before granting any authority. Source code adds no execution or spend
+authorization.

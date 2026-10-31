@@ -143,6 +143,10 @@ export function createTrustedFreeResourcePlannerV1(
 ):TrustedFreeResourcePlannerV1 {
   const trusted=trustedPolicy(authenticated_bootstrap_policy)
   if(typeof read_authenticated_generation!=='function') throw new TypeError('missing trusted generation reader')
+  // Generation is monotonic within this trusted planner instance. On rollback,
+  // fail closed permanently; only an authenticated fresh bootstrap may reset it.
+  let highestAuthenticatedGeneration:bigint|null=null
+  let generationRegressed=false
   return Object.freeze({
     async plan(
       snapshot:ProviderMeshSnapshotV1,
@@ -160,12 +164,21 @@ export function createTrustedFreeResourcePlannerV1(
       try {authenticatedNow=read_authenticated_generation()} catch {authenticatedNow=null}
       // A caller cannot roll time back, refresh revocations, or loosen
       // the observation freshness bound using request-controlled fields.
-      if(!decimal(authenticatedNow)
-        ||request.current_generation!==authenticatedNow
-        ||BigInt(request.max_observation_age_generations)>trusted.maxObservationAge){
+      if(!decimal(authenticatedNow)) {
         return planFreeResourceV1(snapshot,request,evidence,[])
       }
       const now=BigInt(authenticatedNow)
+      if(highestAuthenticatedGeneration!==null && now<highestAuthenticatedGeneration) {
+        generationRegressed=true
+      }
+      if(highestAuthenticatedGeneration===null||now>highestAuthenticatedGeneration) {
+        highestAuthenticatedGeneration=now
+      }
+      if(generationRegressed
+        ||request.current_generation!==authenticatedNow
+        ||BigInt(request.max_observation_age_generations)>trusted.maxObservationAge) {
+        return planFreeResourceV1(snapshot,request,evidence,[])
+      }
       // Missing, future or stale revocation view: fail closed even if signatures
       // and evidence hashes are valid. Caller cannot refresh this trusted view.
       if(trusted.revocationGeneration>now
