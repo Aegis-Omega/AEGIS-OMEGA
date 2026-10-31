@@ -191,7 +191,11 @@ export function createTrustedFreeResourcePlannerV1(
       }
       const requestRoot=await freeResourceRequestRootV1(request)
       const approved=new Set<SHA256Hex>()
-      const seenApprovalIds=new Set<string>()
+      // A signed approval ID must identify one immutable payload. A forged
+      // envelope cannot reserve an ID, while two DIFFERENT valid signed payloads
+      // using the same ID must never be resolved by untrusted array ordering.
+      const verifiedIds=new Map<string,SHA256Hex>()
+      let equivocatedId=false
       for(const signed of untrusted_approvals){
         if(!signed||!signed.payload) continue
         const key=signed.signer_public_key
@@ -199,24 +203,29 @@ export function createTrustedFreeResourcePlannerV1(
         const id=signed.payload.approval_id
         if(typeof key!=='string'||!HEX32.test(key)
           ||typeof sig!=='string'||!HEX64.test(sig)
-          ||typeof id!=='string'||!HEX32.test(id)
-          ||seenApprovalIds.has(id)) continue
-        // Untrusted malformed or forged envelopes must never reserve a
-        // legitimate approval ID before cryptographic verification.
+          ||typeof id!=='string'||!HEX32.test(id)) continue
         if(!trusted.signers.has(key)||trusted.revokedSigners.has(key)
           ||trusted.revokedApprovals.has(id)) continue
-        if(!approvalMatches(signed,snapshot,request,requestRoot,byRoot,trusted.policy_id)) continue
+        let signedBytes:Uint8Array
         let valid=false
         try {
-          valid=await verifyBytes(key,signedFreeResourceApprovalBytesV1(signed.payload),sig)
+          signedBytes=signedFreeResourceApprovalBytesV1(signed.payload)
+          valid=await verifyBytes(key,signedBytes,sig)
         } catch {
-          valid=false
+          continue
         }
-        if(valid) {
-          seenApprovalIds.add(id)
-          approved.add(signed.payload.evidence_root)
+        if(!valid) continue
+        const payloadHash=await sha256Hex(signedBytes)
+        const previousHash=verifiedIds.get(id)
+        if(previousHash!==undefined && previousHash!==payloadHash){
+          equivocatedId=true
+          continue
         }
+        verifiedIds.set(id,payloadHash)
+        if(!approvalMatches(signed,snapshot,request,requestRoot,byRoot,trusted.policy_id)) continue
+        approved.add(signed.payload.evidence_root)
       }
+      if(equivocatedId) return planFreeResourceV1(snapshot,request,evidence,[])
       const decision=await planFreeResourceV1(snapshot,request,evidence,[...approved])
       // Cryptographic verification and planning hash computation are async.
       // Re-check the authenticated generation before releasing the decision,

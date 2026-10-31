@@ -79,3 +79,20 @@ latches the per-planner rollback alarm. Stable reads continue planning-only.
 This guards against time-of-check/time-of-use drift within the single
 planner invocation. It does not substitute a durable generation authority,
 independent provider quota attestation or provider-side reservation.
+
+## Conflicting valid signatures with one approval ID
+
+A single approval ID MUST bind to one immutable canonical signed payload.
+The trusted planner verifies cryptographic signatures **before** recording any
+approval IDs. Identical repeats of the same valid payload are harmless for
+planning, but if two **different valid trusted-signer payloads** reuse an
+approval ID, the entire request returns `HOLD` regardless of input order.
+A forged, invalid or revoked signed envelope cannot consume the ID.
+A signed conflicting payload for another request is a conflict even if it
+would not have matched this request's capacity snapshot.
+
+This is a conservative replay/equivocation containment policy, not a
+permission to consume capacity. There is still no trusted production signer,
+durable approval-ID register, authenticated revocation provider, or
+provider-side hard no-overage guarantee. The module returns no execution
+authority.

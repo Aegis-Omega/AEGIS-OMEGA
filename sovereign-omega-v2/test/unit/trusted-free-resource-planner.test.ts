@@ -289,6 +289,33 @@ describe('trusted free-resource Ed25519 approval boundary (synthetic only)',()=>
     expect(reads).toBeGreaterThanOrEqual(2)
     expect(result.authority_effect).toBe('NONE')
   })
+  it('holds conflicting valid Ed25519 approvals that reuse one ID regardless of order',async()=>{
+    const c=await context()
+    const alternate=await c.sign({...c.payload,expires_generation:'12'})
+    const planner=createTrustedFreeResourcePlannerV1(c.trust,()=>request.current_generation)
+    for(const signed of [[c.signed,alternate],[alternate,c.signed]]){
+      const decision=await planner.plan(c.snapshot,request,[c.evidence],signed)
+      expect(decision.outcome).toBe('HOLD')
+      expect(decision.capacity_root).toBeNull()
+      expect(decision.authority_effect).toBe('NONE')
+    }
+  })
+  it('permits an exact duplicate of one valid signed payload for planning only',async()=>{
+    const c=await context()
+    const planner=createTrustedFreeResourcePlannerV1(c.trust,()=>request.current_generation)
+    const result=await planner.plan(c.snapshot,request,[c.evidence],[c.signed,c.signed])
+    expect(result.outcome).toBe('PLANNING_ELIGIBLE')
+    expect(result.capacity_root).toBe(c.evidence.evidence_root)
+    expect(result.authority_effect).toBe('NONE')
+  })
+  it('fails closed on a second valid same-ID signature bound to a different request',async()=>{
+    const c=await context()
+    const otherRequest={...request,worst_case_units:'150'}
+    const alternate=await c.sign({...c.payload,request_root:await freeResourceRequestRootV1(otherRequest)})
+    const planner=createTrustedFreeResourcePlannerV1(c.trust,()=>request.current_generation)
+    const result=await planner.plan(c.snapshot,request,[c.evidence],[c.signed,alternate])
+    expect(result.outcome).toBe('HOLD')
+  })
   it('keeps unsigned quota evidence on HOLD even if every evidence hash is well-formed',async()=>{
     const c=await context()
     const x=await createTrustedFreeResourcePlannerV1(c.trust,()=>request.current_generation).plan(c.snapshot,request,[c.evidence],[])
