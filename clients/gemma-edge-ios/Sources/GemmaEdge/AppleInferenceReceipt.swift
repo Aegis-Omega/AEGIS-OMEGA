@@ -40,7 +40,7 @@ public struct AppleInferenceReceipt: Codable, Equatable, Sendable {
         // and integers. The explicit lexicographic key order is therefore its JCS
         // representation without requiring a general-purpose JSON canonicalizer.
         let preimage =
-            #"{"authority_effect":"NONE","max_tokens":#(maxTokens),"model_id":"apple-system-language-model-default","outcome":"SUCCEEDED","output_bytes":#(output.utf8.count),"output_sha256":"#(outputHash)","prompt_bytes":#(prompt.utf8.count),"prompt_sha256":"#(promptHash)","provider_id":"apple-foundation-models","schema_version":"1.0.0","temperature_milli":#(temperatureMilli)}"#
+            #"{"authority_effect":"NONE","max_tokens":\#(maxTokens),"model_id":"apple-system-language-model-default","outcome":"SUCCEEDED","output_bytes":\#(output.utf8.count),"output_sha256":"\#(outputHash)","prompt_bytes":\#(prompt.utf8.count),"prompt_sha256":"\#(promptHash)","provider_id":"apple-foundation-models","schema_version":"1.0.0","temperature_milli":\#(temperatureMilli)}"#
 
         return AppleInferenceReceipt(
             schema_version: schemaVersion,
