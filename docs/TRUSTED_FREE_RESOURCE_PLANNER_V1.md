@@ -66,3 +66,16 @@ process restarts or distributed workers. Production still needs an independently
 authenticated durable high-water mark and an unforgeable clock/revocation
 source before granting any authority. Source code adds no execution or spend
 authorization.
+
+## Async decision-time generation check
+
+Planning is asynchronous: Ed25519 verification and hashed capacity decisions
+may complete after the trusted generation has advanced, or rolled backwards.
+The trusted runtime generation is now read **again after the planning result
+is computed**. An invalid, unavailable or changed generation yields `HOLD`,
+even with a valid original signature. A backwards final read permanently
+latches the per-planner rollback alarm. Stable reads continue planning-only.
+
+This guards against time-of-check/time-of-use drift within the single
+planner invocation. It does not substitute a durable generation authority,
+independent provider quota attestation or provider-side reservation.

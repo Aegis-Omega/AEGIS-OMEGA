@@ -217,7 +217,27 @@ export function createTrustedFreeResourcePlannerV1(
           approved.add(signed.payload.evidence_root)
         }
       }
-      return planFreeResourceV1(snapshot,request,evidence,[...approved])
+      const decision=await planFreeResourceV1(snapshot,request,evidence,[...approved])
+      // Cryptographic verification and planning hash computation are async.
+      // Re-check the authenticated generation before releasing the decision,
+      // not only before the awaits. A concurrent clock/revocation epoch shift
+      // invalidates the previously approved request root.
+      let finalGeneration:unknown
+      try {finalGeneration=read_authenticated_generation()} catch {finalGeneration=null}
+      if(!decimal(finalGeneration)){
+        return planFreeResourceV1(snapshot,request,evidence,[])
+      }
+      const finalNow=BigInt(finalGeneration)
+      if(highestAuthenticatedGeneration!==null && finalNow<highestAuthenticatedGeneration){
+        generationRegressed=true
+      }
+      if(highestAuthenticatedGeneration===null || finalNow>highestAuthenticatedGeneration){
+        highestAuthenticatedGeneration=finalNow
+      }
+      if(generationRegressed || finalNow!==now) {
+        return planFreeResourceV1(snapshot,request,evidence,[])
+      }
+      return decision
     },
   })
 }

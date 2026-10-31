@@ -259,6 +259,36 @@ describe('trusted free-resource Ed25519 approval boundary (synthetic only)',()=>
     expect(decision.outcome).toBe('PLANNING_ELIGIBLE')
     expect(decision.authority_effect).toBe('NONE')
   })
+  it('holds when the trusted generation advances during asynchronous signature verification',async()=>{
+    const c=await context()
+    let calls=0
+    const clock=()=>++calls===1?'10':'11'
+    const planner=createTrustedFreeResourcePlannerV1(c.trust,clock)
+    const result=await planner.plan(c.snapshot,request,[c.evidence],[c.signed])
+    expect(result.outcome).toBe('HOLD')
+    expect(result.provider_id).toBeNull()
+    expect(calls).toBeGreaterThanOrEqual(2)
+  })
+  it('holds and latches a clock rollback observed only after asynchronous verification',async()=>{
+    const c=await context()
+    let actual='9'
+    let calls=0
+    const clock=()=>++calls===1?'10':actual
+    const planner=createTrustedFreeResourcePlannerV1(c.trust,clock)
+    expect((await planner.plan(c.snapshot,request,[c.evidence],[c.signed])).outcome).toBe('HOLD')
+    actual='10'
+    expect((await planner.plan(c.snapshot,request,[c.evidence],[c.signed])).outcome).toBe('HOLD')
+  })
+  it('allows a stable authenticated clock with no signing or request changes',async()=>{
+    const c=await context()
+    let reads=0
+    const clock=()=>{reads++;return '10'}
+    const result=await createTrustedFreeResourcePlannerV1(c.trust,clock)
+      .plan(c.snapshot,request,[c.evidence],[c.signed])
+    expect(result.outcome).toBe('PLANNING_ELIGIBLE')
+    expect(reads).toBeGreaterThanOrEqual(2)
+    expect(result.authority_effect).toBe('NONE')
+  })
   it('keeps unsigned quota evidence on HOLD even if every evidence hash is well-formed',async()=>{
     const c=await context()
     const x=await createTrustedFreeResourcePlannerV1(c.trust,()=>request.current_generation).plan(c.snapshot,request,[c.evidence],[])
