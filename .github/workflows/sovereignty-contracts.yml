@@ -30,6 +30,12 @@ on:
   push:
     branches: [main]
 
+# Preserve active exact-head evidence; replace only superseded pending PR runs.
+# This avoids accumulating three jobs per outdated candidate commit.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: false
+
 permissions:
   contents: read
 
