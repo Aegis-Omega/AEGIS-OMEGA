@@ -34,6 +34,8 @@ export interface TrustedFreeResourcePolicyV1 {
   revoked_approval_ids:readonly string[]
   revocation_generation:string
   max_revocation_age_generations:string
+  /** Trusted upper bound on an untrusted request's provider observation age. */
+  max_observation_age_generations:string
 }
 export interface FreeResourceApprovalPayloadV1 {
   schema:'AEGIS_FREE_RESOURCE_APPROVAL_V1'
@@ -78,7 +80,8 @@ function assertHexSet(name:string, values:readonly string[], regex:RegExp):Set<s
 function trustedPolicy(policy:TrustedFreeResourcePolicyV1) {
   if(!policy||policy.schema!=='AEGIS_TRUSTED_FREE_RESOURCE_POLICY_V1'
     ||typeof policy.policy_id!=='string'||!POLICY_ID.test(policy.policy_id)
-    ||!decimal(policy.revocation_generation)||!decimal(policy.max_revocation_age_generations)){
+    ||!decimal(policy.revocation_generation)||!decimal(policy.max_revocation_age_generations)
+    ||!decimal(policy.max_observation_age_generations)){
     throw new TypeError('invalid trusted policy bootstrap')
   }
   const signers=assertHexSet('signer keys',policy.signer_public_keys,HEX32)
@@ -91,6 +94,7 @@ function trustedPolicy(policy:TrustedFreeResourcePolicyV1) {
     revokedApprovals,
     revocationGeneration:BigInt(policy.revocation_generation),
     maxAge:BigInt(policy.max_revocation_age_generations),
+    maxObservationAge:BigInt(policy.max_observation_age_generations),
   }
 }
 function approvalMatches(
@@ -125,8 +129,11 @@ function approvalMatches(
  */
 export function createTrustedFreeResourcePlannerV1(
   authenticated_bootstrap_policy:TrustedFreeResourcePolicyV1,
+  /** Injected by trusted host, never by the untrusted request. */
+  read_authenticated_generation:()=>string,
 ):TrustedFreeResourcePlannerV1 {
   const trusted=trustedPolicy(authenticated_bootstrap_policy)
+  if(typeof read_authenticated_generation!=='function') throw new TypeError('missing trusted generation reader')
   return Object.freeze({
     async plan(
       snapshot:ProviderMeshSnapshotV1,
@@ -137,8 +144,19 @@ export function createTrustedFreeResourcePlannerV1(
       if(!Array.isArray(evidence)||!Array.isArray(untrusted_approvals)){
         throw new TypeError('invalid resource evidence or approvals')
       }
-      if(!decimal(request.current_generation)) throw new TypeError('invalid current generation')
-      const now=BigInt(request.current_generation)
+      if(!decimal(request.current_generation)||!decimal(request.max_observation_age_generations)){
+        throw new TypeError('invalid request generation')
+      }
+      let authenticatedNow:unknown
+      try {authenticatedNow=read_authenticated_generation()} catch {authenticatedNow=null}
+      // A caller cannot roll time back, refresh revocations, or loosen
+      // the observation freshness bound using request-controlled fields.
+      if(!decimal(authenticatedNow)
+        ||request.current_generation!==authenticatedNow
+        ||BigInt(request.max_observation_age_generations)>trusted.maxObservationAge){
+        return planFreeResourceV1(snapshot,request,evidence,[])
+      }
+      const now=BigInt(authenticatedNow)
       // Missing, future or stale revocation view: fail closed even if signatures
       // and evidence hashes are valid. Caller cannot refresh this trusted view.
       if(trusted.revocationGeneration>now

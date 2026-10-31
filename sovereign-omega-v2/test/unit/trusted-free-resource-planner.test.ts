@@ -56,6 +56,7 @@ async function context(){
     revoked_approval_ids:[],
     revocation_generation:'10',
     max_revocation_age_generations:'1',
+    max_observation_age_generations:'1',
   }
   const payload:FreeResourceApprovalPayloadV1={
     schema:'AEGIS_FREE_RESOURCE_APPROVAL_V1',
@@ -80,7 +81,7 @@ async function context(){
 describe('trusted free-resource Ed25519 approval boundary (synthetic only)',()=>{
   it('accepts a domain-bound signed approval with a trusted startup signer and fresh revocations for planning only',async()=>{
     const c=await context()
-    const x=await createTrustedFreeResourcePlannerV1(c.trust).plan(c.snapshot,request,[c.evidence],[c.signed])
+    const x=await createTrustedFreeResourcePlannerV1(c.trust,()=>request.current_generation).plan(c.snapshot,request,[c.evidence],[c.signed])
     expect(x.outcome).toBe('PLANNING_ELIGIBLE')
     expect(x.provider_id).toBe('cloudflare-anthropic')
     expect(x.authority_effect).toBe('NONE')
@@ -88,35 +89,35 @@ describe('trusted free-resource Ed25519 approval boundary (synthetic only)',()=>
   it('holds when the untrusted request submits its own signer and signature',async()=>{
     const c=await context()
     const forged=await c.sign(c.payload,c.other.privateKey,c.other.publicKey)
-    expect((await createTrustedFreeResourcePlannerV1(c.trust).plan(c.snapshot,request,[c.evidence],[forged])).outcome).toBe('HOLD')
+    expect((await createTrustedFreeResourcePlannerV1(c.trust,()=>request.current_generation).plan(c.snapshot,request,[c.evidence],[forged])).outcome).toBe('HOLD')
   })
   it('holds when signed payload changes without a fresh signature',async()=>{
     const c=await context()
     const changed={...c.signed,payload:{...c.payload,approval_id:h('f')}}
-    expect((await createTrustedFreeResourcePlannerV1(c.trust).plan(c.snapshot,request,[c.evidence],[changed])).outcome).toBe('HOLD')
+    expect((await createTrustedFreeResourcePlannerV1(c.trust,()=>request.current_generation).plan(c.snapshot,request,[c.evidence],[changed])).outcome).toBe('HOLD')
   })
   it('holds when signer is revoked by the trusted bootstrap',async()=>{
     const c=await context()
     const trust={...c.trust,revoked_signer_keys:[c.signer.publicKey]}
-    expect((await createTrustedFreeResourcePlannerV1(trust).plan(c.snapshot,request,[c.evidence],[c.signed])).outcome).toBe('HOLD')
+    expect((await createTrustedFreeResourcePlannerV1(trust,()=>request.current_generation).plan(c.snapshot,request,[c.evidence],[c.signed])).outcome).toBe('HOLD')
   })
   it('holds when individual approval is revoked',async()=>{
     const c=await context()
     const trust={...c.trust,revoked_approval_ids:[c.payload.approval_id]}
-    expect((await createTrustedFreeResourcePlannerV1(trust).plan(c.snapshot,request,[c.evidence],[c.signed])).outcome).toBe('HOLD')
+    expect((await createTrustedFreeResourcePlannerV1(trust,()=>request.current_generation).plan(c.snapshot,request,[c.evidence],[c.signed])).outcome).toBe('HOLD')
   })
   it('holds when revocation snapshot is stale or from the future',async()=>{
     const c=await context()
     for(const generation of ['8','11']){
       const trust={...c.trust,revocation_generation:generation}
-      expect((await createTrustedFreeResourcePlannerV1(trust).plan(c.snapshot,request,[c.evidence],[c.signed])).outcome).toBe('HOLD')
+      expect((await createTrustedFreeResourcePlannerV1(trust,()=>request.current_generation).plan(c.snapshot,request,[c.evidence],[c.signed])).outcome).toBe('HOLD')
     }
   })
   it('holds for an expired or not-yet-valid approval',async()=>{
     const c=await context()
     for(const patch of [{issued_generation:'11'},{expires_generation:'9'}]){
       const signed=await c.sign({...c.payload,...patch})
-      expect((await createTrustedFreeResourcePlannerV1(c.trust).plan(c.snapshot,request,[c.evidence],[signed])).outcome).toBe('HOLD')
+      expect((await createTrustedFreeResourcePlannerV1(c.trust,()=>request.current_generation).plan(c.snapshot,request,[c.evidence],[signed])).outcome).toBe('HOLD')
     }
   })
   it('holds an approval signed for a different audience, policy or snapshot',async()=>{
@@ -125,22 +126,22 @@ describe('trusted free-resource Ed25519 approval boundary (synthetic only)',()=>
     const wrongSnapshot=await c.sign({...c.payload,snapshot_root:h('c')})
     const wrongAudience=await c.sign({...c.payload,audience:'NOT_RESOURCE_PLANNING' as FreeResourceApprovalPayloadV1['audience']})
     for(const s of [otherPolicy,wrongSnapshot,wrongAudience]){
-      expect((await createTrustedFreeResourcePlannerV1(c.trust).plan(c.snapshot,request,[c.evidence],[s])).outcome).toBe('HOLD')
+      expect((await createTrustedFreeResourcePlannerV1(c.trust,()=>request.current_generation).plan(c.snapshot,request,[c.evidence],[s])).outcome).toBe('HOLD')
     }
   })
   it('holds when approval signature is missing or malformed',async()=>{
     const c=await context()
     for(const signature_hex of ['', '1'.repeat(128)]){
       const signed={...c.signed,signature_hex}
-      expect((await createTrustedFreeResourcePlannerV1(c.trust).plan(c.snapshot,request,[c.evidence],[signed])).outcome).toBe('HOLD')
+      expect((await createTrustedFreeResourcePlannerV1(c.trust,()=>request.current_generation).plan(c.snapshot,request,[c.evidence],[signed])).outcome).toBe('HOLD')
     }
-    expect((await createTrustedFreeResourcePlannerV1(c.trust).plan(c.snapshot,request,[c.evidence],[])).outcome).toBe('HOLD')
+    expect((await createTrustedFreeResourcePlannerV1(c.trust,()=>request.current_generation).plan(c.snapshot,request,[c.evidence],[])).outcome).toBe('HOLD')
   })
   it('does not trust mutations of the bootstrap arrays after construction',async()=>{
     const c=await context()
     const keys=[c.signer.publicKey]
     const trust={...c.trust,signer_public_keys:keys}
-    const planner=createTrustedFreeResourcePlannerV1(trust)
+    const planner=createTrustedFreeResourcePlannerV1(trust,()=>request.current_generation)
     keys.splice(0,1)
     keys.push(c.other.publicKey)
     const forged=await c.sign(c.payload,c.other.privateKey,c.other.publicKey)
@@ -149,13 +150,34 @@ describe('trusted free-resource Ed25519 approval boundary (synthetic only)',()=>
   })
   it('fails bootstrap for invalid keys, missing authenticated revocations or duplicate trust keys',async()=>{
     const c=await context()
-    expect(()=>createTrustedFreeResourcePlannerV1({...c.trust,signer_public_keys:['not-a-key']})).toThrow('invalid signer keys')
-    expect(()=>createTrustedFreeResourcePlannerV1({...c.trust,signer_public_keys:[c.signer.publicKey,c.signer.publicKey]})).toThrow('duplicate signer keys')
-    expect(()=>createTrustedFreeResourcePlannerV1({...c.trust,revocation_generation:'bad'})).toThrow('trusted policy')
+    expect(()=>createTrustedFreeResourcePlannerV1({...c.trust,signer_public_keys:['not-a-key']},()=>request.current_generation)).toThrow('invalid signer keys')
+    expect(()=>createTrustedFreeResourcePlannerV1({...c.trust,signer_public_keys:[c.signer.publicKey,c.signer.publicKey]},()=>request.current_generation)).toThrow('duplicate signer keys')
+    expect(()=>createTrustedFreeResourcePlannerV1({...c.trust,revocation_generation:'bad'},()=>request.current_generation)).toThrow('trusted policy')
+  })
+  it('holds a replay when untrusted request rolls back generation after trusted clock advances',async()=>{
+    const c=await context()
+    let authenticatedGeneration='10'
+    const planner=createTrustedFreeResourcePlannerV1(c.trust,()=>authenticatedGeneration)
+    expect((await planner.plan(c.snapshot,request,[c.evidence],[c.signed])).outcome).toBe('PLANNING_ELIGIBLE')
+    authenticatedGeneration='12'
+    expect((await planner.plan(c.snapshot,request,[c.evidence],[c.signed])).outcome).toBe('HOLD')
+  })
+  it('holds when a request loosens the trusted observation age limit',async()=>{
+    const c=await context()
+    const lessStrict={...request,max_observation_age_generations:'10000000'}
+    expect((await createTrustedFreeResourcePlannerV1(c.trust,()=>request.current_generation)
+      .plan(c.snapshot,lessStrict,[c.evidence],[c.signed])).outcome).toBe('HOLD')
+  })
+  it('holds if the trusted generation source is unavailable or malformed',async()=>{
+    const c=await context()
+    for(const source of [()=>{throw new Error('clock unavailable')},()=>'-1']){
+      const planner=createTrustedFreeResourcePlannerV1(c.trust,source)
+      expect((await planner.plan(c.snapshot,request,[c.evidence],[c.signed])).outcome).toBe('HOLD')
+    }
   })
   it('keeps unsigned quota evidence on HOLD even if every evidence hash is well-formed',async()=>{
     const c=await context()
-    const x=await createTrustedFreeResourcePlannerV1(c.trust).plan(c.snapshot,request,[c.evidence],[])
+    const x=await createTrustedFreeResourcePlannerV1(c.trust,()=>request.current_generation).plan(c.snapshot,request,[c.evidence],[])
     expect(x.outcome).toBe('HOLD')
     expect(x.provider_id).toBeNull()
   })

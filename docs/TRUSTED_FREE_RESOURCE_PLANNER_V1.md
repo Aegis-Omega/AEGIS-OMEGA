@@ -1,6 +1,6 @@
 # AEGIS Ω signed free-resource approval boundary (candidate V1)
 
-`createTrustedFreeResourcePlannerV1(authenticated_bootstrap_policy)` is the **server-trusted** planning entrypoint. It uses the existing project's Ed25519 verification and RFC 8785 canonicalization. Its untrusted `plan(snapshot,request,evidence,untrusted_approvals)` method cannot nominate trusted signer keys or replace the revocation snapshot.
+`createTrustedFreeResourcePlannerV1(authenticated_bootstrap_policy, read_authenticated_generation)` is the **server-trusted** planning entrypoint. It uses the existing project's Ed25519 verification and RFC 8785 canonicalization. Its untrusted `plan(snapshot,request,evidence,untrusted_approvals)` method cannot nominate trusted signer keys or replace the revocation snapshot.
 
 ## Trust separation
 
@@ -15,3 +15,9 @@
 Existing `planFreeResourceV1` accepts raw approved roots as a low-level *non-authorizing planning primitive*. It MUST NOT be exposed directly to untrusted callers. Use the trusted wrapper for an authenticated planning decision. Both retain `authority_effect: NONE`. Neither reserves a quota, grants consent, approves billing, signs a provider statement or permits model execution.
 
 Verification: `cd sovereign-omega-v2 && npx vitest run test/unit/trusted-free-resource-planner.test.ts && npm run typecheck` in the existing Sovereignty Contracts workflow. Candidate stays DRAFT, NO_MERGE, NO_DEPLOY, NO_NEW_SPEND.
+
+## Anti-replay bound on the runtime clock
+
+The trusted runtime MUST inject a monotonic and authenticated `read_authenticated_generation` callback during initialization. The signer policy also sets `max_observation_age_generations`. Both are host-controlled. An untrusted request cannot backdate `current_generation`, expand observation age or supply the clock itself to make an expired signed approval eligible. A missing, throwing, or malformed trusted clock returns `HOLD`. An unchanged snapshot and signed witness are not enough to evade the runtime's advanced generation.
+
+Production must still authenticate the source of the clock/revocation/policy and ensure these values are not sourced from a request, model output or mutable provider response. This module remains a planning-only contract.
