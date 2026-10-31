@@ -1,6 +1,7 @@
 import { createClient } from 'jsr:@supabase/supabase-js@2'
 import { CORS } from '../_shared/cors.ts'
 import { authorizeNebiusCaller, isNebiusRequestBounded } from '../_shared/nebius-auth.ts'
+import { reserveNebiusAttempt } from '../_shared/nebius-budget.ts'
 
 const DASHSCOPE_API_KEY_ENV = Deno.env.get('DASHSCOPE_API_KEY') ?? ''
 const DASHSCOPE_URL = 'https://dashscope-intl.aliyuncs.com/compatible-mode/v1/chat/completions'
@@ -221,6 +222,23 @@ Deno.serve(async (req) => {
       : useOpenAI ? OPENAI_URL
         : useNebius ? NEBIUS_URL
           : DASHSCOPE_URL
+
+    if (useNebius) {
+      // Single durable reservation before any potentially billable request.
+      // Missing RPC, exhausted cap or database failure MUST deny the call.
+      const reserved = await reserveNebiusAttempt(() =>
+        providerMesh.rpc('reserve_nebius_inference_attempt_v1'))
+      if (!reserved) {
+        return new Response(JSON.stringify({
+          error: 'Nebius funded attempt budget unavailable or exhausted',
+          provider_status: 'budget_denied',
+          provider: 'nebius-token-factory',
+        }), {
+          status: 429,
+          headers: { ...CORS, 'Content-Type': 'application/json' },
+        })
+      }
+    }
 
     const resp = await fetch(url, {
       method: 'POST',

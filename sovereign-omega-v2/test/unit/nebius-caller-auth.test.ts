@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
+import { reserveNebiusAttempt } from '../../../supabase/functions/_shared/nebius-budget.ts'
 import {
   authorizeNebiusCaller,
   isNebiusRequestBounded,
@@ -48,5 +49,20 @@ describe('Nebius funded backend caller authorization', () => {
     expect(isNebiusRequestBounded('hello', 'x'.repeat(4097), [])).toBe(false)
     expect(isNebiusRequestBounded('hello', 'system', [{content:'x'.repeat(4097)}])).toBe(false)
     expect(isNebiusRequestBounded('hello', 'system', Array.from({length:9}, () => ({content:'x'})))).toBe(false)
+  })
+})
+
+describe('Nebius atomic attempt budget gate', () => {
+  it('allows only the exact database-reserved boolean', async () => {
+    const rpc = vi.fn(async () => ({ data: true, error: null }))
+    expect(await reserveNebiusAttempt(rpc)).toBe(true)
+    expect(rpc).toHaveBeenCalledTimes(1)
+    for (const data of [false, null, 1, 'true', [true], {}]) {
+      expect(await reserveNebiusAttempt(async () => ({ data, error: null }))).toBe(false)
+    }
+  })
+  it('denies database errors, absent migration and failed network', async () => {
+    expect(await reserveNebiusAttempt(async () => ({ data: true, error: { code: 'PGRST202' } }))).toBe(false)
+    expect(await reserveNebiusAttempt(async () => { throw Error('connection failed') })).toBe(false)
   })
 })
