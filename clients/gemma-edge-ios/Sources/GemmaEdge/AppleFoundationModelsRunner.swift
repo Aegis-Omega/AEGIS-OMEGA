@@ -176,10 +176,13 @@ public final class AppleFoundationModelsRunner: EdgeInferenceRunning {
             )
 
             let response = try await session.respond(to: prompt, options: options)
-            // Readiness may have been revoked while generation was suspended.
-            guard readiness.isActive(token) else {
-                throw AppleFoundationModelsError.notInitialized
-            }
+            // The device model or the caller's readiness lease may have changed
+            // during the suspension. Neither condition may yield a success receipt.
+            try Self.validateCompletedGeneration(
+                readiness: readiness,
+                token: token,
+                availability: probeAvailability()
+            )
             let output = response.content
             let receipt = AppleInferenceReceipt.succeeded(
                 prompt: prompt,
@@ -192,6 +195,21 @@ public final class AppleFoundationModelsRunner: EdgeInferenceRunning {
         #endif
 
         throw AppleFoundationModelsError.frameworkUnavailable
+    }
+
+    static func validateCompletedGeneration(
+        readiness: AppleModelReadiness,
+        token: UInt64,
+        availability: AppleFoundationModelsAvailability
+    ) throws {
+        guard readiness.isActive(token) else {
+            throw AppleFoundationModelsError.notInitialized
+        }
+        guard availability.available else {
+            throw AppleFoundationModelsError.modelUnavailable(
+                availability.reason ?? "UNKNOWN_AVAILABILITY"
+            )
+        }
     }
 
     static func validateRequest(

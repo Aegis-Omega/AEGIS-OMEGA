@@ -131,6 +131,41 @@ final class AppleFoundationModelsRunnerPolicyTests: XCTestCase {
 }
 
 final class AppleModelReadinessTests: XCTestCase {
+    func testCompletedGenerationRejectsUnavailableModel() {
+        let readiness = AppleModelReadiness()
+        let token = readiness.beginInitialization()
+        XCTAssertTrue(readiness.completeInitialization(token))
+        XCTAssertThrowsError(try AppleFoundationModelsRunner.validateCompletedGeneration(
+            readiness: readiness, token: token,
+            availability: .init(available: false, reason: "MODEL_NOT_READY")
+        )) { error in
+            XCTAssertEqual(error as? AppleFoundationModelsError, .modelUnavailable("MODEL_NOT_READY"))
+        }
+    }
+
+    func testCompletedGenerationRejectsRevokedLease() {
+        let readiness = AppleModelReadiness()
+        let token = readiness.beginInitialization()
+        XCTAssertTrue(readiness.completeInitialization(token))
+        _ = readiness.beginInitialization()
+        XCTAssertThrowsError(try AppleFoundationModelsRunner.validateCompletedGeneration(
+            readiness: readiness, token: token,
+            availability: .init(available: true, reason: nil)
+        )) { error in
+            XCTAssertEqual(error as? AppleFoundationModelsError, .notInitialized)
+        }
+    }
+
+    func testCompletedGenerationAcceptsActiveAvailableModel() throws {
+        let readiness = AppleModelReadiness()
+        let token = readiness.beginInitialization()
+        XCTAssertTrue(readiness.completeInitialization(token))
+        XCTAssertNoThrow(try AppleFoundationModelsRunner.validateCompletedGeneration(
+            readiness: readiness, token: token,
+            availability: .init(available: true, reason: nil)
+        ))
+    }
+
     func testNoLeaseBeforeInitialization() {
         let readiness = AppleModelReadiness()
         XCTAssertNil(readiness.activeToken())
