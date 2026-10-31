@@ -97,3 +97,66 @@ describe('connected provider resource reads cannot mint free quota authority', (
     expect(a.integrity_root).not.toBe(b.integrity_root)
   })
 })
+
+
+function awsFixture(): ConnectedResourceReadsV1 {
+  const ok=(count:number|null=null)=>({outcome:'SUCCESS' as const,error_code:null,count})
+  const err=(error_code:string)=>({outcome:'ERROR' as const,error_code,count:null})
+  return {observation_generation:'31',
+    cloudflare:{ai_gateway_credit_balance:null,ai_gateway_topup_config:null,worker_account_settings:null,worker_scripts:null},
+    hugging_face:{account_plan:'UNKNOWN',jobs_total:null},
+    aws:{sts:ok(),s3:err('NotSignedUp'),ec2:err('OptInRequired'),
+      cost_explorer:err('SubscriptionRequiredException'),billing_views:ok(1),
+      budgets:ok(0),free_tier:ok(0),operator_reported_credit_usd:'100.00'}}
+}
+describe('AWS read-only observation is never spending authority',()=>{
+  it('normalizes actual connected statuses and retains HOLD',async()=>{
+    const r=await observeConnectedResourcesV1(awsFixture())
+    expect(r.aws).toMatchObject({identity:'OBSERVED',s3:'NOT_SIGNED_UP',
+      ec2:'OPT_IN_REQUIRED',cost_explorer:'SUBSCRIPTION_REQUIRED',
+      billing_views_count:1,budgets_count:0,free_tier_usage_count:0,
+      operator_reported_credit_usd:'100.00',remaining_credit_verified:'UNKNOWN',
+      effective_hard_budget_stop:'UNKNOWN',paid_aws_workloads:'HOLD',
+      provider_attestation:'NOT_ESTABLISHED'})
+    expect(r.authority_effect).toBe('NONE')
+    expect(r.integrity_root).toMatch(/^[a-f0-9]{64}$/)
+  })
+  it('keeps historical non-AWS snapshots unchanged',async()=>{
+    const f=awsFixture();delete f.aws
+    expect('aws' in await observeConnectedResourcesV1(f)).toBe(false)
+  })
+  it('never promotes successful API reads or a large operator credit claim',async()=>{
+    const f=awsFixture()
+    f.aws!.s3={outcome:'SUCCESS',error_code:null,count:8}
+    f.aws!.ec2={outcome:'SUCCESS',error_code:null,count:20}
+    f.aws!.operator_reported_credit_usd='999999.99'
+    const r=await observeConnectedResourcesV1(f)
+    expect(r.aws!.remaining_credit_verified).toBe('UNKNOWN')
+    expect(r.aws!.paid_aws_workloads).toBe('HOLD')
+    expect(r.zero_spend_admission).toBe('HOLD')
+  })
+  it('keeps inaccessible budget count unknown, not zero',async()=>{
+    const f=awsFixture();f.aws!.budgets={outcome:'ERROR',error_code:'AccessDeniedException',count:0}
+    expect((await observeConnectedResourcesV1(f)).aws!.budgets_count).toBeNull()
+  })
+  it('drops raw identifiers and unknown error codes from receipt',async()=>{
+    const f=awsFixture()
+    Object.assign(f.aws!.sts!,{arn:'LEAK_ARN',account:'LEAK_ACCOUNT',api_key:'LEAK_KEY'})
+    f.aws!.s3={outcome:'ERROR',error_code:'LEAK_SECRET',count:null}
+    const r=await observeConnectedResourcesV1(f)
+    expect(JSON.stringify(r)).not.toContain('LEAK_')
+    expect(r.aws!.s3).toBe('UNKNOWN')
+  })
+  it('rejects negative count and invalid credit claim',async()=>{
+    const f=awsFixture();f.aws!.budgets={outcome:'SUCCESS',error_code:null,count:-1}
+    await expect(observeConnectedResourcesV1(f)).rejects.toThrow('nonnegative')
+    const g=awsFixture();g.aws!.operator_reported_credit_usd='100 USD'
+    await expect(observeConnectedResourcesV1(g)).rejects.toThrow('unsigned decimal')
+  })
+  it('hashes status changes but preserves same-input checksum',async()=>{
+    const a=await observeConnectedResourcesV1(awsFixture())
+    expect((await observeConnectedResourcesV1(awsFixture())).integrity_root).toBe(a.integrity_root)
+    const f=awsFixture();f.aws!.ec2={outcome:'SUCCESS',error_code:null,count:10}
+    expect((await observeConnectedResourcesV1(f)).integrity_root).not.toBe(a.integrity_root)
+  })
+})

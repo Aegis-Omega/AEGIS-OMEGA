@@ -14,6 +14,38 @@ export interface ConnectedApiReadV1 {
   success: boolean
   result: unknown
 }
+
+/** Sanitized AWS API metadata, not AWS-signed entitlement proof. */
+export interface AwsApiObservationV1 {
+  outcome: 'SUCCESS' | 'ERROR' | 'UNKNOWN'
+  error_code: string | null
+  count: number | null
+}
+export interface AwsResourceReadsV1 {
+  sts: AwsApiObservationV1 | null
+  s3: AwsApiObservationV1 | null
+  ec2: AwsApiObservationV1 | null
+  cost_explorer: AwsApiObservationV1 | null
+  billing_views: AwsApiObservationV1 | null
+  budgets: AwsApiObservationV1 | null
+  free_tier: AwsApiObservationV1 | null
+  operator_reported_credit_usd: string | null
+}
+export interface AwsResourceInventoryV1 {
+  identity: 'OBSERVED' | 'UNKNOWN'
+  s3: 'API_SUCCESS' | 'NOT_SIGNED_UP' | 'UNKNOWN'
+  ec2: 'API_SUCCESS' | 'OPT_IN_REQUIRED' | 'UNKNOWN'
+  cost_explorer: 'API_SUCCESS' | 'SUBSCRIPTION_REQUIRED' | 'UNKNOWN'
+  billing_views_count: number | null
+  budgets_count: number | null
+  free_tier_usage_count: number | null
+  operator_reported_credit_usd: string | null
+  remaining_credit_verified: 'UNKNOWN'
+  effective_hard_budget_stop: 'UNKNOWN'
+  paid_aws_workloads: 'HOLD'
+  provider_attestation: 'NOT_ESTABLISHED'
+}
+
 export interface ConnectedResourceReadsV1 {
   observation_generation: string
   cloudflare: {
@@ -26,6 +58,7 @@ export interface ConnectedResourceReadsV1 {
     account_plan: 'FREE' | 'PRO' | 'UNKNOWN'
     jobs_total: number | null
   }
+  aws?: AwsResourceReadsV1
 }
 export interface ConnectedResourceInventoryV1 {
   schema: 'AEGIS_CONNECTED_RESOURCE_INVENTORY_V1'
@@ -42,6 +75,7 @@ export interface ConnectedResourceInventoryV1 {
     jobs_total: number | null
     free_gpu_quota: 'UNKNOWN'
   }
+  aws?: AwsResourceInventoryV1
   zero_spend_admission: 'HOLD'
   authority_effect: 'NONE'
   integrity_root: SHA256Hex
@@ -56,6 +90,62 @@ function usable(read: ConnectedApiReadV1 | null): unknown {
 function validNonnegativeCount(n: unknown): n is number {
   return typeof n === 'number' && Number.isSafeInteger(n) && n >= 0
 }
+
+const AWS_ERROR_CODES = new Set(['NotSignedUp','OptInRequired','SubscriptionRequiredException','AccessDeniedException'])
+function awsObservation(x: AwsApiObservationV1 | null): AwsApiObservationV1 {
+  if (x === null) return {outcome:'UNKNOWN',error_code:null,count:null}
+  if (!x || !(['SUCCESS','ERROR','UNKNOWN'] as string[]).includes(x.outcome)) {
+    throw new TypeError('invalid AWS observation outcome')
+  }
+  if (x.count !== null && !validNonnegativeCount(x.count)) {
+    throw new TypeError('AWS observation count must be nonnegative safe integer or null')
+  }
+  // Unknown error codes and unexpected fields are discarded, never hashed.
+  const safeCode=x.outcome==='ERROR' && typeof x.error_code==='string' && AWS_ERROR_CODES.has(x.error_code)
+    ? x.error_code : null
+  return {outcome:x.outcome,error_code:safeCode,count:x.count}
+}
+function awsApiStatus<T extends string>(
+  read:AwsApiObservationV1, code:string, status:T,
+): 'API_SUCCESS' | T | 'UNKNOWN' {
+  if(read.outcome==='SUCCESS') return 'API_SUCCESS'
+  if(read.outcome==='ERROR' && read.error_code===code) return status
+  return 'UNKNOWN'
+}
+function awsCount(read:AwsApiObservationV1):number|null {
+  return read.outcome==='SUCCESS' ? read.count : null
+}
+function observeAws(reads:AwsResourceReadsV1):AwsResourceInventoryV1 {
+  if(!reads || typeof reads!=='object') throw new TypeError('missing AWS observations')
+  const sts=awsObservation(reads.sts)
+  const s3=awsObservation(reads.s3)
+  const ec2=awsObservation(reads.ec2)
+  const ce=awsObservation(reads.cost_explorer)
+  const billing=awsObservation(reads.billing_views)
+  const budgets=awsObservation(reads.budgets)
+  const free=awsObservation(reads.free_tier)
+  const reported=reads.operator_reported_credit_usd
+  if(reported!==null && (typeof reported!=='string' || reported.length>24 ||
+    !/^(0|[1-9][0-9]*)(\.[0-9]{1,2})?$/.test(reported))) {
+    throw new TypeError('operator_reported_credit_usd must be unsigned decimal or null')
+  }
+  return {
+    identity:sts.outcome==='SUCCESS'?'OBSERVED':'UNKNOWN',
+    s3:awsApiStatus(s3,'NotSignedUp','NOT_SIGNED_UP'),
+    ec2:awsApiStatus(ec2,'OptInRequired','OPT_IN_REQUIRED'),
+    cost_explorer:awsApiStatus(ce,'SubscriptionRequiredException','SUBSCRIPTION_REQUIRED'),
+    billing_views_count:awsCount(billing),
+    budgets_count:awsCount(budgets),
+    free_tier_usage_count:awsCount(free),
+    operator_reported_credit_usd:reported,
+    // Credit and hard overage ceilings cannot be inferred from read-only API metadata.
+    remaining_credit_verified:'UNKNOWN',
+    effective_hard_budget_stop:'UNKNOWN',
+    paid_aws_workloads:'HOLD',
+    provider_attestation:'NOT_ESTABLISHED',
+  }
+}
+
 export async function observeConnectedResourcesV1(reads: ConnectedResourceReadsV1): Promise<ConnectedResourceInventoryV1> {
   if (!/^(0|[1-9][0-9]*)$/.test(reads.observation_generation)) {
     throw new TypeError('observation_generation must be canonical unsigned decimal')
@@ -106,6 +196,7 @@ export async function observeConnectedResourcesV1(reads: ConnectedResourceReadsV
       jobs_total: reads.hugging_face.jobs_total,
       free_gpu_quota: 'UNKNOWN' as const,
     },
+    ...(reads.aws === undefined ? {} : {aws:observeAws(reads.aws)}),
     // Zero jobs, a live Worker and zero prepaid credit are not free-quota proof.
     zero_spend_admission: 'HOLD' as const,
     authority_effect: 'NONE' as const,

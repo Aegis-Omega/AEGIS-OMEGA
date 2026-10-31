@@ -29,3 +29,12 @@ Run: `cd sovereign-omega-v2 && npx vitest run test/unit/connected-resource-intak
 The separate `planFreeResourceV1` planning gate now requires each **independently approved** capacity witness to carry **both** `snapshot_root` (exact provider-mesh snapshot) and `observation_evidence_hash` (the precise provider observation). It fails closed on missing or mismatched hashes, including witnesses with a matching provider and generation from a different snapshot or observation. The fields are optional in the legacy interface only to parse older inventory; they are mandatory for `PLANNING_ELIGIBLE`. An approved digest **is not a signed provider attestation** unless independently sourced, verified and anchored by the trusted caller.
 
 This binding does **not** authenticate caller-supplied `approved_roots`, reserve capacity, prove provider-side no-overage guarantees or authorize any execution. Missing independent billing/quota proof remains `HOLD`.
+
+
+## AWS account read-only expansion: 2026-10-31
+
+AWS STS identity succeeded on two connector links, both selecting the same AWS account. Sanitized reads for that account: S3 ListBuckets `NotSignedUp`; EC2 DescribeRegions `OptInRequired`; Cost Explorer GetCostAndUsage `SubscriptionRequiredException`; Billing ListBillingViews succeeded with 1 view; Budgets DescribeBudgets succeeded with 0 budgets; Free Tier GetFreeTierUsage returned 0 entries.
+
+The operator reported **USD 100 of AWS credits**, but the *remaining credit balance, expiration and restrictions remain UNKNOWN*. A billing view is not a credit receipt, an empty usage list is not entitlement proof, and a budget alarm is not a spending hard stop. The AWS extension preserves `zero_spend_admission=HOLD`, `authority_effect=NONE`, `paid_aws_workloads=HOLD` regardless of claimed credit, and outputs no AWS account ID, ARN or credentials. Its content hash is only a local checksum, not AWS attestation.
+
+The code is pure and network-free. It adds an optional AWS snapshot to the existing Cloudflare/Hugging Face adapter; snapshots without AWS remain backwards compatible. Run `cd sovereign-omega-v2 && npx vitest run test/unit/connected-resource-intake.test.ts && npm run typecheck`. Before any AWS resource creation: independently confirm credit from Billing, effective limits, least-privilege non-root identity, regional service eligibility and explicit operator workload approval. No cloud writes or costs authorized by this extension.
