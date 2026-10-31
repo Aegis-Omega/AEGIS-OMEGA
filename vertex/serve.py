@@ -1236,6 +1236,65 @@ async def github_webhook(request: Request):
     if event_type not in {"push", "pull_request", "issues", "pull_request_review", "check_run"}:
         return JSONResponse({"error": "unsupported_webhook_event"}, status_code=422)
 
+    # A valid GitHub signature proves delivery integrity, not that every
+    # same-repository actor may spend agent resources. Mirror the separate
+    # Actions dispatch contract's sender, author and fork boundaries here.
+    def obj(value):
+        return value if isinstance(value, dict) else {}
+
+    sender = obj(body.get("sender")).get("login")
+    action = body.get("action")
+    trusted = {"OWNER", "MEMBER", "COLLABORATOR"}
+    if not isinstance(sender, str) or not sender:
+        return JSONResponse({"error": "untrusted_webhook_actor"}, status_code=403)
+
+    if event_type == "pull_request":
+        candidate = obj(body.get("pull_request"))
+        authorized = (
+            action == "opened"
+            and obj(candidate.get("user")).get("login") == sender
+            and candidate.get("author_association") in trusted
+            and obj(obj(candidate.get("head")).get("repo")).get("full_name")
+            == "Aegis-Omega/AEGIS-OMEGA"
+        )
+    elif event_type == "issues":
+        issue = obj(body.get("issue"))
+        authorized = (
+            action == "opened"
+            and obj(issue.get("user")).get("login") == sender
+            and issue.get("author_association") in trusted
+        )
+    elif event_type == "pull_request_review":
+        candidate = obj(body.get("pull_request"))
+        review = obj(body.get("review"))
+        authorized = (
+            action == "submitted"
+            and obj(review.get("user")).get("login") == sender
+            and review.get("author_association") in trusted
+            and obj(obj(candidate.get("head")).get("repo")).get("full_name")
+            == "Aegis-Omega/AEGIS-OMEGA"
+        )
+    elif event_type == "push":
+        # Main is the only branch allowed to trigger privileged pushes.
+        authorized = (
+            body.get("ref") == "refs/heads/main"
+            and body.get("deleted") is False
+            and body.get("forced") is False
+            and obj(body.get("pusher")).get("name") == sender
+        )
+    else:
+        # Check-run observations are only useful when completed by the
+        # GitHub Actions app against the protected main branch.
+        check = obj(body.get("check_run"))
+        authorized = (
+            action == "completed"
+            and obj(check.get("app")).get("slug") == "github-actions"
+            and obj(check.get("check_suite")).get("head_branch") == "main"
+        )
+
+    if not authorized:
+        return JSONResponse({"error": "untrusted_webhook_actor"}, status_code=403)
+
     # Map GitHub events to agent dispatch
     try:
         import sys

@@ -272,9 +272,95 @@ class GithubWebhookSignatureContract(unittest.IsolatedAsyncioTestCase):
                 self.assertEqual(response.status_code, 422)
                 self.assertEqual(response.body["error"], "unsupported_webhook_event")
 
+    async def test_signed_untrusted_pr_and_issue_actor_denied(self):
+        secret = "test-signing-key"
+        base = {"repository": {"full_name": "Aegis-Omega/AEGIS-OMEGA"},
+                "sender": {"login": "attacker"}, "action": "opened"}
+        variants = [
+            ("pull_request", {
+                "pull_request": {
+                    "user": {"login": "trusted-owner"}, "author_association": "OWNER",
+                    "head": {"repo": {"full_name": "Aegis-Omega/AEGIS-OMEGA"}}}}),
+            ("pull_request", {
+                "pull_request": {
+                    "user": {"login": "attacker"}, "author_association": "OWNER",
+                    "head": {"repo": {"full_name": "outsider/fork"}}}}),
+            ("pull_request", {
+                "pull_request": {
+                    "user": {"login": "attacker"}, "author_association": "NONE",
+                    "head": {"repo": {"full_name": "Aegis-Omega/AEGIS-OMEGA"}}}}),
+            ("issues", {"issue": {
+                "user": {"login": "trusted-owner"}, "author_association": "OWNER"}}),
+            ("issues", {"issue": {
+                "user": {"login": "attacker"}, "author_association": "NONE"}}),
+            ("pull_request_review", {
+                "review": {"user": {"login": "trusted-owner"},
+                           "author_association": "OWNER"},
+                "pull_request": {"head": {"repo": {
+                    "full_name": "Aegis-Omega/AEGIS-OMEGA"}}}}),
+        ]
+        for event, addition in variants:
+            with self.subTest(event=event, addition=addition):
+                payload = dict(base, **addition)
+                raw = json.dumps(payload, sort_keys=True).encode("utf8")
+                sig = "sha256=" + hmac.new(
+                    secret.encode(), raw, hashlib.sha256).hexdigest()
+                with patch.dict(os.environ, {"GITHUB_WEBHOOK_SECRET": secret}):
+                    req = FakeWebhookRequest(raw, {
+                        "x-hub-signature-256": sig,
+                        "x-github-event": event,
+                    })
+                    result = await source_webhook()(req)
+                self.assertEqual(result.status_code, 403)
+                self.assertEqual(result.body["error"], "untrusted_webhook_actor")
+
+    async def test_signed_push_must_be_normal_protected_main(self):
+        secret = "test-signing-key"
+        base = {"repository": {"full_name": "Aegis-Omega/AEGIS-OMEGA"},
+                "sender": {"login": "trusted-owner"},
+                "pusher": {"name": "trusted-owner"},
+                "ref": "refs/heads/main", "deleted": False, "forced": False}
+        for field, value in (("ref", "refs/heads/feature"),
+                             ("deleted", True), ("forced", True),
+                             ("pusher", {"name": "someone-else"})):
+            with self.subTest(field=field):
+                raw = json.dumps(dict(base, **{field: value})).encode("utf8")
+                sig = "sha256=" + hmac.new(
+                    secret.encode(), raw, hashlib.sha256).hexdigest()
+                with patch.dict(os.environ, {"GITHUB_WEBHOOK_SECRET": secret}):
+                    req = FakeWebhookRequest(raw, {
+                        "x-hub-signature-256": sig, "x-github-event": "push"})
+                    result = await source_webhook()(req)
+                self.assertEqual(result.status_code, 403)
+
+    async def test_signed_check_run_requires_completed_actions_main(self):
+        secret = "test-signing-key"
+        base = {"repository": {"full_name": "Aegis-Omega/AEGIS-OMEGA"},
+                "sender": {"login": "github-actions[bot]"},
+                "action": "completed",
+                "check_run": {"app": {"slug": "github-actions"},
+                              "check_suite": {"head_branch": "main"}}}
+        for field, value in (
+                ("action", "created"),
+                ("check_run", {"app": {"slug": "outside-app"},
+                               "check_suite": {"head_branch": "main"}}),
+                ("check_run", {"app": {"slug": "github-actions"},
+                               "check_suite": {"head_branch": "pr-123"}})):
+            raw = json.dumps(dict(base, **{field: value})).encode("utf8")
+            sig = "sha256=" + hmac.new(
+                secret.encode(), raw, hashlib.sha256).hexdigest()
+            with patch.dict(os.environ, {"GITHUB_WEBHOOK_SECRET": secret}):
+                req = FakeWebhookRequest(raw, {
+                    "x-hub-signature-256": sig, "x-github-event": "check_run"})
+                result = await source_webhook()(req)
+            self.assertEqual(result.status_code, 403)
+
     async def test_signed_valid_event_invokes_only_stubbed_agent(self):
         secret = "test-signing-key"
-        body = b'{"repository":{"full_name":"Aegis-Omega/AEGIS-OMEGA"}}'
+        body = (b'{"repository":{"full_name":"Aegis-Omega/AEGIS-OMEGA"},'
+                b'"sender":{"login":"trusted-owner"},'
+                b'"pusher":{"name":"trusted-owner"},'
+                b'"ref":"refs/heads/main","deleted":false,"forced":false}')
         signature = "sha256=" + hmac.new(
             secret.encode(), body, hashlib.sha256).hexdigest()
         seen = []
