@@ -206,7 +206,8 @@ def _assess(receipt, roster):
         excluded_principals=(generator_principal,),
     )
     _require(reviewer_principal == selected["principal_id"]
-             and reviewer.get("github_id") == selected["github_id"],
+             and type(reviewer.get("github_id")) is int
+             and reviewer["github_id"] == selected["github_id"],
              "REVIEWER_IDENTITY_MISMATCH")
     submitter_identity = _identity(roster, submitter_principal)
     _require(type(submitter.get("github_id")) is int
