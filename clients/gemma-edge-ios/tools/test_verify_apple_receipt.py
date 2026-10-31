@@ -7,6 +7,7 @@ import subprocess
 import sys
 import tempfile
 import unittest
+from unittest.mock import patch
 from pathlib import Path
 from verify_apple_receipt import (InvalidReceipt, canonical_preimage,
                                   read_receipt, verify_integrity, verify_file)
@@ -80,6 +81,41 @@ class CrossLanguageReceiptTests(unittest.TestCase):
             result = subprocess.run(command, capture_output=True, text=True)
             self.assertEqual(result.returncode, 1)
             self.assertIn('receipt too large', result.stderr)
+
+    def test_deeply_nested_json_returns_controlled_error(self):
+        # Under the 64 KiB limit: decoding depth must fail closed, not traceback.
+        with tempfile.TemporaryDirectory() as td:
+            nested = Path(td)/'nested.json'
+            nested.write_text('['*16000 + '0' + ']'*16000, encoding='ascii')
+            command = [sys.executable,
+                       str(Path(__file__).with_name('verify_apple_receipt.py')),
+                       str(nested)]
+            result = subprocess.run(command, capture_output=True, text=True)
+            self.assertEqual(result.returncode, 1)
+            self.assertIn('INVALID RECEIPT', result.stderr)
+            self.assertNotIn('Traceback', result.stderr)
+
+    def test_content_check_stops_reading_beyond_claimed_size(self):
+        # A forged receipt must not force an unbounded read of content
+        # once a size mismatch is already deterministically established.
+        class OversizedStream:
+            def __init__(self):
+                self.calls = 0
+                self.requested = []
+            def __enter__(self): return self
+            def __exit__(self, *_): return False
+            def read(self, amount):
+                self.calls += 1
+                self.requested.append(amount)
+                if self.calls > 1:
+                    raise AssertionError('Verifier kept reading after known size mismatch')
+                return b'x'*amount
+        stream = OversizedStream()
+        with patch('builtins.open', return_value=stream):
+            with self.assertRaises(InvalidReceipt):
+                verify_file('fixture.txt', 5, '0'*64)
+        self.assertEqual(stream.calls, 1)
+        self.assertLessEqual(stream.requested[0], 6)
 
     def test_content_and_cli(self):
         with tempfile.TemporaryDirectory() as td:

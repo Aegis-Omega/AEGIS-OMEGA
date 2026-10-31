@@ -41,8 +41,8 @@ def read_receipt(data):
     try:
         obj = json.loads(data, object_pairs_hook=strict_pairs,
                          parse_constant=lambda _: (_ for _ in ()).throw(InvalidReceipt('nonfinite JSON number')))
-    except (UnicodeDecodeError, json.JSONDecodeError) as e:
-        raise InvalidReceipt('invalid JSON or UTF-8') from e
+    except (UnicodeDecodeError, json.JSONDecodeError, RecursionError) as e:
+        raise InvalidReceipt('invalid JSON, UTF-8, or nesting depth') from e
     if not isinstance(obj, dict):
         raise InvalidReceipt('receipt must be a JSON object')
     return obj
@@ -96,9 +96,15 @@ def verify_integrity(r):
 def verify_file(file_path, expected_bytes, expected_digest):
     digest = hashlib.sha256()
     total = 0
+    if expected_bytes < 0:
+        raise InvalidReceipt('negative expected content length')
     with open(file_path, 'rb') as fh:
-        while block := fh.read(65536):
+        # Read at most one byte beyond the asserted size. A malicious receipt
+        # cannot force hashing a larger file once its size is already false.
+        while block := fh.read(min(65536, expected_bytes - total + 1)):
             total += len(block)
+            if total > expected_bytes:
+                raise InvalidReceipt('content exceeds declared byte length: ' + str(file_path))
             digest.update(block)
     if total != expected_bytes or digest.hexdigest() != expected_digest:
         raise InvalidReceipt('content bytes or SHA-256 mismatch: ' + str(file_path))
