@@ -18,6 +18,8 @@ export interface InferenceRequest {
   model?: string
   /** Explicit backend selection disables cross-provider failover. */
   backend?: BackendType
+  /** Supabase Auth user-session JWT. Required for the paid Nebius backend. */
+  userAccessToken?: string
 }
 
 export interface InferenceResponse {
@@ -189,6 +191,9 @@ async function callNebiusBackend(req: InferenceRequest): Promise<InferenceRespon
     throw new Error('VITE_ENABLE_NEBIUS not enabled')
   }
 
+  if (!req.userAccessToken?.trim()) {
+    throw new Error('Nebius requires a Supabase Auth user session')
+  }
   const supabaseUrl = (import.meta.env.VITE_SUPABASE_URL as string | undefined)
     ?? 'https://rwehltdwpsncnwxzkwik.supabase.co'
   const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined
@@ -198,7 +203,8 @@ async function callNebiusBackend(req: InferenceRequest): Promise<InferenceRespon
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      ...(anonKey ? { Authorization: `Bearer ${anonKey}` } : {}),
+      ...(anonKey ? { apikey: anonKey } : {}),
+      Authorization: `Bearer ${req.userAccessToken}`,
     },
     body: JSON.stringify({
       provider: 'nebius',

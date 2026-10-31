@@ -106,7 +106,7 @@ describe('opt-in Nebius Token Factory backend gating', () => {
       return Promise.reject(new Error('network down'))
     })
 
-    const r = await routeInference({ systemPrompt: 'S', userMessage: 'U' })
+    const r = await routeInference({ systemPrompt: 'S', userMessage: 'U', userAccessToken: 'header.payload.signature' })
     expect(r.backend).toBe('nebius-token-factory')
     expect(r.content).toBe('{"ok":true}')
     expect(r.model).toBe('deepseek-ai/DeepSeek-R1-0528')
@@ -117,6 +117,17 @@ describe('opt-in Nebius Token Factory backend gating', () => {
       return body.provider === 'nebius'
     })
     expect(call).toBeDefined()
+    const headers = (call![1] as RequestInit).headers as Record<string, string>
+    expect(headers.Authorization).toBe('Bearer header.payload.signature')
+    expect(headers.Authorization).not.toContain('anon')
+  })
+
+  it('denies Nebius requests without a user session before networking', async () => {
+    vi.stubEnv('VITE_ENABLE_NEBIUS', 'true')
+    await expect(routeInference({
+      systemPrompt: 'S', userMessage: 'U', backend: 'nebius-token-factory',
+    })).rejects.toThrow(/session/i)
+    expect(fetchMock).not.toHaveBeenCalled()
   })
 
   it('configuredBackends lists nebius-token-factory only when the flag is exactly "true"', () => {
@@ -147,6 +158,7 @@ describe('opt-in Nebius Token Factory backend gating', () => {
       systemPrompt: 'S',
       userMessage: 'U',
       model: 'client-requested-model',
+      userAccessToken: 'header.payload.signature',
     })
     expect(r.backend).toBe('nebius-token-factory')
     expect(r.model).toBe('server-nebius-model')

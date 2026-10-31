@@ -11,6 +11,11 @@ on:
       - .github/workflows/sovereignty-contracts.yml
       - scripts/nebius_preflight.py
       - scripts/test_nebius_preflight.py
+      - supabase/functions/chat/index.ts
+      - supabase/functions/_shared/nebius-auth.ts
+      - packages/shared/lib/inference-router.ts
+      - sovereign-omega-v2/test/shared/inference-router.test.ts
+      - sovereign-omega-v2/test/unit/nebius-caller-auth.test.ts
   merge_group:
     branches: [main]
   push:
@@ -42,6 +47,9 @@ jobs:
 
       - name: Run sovereignty golden vectors
         run: npx vitest run test/unit/sovereignty-contracts.test.ts
+
+      - name: Nebius caller authorization and browser proxy regression
+        run: npx vitest run test/unit/nebius-caller-auth.test.ts test/shared/inference-router.test.ts
 
       - name: Typecheck runtime contracts
         run: npm run typecheck

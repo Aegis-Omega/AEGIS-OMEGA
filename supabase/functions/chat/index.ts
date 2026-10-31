@@ -1,5 +1,6 @@
 import { createClient } from 'jsr:@supabase/supabase-js@2'
 import { CORS } from '../_shared/cors.ts'
+import { authorizeNebiusCaller, isNebiusRequestBounded } from '../_shared/nebius-auth.ts'
 
 const DASHSCOPE_API_KEY_ENV = Deno.env.get('DASHSCOPE_API_KEY') ?? ''
 const DASHSCOPE_URL = 'https://dashscope-intl.aliyuncs.com/compatible-mode/v1/chat/completions'
@@ -125,6 +126,34 @@ Deno.serve(async (req) => {
       })
     }
 
+    if (useNebius) {
+      // The deployed function currently allows unauthenticated gateway entry.
+      // Never call a paid provider based on the public anon key alone.
+      const authorized = await authorizeNebiusCaller(
+        req.headers.get('Authorization'),
+        Deno.env.get('CHAT_NEBIUS_ALLOWED_USER_IDS') ?? '',
+        async (jwt) => {
+          const authClient = createClient(supabaseUrl, serviceRoleKey, {
+            auth: { persistSession: false },
+          })
+          const { data, error } = await authClient.auth.getUser(jwt)
+          return error ? null : data.user?.id ?? null
+        },
+      )
+      if (!authorized) {
+        return new Response(JSON.stringify({ error: 'Nebius requires an approved authenticated user' }), {
+          status: 401,
+          headers: { ...CORS, 'Content-Type': 'application/json' },
+        })
+      }
+      if (!isNebiusRequestBounded(message, system, history)) {
+        return new Response(JSON.stringify({ error: 'Nebius request exceeds server input limits' }), {
+          status: 413,
+          headers: { ...CORS, 'Content-Type': 'application/json' },
+        })
+      }
+    }
+
     const providerMesh = createClient(supabaseUrl, serviceRoleKey, {
       auth: { persistSession: false },
     })
@@ -219,7 +248,7 @@ Deno.serve(async (req) => {
       } : useNebius ? {
         model: NEBIUS_MODEL,
         messages,
-        max_tokens: 1024,
+        max_tokens: 256,
       } : {
         model: 'qwen-plus',
         messages,
