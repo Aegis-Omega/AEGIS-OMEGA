@@ -590,4 +590,73 @@ describe('SQL-to-Ed25519 planner integration contract (synthetic parameterized c
     expect(result.outcome).toBe('HOLD')
     expect(result.authority_effect).toBe('NONE')
   })
+  it('latches HOLD when the trusted generation reader fails before checkpointing',async()=>{
+    const c=await context()
+    const durable=seededStore('10')
+    let online=false
+    let reads=0
+    const clock=()=>{reads++;if(!online)throw new Error('trusted time unavailable');return '10'}
+    const planner=createDurableFreeResourcePlannerV1(c.trust,clock,durable.store)
+    expect((await planner.plan(c.snapshot,request,[c.evidence],[c.signed])).outcome).toBe('HOLD')
+    online=true
+    expect((await planner.plan(c.snapshot,request,[c.evidence],[c.signed])).outcome).toBe('HOLD')
+    expect(reads).toBe(1)
+    expect(durable.seen).toEqual([])
+  })
+  it('latches HOLD if authenticated time disappears inside signed verification',async()=>{
+    const c=await context()
+    const durable=seededStore('10')
+    let reads=0
+    const clock=()=>{reads++;if(reads===2)throw new Error('inner clock unavailable');return '10'}
+    const planner=createDurableFreeResourcePlannerV1(c.trust,clock,durable.store)
+    expect((await planner.plan(c.snapshot,request,[c.evidence],[c.signed])).outcome).toBe('HOLD')
+    expect((await planner.plan(c.snapshot,request,[c.evidence],[c.signed])).outcome).toBe('HOLD')
+    expect(reads).toBe(2)
+    expect(durable.seen).toEqual(['offline-test-policy:10'])
+  })
+  it('latches HOLD on final clock rollback after inner signed planning passed',async()=>{
+    const c=await context()
+    const durable=seededStore('10')
+    let reads=0
+    const clock=()=>{reads++;return reads===4?'9':'10'}
+    const planner=createDurableFreeResourcePlannerV1(c.trust,clock,durable.store)
+    expect((await planner.plan(c.snapshot,request,[c.evidence],[c.signed])).outcome).toBe('HOLD')
+    expect((await planner.plan(c.snapshot,request,[c.evidence],[c.signed])).outcome).toBe('HOLD')
+    expect(reads).toBe(4)
+    expect(durable.seen).toEqual(['offline-test-policy:10'])
+  })
+  it('latches HOLD if final authenticated clock read becomes malformed',async()=>{
+    const c=await context()
+    const durable=seededStore('10')
+    let reads=0
+    const clock=()=>{reads++;return reads===4?'invalid-generation':'10'}
+    const planner=createDurableFreeResourcePlannerV1(c.trust,clock,durable.store)
+    expect((await planner.plan(c.snapshot,request,[c.evidence],[c.signed])).outcome).toBe('HOLD')
+    expect((await planner.plan(c.snapshot,request,[c.evidence],[c.signed])).outcome).toBe('HOLD')
+    expect(reads).toBe(4)
+  })
+  it('still allows a legitimate monotonic generation advance with a newly signed request',async()=>{
+    const c=await context()
+    const durable=seededStore('10')
+    let now='10'
+    const planner=createDurableFreeResourcePlannerV1(c.trust,()=>now,durable.store)
+    expect((await planner.plan(c.snapshot,request,[c.evidence],[c.signed])).outcome).toBe('PLANNING_ELIGIBLE')
+    now='11'
+    const nextRequest={...request,current_generation:'11'}
+    const nextSigned=await c.sign({...c.payload,request_root:await freeResourceRequestRootV1(nextRequest)})
+    const next=await planner.plan(c.snapshot,nextRequest,[c.evidence],[nextSigned])
+    expect(next.outcome).toBe('PLANNING_ELIGIBLE')
+    expect(next.authority_effect).toBe('NONE')
+    expect(durable.getFloor()).toBe('11')
+  })
+  it('preserves exact typed ROLLBACK and UNAVAILABLE checkpoint results',async()=>{
+    for(const outcome of ['ROLLBACK','UNAVAILABLE'] as const){
+      const client:AuthenticatedParameterizedPostgresV1={
+        async query(){return {rows:[{outcome,persisted_generation:null}]}}
+      }
+      const adapter=createIsolatedPostgresGenerationCheckpointV1(client)
+      expect(await adapter.observe_and_advance('offline-test-policy','10')).toEqual({outcome})
+    }
+  })
+
 })

@@ -62,10 +62,15 @@ export function createIsolatedPostgresGenerationCheckpointV1(
             persisted_generation:row.persisted_generation,
           }
         }
-        if((row.outcome==='ROLLBACK'||row.outcome==='UNAVAILABLE')
+        if(row.outcome==='ROLLBACK'
           && (row.persisted_generation===null
             ||row.persisted_generation===undefined)) {
-          return {outcome:row.outcome}
+          return {outcome:'ROLLBACK' as const}
+        }
+        if(row.outcome==='UNAVAILABLE'
+          && (row.persisted_generation===null
+            ||row.persisted_generation===undefined)) {
+          return {outcome:'UNAVAILABLE' as const}
         }
         return {outcome:'UNAVAILABLE' as const}
       } catch {

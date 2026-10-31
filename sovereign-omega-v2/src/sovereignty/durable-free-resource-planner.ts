@@ -57,24 +57,40 @@ export function createDurableFreeResourcePlannerV1(
   read_authenticated_generation:()=>string,
   checkpoint:AuthenticatedAtomicGenerationCheckpointV1,
 ):DurableFreeResourcePlannerV1 {
-  const inner=createTrustedFreeResourcePlannerV1(
-    authenticated_policy,read_authenticated_generation,
-  )
   if(!POLICY_ID.test(authenticated_policy.policy_id)
     ||!checkpoint||typeof checkpoint.observe_and_advance!=='function') {
     throw new TypeError('trusted durable checkpoint is required')
   }
   const policyId=authenticated_policy.policy_id
+  // Clock failures are as serious as storage failures: a recovered or
+  // restarted source must never erase an observed generation rollback.
+  // Share one guarded reader with the outer checkpoint and inner Ed25519 gate.
+  let checkpointFailed=false
+  let highestReadGeneration:bigint|null=null
   const readGeneration=():string|null=>{
-    try {
-      const value=read_authenticated_generation()
-      return typeof value==='string'&&DEC.test(value)?value:null
-    } catch {return null}
+    if(checkpointFailed) return null
+    let value:unknown
+    try {value=read_authenticated_generation()} catch {checkpointFailed=true;return null}
+    if(typeof value!=='string'||!DEC.test(value)) {
+      checkpointFailed=true
+      return null
+    }
+    const observed=BigInt(value)
+    if(highestReadGeneration!==null && observed<highestReadGeneration) {
+      checkpointFailed=true
+      return null
+    }
+    if(highestReadGeneration===null || observed>highestReadGeneration) {
+      highestReadGeneration=observed
+    }
+    return value
   }
+  const inner=createTrustedFreeResourcePlannerV1(
+    authenticated_policy,()=>readGeneration()??'INVALID_GENERATION',
+  )
   // A transient storage error or rollback response must never be "healed"
   // by an untrusted later request on the same planner instance. A fresh
   // authenticated host bootstrap is required to recover the local gate.
-  let checkpointFailed=false
   const observe=async(generation:string):Promise<boolean>=>{
     if(checkpointFailed) return false
     try {

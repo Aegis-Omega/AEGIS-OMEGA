@@ -194,3 +194,29 @@ the TS integration suite and `npm run typecheck` establishes this candidate's
 hosted test success. Partial/old-head green results are not acceptance.
 `authority_effect = NONE` throughout; no inference, quota reservation,
 spending permission, merge or deployment is enabled by these changes.
+
+## Exact-source TypeScript and authenticated-generation fault correction
+
+An independent offline strict TypeScript compilation of the exact GitHub blob
+`6ce373113425c0ee86d6969e5609eefb9c1e97ea` identified TS2322 in the
+PostgreSQL adapter: the combined `ROLLBACK | UNAVAILABLE` row branch widened
+`outcome` to plain `string` and violated
+`AuthenticatedAtomicGenerationCheckpointV1`. Explicit, distinct literal
+returns fix the type without casts or weakening the public contract.
+
+The durable planner also now shares one **monotonic, failure-latched**
+authenticated-generation reader with its inner Ed25519 planner. Invalid
+generation, unavailable reader, or backwards generation observed at any of
+the initial, inner, or final reads permanently latches HOLD on the instance.
+A legitimate monotonic advance with a fresh signed request remains
+planning-only and eligible under otherwise valid synthetic evidence.
+
+The exact corrected Git blobs were locally strict-compiled together with
+minimal type-compatible dependency stubs. The independent local suite
+executed 13 adapter scenarios and 7 durable-wrapper scenarios successfully;
+these validate the isolated boundary, NOT the full project, Ed25519
+implementation, actual PostgreSQL service, or production policy bootstrap.
+The pinned GitHub Actions test module adds six regressions; only completed
+exact-head CI may establish full integration/test success.
+
+This hardening grants no execution authority, quota reservation, or spend.
