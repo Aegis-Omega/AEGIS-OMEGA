@@ -75,7 +75,7 @@ export async function planFreeResourceV1(
   const selection = await selectProviderV1(snapshot, {
     required_capabilities: request.required_capabilities,
     allowed_providers,
-    preferred_provider_order: request.preferred_provider_order,
+    ...(request.preferred_provider_order === undefined ? {} : { preferred_provider_order: request.preferred_provider_order }),
     current_generation: request.current_generation,
     max_observation_age_generations: request.max_observation_age_generations,
   })
