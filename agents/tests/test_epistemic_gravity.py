@@ -179,5 +179,37 @@ class TestGravity(unittest.TestCase):
 
 
 
+    def test_exact_optimizer_outperforms_myopic_greedy_on_complementarity(self):
+        # A single-task-at-a-time greedy baseline chooses the solo check.
+        # Exact subset optimization sees the joint checks' higher value.
+        spec = {
+            "schema_version": "0.1", "heads": {"src": "head-1"},
+            "evidence": {
+                n: {"source": "src", "sha": "head-1", "verified": False}
+                for n in ("a", "b", "solo")
+            },
+            "claims": {
+                "joint": {"value": 11, "alternatives": [["a", "b"]]},
+                "solo_goal": {"value": 7, "alternatives": [["solo"]]},
+            },
+            "probes": {
+                "a": {"produces": "a", "cost": 3},
+                "b": {"produces": "b", "cost": 3},
+                "solo": {"produces": "solo", "cost": 4},
+            },
+            "budget": 6,
+        }
+        exact = plan(spec)
+        myopic = max(
+            (sum(spec["claims"][c]["value"] for c in supported(spec, (pid,))) for pid in spec["probes"]),
+            default=0,
+        )
+        self.assertEqual(myopic, 7)
+        self.assertEqual(exact["hypothetical_unlocked_value"], 11)
+        self.assertEqual(exact["proposed_probes"], ["a", "b"])
+        self.assertGreater(exact["hypothetical_unlocked_value"], myopic)
+
+
+
 if __name__ == '__main__':
     unittest.main()
