@@ -27,8 +27,9 @@ public struct KhattLoopValidation {
                 maxTokens: 32,
                 temperature: 0.1
             )
-            let normalized = result.trimmingCharacters(in: .whitespacesAndNewlines)
-            return normalized == "VERDICT: APPROVED"
+            // The decision is authority-bearing: do not normalize untrusted output.
+            // Any leading/trailing whitespace or extra lines must fail closed.
+            return result == "VERDICT: APPROVED"
         } catch {
             return false
         }
