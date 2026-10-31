@@ -23,3 +23,9 @@ The first API read is NOT evidence for the Workers AI paid/free allowance, which
 Run: `cd sovereign-omega-v2 && npx vitest run test/unit/connected-resource-intake.test.ts && npm run typecheck`.
 
 **Boundary:** PR draft; no merge, no deploy, no new paid resource, no new secret access.
+
+## Capacity provenance binding V1.1
+
+The separate `planFreeResourceV1` planning gate now requires each **independently approved** capacity witness to carry **both** `snapshot_root` (exact provider-mesh snapshot) and `observation_evidence_hash` (the precise provider observation). It fails closed on missing or mismatched hashes, including witnesses with a matching provider and generation from a different snapshot or observation. The fields are optional in the legacy interface only to parse older inventory; they are mandatory for `PLANNING_ELIGIBLE`. An approved digest **is not a signed provider attestation** unless independently sourced, verified and anchored by the trusted caller.
+
+This binding does **not** authenticate caller-supplied `approved_roots`, reserve capacity, prove provider-side no-overage guarantees or authorize any execution. Missing independent billing/quota proof remains `HOLD`.

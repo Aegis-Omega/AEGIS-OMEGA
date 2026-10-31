@@ -11,6 +11,12 @@ export interface FreeResourceEvidenceV1 {
   provider_id: string
   source_id: string
   observation_generation: string
+  /**
+   * Source binding for capacity admission. Optional for historical inventory
+   * compatibility, but both fields are REQUIRED for planning eligibility.
+   */
+  snapshot_root?: SHA256Hex
+  observation_evidence_hash?: SHA256Hex
   unit: FreeResourceUnitV1
   remaining_units: string
   billing_mode: 'FREE_ONLY' | 'PAID' | 'UNKNOWN'
@@ -67,7 +73,12 @@ export async function planFreeResourceV1(
       || e.billing_mode !== 'FREE_ONLY' || e.overage !== 'HARD_DENY'
       || generation > current || current - generation > maxAge || remaining < needed) continue
     const observed = snapshot.observations.find(o => o.provider_id === e.provider_id)
-    if (!observed || observed.observation_generation !== e.observation_generation) continue
+    // Generation alone is not a provenance proof: an independently approved
+    // capacity witness must bind both to the exact mesh snapshot and to the
+    // provider observation used for capability selection.
+    if (!observed || observed.observation_generation !== e.observation_generation
+      || e.snapshot_root !== snapshot.snapshot_root
+      || e.observation_evidence_hash !== observed.evidence_hash) continue
     safe.set(e.provider_id, evidence_root)
   }
   const callerAllowed = request.allowed_providers

@@ -10,8 +10,11 @@ const obs: ProviderObservationV1 = {
 const req = {required_capabilities: ['MODEL_INFERENCE'] as const, current_generation:'10', max_observation_age_generations:'1', unit:'NEURON' as const, worst_case_units:'100'}
 const snapshot = () => buildProviderMeshSnapshotV1(DECLARED_PROVIDER_CATALOG_V1, [obs])
 async function witness(patch: Partial<Omit<FreeResourceEvidenceV1,'evidence_root'>> = {}): Promise<FreeResourceEvidenceV1> {
+  const currentSnapshot = await snapshot()
   const body = {provider_id:'cloudflare-anthropic', source_id:'synthetic-provider-billing-read',
-    observation_generation:'10', unit:'NEURON' as const, remaining_units:'200',
+    observation_generation:'10', snapshot_root:currentSnapshot.snapshot_root,
+    observation_evidence_hash:obs.evidence_hash,
+    unit:'NEURON' as const, remaining_units:'200',
     billing_mode:'FREE_ONLY' as const, overage:'HARD_DENY' as const, ...patch}
   return {...body, evidence_root:await freeResourceEvidenceRootV1(body)}
 }
@@ -49,6 +52,38 @@ describe('zero-spend resource planning, no execution authority', () => {
     await expect(planFreeResourceV1(await snapshot(),{...req,worst_case_units:'0'},[],[])).rejects.toThrow('positive')
     const invalid=await witness({remaining_units:'-1'})
     await expect(planFreeResourceV1(await snapshot(),req,[invalid],[invalid.evidence_root])).rejects.toThrow('canonical unsigned decimal')
+  })
+  it('holds approved capacity when provider observation hash changes at the same generation', async () => {
+    const w = await witness()
+    const changed = await buildProviderMeshSnapshotV1(DECLARED_PROVIDER_CATALOG_V1, [
+      {...obs,evidence_hash:('b'.repeat(64) as ProviderObservationV1['evidence_hash'])},
+    ])
+    const result=await planFreeResourceV1(changed,req,[w],[w.evidence_root])
+    expect(result.outcome).toBe('HOLD')
+    expect(result.capacity_root).toBeNull()
+  })
+  it('holds when an approved witness targets another snapshot root', async () => {
+    const w=await witness({snapshot_root:obs.evidence_hash})
+    const result=await planFreeResourceV1(await snapshot(),req,[w],[w.evidence_root])
+    expect(result.outcome).toBe('HOLD')
+  })
+  it('holds when witness observation hash is unrelated despite matching provider and generation', async () => {
+    const expectedSnapshot=await snapshot()
+    const w=await witness({observation_evidence_hash:expectedSnapshot.snapshot_root})
+    expect((await planFreeResourceV1(expectedSnapshot,req,[w],[w.evidence_root])).outcome).toBe('HOLD')
+  })
+  it('holds approved legacy evidence without snapshot/observation binding', async () => {
+    const w=await witness()
+    const {evidence_root:_oldRoot,snapshot_root:_snapshotRoot,observation_evidence_hash:_observationHash,...legacy}=w
+    const past={...legacy,evidence_root:await freeResourceEvidenceRootV1(legacy)}
+    const result=await planFreeResourceV1(await snapshot(),req,[past],[past.evidence_root])
+    expect(result.outcome).toBe('HOLD')
+  })
+  it('rejects tampering with attested snapshot binding after approval', async () => {
+    const w=await witness()
+    const tampered={...w,snapshot_root:obs.evidence_hash}
+    await expect(planFreeResourceV1(await snapshot(),req,[tampered],[w.evidence_root]))
+      .rejects.toThrow('evidence root mismatch')
   })
   it('respects capability gate and root revocation', async () => {
     const w=await witness()
