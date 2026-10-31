@@ -4,7 +4,7 @@
  * Output is an account-scoped CHECKSUM, never a provider-signed attestation.
  */
 import { canonicalizeJCS } from '../core/canonicalize.js'
-import { sha256Hex } from '../core/hashing.js'
+import { sha256Hex, hashString } from '../core/hashing.js'
 import type { SHA256Hex } from '../core/types.js'
 import {
   observeConnectedResourcesV1,
@@ -144,7 +144,7 @@ export async function collectCloudflareAccountResourcesV1(
     // An absent HF account read is UNKNOWN; empty job lists do not confer GPU quota.
     hugging_face: {account_plan:'UNKNOWN', jobs_total:null},
   })
-  const account_fingerprint = await sha256Hex('AEGIS_CF_ACCOUNT_V1:' + account)
+  const account_fingerprint = await hashString('AEGIS_CF_ACCOUNT_V1:' + account)
   const payload = {
     schema: 'AEGIS_CLOUDFLARE_ACCOUNT_COLLECTOR_V1' as const,
     provider: 'cloudflare' as const,
