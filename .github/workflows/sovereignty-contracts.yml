@@ -5,7 +5,9 @@ on:
     branches: [main]
     paths:
       - sovereign-omega-v2/src/sovereignty/**
-      - sovereign-omega-v2/test/unit/sovereignty-contracts.test.ts
+      # Protect test-only PRs: all sovereignty contract and provider unit tests.
+      - sovereign-omega-v2/test/unit/**
+      - sovereign-omega-v2/test/shared/**
       - sovereign-omega-v2/src/core/canonicalize.ts
       - sovereign-omega-v2/src/core/hashing.ts
       - .github/workflows/sovereignty-contracts.yml
