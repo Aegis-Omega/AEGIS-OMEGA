@@ -1,6 +1,12 @@
 name: Apple Foundation Models Runtime
 
 on:
+  push:
+    branches:
+      - feat/apple-foundation-models-runtime-v1
+    paths:
+      - 'clients/gemma-edge-ios/**'
+      - '.github/workflows/apple-foundation-models-runtime.yml'
   pull_request:
     paths:
       - 'clients/gemma-edge-ios/**'
