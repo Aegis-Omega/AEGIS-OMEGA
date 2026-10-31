@@ -31,6 +31,8 @@ def validate(spec):
     _require(all(isinstance(x, dict) for x in (heads, evidence, claims, probes)), "heads/evidence/claims/probes must be objects")
     _require(all(isinstance(k, str) and isinstance(v, str) and k and v for k, v in heads.items()), "invalid heads")
     _require(len(probes) <= MAX_PROBES, "too many probes: use a bounded slice")
+    for group, entries in (("evidence", evidence), ("claims", claims), ("probes", probes)):
+        _require(all(isinstance(k, str) and bool(k) for k in entries), f"{group}: IDs must be nonempty strings")
     _require(len(set(evidence) | set(claims)) == len(evidence) + len(claims), "evidence/claim ID collision")
     for eid, rec in evidence.items():
         _require(isinstance(rec, dict) and rec.get("source") in heads, f"{eid}: unknown source")
@@ -42,11 +44,13 @@ def validate(spec):
         choices = claim.get("alternatives")
         _require(isinstance(choices, list) and bool(choices), f"{cid}: empty alternatives")
         for choice in choices:
-            _require(isinstance(choice, list) and bool(choice) and len(choice) == len(set(choice)), f"{cid}: empty or duplicate choice")
-            _require(all(isinstance(n, str) and n in evidence or isinstance(n, str) and n in claims for n in choice), f"{cid}: missing dependency")
+            _require(isinstance(choice, list) and bool(choice), f"{cid}: empty or invalid choice")
+            _require(all(isinstance(n, str) and bool(n) for n in choice), f"{cid}: dependency IDs must be nonempty strings")
+            _require(len(choice) == len(set(choice)), f"{cid}: duplicate dependency")
+            _require(all(n in evidence or n in claims for n in choice), f"{cid}: missing dependency")
     for pid, probe in probes.items():
         _require(isinstance(probe, dict), f"{pid}: invalid probe")
-        _require(probe.get("produces") in evidence, f"{pid}: unknown evidence target")
+        _require(isinstance(probe.get("produces"), str) and probe["produces"] in evidence, f"{pid}: unknown evidence target")
         _require(type(probe.get("cost")) is int and probe["cost"] > 0, f"{pid}: invalid cost")
     _require(type(spec.get("budget")) is int and spec["budget"] >= 0, "budget must be a nonnegative integer")
     # Prohibit cyclic claims even if another OR path would currently mask them.
@@ -74,7 +78,9 @@ def supported(spec, assumed_probes=()):
     def check(node):
         if node in evidence:
             e = evidence[node]
-            return node in hypothetical or (e["verified"] and e["sha"] == heads[e["source"]])
+            # A counterfactual cannot turn a stale source pin into current evidence.
+            # A new proof for a later source head requires a NEW input snapshot.
+            return e["sha"] == heads[e["source"]] and (e["verified"] or node in hypothetical)
         if node not in memo:
             memo[node] = any(all(check(dep) for dep in path) for path in claims[node]["alternatives"])
         return memo[node]
@@ -97,8 +103,15 @@ def plan(spec):
     best = (0, 0, ())  # gain, cost, chosen probes
     best_key = (0, 0, ())
     minimal_debt = {name: None for name in sorted(set(weights) - baseline)}
-    for n in range(len(names) + 1):
-        for subset in itertools.combinations(names, n):
+    blocked_probes = {
+        name: "STALE_SOURCE_BINDING"
+        for name in names
+        if spec["evidence"][spec["probes"][name]["produces"]]["sha"]
+        != spec["heads"][spec["evidence"][spec["probes"][name]["produces"]]["source"]]
+    }
+    eligible = [name for name in names if name not in blocked_probes]
+    for n in range(len(eligible) + 1):
+        for subset in itertools.combinations(eligible, n):
             cost = sum(costs[p] for p in subset)
             newly = supported(spec, subset) - baseline
             for cid in newly:
@@ -131,6 +144,7 @@ def plan(spec):
         "hypothetical_cost_units": cost,
         "budget_units": spec["budget"],
         "minimal_proof_debt": minimal_debt,
+        "blocked_probes": blocked_probes,
     }
     receipt["receipt_digest"] = hashlib.sha256(_canonical(receipt).encode()).hexdigest()
     return receipt
