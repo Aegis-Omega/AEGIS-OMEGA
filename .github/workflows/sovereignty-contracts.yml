@@ -78,6 +78,9 @@ jobs:
       - name: Constitutional proxy dispatch authentication regression
         run: cd .. && python3 -m unittest discover -s vertex/tests -p 'test_dispatch_auth_contract.py' -v
 
+      - name: Signed free-resource approval trust and revocation regressions
+        run: npx vitest run test/unit/trusted-free-resource-planner.test.ts
+
       - name: Typecheck runtime contracts
         run: npm run typecheck
 
