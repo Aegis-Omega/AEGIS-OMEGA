@@ -74,6 +74,24 @@ final class AppleFoundationModelsRunnerPolicyTests: XCTestCase {
         }
     }
 
+    func testFailedReinitializationRevokesPreviouslyAvailableModel() async throws {
+        let runner = AppleFoundationModelsRunner()
+        guard runner.probeAvailability().available else {
+            throw XCTSkip("Requires an available native Apple Foundation Models runtime")
+        }
+
+        try await runner.initializeModel(named: AppleFoundationModelsRunner.modelName)
+        do {
+            try await runner.initializeModel(named: "not-an-apple-model")
+            XCTFail("Unsupported model name must fail initialization")
+        } catch AppleFoundationModelsError.unsupportedModelName(_) { }
+
+        do {
+            _ = try await runner.executeInference(prompt: "test", maxTokens: 32, temperature: 0.2)
+            XCTFail("Failed reinitialization must revoke prior readiness")
+        } catch AppleFoundationModelsError.notInitialized { }
+    }
+
     func testRequestBoundsFailClosed() {
         XCTAssertThrowsError(
             try AppleFoundationModelsRunner.validateRequest(

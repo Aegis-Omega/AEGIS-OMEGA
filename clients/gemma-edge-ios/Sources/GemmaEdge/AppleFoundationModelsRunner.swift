@@ -70,6 +70,8 @@ public final class AppleFoundationModelsRunner: EdgeInferenceRunning {
     }
 
     public func initializeModel(named modelName: String) async throws {
+        // A failed reinitialization must never preserve a prior ready state.
+        initialized = false
         guard modelName == Self.modelName else {
             throw AppleFoundationModelsError.unsupportedModelName(modelName)
         }
