@@ -9,8 +9,8 @@
   "provenance": {
     "generator": "scripts/build-cognitive-manifest.py",
     "repository": "Aegis-Omega/AEGIS-OMEGA",
-    "source_ref": "guard/pr-overlap-v2",
-    "parent_state_hash": "a6f46a994b27b06d0a3bc96a96aa821a41580b36e354e3a012a53b2656e801bd",
+    "source_ref": "claude/receipts-v0",
+    "parent_state_hash": "8d900d510a0e674b44eb7d9efb37e355cb525977b19bcf03ec5474dfb8df69a1",
     "signature_mode": "GITHUB_OIDC_ATTESTATION"
   },
   "hashing": {
@@ -488,5 +488,5 @@
       "on_success": "broadcast-attested-verified-event-stream"
     }
   },
-  "state_hash": "6c9b2001194b43abd0ec7cfcf63760dcd1387434f55859fe68987030fefe68c3"
+  "state_hash": "a6f46a994b27b06d0a3bc96a96aa821a41580b36e354e3a012a53b2656e801bd"
 }
