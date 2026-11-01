@@ -71,6 +71,25 @@ def significant(paths: set[str]) -> set[str]:
     return {p for p in paths if not is_generated(p)}
 
 
+def touched(files: list[dict]) -> set[str]:
+    """Every path a PR touches, including where a renamed file came from.
+
+    GitHub reports a rename as one row: `filename` is the new path and
+    `previous_filename` the old one. Reading only `filename` makes a rename
+    look like a path nobody else has, so a PR that moves src/a.py reports no
+    overlap with a PR that edits src/a.py -- the one case where the conflict
+    is certain. Both paths count as touched; `territory()` deliberately does
+    not take the old path, because a rename does not bring its source
+    directory into existence.
+    """
+    return {
+        value
+        for entry in files
+        for key in ("filename", "previous_filename")
+        if isinstance(value := entry.get(key), str) and value
+    }
+
+
 def territory(files: list[dict], existing: frozenset[str]) -> set[str]:
     """Two-segment directory prefixes this PR brings into existence.
 
@@ -169,12 +188,12 @@ def collide(
     A territory collision reports on its own: two PRs inventing the same new
     directory is decisive even when no single path matches.
     """
-    mine = significant({e.get("filename", "") for e in candidate_files})
+    mine = significant(touched(candidate_files))
     my_land = territory(candidate_files, existing)
 
     found: list[Collision] = []
     for number, title, files in others:
-        theirs = significant({e.get("filename", "") for e in files})
+        theirs = significant(touched(files))
         shared = mine & theirs
         land = my_land & territory(files, existing)
         score = jaccard(mine, theirs)
@@ -229,11 +248,31 @@ def _get(url: str, token: str) -> list[dict] | dict:
     return payload
 
 
+def _file_identity(entry: dict) -> str:
+    """The path a /files row stands for, or raise.
+
+    A generic "any non-empty int or str identity" check let a row such as
+    {"number": 101} satisfy identity through a field a file row has no
+    business carrying, while contributing no path. The census then compared a
+    smaller path set and could report a clean verdict from evidence it never
+    actually read. A /files row is only evidence of a touched path when it
+    carries one, so the file-specific shape is required here and anything
+    else fails closed.
+    """
+    name, status = entry.get("filename"), entry.get("status")
+    if not isinstance(name, str) or not name:
+        raise ValueError("File row without a filename; census is incomplete")
+    if not isinstance(status, str) or not status:
+        raise ValueError(f"File row without a status: {name}; census is incomplete")
+    return name
+
+
 def _get_all(url: str, token: str) -> list[dict]:
     """Paginate fully, rejecting repeated pages and the REST file-list cap."""
     found: list[dict] = []
     seen: set[tuple[type, object]] = set()
     separator = "&" if "?" in url else "?"
+    is_files = url.split("?", 1)[0].endswith("/files")
     for page in range(1, 1001):
         batch = _get(f"{url}{separator}per_page=100&page={page}", token)
         if not isinstance(batch, list) or len(batch) > 100:
@@ -241,12 +280,12 @@ def _get_all(url: str, token: str) -> list[dict]:
         for entry in batch:
             if not isinstance(entry, dict):
                 raise ValueError("Invalid GitHub collection row")
-            key = entry.get("number", entry.get("filename"))
+            key = _file_identity(entry) if is_files else entry.get("number", entry.get("filename"))
             if type(key) not in (int, str) or key == "" or (type(key), key) in seen:
                 raise ValueError("Missing or repeated collection identity; census is incomplete")
             seen.add((type(key), key))
             found.append(entry)
-        if url.split("?", 1)[0].endswith("/files") and len(found) >= 3000:
+        if is_files and len(found) >= 3000:
             raise ValueError("GitHub 3000-file cap reached; full Git comparison required")
         if len(batch) < 100:
             return found
