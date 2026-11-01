@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { mkdtempSync, mkdirSync, copyFileSync, writeFileSync, readFileSync } from 'node:fs'
+import { mkdtempSync, mkdirSync, copyFileSync, writeFileSync, readFileSync, chmodSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import { spawnSync } from 'node:child_process'
@@ -15,10 +15,10 @@ function fixture({ chain = true } = {}) {
   if (chain) copyFileSync(CHAIN, join(meta, 'chain.mjs'))
   return { dir, meta, chainFile: join(meta, 'chain.jsonl'), lock: join(meta, 'chain.jsonl.lock') }
 }
-function trigger(f, body = { tool_input: { file_path: 'docs/created.md' } }) {
+function trigger(f, body = { tool_input: { file_path: 'docs/created.md' } }, extraEnv = {}) {
   return spawnSync('bash', [HOOK], {
     cwd: f.dir, encoding: 'utf8', input: JSON.stringify(body),
-    env: { ...process.env, CLAUDE_PROJECT_DIR: f.dir, AEGIS_METACOG_CHAIN: f.chainFile },
+    env: { ...process.env, CLAUDE_PROJECT_DIR: f.dir, AEGIS_METACOG_CHAIN: f.chainFile, ...extraEnv },
   })
 }
 function entries(f) { return readFileSync(f.chainFile, 'utf8').trim().split('\n').map(JSON.parse) }
@@ -79,4 +79,49 @@ test('post-write 2 sequential writes maintain monotonic chain and cert', () => {
   const check = spawnSync('node', [join(f.meta,'chain.mjs'),'certify'], { encoding:'utf8', env: { ...process.env, CLAUDE_PROJECT_DIR:f.dir, AEGIS_METACOG_CHAIN:f.chainFile } })
   assert.equal(check.status, 0)
   assert.equal(JSON.parse(check.stdout).is_valid, true)
+})
+
+
+test('post-write malformed tool JSON is a HOLD, not a silent no-op', () => {
+  const f = fixture()
+  const r=spawnSync('bash',[HOOK], {encoding:'utf8',input:'{invalid',
+    env:{...process.env,CLAUDE_PROJECT_DIR:f.dir,AEGIS_METACOG_CHAIN:f.chainFile}})
+  assert.equal(r.status,2)
+  assert.match(r.stderr,/malformed tool event/)
+})
+
+function fakeCommand(f, tool, status) {
+  const bin=join(f.dir,'fake-bin')
+  mkdirSync(bin,{recursive:true})
+  const exe=join(bin,tool)
+  writeFileSync(exe,`#!/bin/sh\necho simulated-${tool}-exit-${status} >&2\nexit ${status}\n`)
+  chmodSync(exe,0o755)
+  return {PATH:bin+':'+process.env.PATH}
+}
+
+test('post-write Rust test failure cannot become a passing hook', () => {
+  const f=fixture()
+  mkdirSync(join(f.dir,'aegis-cl-psi/src'),{recursive:true})
+  const r=trigger(f,{tool_input:{file_path:'aegis-cl-psi/src/example.rs'}},fakeCommand(f,'cargo',1))
+  assert.equal(r.status,2)
+  assert.match(r.stderr,/Rust validation failed/)
+})
+
+test('post-write TypeScript typecheck failure cannot become a passing hook', () => {
+  const f=fixture()
+  mkdirSync(join(f.dir,'sovereign-omega-v2/src'),{recursive:true})
+  const r=trigger(f,{tool_input:{file_path:'sovereign-omega-v2/src/test.ts'}},fakeCommand(f,'npm',1))
+  assert.equal(r.status,2)
+  assert.match(r.stderr,/TypeScript validation failed/)
+})
+
+test('post-write successful Rust and TypeScript checks remain admitted', () => {
+  const f=fixture()
+  mkdirSync(join(f.dir,'aegis-cl-psi/src'),{recursive:true})
+  mkdirSync(join(f.dir,'sovereign-omega-v2/src'),{recursive:true})
+  const rust=trigger(f,{tool_input:{file_path:'aegis-cl-psi/src/example.rs'}},fakeCommand(f,'cargo',0))
+  assert.equal(rust.status,0,rust.stderr)
+  const ts=trigger(f,{tool_input:{file_path:'sovereign-omega-v2/src/test.ts'}},fakeCommand(f,'npm',0))
+  assert.equal(ts.status,0,ts.stderr)
+  assert.equal(entries(f).length,2)
 })
