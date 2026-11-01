@@ -34,11 +34,30 @@ class PaginationRegression(unittest.TestCase):
         self.assertIn("page=2", get.call_args_list[1].args[0])
 
     def test_get_all_stops_after_one_short_page(self):
-        with unittest.mock.patch.object(guard, "_get", return_value=[{"number": 1}]) as get:
+        # A /files row, not a bare {"number": ...}: that shape never comes
+        # back from the files endpoint, and accepting it was the hole
+        # _file_identity closes.
+        row = {"filename": "a/b.py", "status": "modified"}
+        with unittest.mock.patch.object(guard, "_get", return_value=[row]) as get:
             found = guard._get_all("https://api.github.com/repos/o/r/pulls/1/files", "token")
 
-        self.assertEqual(found, [{"number": 1}])
+        self.assertEqual(found, [row])
         self.assertEqual(get.call_count, 1)
+
+    def test_files_pages_are_validated_as_file_rows_not_generic_identities(self):
+        # The wiring, not just the helper: a {"number": ...} row satisfies the
+        # generic identity check, so _get_all must apply the file-specific
+        # shape for /files URLs or the hole reopens silently.
+        with unittest.mock.patch.object(guard, "_get", return_value=[{"number": 101}]):
+            with self.assertRaisesRegex(ValueError, "without a filename"):
+                guard._get_all("https://api.github.com/repos/o/r/pulls/1/files", "token")
+
+    def test_the_same_row_is_still_accepted_on_a_non_files_collection(self):
+        # Open-PR pages legitimately identify by number; the stricter shape
+        # must not leak onto them.
+        with unittest.mock.patch.object(guard, "_get", return_value=[{"number": 101}]):
+            found = guard._get_all("https://api.github.com/repos/o/r/pulls?state=open", "token")
+        self.assertEqual(found, [{"number": 101}])
 
     def test_fetch_uses_paginated_reads_for_prs_and_files(self):
         open_prs = [
