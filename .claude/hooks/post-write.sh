@@ -9,7 +9,10 @@ set -euo pipefail
 REPO="${CLAUDE_PROJECT_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"
 
 # Read the file path from stdin JSON
-FILE_PATH=$(jq -r '.tool_input.file_path // .tool_response.filePath // empty' 2>/dev/null || echo "")
+if ! FILE_PATH=$(jq -r '.tool_input.file_path // .tool_response.filePath // empty' 2>/dev/null); then
+  echo 'AEGIS_POST_WRITE_HOLD: malformed tool event' >&2
+  exit 2
+fi
 
 if [ -z "$FILE_PATH" ]; then
   exit 0
@@ -62,7 +65,12 @@ if [[ "$FILE_PATH" == "$REPO/aegis-cl-psi/src/"*.rs ]] && [[ "$FILE_PATH" != *"l
   MODULE=$(basename "$FILE_PATH" .rs)
   echo "AUTO-GATE: $MODULE written — running cargo test $MODULE"
   cd "$REPO/aegis-cl-psi"
-  cargo test "$MODULE" 2>&1 | grep -E "FAILED|test result|error\[" | head -20 || true
+  if ! RUST_OUT=$(cargo test "$MODULE" 2>&1); then
+    printf '%s\n' "$RUST_OUT" >&2
+    echo 'AEGIS_POST_WRITE_HOLD: Rust validation failed' >&2
+    exit 2
+  fi
+  printf '%s\n' "$RUST_OUT" | tail -20
   exit 0
 fi
 
@@ -71,7 +79,12 @@ if [[ "$FILE_PATH" == "$REPO/sovereign-omega-v2/src/"*.ts ]]; then
   RELATIVE="${FILE_PATH#$REPO/sovereign-omega-v2/}"
   echo "AUTO-TYPECHECK: $RELATIVE written — running tsc --noEmit"
   cd "$REPO/sovereign-omega-v2"
-  npm run typecheck 2>&1 | tail -15 || true
+  if ! TS_OUT=$(npm run typecheck 2>&1); then
+    printf '%s\n' "$TS_OUT" >&2
+    echo 'AEGIS_POST_WRITE_HOLD: TypeScript validation failed' >&2
+    exit 2
+  fi
+  printf '%s\n' "$TS_OUT" | tail -15
   exit 0
 fi
 
