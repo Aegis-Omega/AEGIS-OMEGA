@@ -21,12 +21,24 @@ if [[ "$FILE_PATH" != /* ]]; then
 fi
 
 # ── Enact autopoiesis: record the self-production event in the metacog chain ──
-# Every Write/Edit is a component the system produced of itself; the chain is
-# the membrane inventory. Tier T2 (engineering production); failures are silent.
+# Every Write/Edit must produce a certifiable AUTOPOIETIC_PRODUCTION event.
+# The write tool has already executed; a failed observation is a HOLD, not a
+# claim that the underlying write was rolled back. Never swallow chain errors.
 CHAIN_MJS="$REPO/.claude/metacog/chain.mjs"
-if [ -f "$CHAIN_MJS" ]; then
-  REL="${FILE_PATH#$REPO/}"
-  node "$CHAIN_MJS" observe AUTOPOIETIC_PRODUCTION T2 "produced: $REL" >/dev/null 2>&1 || true
+if [ ! -f "$CHAIN_MJS" ]; then
+  echo 'AEGIS_POST_WRITE_HOLD: metacognitive chain engine missing' >&2
+  exit 2
+fi
+REL="${FILE_PATH#$REPO/}"
+if ! node "$CHAIN_MJS" observe AUTOPOIETIC_PRODUCTION T2 "produced: $REL" >/dev/null 2>&1; then
+  echo 'AEGIS_POST_WRITE_HOLD: observation not recorded (lock, corruption or execution failure)' >&2
+  exit 2
+fi
+# Independently check the persisted bytes. A successful process exit alone is
+# not sufficient to promote the observation to valid metacognitive evidence.
+if ! node "$CHAIN_MJS" certify | jq -e '.is_valid == true and .entry_count >= 1' >/dev/null; then
+  echo 'AEGIS_POST_WRITE_HOLD: observation certificate invalid or unavailable' >&2
+  exit 2
 fi
 
 # --- Frozen file check (membrane breach detection) ---
