@@ -27,6 +27,7 @@ on:
       - supabase/functions/_shared/nebius-budget.ts
       - supabase/functions/_shared/nebius-endpoint.ts
       - supabase/functions/chat/index.ts
+      - supabase/functions/agent/index.ts
       - supabase/functions/_shared/nebius-auth.ts
       - packages/shared/lib/inference-router.ts
       - sovereign-omega-v2/test/shared/inference-router.test.ts
@@ -80,6 +81,9 @@ jobs:
 
       - name: Nebius caller authorization and browser proxy regression
         run: npx vitest run test/unit/nebius-caller-auth.test.ts test/shared/inference-router.test.ts
+
+      - name: Paid agent handler authorization regression
+        run: npx vitest run test/unit/agent-auth-boundary.test.ts
 
       - name: Chat explicit-provider fail-closed routing
         run: npx vitest run test/unit/chat-provider-gate.test.ts
