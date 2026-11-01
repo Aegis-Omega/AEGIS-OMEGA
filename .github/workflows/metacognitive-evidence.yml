@@ -10,11 +10,13 @@ on:
       - '.claude/metacog/evidence-cycle.mjs'
       - '.claude/metacog/chain.mjs'
       - '.claude/hooks/user-prompt-intake.sh'
+      - '.claude/hooks/post-write.sh'
       - '.claude/metacog/evidence-v2.test.mjs'
       - '.claude/metacog/organism-*.mjs'
       - 'tests/organism-*.test.mjs'
       - 'tests/chain-lock-repair.test.mjs'
       - 'tests/metacognitive-integrity.native.test.mjs'
+      - 'tests/post-write-integrity.native.test.mjs'
       - 'scripts/local-organism-v4.mjs'
       - 'fixtures/v3-original/organism-core.mjs'
       - '.github/workflows/metacognitive-evidence.yml'
@@ -68,6 +70,7 @@ jobs:
         run: |
           set -euo pipefail
           node --test tests/metacognitive-integrity.native.test.mjs
+          node --test tests/post-write-integrity.native.test.mjs
 
       - name: Run bounded organism V4 and native source-bound integration tests
         shell: bash
