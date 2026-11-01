@@ -1,0 +1,28 @@
+{
+  "schema": "aegis.optimus-organism-status.v4",
+  "date": "2026-11-01",
+  "local": {
+    "test_total": 78,
+    "passed": 78,
+    "failed": 0,
+    "native_code_admission": false
+  },
+  "source": {
+    "repo": "Aegis-Omega/AEGIS-OMEGA",
+    "pr": 560,
+    "state": "OPEN_DRAFT",
+    "source_changed": "CANDIDATE_BRANCH_ONLY",
+    "parent_head": "f420d42dd775ce3b3d82da6b9ed5dfca2534d988",
+    "status": "PENDING_NATIVE_CI"
+  },
+  "evidence": {
+    "functional_causal_loop": "VERIFIED_LOCALLY",
+    "crash_recovery": "VERIFIED_LOCALLY",
+    "v3_legacy_read": "VERIFIED_LOCALLY",
+    "native_full_repo_replay": "OPEN",
+    "native_github_ci": "OPEN",
+    "real_provider_value": "UNKNOWN",
+    "subjective_consciousness": "UNKNOWN"
+  },
+  "permissions": "NO_NEW_BRANCH_NO_DEPLOY_NO_NEW_SPEND_NO_MAIN_MUTATION"
+}
