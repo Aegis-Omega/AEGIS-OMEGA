@@ -108,6 +108,16 @@ def _valid_cached_pr_record(p):
             and all(type(n) is int and n > 0 for n in p["closing_issue_ids"]))
 
 
+def _discard_pr_cache(cache):
+    try:
+        os.remove(cache)
+        return True
+    except FileNotFoundError:
+        return True
+    except OSError:
+        return False
+
+
 def closing_issue_ids(body):
     if not isinstance(body, str):
         return []
@@ -120,20 +130,22 @@ def open_prs(quick=False):
     """Fresh GitHub snapshot for writes; body-free cache for advisory quick views."""
     cache = os.path.join(git_dir(quick=quick), "aegis-open-prs.json")
     try:
-        if quick and time.time() - os.path.getmtime(cache) < CACHE_TTL:
-            with open(cache) as f:
-                saved = json.load(f)
-            # Legacy plain-list caches may have been truncated by failed paging.
-            # Only trust snapshots recorded AFTER the completeness repair.
-            records = saved.get("prs") if isinstance(saved, dict) else None
-            if (isinstance(saved, dict)
-                    and saved.get("format") == "AEGIS_PR_SNAPSHOT_V3"
-                    and saved.get("complete") is True
-                    and isinstance(records, list)
-                    and all(_valid_cached_pr_record(p) for p in records)):
-                return records, "cache"
+        with open(cache) as f:
+            saved = json.load(f)
+        records = saved.get("prs") if isinstance(saved, dict) else None
+        valid_snapshot = (isinstance(saved, dict)
+                          and saved.get("format") == "AEGIS_PR_SNAPSHOT_V3"
+                          and saved.get("complete") is True
+                          and isinstance(records, list)
+                          and all(_valid_cached_pr_record(p) for p in records))
+        if (quick and valid_snapshot
+                and time.time() - os.path.getmtime(cache) < CACHE_TTL):
+            return records, "cache"
+        if not valid_snapshot and not _discard_pr_cache(cache):
+            return [], "unavailable"
     except (OSError, ValueError, TypeError):
-        pass
+        if os.path.exists(cache) and not _discard_pr_cache(cache):
+            return [], "unavailable"
     if quick:
         return [], "unavailable"  # Hook only trusts a fresh full cache.
     prs = []

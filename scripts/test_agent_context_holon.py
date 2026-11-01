@@ -90,9 +90,11 @@ class HolonContextTests(unittest.TestCase):
             pathlib.Path(directory, "aegis-open-prs.json").write_text(
                 json.dumps({"format": "AEGIS_PR_SNAPSHOT_V2",
                             "complete": True, "prs": [record]}), encoding="utf-8")
+            cache_path = pathlib.Path(directory, "aegis-open-prs.json")
             with patch.object(ctx, "git_dir", return_value=directory), \
                  patch.object(ctx, "sh", return_value=""):
                 self.assertEqual(ctx.open_prs(quick=True), ([], "unavailable"))
+            self.assertFalse(cache_path.exists())
 
     def test_holon_vector_never_hides_operator_and_peer_blockers(self):
         claimed = {"n": 739, "t": "Receipts", "labels": ["claimed", "needs-operator"]}
