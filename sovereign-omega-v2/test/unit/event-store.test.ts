@@ -13,7 +13,12 @@
 import 'fake-indexeddb/auto'
 
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest'
-import { EventStore, EventStoreError } from '../../src/event/store.js'
+import {
+  ConcurrentEventStoreUpdateError,
+  EventStore,
+  EventStoreError,
+  EventStoreWriteConditionError,
+} from '../../src/event/store.js'
 import { EventType, RetentionClass } from '../../src/core/types.js'
 import type { UUIDv7, SHA256Hex } from '../../src/core/types.js'
 
@@ -151,6 +156,30 @@ describe('EventStore.append', () => {
     const e1 = await store.append(EventType.AMBIGUITY_ROUTED, {}, 'p', 'v1', '1', RetentionClass.STANDARD, FIXED_TS)
     const e2 = await store.append(EventType.GATE_EVALUATED,   {}, 'p', 'v1', '1', RetentionClass.STANDARD, FIXED_TS)
     expect(Number(e2.sequence) - Number(e1.sequence)).toBe(1)
+  })
+
+  it('rejects a conditional append when the observed stream sequence is stale', async () => {
+    await store.append(EventType.SYSTEM_INIT, {}, 'p', 'v1', '1', RetentionClass.STANDARD, FIXED_TS)
+    await expect(
+      store.append(EventType.SYSTEM_OUTPUT, {}, 'p', 'v1', '1', RetentionClass.STANDARD, FIXED_TS + 1, -1),
+    ).rejects.toBeInstanceOf(ConcurrentEventStoreUpdateError)
+  })
+
+  it('aborts a conditional append when its write condition fails', async () => {
+    await expect(
+      store.append(
+        EventType.SYSTEM_INIT,
+        {},
+        'p',
+        'v1',
+        '1',
+        RetentionClass.STANDARD,
+        FIXED_TS,
+        -1,
+        () => false,
+      ),
+    ).rejects.toBeInstanceOf(EventStoreWriteConditionError)
+    expect(await store.getAll()).toHaveLength(0)
   })
 
   it('freezes the payload object in the returned envelope', async () => {
