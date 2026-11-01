@@ -26,6 +26,10 @@ class HolonContextTests(unittest.TestCase):
         self.assertEqual(len(matches), 1)
         self.assertIn("#734", matches[0][2])
 
+    def test_oversized_closing_issue_ref_does_not_abort_or_hide_valid_ref(self):
+        body = f"Closes #{'7' * 4301}\nFixes #734"
+        self.assertEqual(ctx.closing_issue_ids(body), [734])
+
     def test_issue_ref_outranks_title_keyword_overlap(self):
         closing = {"n": 732, "t": "Other work", "h": "branch/z",
                    "body": "Fixes #734"}
@@ -55,6 +59,40 @@ class HolonContextTests(unittest.TestCase):
                 prs, source = ctx.open_prs()
         self.assertEqual((len(prs), source), (1, "github"))
         self.assertIn("body:", call.call_args_list[0].args[4])
+
+    def test_pr_cache_does_not_persist_body_and_keeps_closing_issue_evidence(self):
+        import tempfile
+        marker = "TESTMARKERSECRET9876543210"
+        record = {"n": 732, "t": "Other work", "h": "branch/z",
+                  "b": "main", "s": "a" * 40,
+                  "body": f"{marker}\nCloses #734"}
+        with tempfile.TemporaryDirectory() as folder, \
+             patch.object(ctx, "git_dir", return_value=folder), \
+             patch.object(ctx, "sh", return_value=json.dumps([record])):
+            prs, source = ctx.open_prs()
+            cached_text = pathlib.Path(folder, "aegis-open-prs.json").read_text(
+                encoding="utf-8")
+            cached, cached_source = ctx.open_prs(quick=True)
+
+        self.assertEqual((len(prs), source), (1, "github"))
+        self.assertNotIn(marker, cached_text)
+        self.assertNotIn("body", json.loads(cached_text)["prs"][0])
+        self.assertEqual((cached_source, cached[0]["closing_issue_ids"]),
+                         ("cache", [734]))
+        self.assertEqual(ctx.overlaps(cached, "#734")[0][2], ["#734"])
+
+    def test_legacy_v2_cache_with_body_is_not_trusted(self):
+        import tempfile
+        marker = "TESTMARKERSECRET9876543210"
+        record = {"n": 734, "t": "existing", "h": "head", "b": "main",
+                  "s": "a" * 40, "body": marker}
+        with tempfile.TemporaryDirectory() as directory:
+            pathlib.Path(directory, "aegis-open-prs.json").write_text(
+                json.dumps({"format": "AEGIS_PR_SNAPSHOT_V2",
+                            "complete": True, "prs": [record]}), encoding="utf-8")
+            with patch.object(ctx, "git_dir", return_value=directory), \
+                 patch.object(ctx, "sh", return_value=""):
+                self.assertEqual(ctx.open_prs(quick=True), ([], "unavailable"))
 
     def test_holon_vector_never_hides_operator_and_peer_blockers(self):
         claimed = {"n": 739, "t": "Receipts", "labels": ["claimed", "needs-operator"]}
@@ -512,11 +550,11 @@ class HolonContextTests(unittest.TestCase):
                  patch.object(ctx, "sh", return_value=""):
                 self.assertEqual(ctx.open_prs(quick=True), ([], "unavailable"))
 
-    def test_v2_empty_complete_snapshot_is_a_valid_quick_cache(self):
+    def test_v3_empty_complete_snapshot_is_a_valid_quick_cache(self):
         import tempfile
         with tempfile.TemporaryDirectory() as directory:
             pathlib.Path(directory, "aegis-open-prs.json").write_text(
-                json.dumps({"format": "AEGIS_PR_SNAPSHOT_V2",
+                json.dumps({"format": "AEGIS_PR_SNAPSHOT_V3",
                             "complete": True, "prs": []}), encoding="utf-8")
             with patch.object(ctx, "git_dir", return_value=directory), \
                  patch.object(ctx, "sh", side_effect=AssertionError("unexpected network call")):
@@ -524,23 +562,23 @@ class HolonContextTests(unittest.TestCase):
         self.assertEqual(ctx.holon_disposition("cache", "github", [], []),
                          "HOLD_INCOMPLETE_SHARED_STATE")
 
-    def test_v2_empty_incomplete_snapshot_is_not_a_quick_cache(self):
+    def test_v3_empty_incomplete_snapshot_is_not_a_quick_cache(self):
         import tempfile
         with tempfile.TemporaryDirectory() as directory:
             pathlib.Path(directory, "aegis-open-prs.json").write_text(
-                json.dumps({"format": "AEGIS_PR_SNAPSHOT_V2",
+                json.dumps({"format": "AEGIS_PR_SNAPSHOT_V3",
                             "complete": False, "prs": []}), encoding="utf-8")
             with patch.object(ctx, "git_dir", return_value=directory), \
                  patch.object(ctx, "sh", side_effect=AssertionError("unexpected network call")):
                 self.assertEqual(ctx.open_prs(quick=True), ([], "unavailable"))
 
-    def test_v2_complete_snapshot_can_support_bounded_hook(self):
+    def test_v3_complete_snapshot_can_support_bounded_hook(self):
         import tempfile
         valid = {"n": 734, "t": "existing", "h": "head", "b": "main",
-                 "s": "a" * 40}
+                 "s": "a" * 40, "closing_issue_ids": []}
         with tempfile.TemporaryDirectory() as directory:
             pathlib.Path(directory, "aegis-open-prs.json").write_text(
-                json.dumps({"format": "AEGIS_PR_SNAPSHOT_V2",
+                json.dumps({"format": "AEGIS_PR_SNAPSHOT_V3",
                             "complete": True, "prs": [valid]}), encoding="utf-8")
             with patch.object(ctx, "git_dir", return_value=directory), \
                  patch.object(ctx, "sh", side_effect=AssertionError("network called")):
@@ -550,10 +588,10 @@ class HolonContextTests(unittest.TestCase):
         """A new PR may have appeared after the last cache refresh."""
         import tempfile
         saved = {"n": 734, "t": "existing", "h": "head", "b": "main",
-                 "s": "a" * 40}
+                 "s": "a" * 40, "closing_issue_ids": []}
         with tempfile.TemporaryDirectory() as directory:
             pathlib.Path(directory, "aegis-open-prs.json").write_text(
-                json.dumps({"format": "AEGIS_PR_SNAPSHOT_V2",
+                json.dumps({"format": "AEGIS_PR_SNAPSHOT_V3",
                             "complete": True, "prs": [saved]}), encoding="utf-8")
             with patch.object(ctx, "git_dir", return_value=directory), \
                  patch.object(ctx, "sh", return_value="") as sh:
@@ -765,8 +803,42 @@ class HolonContextTests(unittest.TestCase):
         report = json.loads(output.getvalue())
         lookup.assert_called_once_with("holon")
         self.assertEqual(report["existing_code_status"], "VERIFIED_REMOTE_MAIN")
-        self.assertEqual(report["existing_code"],
-                         [{"path": "agents/holon.py", "match": ["holon"]}])
+        self.assertEqual(report["existing_code"], [{"matched_term_count": 1}])
+        self.assertNotIn("agents/holon.py", output.getvalue())
+
+    def test_secret_like_task_token_is_not_emitted_to_stdout_or_stderr(self):
+        marker = "TESTMARKERSECRET9876543210"
+        issue = {"n": 734, "t": "Safe title", "labels": ["task"]}
+        for args in (["--json", marker], [marker]):
+            with self.subTest(args=args):
+                output = io.StringIO()
+                errors = io.StringIO()
+                with patch.object(ctx, "verify_main_freshness",
+                                  return_value={"state": "FRESH", "sha": "a" * 40}), \
+                     patch.object(ctx, "sh", return_value=""), \
+                     patch.object(ctx, "open_prs", return_value=([], "github")), \
+                     patch.object(ctx, "open_issue_board", return_value=([issue], "github")), \
+                     patch.object(ctx, "read_optimus_policy",
+                                  return_value=ctx.verify_optimus_issue("")), \
+                     patch.object(ctx, "billing_locked", return_value=None), \
+                     patch.object(ctx, "existing_code",
+                                  return_value=[("private/path.py", [marker])]), \
+                     patch.object(sys, "argv", ["agent_context.py", *args]), \
+                     contextlib.redirect_stdout(output), contextlib.redirect_stderr(errors):
+                    ctx.main()
+
+                self.assertNotIn(marker, output.getvalue())
+                self.assertNotIn(marker, errors.getvalue())
+                self.assertNotIn("private/path.py", output.getvalue())
+                if "--json" in args:
+                    report = json.loads(output.getvalue())
+                    self.assertEqual(report["main_exact_sha"], "a" * 40)
+                    self.assertEqual(report["existing_code_status"], "VERIFIED_REMOTE_MAIN")
+                    self.assertEqual(report["existing_code"], [{"matched_term_count": 1}])
+                    self.assertEqual(report["optimus_policy"]["consent_acl"], "UNVERIFIED")
+                    self.assertEqual(report["optimus_policy"]["lesson_retraction"], "UNVERIFIED")
+                    self.assertEqual(report["optimus_policy"]["execution_authority"],
+                                     "NOT_GRANTED")
 
     def test_quick_mode_never_scans_main_code_even_when_cache_exists(self):
         output = io.StringIO()

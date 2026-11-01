@@ -102,8 +102,22 @@ def _valid_pr_record(p):
             and bool(re.fullmatch(r"[0-9a-f]{40}", p["s"])))
 
 
+def _valid_cached_pr_record(p):
+    return (_valid_pr_record(p) and "body" not in p
+            and isinstance(p.get("closing_issue_ids"), list)
+            and all(type(n) is int and n > 0 for n in p["closing_issue_ids"]))
+
+
+def closing_issue_ids(body):
+    if not isinstance(body, str):
+        return []
+    refs = re.findall(
+        r"(?im)\b(?:close[sd]?|fix(?:es|ed)?|resolve[sd]?)\s+#(\d+)\b", body)
+    return sorted({int(ref) for ref in refs if len(ref) <= 10})
+
+
 def open_prs(quick=False):
-    """Fresh GitHub snapshot for writes; versioned cache for advisory quick views."""
+    """Fresh GitHub snapshot for writes; body-free cache for advisory quick views."""
     cache = os.path.join(git_dir(quick=quick), "aegis-open-prs.json")
     try:
         if quick and time.time() - os.path.getmtime(cache) < CACHE_TTL:
@@ -113,10 +127,10 @@ def open_prs(quick=False):
             # Only trust snapshots recorded AFTER the completeness repair.
             records = saved.get("prs") if isinstance(saved, dict) else None
             if (isinstance(saved, dict)
-                    and saved.get("format") == "AEGIS_PR_SNAPSHOT_V2"
+                    and saved.get("format") == "AEGIS_PR_SNAPSHOT_V3"
                     and saved.get("complete") is True
                     and isinstance(records, list)
-                    and all(_valid_pr_record(p) for p in records)):
+                    and all(_valid_cached_pr_record(p) for p in records)):
                 return records, "cache"
     except (OSError, ValueError, TypeError):
         pass
@@ -165,9 +179,14 @@ def open_prs(quick=False):
             complete = False
     if complete:
         try:
+            cached_prs = [
+                {**{key: p[key] for key in ("n", "t", "h", "b", "s") if key in p},
+                 "closing_issue_ids": closing_issue_ids(p.get("body"))}
+                for p in prs
+            ]
             with open(cache, "w") as f:
-                json.dump({"format": "AEGIS_PR_SNAPSHOT_V2",
-                           "complete": True, "prs": prs}, f)
+                json.dump({"format": "AEGIS_PR_SNAPSHOT_V3",
+                           "complete": True, "prs": cached_prs}, f)
         except OSError:
             pass
         return prs, "github"
@@ -358,12 +377,9 @@ def overlaps(prs, query, limit=8):
     scored = []
     for p in prs:
         hit = q & words(p["t"] + " " + p["h"])
-        body = p.get("body", "")
-        if not isinstance(body, str):
-            body = ""
-        closes = {int(x) for x in re.findall(
-            r"(?im)\b(?:close[sd]?|fix(?:es|ed)?|resolve[sd]?)\s+#(\d+)\b",
-            body)}
+        cached_closes = p.get("closing_issue_ids")
+        closes = (set(cached_closes) if isinstance(cached_closes, list)
+                  else set(closing_issue_ids(p.get("body", ""))))
         matching_issues = issue_ids & closes
         if matching_issues or len(hit) >= 2 or (len(q) <= 2 and hit):
             tags = sorted(hit) + [f"#{n}" for n in sorted(matching_issues)]
@@ -508,12 +524,13 @@ def main():
                           "p0_issues": [{"number": i["n"], "title": i["t"], "labels": i["labels"]}
                                         for i in p0],
                           "issue_matches": [{"number": i["n"], "title": i["t"],
-                                             "labels": i["labels"], "match": m}
+                                             "labels": i["labels"], "matched_term_count": len(m)}
                                             for i, m in issue_hits],
                           "overlaps": [{"pr": p["n"], "title": p["t"], "head": p["h"],
-                                        "base": p["b"], "match": m} for _, p, m in hits],
+                                        "base": p["b"], "matched_term_count": len(m)}
+                                       for _, p, m in hits],
                           "existing_code_status": code_status,
-                          "existing_code": [{"path": c, "match": m} for c, m in code]}))
+                          "existing_code": [{"matched_term_count": len(m)} for _, m in code]}))
         return
 
     kind = "open PRs" if source in ("github", "cache") else "remote branches (not a complete PR list)"
@@ -540,7 +557,8 @@ def main():
     if issue_hits:
         lines.append("- Related issues (check owners/claims; coordinate before editing):")
         for issue, matched in issue_hits:
-            lines.append(f"  #{issue['n']} {issue['t'][:100]} [labels: {', '.join(issue['labels'])}] (match: {', '.join(matched)})")
+            lines.append(f"  #{issue['n']} {issue['t'][:100]} [labels: {', '.join(issue['labels'])}] "
+                         f"(matched terms: {len(matched)})")
     lines.append(f"- OPTIMUS #734 source readback: {optimus_policy['state']} "
                  f"(expected {optimus_policy['expected_sha256']}; "
                  f"observed {optimus_policy['observed_sha256'] or 'UNKNOWN'}). "
@@ -567,15 +585,14 @@ def main():
         for _, p, m in hits:
             ref = f"#{p['n']}" if p["n"] else "branch"
             base = "" if p["b"] in ("main", "?") else f" [stacked on {p['b']}]"
-            lines.append(f"  {ref} {p['h']}{base} — {p['t'][:90]} (match: {', '.join(m)})")
+            lines.append(f"  {ref} {p['h']}{base} — {p['t'][:90]} "
+                         f"(matched terms: {len(m)})")
     elif query:
         lines.append("- No *title-keyword* PR overlap found in available data; code and file-path overlap NOT ruled out.")
     if query and not quick and not main_verified:
         lines.append("- Existing-code lookup SKIPPED: remote main unverified; local origin/main may be stale or untrusted.")
     if code:
-        lines.append("- Code on verified remote main that matches this task:")
-        for path, m in code:
-            lines.append(f"  {path} (match: {', '.join(m)})")
+        lines.append(f"- Code on verified remote main: {len(code)} matching files.")
     lines.append("- Rules: branch only from origin/main; PR base must be main; one PR per task. "
                  "Docs (HANDOFF/INDEX/CLAUDE.md) may be stale — the commands above are not.")
     print("\n".join(lines))
