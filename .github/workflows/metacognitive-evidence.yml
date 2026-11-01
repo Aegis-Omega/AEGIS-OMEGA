@@ -70,4 +70,5 @@ jobs:
             tests/organism-core.test.mjs \
             tests/organism-motor.test.mjs \
             tests/organism-coordinator.test.mjs \
-            tests/organism-native.integration.test.mjs
+            tests/organism-native.integration.test.mjs \
+            tests/organism-evidence-recovery.test.mjs
