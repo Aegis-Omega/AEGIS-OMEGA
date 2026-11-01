@@ -215,7 +215,7 @@ class FrameInvariantsHoldAtBothEntryPoints(unittest.TestCase):
         # findable in the frame that was frozen.
         ids = frame(250)
         _, chosen = select(SPEC_HASH, ids)
-        self.assertTrue(set(chosen) <= set(ids))
+        self.assertLessEqual(set(chosen), set(ids))
 
 
 if __name__ == "__main__":
