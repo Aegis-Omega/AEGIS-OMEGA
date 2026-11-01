@@ -68,14 +68,21 @@ const FIBONACCI_GATES = new Set([
 // Prevents concurrent hook writes from racing at phi-gate boundaries.
 const LOCK = CHAIN + '.lock'
 function acquireLock(retries = 8, delayMs = 5) {
+  // The first session may not have a chain directory yet.
+  mkdirSync(dirname(CHAIN), { recursive: true })
   for (let i = 0; i < retries; i++) {
     try {
       const fd = openSync(LOCK, 'wx') // O_EXCL — fails if file exists
       closeSync(fd)
       return true
-    } catch { Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, delayMs * (i + 1)) }
+    } catch (err) {
+      // Permission errors and missing mount points must not be reported as contention.
+      if (err?.code !== 'EEXIST') throw err
+      Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, delayMs * (i + 1))
+    }
   }
-  return false // stale lock — proceed anyway rather than deadlock
+  // Never append without the lock and never delete another writer's lock.
+  throw new Error('metacog: lock acquisition failed; concurrent writer; no mutation')
 }
 function releaseLock() { try { unlinkSync(LOCK) } catch { /* already gone */ } }
 
@@ -87,6 +94,8 @@ function observe(layer, tier, signal) {
   acquireLock()
   try {
     const es   = readLines(CHAIN)
+    const cert = certifyChain(es)
+    if (!cert.is_valid) throw new Error(`metacog: existing chain invalid at ${cert.broken_at}; refusing append`)
     const seq  = lastSeq(es) + 1
     const prev = lastHash(es)
     const observation = { layer, signal: String(signal).slice(0, 500), tier }
@@ -128,6 +137,13 @@ function observe(layer, tier, signal) {
 function certifyChain(es) {
   let is_valid = true, broken_at = null
   for (let i = 0; i < es.length; i++) {
+    const entry = es[i]
+    const prior = i === 0 ? null : es[i - 1]
+    if (entry?.schema_version !== SCHEMA ||
+        !Number.isSafeInteger(entry?.sequence) || entry.sequence < 0 ||
+        (prior && entry.sequence <= prior.sequence)) {
+      is_valid = false; broken_at = i; break
+    }
     const expectedPrev = i === 0 ? GENESIS : es[i - 1].entry_hash
     if (es[i].previous_entry_hash !== expectedPrev) { is_valid = false; broken_at = i; break }
     const recomputed = entryHash(es[i].observation, es[i].previous_entry_hash, es[i].sequence)
@@ -148,6 +164,7 @@ function certify() {
 // ── seal: certify live chain, append a hash-linked seal to the durable chain ──
 function seal(note = '') {
   const cert  = certifyChain(readLines(CHAIN))
+  if (!cert.is_valid) throw new Error(`metacog: cannot seal invalid chain at ${cert.broken_at}`)
   const seals = readLines(SEALS)
   const prev  = seals.length ? seals[seals.length - 1].seal_hash : GENESIS
   const seq   = seals.length
