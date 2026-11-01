@@ -21,9 +21,10 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-from sample_select import rank, select  # noqa: E402
+from sample_select import canonical_spec_hash, rank, select  # noqa: E402
 
 SPEC_HASH = "f1a3e251b88deedc18359f56b93424b9111b3059075cbfa9c3d734252ea4649e"
+EVENT_FORM = "sha256:" + SPEC_HASH
 
 
 def frame(n: int) -> list[str]:
@@ -111,6 +112,61 @@ class Ranking(unittest.TestCase):
     def test_rank_is_stable_across_calls(self):
         first = rank(SPEC_HASH, "case-0001")
         self.assertEqual({first, rank(SPEC_HASH, "case-0001"), rank(SPEC_HASH, "case-0001")}, {first})
+
+
+class SpecHashRepresentation(unittest.TestCase):
+    """The §11 digest and the §17 envelope form must select the same sample.
+
+    §11 writes SHA256(spec_hash ‖ case_id) without fixing a representation;
+    §17 carries the same value as "sha256:<digest>". Hashing whichever form
+    the caller holds would make the draw depend on the spelling of the
+    reference, so the two forms are pinned to one canonical digest and every
+    other spelling is refused.
+    """
+
+    def test_the_event_form_normalizes_to_the_bare_digest(self):
+        self.assertEqual(canonical_spec_hash(EVENT_FORM), SPEC_HASH)
+        self.assertEqual(canonical_spec_hash(SPEC_HASH), SPEC_HASH)
+
+    def test_the_two_accepted_forms_rank_identically(self):
+        # The defect this guards: before canonicalization these differed, so
+        # the envelope value and the digest ranked the same case apart.
+        self.assertEqual(rank(EVENT_FORM, "case-0001"), rank(SPEC_HASH, "case-0001"))
+
+    def test_the_two_accepted_forms_draw_the_same_hundred(self):
+        ids = frame(250)
+        self.assertEqual(select(EVENT_FORM, ids), select(SPEC_HASH, ids))
+
+    def test_the_two_accepted_forms_agree_on_the_census(self):
+        ids = frame(60)
+        self.assertEqual(select(EVENT_FORM, ids), select(SPEC_HASH, ids))
+
+    def test_prefix_stripping_is_exactly_the_event_prefix(self):
+        # Only "sha256:" is a declared form. A near-miss must not be shaved
+        # off and quietly accepted.
+        for bad in ("sha256=" + SPEC_HASH, "sha1:" + SPEC_HASH,
+                    "SHA256:" + SPEC_HASH, "sha256::" + SPEC_HASH,
+                    "sha256:sha256:" + SPEC_HASH):
+            with self.assertRaises(ValueError, msg=bad):
+                canonical_spec_hash(bad)
+
+    def test_non_canonical_digests_are_refused_not_reshaped(self):
+        for bad in (SPEC_HASH.upper(), SPEC_HASH[:63], SPEC_HASH + "0",
+                    SPEC_HASH[:-1] + "g", "", " " + SPEC_HASH, SPEC_HASH + "\n"):
+            with self.assertRaises(ValueError, msg=repr(bad)):
+                canonical_spec_hash(bad)
+
+    def test_every_regime_validates_including_the_ones_that_never_rank(self):
+        # A malformed spec_hash must not pass just because N <= 100 means no
+        # ranking happens. Feasibility failure and census are checked too.
+        for n in (0, 29, 30, 60, 100, 250):
+            with self.assertRaises(ValueError, msg=f"N={n}"):
+                select("not-a-digest", frame(n))
+
+    def test_a_valid_but_different_digest_still_draws_differently(self):
+        # Canonicalization must collapse representations, not distinct specs.
+        ids = frame(250)
+        self.assertNotEqual(select(EVENT_FORM, ids)[1], select("0" * 64, ids)[1])
 
 
 if __name__ == "__main__":
