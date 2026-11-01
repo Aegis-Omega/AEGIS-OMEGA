@@ -28,12 +28,33 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - name: Checkout exact candidate
+      # The guard and its self-tests come from the workflow's own commit, and
+      # the candidate is checked out beside it as data. Running the guard from
+      # the candidate's tree made every pull request that predates the guard
+      # die on `sha256sum scripts/pr_overlap_guard.py` before any verdict,
+      # because those branches simply do not contain the file. Same split the
+      # trusted-cognitive-admission lane already uses.
+      - name: Checkout the guard from the workflow commit
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
         with:
+          repository: ${{ job.workflow_repository || github.repository }}
+          ref: ${{ job.workflow_sha || github.workflow_sha }}
+          path: trusted-source
+          fetch-depth: 1
+          persist-credentials: false
+          submodules: false
+          lfs: false
+
+      - name: Checkout exact candidate as data
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          repository: ${{ github.event.pull_request.head.repo.full_name || github.repository }}
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          path: candidate-data
           fetch-depth: 0
           persist-credentials: false
+          submodules: false
+          lfs: false
 
       - name: Set up Python
         uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
@@ -42,18 +63,21 @@ jobs:
 
       - name: Self-test the guard before trusting its verdict
         shell: bash
+        working-directory: trusted-source
         env:
-          EXPECTED_HEAD: ${{ github.event.pull_request.head.sha || github.sha }}
+          EXPECTED_GUARD: ${{ job.workflow_sha || github.workflow_sha }}
+          EXPECTED_CANDIDATE: ${{ github.event.pull_request.head.sha || github.sha }}
         run: |
           set -euo pipefail
-          test "$(git rev-parse HEAD)" = "$EXPECTED_HEAD"
+          test "$(git rev-parse HEAD)" = "$EXPECTED_GUARD"
+          test "$(git -C ../candidate-data rev-parse HEAD)" = "$EXPECTED_CANDIDATE"
           git diff --exit-code
           git diff --cached --exit-code
           python -m unittest discover -s scripts -p 'test_pr_overlap_guard*.py' -v
           git diff --exit-code
           git diff --cached --exit-code
           sha256sum scripts/pr_overlap_guard.py scripts/test_pr_overlap_guard*.py
-          echo "SELF_TEST_ONLY candidate=$EXPECTED_HEAD; repository admission not granted" >> "$GITHUB_STEP_SUMMARY"
+          echo "SELF_TEST_ONLY guard=$EXPECTED_GUARD candidate=$EXPECTED_CANDIDATE; repository admission not granted" >> "$GITHUB_STEP_SUMMARY"
 
       - name: Report overlap with open pull requests
         if: github.event_name == 'pull_request'
@@ -65,5 +89,5 @@ jobs:
           GITHUB_BASE_SHA: ${{ github.event.pull_request.base.sha }}
         run: |
           set -euo pipefail
-          python scripts/pr_overlap_guard.py --pr "${{ github.event.pull_request.number }}" \
+          python trusted-source/scripts/pr_overlap_guard.py --pr "${{ github.event.pull_request.number }}" --root candidate-data \
             | tee "$GITHUB_STEP_SUMMARY"
