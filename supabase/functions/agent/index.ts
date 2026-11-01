@@ -1,10 +1,11 @@
 // AEGIS-Ω autonomous agent endpoint — Claude API with tools
-// Deploy: supabase functions deploy agent --no-verify-jwt
+// Runtime: explicit Supabase JWT and approved-user allowlist required before paid actions
 // Env vars: ANTHROPIC_API_KEY, NOTIFY_SECRET, SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY
 // Accepts: { task: string, context?: string, notify?: boolean }
 // Returns: { result: string, actions: string[] }
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { CORS } from '../_shared/cors.ts'
+import { authorizeNebiusCaller } from '../_shared/nebius-auth.ts'
 
 const ANTHROPIC_API_KEY = Deno.env.get('ANTHROPIC_API_KEY') ?? ''
 const NOTIFY_SECRET     = Deno.env.get('NOTIFY_SECRET') ?? ''
@@ -133,6 +134,24 @@ Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response(null, { headers: CORS })
   if (req.method !== 'POST') {
     return new Response(JSON.stringify({ error: 'Method not allowed' }), { status: 405, headers: CORS })
+  }
+
+  // A public client may never spend Anthropic credits or access service-role tools.
+  // Reuse the existing pinned JWT+allowlist gate; missing runtime settings DENY.
+  const permitted = await authorizeNebiusCaller(
+    req.headers.get('Authorization'),
+    Deno.env.get('AEGIS_AGENT_ALLOWED_USER_IDS') ?? '',
+    async (jwt) => {
+      if (!SUPABASE_URL || !SERVICE_KEY) return null
+      const authClient = createClient(SUPABASE_URL, SERVICE_KEY, { auth: { persistSession: false } })
+      const { data, error } = await authClient.auth.getUser(jwt)
+      return error ? null : data.user?.id ?? null
+    },
+  )
+  if (!permitted) {
+    return new Response(JSON.stringify({ error: 'Authenticated operator required' }), {
+      status: 401, headers: { ...CORS, 'Content-Type': 'application/json' },
+    })
   }
 
   if (!ANTHROPIC_API_KEY) {
