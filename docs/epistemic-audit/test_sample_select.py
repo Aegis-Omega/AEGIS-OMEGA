@@ -21,7 +21,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-from sample_select import canonical_spec_hash, rank, select  # noqa: E402
+from sample_select import canonical_frame, canonical_spec_hash, rank, select  # noqa: E402
 
 SPEC_HASH = "f1a3e251b88deedc18359f56b93424b9111b3059075cbfa9c3d734252ea4649e"
 EVENT_FORM = "sha256:" + SPEC_HASH
@@ -167,6 +167,55 @@ class SpecHashRepresentation(unittest.TestCase):
         # Canonicalization must collapse representations, not distinct specs.
         ids = frame(250)
         self.assertNotEqual(select(EVENT_FORM, ids)[1], select("0" * 64, ids)[1])
+
+
+class FrameInvariantsHoldAtBothEntryPoints(unittest.TestCase):
+    """The frame rules must bind select(), not only the CLI.
+
+    Both of these lived in `__main__` only, so importing select() skipped
+    them. §11 reads its thresholds against N, so a frame whose size and whose
+    number of cases disagree puts an undersized frame past the feasibility
+    minimum; and an identifier that gets trimmed on the way in is no longer
+    the identifier the frame froze.
+    """
+
+    def test_a_duplicate_cannot_pad_a_frame_past_the_feasibility_minimum(self):
+        # 29 real cases plus one repeat. Thirty entries, twenty-nine cases.
+        padded = frame(29) + ["case-0000"]
+        self.assertEqual(len(padded), 30)
+        self.assertEqual(len(set(padded)), 29)
+        with self.assertRaisesRegex(ValueError, "duplicate case_ids"):
+            select(SPEC_HASH, padded)
+
+    def test_the_duplicate_is_named(self):
+        with self.assertRaisesRegex(ValueError, "case-0000"):
+            canonical_frame(frame(40) + ["case-0000"])
+
+    def test_duplicates_are_refused_in_every_regime(self):
+        for n in (0, 29, 30, 100, 250):
+            with self.assertRaises(ValueError, msg=f"N={n}"):
+                select(SPEC_HASH, frame(n) + ["case-0000"] * 2)
+
+    def test_whitespace_bearing_ids_are_refused_not_trimmed(self):
+        for bad in ("case-0001 ", " case-0001", "case-0001\t", "\ncase-0001", "   "):
+            with self.assertRaisesRegex(ValueError, "whitespace", msg=repr(bad)):
+                canonical_frame(frame(40) + [bad])
+
+    def test_empty_and_non_string_ids_are_refused(self):
+        for bad in ("", None, 7):
+            with self.assertRaisesRegex(ValueError, "non-empty string", msg=repr(bad)):
+                canonical_frame(frame(40) + [bad])
+
+    def test_a_clean_frame_passes_through_unchanged(self):
+        ids = frame(40)
+        self.assertEqual(canonical_frame(ids), ids)
+
+    def test_the_emitted_ids_are_the_frame_ids(self):
+        # The whole point of refusing to trim: every id the draw emits must be
+        # findable in the frame that was frozen.
+        ids = frame(250)
+        _, chosen = select(SPEC_HASH, ids)
+        self.assertTrue(set(chosen) <= set(ids))
 
 
 if __name__ == "__main__":
