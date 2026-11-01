@@ -32,5 +32,36 @@ class BatchBridgeSafetyTests(unittest.TestCase):
         self.assertEqual(_tok("你好"), len("你好".encode("utf-8")))
 
 
+    def test_positive_cost_cannot_round_down_to_zero_budget(self) -> None:
+        tiny = [AgentTask("probe", "s", "p", max_tokens=1)]
+        estimated = plan(tiny, cap=0.0)
+        self.assertGreater(estimated.est_usd, 0)
+        self.assertTrue(estimated.over_cap)
+
+    def test_tiny_batch_rejected_even_when_live_client_is_mocked(self) -> None:
+        from unittest.mock import patch
+        import types
+        import sys
+
+        calls = []
+        class FakeAnthropic:
+            def __init__(self, **kw): pass
+            @property
+            def messages(self):
+                return types.SimpleNamespace(batches=types.SimpleNamespace(create=self.create))
+            def create(self, **kw):
+                calls.append(kw)
+                return types.SimpleNamespace(id="SIMULATED_NO_NETWORK")
+
+        with tempfile.TemporaryDirectory() as directory, \
+             patch.dict(sys.modules, {"anthropic": types.SimpleNamespace(Anthropic=FakeAnthropic)}), \
+             patch.dict("os.environ", {"ANTHROPIC_API_KEY": "LOCAL_FAKE_ONLY"}):
+            record = submit([AgentTask("probe", "s", "p", max_tokens=1)],
+                            live=True, cap=0.0, store=FileStore(Path(directory)))
+        self.assertEqual(record["status"], "refused_over_cap")
+        self.assertEqual(calls, [])
+
+
+
 if __name__ == "__main__":
     unittest.main()
