@@ -9,6 +9,11 @@ on:
       - '.claude/metacog/evidence-ledger.mjs'
       - '.claude/metacog/evidence-cycle.mjs'
       - '.claude/metacog/evidence-v2.test.mjs'
+      - '.claude/metacog/organism-*.mjs'
+      - 'tests/organism-*.test.mjs'
+      - 'tests/chain-lock-repair.test.mjs'
+      - 'scripts/local-organism-v4.mjs'
+      - 'fixtures/v3-original/organism-core.mjs'
       - '.github/workflows/metacognitive-evidence.yml'
 
 permissions:
@@ -54,3 +59,15 @@ jobs:
           set -euo pipefail
           node --version
           node --test .claude/metacog/evidence-v2.test.mjs
+
+      - name: Run bounded organism V4 and native source-bound integration tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --test \
+            tests/chain-lock-repair.test.mjs \
+            tests/organism-bridge.contract.test.mjs \
+            tests/organism-core.test.mjs \
+            tests/organism-motor.test.mjs \
+            tests/organism-coordinator.test.mjs \
+            tests/organism-native.integration.test.mjs
