@@ -279,24 +279,23 @@ class EvolutionEngine:
 # ── CLI ─────────────────────────────────────────────────────────────────────────
 
 def _cmd_evolve() -> int:
+    """Report proposed tier changes; never present eligibility as applied state."""
     engine = EvolutionEngine()
-    verdicts = engine.tick(apply_changes=True)
-    promoted = [v for v in verdicts if v.promoted]
-    demoted = [v for v in verdicts if engine._is_demotion(v) and not v.promoted]
-    guardian = [v for v in verdicts if v.requires_guardian]
+    verdicts = engine.tick(apply_changes=False)
+    # Until independent attestation is integrated, every proposed transition
+    # remains review-only. A reported counter is not an executed mutation.
+    demotion_candidates = [v for v in verdicts if engine._is_demotion(v)]
+    review_candidates = [v for v in verdicts if v.requires_guardian]
 
-    print("AEGIS Agent Evolution — one tick")
+    print("AEGIS Agent Evolution — review-only tick")
     print("=" * 60)
-    print(f"  Skills evaluated:   {len(verdicts)}")
-    print(f"  Promoted (T2→T1):   {len(promoted)}")
-    print(f"  Demoted:            {len(demoted)}")
-    print(f"  T0-eligible (guardian-gated): {len(guardian)}")
-    for v in promoted:
-        print(f"    ↑ {v.skill_id}: {v.current_tier}→{v.eligible_tier} — {v.reason}")
-    for v in demoted:
-        print(f"    ↓ {v.skill_id}: {v.current_tier}→{v.eligible_tier} — {v.reason}")
-    for v in guardian:
-        print(f"    ⊘ {v.skill_id}: {v.current_tier}→{v.eligible_tier} BLOCKED — needs /guardian APPROVED")
+    print(f"  Skills evaluated:         {len(verdicts)}")
+    print("  Promoted (applied):       0")
+    print("  Demoted (applied):        0")
+    print(f"  Demotion candidates:      {len(demotion_candidates)} (not applied)")
+    print(f"  Independent review/HOLD: {len(review_candidates)}")
+    for v in review_candidates:
+        print(f"    REVIEW ONLY: {v.skill_id}: {v.current_tier}→{v.eligible_tier} — {v.reason}")
     valid, bad = engine.lineage.verify_chain()
     print(f"\n  Lineage chain valid: {valid}  (events={len(engine.lineage.events)})")
     print(f"  Terminal hash: {engine.lineage.terminal_hash()[:32]}…")
@@ -381,6 +380,20 @@ def _cmd_selftest() -> int:
     )
     check("T2 with 5 claimed runs is held for independent review",
           not v.promoted and v.eligible_tier == "T1" and v.requires_guardian)
+
+    # 6b — even a requested mutation tick is read-only until independently attested.
+    probe = EvolutionEngine.__new__(EvolutionEngine)
+    probe.tree_path = SKILL_TREE_PATH
+    probe.lineage = AdaptiveLineage()
+    probe._tree = {"skills": [{"skill_id": "claimed", "tier": "T2", "validated_runs": 3,
+                               "failure_rate": 0.0, "confidence": 0.95}]}
+    probe._save_tree = lambda: (_ for _ in ()).throw(AssertionError("unauthorized tree write"))
+    probe.lineage.save = lambda: (_ for _ in ()).throw(AssertionError("unauthorized lineage write"))
+    probe_verdict = probe.tick(apply_changes=True)
+    check("claimed validation cannot mutate tier", probe._tree["skills"][0]["tier"] == "T2")
+    check("claimed validation cannot append lineage", len(probe.lineage.events) == 0)
+    check("claimed validation requires independent review",
+          not probe_verdict[0].promoted and probe_verdict[0].requires_guardian)
 
     # 7 — T2 with insufficient runs does not promote
     v = engine.evaluate_skill(
