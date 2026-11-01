@@ -9,9 +9,11 @@ Given the frozen spec hash and the full eligible case frame, applies:
 Usage:
     python3 sample_select.py <spec_hash> <case_ids.txt>
 
-case_ids.txt: one case_id per line, UTF-8. Output: selected case_ids on
-stdout, verdict line on stderr. Exit 2 on feasibility failure so the ledger
-records it as a result, not an error to retry.
+case_ids.txt: one case_id per line, UTF-8, with no surrounding whitespace and
+no repeats; both are refused rather than cleaned up, for the reasons in
+`canonical_frame`. Output: selected case_ids on stdout, verdict line on
+stderr. Exit 2 on feasibility failure so the ledger records it as a result,
+not an error to retry; exit 1 on a malformed spec hash or frame.
 
 Output order differs per verdict, and the difference is the spec, not an
 oversight. Amendment §11 defines the SHA256(spec_hash ‖ case_id) ranking for
@@ -79,8 +81,42 @@ def rank(spec_hash: str, case_id: str) -> str:
     return hashlib.sha256((digest + case_id).encode("utf-8")).hexdigest()
 
 
+def canonical_frame(case_ids: list[str]) -> list[str]:
+    """Return the frame unchanged, or raise. Shared by both entry points.
+
+    Two invariants used to live only in the CLI, so anything importing
+    select() bypassed them:
+
+    Duplicates. N is the frame size that §11's thresholds are read against.
+    A frame of 30 entries containing one repeat is 29 cases, and admitting it
+    as FULL_CENSUS puts an undersized frame past the feasibility minimum the
+    amendment exists to enforce.
+
+    Identifier shape. A case_id carrying surrounding whitespace is refused
+    rather than trimmed. The CLI used to apply str.strip() per line, which
+    removes any whitespace and not merely the line ending, so the identifier
+    that got ranked was no longer the identifier the frame froze: a file of
+    101 ids with trailing spaces exited successfully while emitting 100 ids
+    that appear nowhere in the frame. Rewriting an identifier silently is the
+    same failure as rewriting the spec hash silently, and it is refused for
+    the same reason.
+    """
+    for case_id in case_ids:
+        if not isinstance(case_id, str) or not case_id:
+            raise ValueError(f"case_id must be a non-empty string; got {case_id!r}")
+        if case_id != case_id.strip():
+            raise ValueError(
+                f"case_id carries surrounding whitespace and will not be rewritten: {case_id!r}"
+            )
+    if len(case_ids) != len(set(case_ids)):
+        duplicated = sorted({c for c in case_ids if case_ids.count(c) > 1})
+        raise ValueError(f"duplicate case_ids in frame: {', '.join(duplicated[:10])}")
+    return case_ids
+
+
 def select(spec_hash: str, case_ids: list[str]) -> tuple[str, list[str]]:
     digest = canonical_spec_hash(spec_hash)
+    case_ids = canonical_frame(case_ids)
     n = len(case_ids)
     if n < 30:
         return "FEASIBILITY_FAILURE", []
@@ -99,11 +135,16 @@ if __name__ == "__main__":
         print(exc, file=sys.stderr)
         sys.exit(1)
     with open(sys.argv[2], encoding="utf-8") as f:
-        ids = [line.strip() for line in f if line.strip()]
-    if len(ids) != len(set(ids)):
-        print("duplicate case_ids in frame", file=sys.stderr)
+        # Remove the line ending only. Anything else surrounding the
+        # identifier is a frame defect for canonical_frame to refuse, not
+        # something to trim away behind the operator's back.
+        ids = [line.rstrip("\n").rstrip("\r") for line in f]
+    ids = [case_id for case_id in ids if case_id]
+    try:
+        verdict, chosen = select(spec_hash, ids)
+    except ValueError as exc:
+        print(exc, file=sys.stderr)
         sys.exit(1)
-    verdict, chosen = select(spec_hash, ids)
     print(f"N={len(ids)} verdict={verdict} selected={len(chosen)}", file=sys.stderr)
     if verdict == "FEASIBILITY_FAILURE":
         sys.exit(2)
