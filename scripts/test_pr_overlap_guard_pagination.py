@@ -275,6 +275,82 @@ class SnapshotDenialIsDiagnosable(unittest.TestCase):
         self.assertIn("no field differs", guard._snapshot_delta(rows, rows))
 
 
+class WorkflowTrustBoundary(unittest.TestCase):
+    """The guard must be judged from the workflow's commit, not the candidate's.
+
+    Running it from the candidate's tree made every pull request that predates
+    the guard fail on `sha256sum scripts/pr_overlap_guard.py` before any
+    verdict, since those branches do not contain the file. The candidate is
+    data; the guard and its self-tests come from the workflow commit.
+    """
+
+    @staticmethod
+    def source() -> str:
+        return (Path(__file__).resolve().parents[1] / ".github/workflows/pr-overlap-guard.yml").read_text()
+
+    @staticmethod
+    def step(source: str, name: str) -> str:
+        head = source.split(f"- name: {name}", 1)[1]
+        return head.split("\n      - name:", 1)[0]
+
+    def test_the_guard_is_checked_out_from_the_workflow_commit(self):
+        step = self.step(self.source(), "Checkout the guard from the workflow commit")
+        self.assertIn("path: trusted-source", step)
+        self.assertIn("job.workflow_sha || github.workflow_sha", step)
+
+    def test_the_candidate_is_checked_out_as_data_at_its_exact_head(self):
+        step = self.step(self.source(), "Checkout exact candidate as data")
+        self.assertIn("path: candidate-data", step)
+        self.assertIn("github.event.pull_request.head.sha", step)
+        self.assertIn("fetch-depth: 0", step)  # the pinned base commit must be reachable
+
+    def test_the_verdict_runs_the_trusted_guard_over_the_candidate_root(self):
+        step = self.step(self.source(), "Report overlap with open pull requests")
+        self.assertIn("python trusted-source/scripts/pr_overlap_guard.py", step)
+        self.assertIn("--root candidate-data", step)
+
+    def test_no_step_executes_or_hashes_the_candidates_own_copy_of_the_guard(self):
+        source = self.source()
+        for forbidden in ("python scripts/pr_overlap_guard.py",
+                          "discover -s ../candidate-data",
+                          "sha256sum ../candidate-data"):
+            self.assertNotIn(forbidden, source)
+
+    def test_the_self_test_runs_inside_the_trusted_checkout(self):
+        step = self.step(self.source(), "Self-test the guard before trusting its verdict")
+        self.assertIn("working-directory: trusted-source", step)
+        self.assertIn("discover -s scripts", step)
+
+    def test_both_checkouts_are_verified_to_be_the_commits_that_were_asked_for(self):
+        step = self.step(self.source(), "Self-test the guard before trusting its verdict")
+        self.assertIn('test "$(git rev-parse HEAD)" = "$EXPECTED_GUARD"', step)
+        self.assertIn('git -C ../candidate-data rev-parse HEAD)" = "$EXPECTED_CANDIDATE"', step)
+
+    def test_neither_checkout_persists_credentials_or_pulls_submodules(self):
+        source = self.source()
+        self.assertEqual(source.count("persist-credentials: false"), 2)
+        self.assertEqual(source.count("submodules: false"), 2)
+
+    def test_a_pr_without_the_guard_in_its_tree_still_gets_a_verdict_path(self):
+        # The regression itself, run for real: a candidate checkout that holds
+        # no scripts/pr_overlap_guard.py must not stop the trusted guard from
+        # reading it as data.
+        with tempfile.TemporaryDirectory() as tmp:
+            def git(*args):
+                return subprocess.check_output(["git", "-C", tmp, *args], stderr=subprocess.DEVNULL).decode().strip()
+            git("init", "-q")
+            git("config", "user.name", "synthetic-test")
+            git("config", "user.email", "synthetic@example.invalid")
+            Path(tmp, "docs").mkdir()
+            Path(tmp, "docs", "old.md").write_text("predates the guard\n")
+            git("add", ".")
+            git("commit", "-qm", "base")
+            base = git("rev-parse", "HEAD")
+            self.assertFalse(Path(tmp, "scripts", "pr_overlap_guard.py").exists())
+            with unittest.mock.patch.dict(os.environ, {"GITHUB_BASE_SHA": base}):
+                self.assertEqual(guard.base_directories(tmp), frozenset({"docs"}))
+
+
 class ExecutedWorkflowBoundary(unittest.TestCase):
     def test_python_failure_survives_summary_pipe(self):
         source = (Path(__file__).resolve().parents[1] / ".github/workflows/pr-overlap-guard.yml").read_text()
