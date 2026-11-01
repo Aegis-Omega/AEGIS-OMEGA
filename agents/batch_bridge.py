@@ -89,7 +89,10 @@ def _tok(text: str) -> int:
 
 def estimate(tasks: list[AgentTask], model: str) -> float:
     """Worst-case USD: every task emits its full max_tokens. Batch = 50% off."""
-    in_price, out_price = _PRICE.get(model, _PRICE["claude-opus-4-8"])
+    # Never estimate an unpriced model using another model's tariff.
+    if model not in _PRICE:
+        raise ValueError("model has no explicit price entry")
+    in_price, out_price = _PRICE[model]
     total = 0.0
     for t in tasks:
         tin = _tok(t.system) + _tok(t.prompt)

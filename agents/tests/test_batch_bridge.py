@@ -12,6 +12,13 @@ class BatchBridgeSafetyTests(unittest.TestCase):
     def setUp(self) -> None:
         self.tasks = [AgentTask("engineering", "system", "prompt", max_tokens=1)]
 
+    def test_unpriced_model_denied_before_budget_estimate(self) -> None:
+        from agents.batch_bridge import estimate
+        with self.assertRaisesRegex(ValueError, 'model.*price'):
+            estimate(self.tasks, 'fictional-premium-999')
+        with self.assertRaisesRegex(ValueError, 'model.*price'):
+            plan(self.tasks, model='fictional-premium-999', cap=100.0)
+
     def test_non_finite_or_negative_cap_is_rejected(self) -> None:
         for cap in (math.nan, math.inf, -math.inf, -0.01):
             with self.subTest(cap=cap):
