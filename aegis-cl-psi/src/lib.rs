@@ -153,6 +153,7 @@ pub mod coherence_broadcaster;
 // Temporal dimension of the moduli tower. Continuously coherent = martingale holds.
 // SHA-256(epoch ‖ frame ‖ prev_hash). Breach detection. Terminal hash certification.
 pub mod epoch_coherence_chain;
+pub mod hash_chain_log;
 
 // Gate 231 — Constitutional Autonode: unified T2 state machine (resonance + cert + coherence + chain)
 // One tick() = full constitutional cycle. AdaptivePower(T) ≤ ReplayVerifiability(T) made concrete.
