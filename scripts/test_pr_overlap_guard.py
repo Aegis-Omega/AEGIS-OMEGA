@@ -175,5 +175,91 @@ class Reporting(unittest.TestCase):
         self.assertEqual(len(set(runs)), 1)
 
 
+def renamed(pairs: list[tuple[str, str]]) -> list[dict]:
+    """GitHub's shape for a rename: one row carrying both paths."""
+    return [
+        {"filename": new, "previous_filename": old, "status": "renamed"}
+        for old, new in pairs
+    ]
+
+
+class RenamesDoNotHideOverlap(unittest.TestCase):
+    """A rename must not make a contested path invisible.
+
+    GitHub reports a rename as a single row whose `filename` is the new path
+    and `previous_filename` the old one. Counting only `filename` meant a PR
+    that moved a file reported no overlap with a PR that edited it -- the one
+    case where the conflict is certain rather than probable.
+    """
+
+    def test_moving_files_still_collides_with_a_pr_editing_the_originals(self):
+        mine = renamed([("src/a.py", "src/x.py"), ("src/b.py", "src/y.py")])
+        theirs = modified("src/a.py", "src/b.py")
+        found = guard.collide(
+            mine, [(7, "edits the originals", theirs)],
+            min_shared=2, min_jaccard=0.34, existing=EXISTING,
+        )
+        self.assertEqual(len(found), 1, "the rename hid a certain conflict")
+        self.assertEqual(found[0].shared_files, ("src/a.py", "src/b.py"))
+
+    def test_the_destination_paths_still_collide_too(self):
+        mine = renamed([("src/a.py", "src/x.py"), ("src/b.py", "src/y.py")])
+        theirs = modified("src/x.py", "src/y.py")
+        found = guard.collide(
+            mine, [(8, "edits the destinations", theirs)],
+            min_shared=2, min_jaccard=0.34, existing=EXISTING,
+        )
+        self.assertEqual(len(found), 1)
+        self.assertEqual(found[0].shared_files, ("src/x.py", "src/y.py"))
+
+    def test_touched_reports_both_ends_of_a_rename(self):
+        self.assertEqual(
+            guard.touched(renamed([("src/a.py", "src/x.py")])),
+            {"src/a.py", "src/x.py"},
+        )
+
+    def test_touched_ignores_absent_and_non_string_paths(self):
+        rows = [
+            {"filename": "src/keep.py", "status": "modified"},
+            {"filename": "src/also.py", "previous_filename": None, "status": "modified"},
+            {"filename": "", "previous_filename": "", "status": "modified"},
+        ]
+        self.assertEqual(guard.touched(rows), {"src/keep.py", "src/also.py"})
+
+    def test_a_rename_does_not_claim_its_source_directory_as_new_territory(self):
+        # territory() is about directories a PR brings into existence. Moving
+        # a file out of src/old/ does not create src/old/, so the old path
+        # must not enter the territory set even though it is touched.
+        rows = renamed([("src/old/a.py", "fresh/new/a.py")])
+        self.assertNotIn("src/old", guard.territory(rows, EXISTING))
+
+
+class MalformedFileEvidenceFailsClosed(unittest.TestCase):
+    """A /files row is evidence only when it carries a path and a status."""
+
+    def test_a_row_without_a_filename_is_refused(self):
+        with self.assertRaisesRegex(ValueError, "without a filename"):
+            guard._file_identity({"number": 101})
+
+    def test_a_row_without_a_status_is_refused(self):
+        with self.assertRaisesRegex(ValueError, "without a status: a/b.py"):
+            guard._file_identity({"filename": "a/b.py"})
+
+    def test_empty_and_non_string_fields_are_refused(self):
+        for bad in ({"filename": "", "status": "added"},
+                    {"filename": "a/b.py", "status": ""},
+                    {"filename": 7, "status": "added"},
+                    {"filename": "a/b.py", "status": 7},
+                    {}):
+            with self.assertRaises(ValueError, msg=repr(bad)):
+                guard._file_identity(bad)
+
+    def test_a_well_formed_row_returns_its_path(self):
+        self.assertEqual(
+            guard._file_identity({"filename": "a/b.py", "status": "renamed"}),
+            "a/b.py",
+        )
+
+
 if __name__ == "__main__":
     unittest.main()
