@@ -94,7 +94,8 @@ def estimate(tasks: list[AgentTask], model: str) -> float:
     for t in tasks:
         tin = _tok(t.system) + _tok(t.prompt)
         total += (tin / 1e6) * in_price + (t.max_tokens / 1e6) * out_price
-    return round(total * _BATCH_DISCOUNT, 4)
+    # Round UP, never DOWN: a tiny positive billable batch must never cost $0.
+    return math.ceil(total * _BATCH_DISCOUNT * 10_000) / 10_000
 
 
 def plan(tasks: list[AgentTask], model: str = MODEL, cap: float = MAX_USD) -> BatchPlan:
