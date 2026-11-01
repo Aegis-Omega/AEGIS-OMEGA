@@ -40,8 +40,26 @@ const JOB_RESULTS = new Set(['succeeded', 'succeededWithIssues', 'failed', 'canc
 
 function validateTimestamp(field: string, value: unknown): void {
   if (value === null) return
-  if (typeof value !== 'string' || !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?Z$/.test(value)
-      || !Number.isFinite(Date.parse(value))) throw new TypeError(field + ' must be a UTC timestamp or null')
+  // Preserve only supplied fractional digits, up to 15 (femtosecond comparison).
+  // This validates evidence syntax, not the timestamp resolution of Azure.
+  if (typeof value !== 'string' || !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,15})?Z$/.test(value)) {
+    throw new TypeError(field + ' must be a UTC timestamp or null')
+  }
+  const parsed = new Date(value)
+  // Date.parse silently normalizes impossible dates (e.g. Feb 30 -> Mar 2).
+  // Compare the entire UTC second, preserving optional fractional precision.
+  if (!Number.isFinite(parsed.getTime()) || parsed.toISOString().slice(0, 19) !== value.slice(0, 19)) {
+    throw new TypeError(field + ' must be a UTC timestamp or null')
+  }
+}
+// Date.parse truncates fractions to milliseconds. After validation, compare
+// fixed-width UTC-second + supplied 15 fractional digits, right-padded with
+// zeroes. String ordering is exact down to 10^-15 s, without floating-point
+// rounding or claiming Azure produced femtosecond-resolution measurements.
+function timestampOrderKey(value: string): string {
+  const seconds = value.slice(0, 19)
+  const fraction = value.charAt(19) === '.' ? value.slice(20, -1) : ''
+  return seconds + '.' + fraction.padEnd(15, '0')
 }
 function validate(input: AzureDevOpsJobEvidenceV1, generation: string): void {
   if (!input || typeof input !== 'object' || Array.isArray(input)) throw new TypeError('missing Azure job evidence')
@@ -66,7 +84,7 @@ function validate(input: AzureDevOpsJobEvidenceV1, generation: string): void {
   validateTimestamp('job_started_at', input.job_started_at)
   validateTimestamp('job_finished_at', input.job_finished_at)
   if (input.job_started_at !== null && input.job_finished_at !== null &&
-      Date.parse(input.job_finished_at) < Date.parse(input.job_started_at)) {
+      timestampOrderKey(input.job_finished_at) < timestampOrderKey(input.job_started_at)) {
     throw new TypeError('job_finished_at must not precede job_started_at')
   }
 }

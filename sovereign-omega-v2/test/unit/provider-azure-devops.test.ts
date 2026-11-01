@@ -80,6 +80,69 @@ describe('Azure DevOps exact-source pipeline + timeline evidence adapter',()=>{
     await expect(observe({job_finished_at:'2026-10-31T05:00:00Z'}))
       .rejects.toThrow('job_finished_at')
   })
+  it('rejects impossible UTC calendar dates that JavaScript normalizes',async()=>{
+    for (const impossible of [
+      '2026-02-30T06:00:00Z',
+      '2025-02-29T00:00:00Z',
+      '2026-04-31T00:00:00Z',
+    ]) {
+      await expect(observe({job_started_at:impossible,job_finished_at:'2027-01-01T00:00:00Z'}))
+        .rejects.toThrow('job_started_at')
+      await expect(observe({job_started_at:'2024-01-01T00:00:00Z',job_finished_at:impossible}))
+        .rejects.toThrow('job_finished_at')
+    }
+    const leap=await observe({
+      job_started_at:'2024-02-29T00:00:00Z',
+      job_finished_at:'2024-02-29T00:00:00.123456Z',
+    })
+    expect(leap.state).toBe('OBSERVED_AVAILABLE')
+  })
+  it('rejects sub-millisecond reversed job durations including nanoseconds',async()=>{
+    for (const [start,finish] of [
+      ['2026-10-31T06:00:00.0009Z','2026-10-31T06:00:00.0001Z'],
+      ['2026-10-31T06:00:00.123456Z','2026-10-31T06:00:00.123455Z'],
+      ['2026-10-31T06:00:00.123456789Z','2026-10-31T06:00:00.123456788Z'],
+    ]) {
+      await expect(observe({job_started_at:start,job_finished_at:finish}))
+        .rejects.toThrow('job_finished_at')
+    }
+    expect((await observe({
+      job_started_at:'2026-10-31T06:00:00.100000Z',
+      job_finished_at:'2026-10-31T06:00:00.1Z',
+    })).state).toBe('OBSERVED_AVAILABLE')
+    expect((await observe({
+      job_started_at:'2026-10-31T06:00:00.999999Z',
+      job_finished_at:'2026-10-31T06:00:01.000001Z',
+    })).state).toBe('OBSERVED_AVAILABLE')
+  })
+  it('compares supplied femtosecond fractions without Date.parse truncation',async()=>{
+    await expect(observe({
+      job_started_at:'2026-10-31T06:00:00.000000000000001Z',
+      job_finished_at:'2026-10-31T06:00:00.000000000000000Z',
+    })).rejects.toThrow('job_finished_at')
+    const forward=await observe({
+      job_started_at:'2026-10-31T06:00:00.000000000000000Z',
+      job_finished_at:'2026-10-31T06:00:00.000000000000001Z',
+    })
+    expect(forward.state).toBe('OBSERVED_AVAILABLE')
+    expect(forward.authority_effect).toBe('NONE')
+    expect((await observe({
+      job_started_at:'2026-10-31T06:00:00.999999999999999Z',
+      job_finished_at:'2026-10-31T06:00:01.000000000000000Z',
+    })).state).toBe('OBSERVED_AVAILABLE')
+    expect((await observe({
+      job_started_at:'2026-10-31T06:00:00.1Z',
+      job_finished_at:'2026-10-31T06:00:00.100000000000000Z',
+    })).state).toBe('OBSERVED_AVAILABLE')
+  })
+  it('rejects fractional evidence beyond the 15-digit precision contract',async()=>{
+    await expect(observe({
+      job_started_at:'2026-10-31T06:00:00.0000000000000001Z',
+    })).rejects.toThrow('job_started_at')
+    await expect(observe({
+      job_finished_at:'2026-10-31T06:01:00.1234567890123456Z',
+    })).rejects.toThrow('job_finished_at')
+  })
   it('hashes normalized execution evidence deterministically',async()=>{
     const a=await observe(),b=await observe(),
       c=await observe({run_id:'26',timeline_build_id:'26'})
