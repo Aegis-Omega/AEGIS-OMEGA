@@ -1,0 +1,6 @@
+{
+  "name": "aegis-omega",
+  "version": "1.0.0",
+  "description": "AEGIS Omega Mission Control: operating facts for every agent from the first turn, a shield that keeps background spending behind the user's explicit word, a push ledger, and the /omega pane.",
+  "types": "./types/index.d.ts"
+}
