@@ -1,7 +1,10 @@
 import { readFileSync } from 'node:fs'
 import { describe, expect, it, vi } from 'vitest'
 import * as ts from 'typescript'
-import { authorizeNebiusCaller } from '../../../supabase/functions/_shared/nebius-auth.ts'
+import {
+  authorizeNebiusCaller,
+  isNebiusRequestBounded,
+} from '../../../supabase/functions/_shared/nebius-auth.ts'
 
 const jwt = 'Bearer header.payload.signature'
 const agentSource = readFileSync(new URL('../../../supabase/functions/agent/index.ts', import.meta.url), 'utf8')
@@ -14,12 +17,14 @@ describe('AEGIS paid agent endpoint source-bound auth boundary', () => {
     expect(handler).toContain('authClient.auth.getUser(jwt)')
     expect(handler).toMatch(/if \(!permitted\) \{[\s\S]*?status: 401/)
     const gate = handler.indexOf('const permitted = await authorizeNebiusCaller(')
-    const execution = handler.indexOf('await runAgent(task, context)')
+    const execution = handler.indexOf('await runAgent(task, boundedContext)')
     const bodyParse = handler.indexOf('await req.json()')
     expect(gate).toBeGreaterThan(0)
     expect(gate).toBeLessThan(bodyParse)
     expect(gate).toBeLessThan(execution)
-    expect(agentSource).toContain("import { authorizeNebiusCaller } from '../_shared/nebius-auth.ts'")
+    expect(agentSource).toContain(
+      "import { authorizeNebiusCaller, isNebiusRequestBounded } from '../_shared/nebius-auth.ts'",
+    )
   })
 
   it('does not contact identity service without a well-formed JWT or allowlist', async () => {
@@ -57,6 +62,8 @@ describe('AEGIS paid agent HTTP handler execution boundary', () => {
     userId?: string
     authFailure?: boolean
     serviceConfigured?: boolean
+    body?: unknown
+    jsonFailure?: boolean
   }
 
   async function probe(options: ProbeOptions = {}) {
@@ -82,17 +89,22 @@ describe('AEGIS paid agent HTTP handler execution boundary', () => {
     // external dependencies are injected as bounded mock functions.
     const register = new Function(
       'Deno', 'Response', 'CORS', 'ANTHROPIC_API_KEY', 'SUPABASE_URL',
-      'SERVICE_KEY', 'createClient', 'authorizeNebiusCaller', 'runAgent',
+      'SERVICE_KEY', 'createClient', 'authorizeNebiusCaller', 'isNebiusRequestBounded', 'runAgent',
       'NOTIFY_SECRET', 'fetch', compiled,
     )
     register(
       deno, Response, {}, 'FAKE-NEVER-SENT', 'https://mock.invalid',
       options.serviceConfigured === false ? '' : 'FAKE-SERVICE-KEY',
-      createClient, authorizeNebiusCaller, runAgent, '', fetch,
+      createClient, authorizeNebiusCaller, isNebiusRequestBounded, runAgent, '', fetch,
     )
     if (!requestHandler) throw Error('Deno handler was not registered')
 
-    const json = vi.fn(async () => ({ task: 'local-only' }))
+    const json = vi.fn(async () => {
+      if (options.jsonFailure) throw Error('mock invalid JSON')
+      return Object.prototype.hasOwnProperty.call(options, 'body')
+        ? options.body
+        : { task: 'local-only' }
+    })
     const req = {
       method: 'POST',
       headers: new Headers(options.authorization ? { authorization: options.authorization } : {}),
@@ -147,5 +159,24 @@ describe('AEGIS paid agent HTTP handler execution boundary', () => {
     expect(result.runAgent).toHaveBeenCalledExactlyOnceWith('local-only', undefined)
     expect(result.json).toHaveBeenCalledOnce()
     expect(result.fetch).not.toHaveBeenCalled()
+  })
+
+  it('rejects malformed or oversized input before paid inference', async () => {
+    const invalidBodies: ProbeOptions[] = [
+      { body: { task: 'x'.repeat(4097) } },
+      { body: { task: 'local-only', context: 'x'.repeat(4097) } },
+      { body: { task: 7 } },
+      { body: { task: 'local-only', context: { raw: true } } },
+      { body: { task: 'local-only', notify: 'yes' } },
+      { body: null },
+      { jsonFailure: true },
+    ]
+
+    for (const options of invalidBodies) {
+      const result = await probe({ authorization: jwt, ...options })
+      expect(result.response.status).toBe(400)
+      expect(result.runAgent).not.toHaveBeenCalled()
+      expect(result.fetch).not.toHaveBeenCalled()
+    }
   })
 })

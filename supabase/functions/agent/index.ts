@@ -5,7 +5,7 @@
 // Returns: { result: string, actions: string[] }
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { CORS } from '../_shared/cors.ts'
-import { authorizeNebiusCaller } from '../_shared/nebius-auth.ts'
+import { authorizeNebiusCaller, isNebiusRequestBounded } from '../_shared/nebius-auth.ts'
 
 const ANTHROPIC_API_KEY = Deno.env.get('ANTHROPIC_API_KEY') ?? ''
 const NOTIFY_SECRET     = Deno.env.get('NOTIFY_SECRET') ?? ''
@@ -158,13 +158,31 @@ Deno.serve(async (req) => {
     return new Response(JSON.stringify({ error: 'ANTHROPIC_API_KEY not configured' }), { status: 503, headers: CORS })
   }
 
-  const { task, context, notify } = await req.json() as { task?: string; context?: string; notify?: boolean }
-  if (!task) {
-    return new Response(JSON.stringify({ error: 'task is required' }), { status: 400, headers: CORS })
+  let body: unknown
+  try {
+    body = await req.json()
+  } catch {
+    return new Response(JSON.stringify({ error: 'invalid JSON body' }), { status: 400, headers: CORS })
+  }
+  if (body === null || typeof body !== 'object' || Array.isArray(body)) {
+    return new Response(JSON.stringify({ error: 'invalid request body' }), { status: 400, headers: CORS })
+  }
+
+  const { task, context, notify } = body as Record<string, unknown>
+  if (typeof task !== 'string'
+    || (context !== undefined && typeof context !== 'string')
+    || (notify !== undefined && typeof notify !== 'boolean')) {
+    return new Response(JSON.stringify({ error: 'invalid request fields' }), { status: 400, headers: CORS })
+  }
+  const boundedContext = context === undefined ? undefined : context
+  if (!isNebiusRequestBounded(task, boundedContext ?? '', [])) {
+    return new Response(JSON.stringify({ error: 'task or context exceeds request bounds' }), {
+      status: 400, headers: CORS,
+    })
   }
 
   try {
-    const { result, actions } = await runAgent(task, context)
+    const { result, actions } = await runAgent(task, boundedContext)
 
     // Optionally notify owner with the result
     if (notify) {
