@@ -512,7 +512,23 @@ class AuthorityEvaluator:
         ):
             reasons.append("MANDATORY_EXTERNAL_IDEMPOTENCY_POLICY")
         if (policy and policy.get("external_idempotency")) or mandatory_external_effect_guard:
-            if request.idempotency_key == "NONE" and request.compensation_reference == "NONE":
+            # Only validated, non-placeholder references can protect external effects.
+            # An invalid supplied value is a denial, even when the other field is valid.
+            usable_external_reference = False
+            for ref_name in ("idempotency_key", "compensation_reference"):
+                value = getattr(request, ref_name)
+                if value == "NONE":
+                    continue
+                try:
+                    _assert_authority_string(ref_name, value)
+                except SovereignExecutionError:
+                    reasons.append(f"{ref_name.upper()}_INVALID")
+                    continue
+                if value.upper() in ("NONE", "NULL", "N/A"):
+                    reasons.append(f"{ref_name.upper()}_INVALID")
+                    continue
+                usable_external_reference = True
+            if not usable_external_reference:
                 reasons.append("EXTERNAL_EFFECT_REQUIRES_IDEMPOTENCY_OR_COMPENSATION")
 
         reasons = sorted(set(reasons))
