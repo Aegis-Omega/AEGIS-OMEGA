@@ -417,6 +417,9 @@ class AuthorityEvaluator:
 
     def evaluate(self, request: AuthorityRequest, *, approval: ApprovalGrant | None = None) -> PolicyDecision:
         reasons: list[str] = []
+        request_generation_valid = type(request.current_generation) is int and request.current_generation >= 0
+        if not request_generation_valid:
+            reasons.append("REQUEST_GENERATION_INVALID")
         if self.policy is None:
             reasons.append("AUTHORITY_SERVICE_UNAVAILABLE")
         if self.registry is None:
@@ -476,22 +479,56 @@ class AuthorityEvaluator:
             if not reasons:
                 score_micros = evidence.confidence_micros * evidence.recency_micros * (1_000_000 - evidence.failure_rate_micros) // 1_000_000 // 1_000_000
 
-        if policy and policy.get("approval") == "EXPLICIT":
+        # Consequential risk classes cannot be downgraded by a malformed or
+        # tampered policy record, even if its local hash is internally consistent.
+        mandatory_approval = request.action_class in (D2, D3, D4)
+        if mandatory_approval and (policy is None or policy.get("approval") != "EXPLICIT"):
+            reasons.append("MANDATORY_EXPLICIT_APPROVAL_POLICY")
+        if policy and (policy.get("approval") == "EXPLICIT" or mandatory_approval):
             if approval is None:
                 reasons.append("APPROVAL_MISSING")
             else:
+                reasons.append("TRUSTED_APPROVAL_VERIFIER_UNAVAILABLE")
+                approval_generation_valid = (
+                    type(approval.valid_through_generation) is int
+                    and approval.valid_through_generation >= 0
+                )
+                if not approval_generation_valid:
+                    reasons.append("APPROVAL_GENERATION_INVALID")
                 if approval.state != "APPROVED": reasons.append("APPROVAL_NOT_ACTIVE")
                 if approval.reference != request.approval_reference: reasons.append("APPROVAL_REFERENCE_MISMATCH")
                 if approval.authority_domain != request.authority_domain: reasons.append("APPROVAL_DOMAIN_MISMATCH")
                 if approval.action_class != request.action_class: reasons.append("APPROVAL_ACTION_CLASS_MISMATCH")
                 if approval.source_commit != request.source_commit: reasons.append("APPROVAL_SOURCE_COMMIT_MISMATCH")
                 if approval.workspace_binding != request.workspace_binding: reasons.append("APPROVAL_WORKSPACE_MISMATCH")
-                if approval.valid_through_generation < request.current_generation: reasons.append("APPROVAL_EXPIRED")
+                if approval_generation_valid and request_generation_valid and approval.valid_through_generation < request.current_generation:
+                    reasons.append("APPROVAL_EXPIRED")
                 try: _assert_hash("approval.signature_root", approval.signature_root)
                 except SovereignExecutionError: reasons.append("APPROVAL_UNSIGNED")
 
-        if policy and policy.get("external_idempotency"):
-            if request.idempotency_key == "NONE" and request.compensation_reference == "NONE":
+        mandatory_external_effect_guard = request.action_class in (D3, D4)
+        if mandatory_external_effect_guard and (
+            policy is None or policy.get("external_idempotency") is not True
+        ):
+            reasons.append("MANDATORY_EXTERNAL_IDEMPOTENCY_POLICY")
+        if (policy and policy.get("external_idempotency")) or mandatory_external_effect_guard:
+            # Only validated, non-placeholder references can protect external effects.
+            # An invalid supplied value is a denial, even when the other field is valid.
+            usable_external_reference = False
+            for ref_name in ("idempotency_key", "compensation_reference"):
+                value = getattr(request, ref_name)
+                if value == "NONE":
+                    continue
+                try:
+                    _assert_authority_string(ref_name, value)
+                except SovereignExecutionError:
+                    reasons.append(f"{ref_name.upper()}_INVALID")
+                    continue
+                if value.upper() in ("NONE", "NULL", "N/A"):
+                    reasons.append(f"{ref_name.upper()}_INVALID")
+                    continue
+                usable_external_reference = True
+            if not usable_external_reference:
                 reasons.append("EXTERNAL_EFFECT_REQUIRES_IDEMPOTENCY_OR_COMPENSATION")
 
         reasons = sorted(set(reasons))
@@ -544,11 +581,14 @@ class WriterLeaseManager:
         self._leases: dict[str, WriterLease] = {}
         self._generation: dict[str, int] = {}
         self._used_actions: set[tuple[str, int, str]] = set()
+        self._emergency_stopped = False
         self._lock = threading.RLock()
 
     def acquire(self, *, authority_domain: str, holder_identity_root: str, source_commit: str, expected_parent_state: str) -> tuple[WriterLease | None, LeaseReceipt]:
         with self._lock:
             reasons: list[str] = []
+            if self._emergency_stopped:
+                reasons.append("EMERGENCY_STOP_ACTIVE")
             if authority_domain in self._leases:
                 reasons.append("WRITER_ALREADY_ACTIVE")
             try: _assert_hash("holder_identity_root", holder_identity_root)
@@ -608,6 +648,17 @@ class WriterLeaseManager:
             token = lease.fencing_token if lease else ZERO_HASH
             if not reasons: del self._leases[authority_domain]
             return self._lease_receipt("REVOKE", authority_domain, generation, token, reasons)
+
+    def emergency_stop(self) -> tuple[LeaseReceipt, ...]:
+        with self._lock:
+            self._emergency_stopped = True
+            receipts = []
+            for authority_domain, lease in sorted(self._leases.items()):
+                del self._leases[authority_domain]
+                receipts.append(self._lease_receipt(
+                    "REVOKE", authority_domain, lease.lease_generation, lease.fencing_token, (),
+                ))
+            return tuple(receipts)
 
     def current(self, authority_domain: str) -> WriterLease | None:
         with self._lock:
