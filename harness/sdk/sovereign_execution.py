@@ -479,7 +479,12 @@ class AuthorityEvaluator:
             if not reasons:
                 score_micros = evidence.confidence_micros * evidence.recency_micros * (1_000_000 - evidence.failure_rate_micros) // 1_000_000 // 1_000_000
 
-        if policy and policy.get("approval") == "EXPLICIT":
+        # Consequential risk classes cannot be downgraded by a malformed or
+        # tampered policy record, even if its local hash is internally consistent.
+        mandatory_approval = request.action_class in (D2, D3, D4)
+        if mandatory_approval and (policy is None or policy.get("approval") != "EXPLICIT"):
+            reasons.append("MANDATORY_EXPLICIT_APPROVAL_POLICY")
+        if policy and (policy.get("approval") == "EXPLICIT" or mandatory_approval):
             if approval is None:
                 reasons.append("APPROVAL_MISSING")
             else:
@@ -501,7 +506,12 @@ class AuthorityEvaluator:
                 try: _assert_hash("approval.signature_root", approval.signature_root)
                 except SovereignExecutionError: reasons.append("APPROVAL_UNSIGNED")
 
-        if policy and policy.get("external_idempotency"):
+        mandatory_external_effect_guard = request.action_class in (D3, D4)
+        if mandatory_external_effect_guard and (
+            policy is None or policy.get("external_idempotency") is not True
+        ):
+            reasons.append("MANDATORY_EXTERNAL_IDEMPOTENCY_POLICY")
+        if (policy and policy.get("external_idempotency")) or mandatory_external_effect_guard:
             if request.idempotency_key == "NONE" and request.compensation_reference == "NONE":
                 reasons.append("EXTERNAL_EFFECT_REQUIRES_IDEMPOTENCY_OR_COMPENSATION")
 
