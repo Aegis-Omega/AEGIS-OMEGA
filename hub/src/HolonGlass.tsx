@@ -3,6 +3,7 @@ import './holon-glass.css'
 import './aegis-visual-universe.css'
 import { CosmicCommand } from './components/CosmicCommand.js'
 import { CommandJump } from './components/CommandJump.js'
+import { AegisBrand } from './components/brand/AegisBrand.js'
 import { MAX_ARTIFACT_SIZE, verifyArtifactBytes, copyDigestIfCurrent } from './lib/artifactIntegrity.js'
 import { FIRST_VALUE_ACTION } from './lib/navigationContract.js'
 import { shouldDismissDisclosure } from './lib/disclosure.js'
@@ -38,13 +39,9 @@ const SIDE = [
 const QUANTUM_URL = 'https://aegis-quantum-integrity-mobile.tarikskalic33.workers.dev/'
 
 function Sigil({ size = 37 }: { size?: number }) {
-  return <svg role="img" aria-label="AEGIS Omega" width={size} height={size} viewBox="0 0 64 64" fill="none">
-    <defs><linearGradient id="hg-mark" x1="0" y1="0" x2="1" y2="1"><stop stopColor="#E8F8FF"/><stop offset=".5" stopColor="#82BFFF"/><stop offset="1" stopColor="#6282FF"/></linearGradient></defs>
-    <path d="M32 6 56 51H44L32 26 20 51H8L32 6Z" stroke="url(#hg-mark)" strokeWidth="2" fill="url(#hg-mark)" fillOpacity=".14"/>
-    <path d="M19 45h26M32 26v24M17 53h30" stroke="url(#hg-mark)" strokeWidth="1.4" opacity=".85"/>
-    <circle cx="32" cy="26" r="2.4" fill="#C3E9FF"/><path d="M2 57h60" stroke="#4A8BC7" strokeOpacity=".35"/>
-  </svg>
+  return <AegisBrand mode="mark" tone="phi" size={size}/>
 }
+
 function Arrow({ diagonal = false }: { diagonal?: boolean }) {
   return <svg width="15" height="15" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.7" viewBox="0 0 24 24"><path d={diagonal ? 'M5 19 19 5M8 5h11v11' : 'M4 12h16m-7-7 7 7-7 7'}/></svg>
 }
@@ -91,7 +88,7 @@ function Nav({ path = '/' }: { path?: string }) {
     }
   }, [open])
   return <><a className="hg-skip-link" href="#hg-main">Skip to content</a><header className="hg-nav-wrap"><div className="hg-nav">
-    <a className="hg-brand" href="/" aria-label="AEGIS Ω — home"><Sigil/><span className="hg-brand-word"><strong>AEGIS <em>Ω</em></strong><small>SOVEREIGN INTELLIGENCE</small></span></a>
+    <a className="hg-brand" href="/" aria-label="AEGIS Ω — home"><Sigil/><span className="hg-brand-word"><strong>AEGIS <em>Ω</em></strong><small>Aegis Omega Labs</small></span></a>
     <nav ref={menuRef} id="hg-primary-nav" className={'hg-links'+(open ? ' hg-links-open' : '')} aria-label="Primary navigation">
       {MAIN.map(item => <a key={item.href} href={item.href} aria-current={path===item.href?'page':undefined}>{item.label}</a>)}
       <a className="hg-links-mobile-extra" href="/compliance">Governance</a>
