@@ -1,5 +1,8 @@
 {
-  "model": "claude-opus-4-8",
+  "model": "sonnet",
+  "effortLevel": "medium",
+  "workflowSizeGuideline": "small",
+  "workflowKeywordTriggerEnabled": false,
   "hooks": {
     "PreToolUse": [
       {
