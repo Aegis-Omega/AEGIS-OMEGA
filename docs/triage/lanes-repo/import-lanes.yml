@@ -1,0 +1,25 @@
+name: import-lanes
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+permissions:
+  contents: write
+concurrency: import-lanes
+jobs:
+  import:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - name: Fetch the lanes and build the bundle
+        run: bash import.sh lanes.txt
+      - name: Publish the bundle as a release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          tag=lanes-2026-11-02
+          if gh release view "$tag" >/dev/null 2>&1; then echo "release $tag already exists"; exit 0; fi
+          gh release create "$tag" aegis-lanes.bundle aegis-lanes.bundle.sha256 \
+            --title "AEGIS lanes 2026-11-02" \
+            --notes "The 43 proof, research, evidence and integration lanes closed in Aegis-Omega/AEGIS-OMEGA#742, with full history. Restore instructions are in README.md."
