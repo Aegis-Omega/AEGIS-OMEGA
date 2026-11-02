@@ -39,6 +39,12 @@ function payload(d: HolonDraft, seq: number, previous_hash: string) {
     recorded_at:d.recorded_at, previous_hash
   }
 }
+/** Choices belong to the cycle after the latest synthesis; history stays intact. */
+export function activeHolonChoices(events: readonly HolonEvent[]): readonly HolonEvent[] {
+  let start = events.length
+  while (start > 0 && events[start - 1].kind !== 'weave') start--
+  return events.slice(start).filter(e => e.kind === 'select')
+}
 function checkDraft(d: HolonDraft, previous: readonly HolonEvent[]): void {
   if (!record(d)) fail('draft is not an object')
   if (typeof d.id !== 'string' || !/^[a-zA-Z0-9-]{10,80}$/.test(d.id)) fail('invalid id')
@@ -58,9 +64,16 @@ function checkDraft(d: HolonDraft, previous: readonly HolonEvent[]): void {
   if (d.parents.some(id=>typeof id!=='string'||!byId.has(id))) fail('parent not in prior history')
   if (d.kind==='branch' && (d.parents.length!==1 || !['seed','branch','weave'].includes(byId.get(d.parents[0])!.kind))) fail('branch must extend a source idea')
   if (d.kind==='select' && (d.parents.length!==1 || byId.get(d.parents[0])?.kind!=='branch')) fail('human choice must identify a branch')
+  const active = activeHolonChoices(previous)
+  if (d.kind==='select') {
+    if (active.some(e=>e.parents[0]===d.parents[0])) fail('direction already selected in this cycle')
+    if (active.length>=4) fail('at most four active human choices')
+  }
   if (d.kind==='weave') {
     if (d.parents.length<2 || d.parents.some(id=>byId.get(id)?.kind!=='select')) fail('weave requires two human choices')
     if (new Set(d.parents.map(id=>byId.get(id)!.parents[0])).size!==d.parents.length) fail('cannot weave duplicate ideas')
+    if (d.parents.some(id=>!active.some(e=>e.id===id))) fail('weave requires active human choices')
+    if (d.parents.length!==active.length) fail('weave must include every active human choice')
   }
   if (d.kind==='artifact' && (d.parents.length!==1 || byId.get(d.parents[0])?.kind!=='weave')) fail('artifact requires a human weave')
 }
@@ -96,7 +109,7 @@ export function selectedHolonBranches(journal: HolonTrace): readonly HolonEvent[
   const branches=new Map(journal.events.filter(e=>e.kind==='branch').map(e=>[e.id,e]))
   const seen=new Set<string>()
   const selected:HolonEvent[]=[]
-  for(const e of journal.events) if(e.kind==='select') {
+  for(const e of activeHolonChoices(journal.events)) {
     const id=e.parents[0]
     if(!seen.has(id)&&branches.has(id)){selected.push(branches.get(id)!);seen.add(id)}
   }

@@ -2,7 +2,7 @@ import { useMemo, useRef, useState, type ChangeEvent } from 'react'
 import { SovereignMatter } from './SovereignMatter.js'
 import { HolonicThread } from './HolonicThread.js'
 import {
-  emptyHolonTrace, appendHolonEvent, verifyHolonTrace, selectedHolonBranches,
+  emptyHolonTrace, appendHolonEvent, verifyHolonTrace, selectedHolonBranches, activeHolonChoices,
   MAX_HOLON_EVENTS, MAX_HOLON_TEXT,
   type HolonKind, type HolonRole, type HolonLens, type HolonTrace, type HolonDraft
 } from '../lib/holonTrace.js'
@@ -35,14 +35,14 @@ export function HolonMaximusStudio(){
   const branches=trace.events.filter(e=>e.kind==='branch')
   const selected=selectedHolonBranches(trace)
   const selectedIds=new Set(selected.map(e=>e.id))
-  const choices=trace.events.filter(e=>e.kind==='select')
+  const choices=activeHolonChoices(trace.events)
   const lastWeave=[...trace.events].reverse().find(e=>e.kind==='weave')
   const visibleParents=trace.events.filter(e=>['seed','branch','weave'].includes(e.kind))
   const capacity=trace.events.length<MAX_HOLON_EVENTS
   const humanDecisions=trace.events.filter(e=>e.actor==='human').length
   const lastHash=trace.events.at(-1)?.hash??'NOT RECORDED'
   const canWeave=choices.length>=2&&selected.length>=2
-  const includedChoices=choices.slice(0,4)
+  const includedChoices=choices
   const includedBranches=new Set(includedChoices.map(choice=>choice.parents[0]))
   const graphStats=useMemo(()=>({nodes:trace.events.length,links:trace.events.reduce((n,e)=>n+e.parents.length,0)}),[trace])
 
@@ -66,7 +66,7 @@ export function HolonMaximusStudio(){
     const raw=JSON.stringify(trace,null,2)
     const url=URL.createObjectURL(new Blob([raw],{type:'application/json'}))
     const a=document.createElement('a');a.href=url;a.download='aegis-holon-maximus-trace.json';a.click()
-    window.setTimeout(()=>URL.revokeObjectURL(url),500)
+    window.setTimeout(()=>URL.revokeObjectURL(url),30_000)
     setNotice('JSON exported. Hash linkage is not a digital signature.')
   }
   async function importTrace(event:ChangeEvent<HTMLInputElement>){
@@ -77,6 +77,12 @@ export function HolonMaximusStudio(){
     try{
       const parsed:unknown=JSON.parse(await file.text())
       const verified=await verifyHolonTrace(parsed)
+      if ((trace.events.length || seed.trim() || branch.trim() || weave.trim() || artifact.trim()) &&
+          !window.confirm('Replace your current journal and drafts? Export your current journal first if you want to keep it.')) {
+        setNotice('Import cancelled. Your current journal and drafts were kept.')
+        return
+      }
+      setSeed('');setBranch('');setWeave('');setArtifact('');setBranchParent('')
       setTrace(verified);setNotice('Imported and checked '+verified.events.length+' events; source identity remains unverified.')
     }catch(e){setError(e instanceof Error?e.message:'Invalid JSON')}
     finally{busyRef.current=false;setBusy(false)}
@@ -129,7 +135,7 @@ export function HolonMaximusStudio(){
         </section>}
         {!!branches.length&&<section className="hm-step" aria-labelledby="hm-choose-heading">
           <div className="hm-step-label">03 / CHOOSE</div><h2 id="hm-choose-heading">Taste is a human decision.</h2>
-          <p className="hm-helper">Choose up to four distinct directions. Every choice is yours; a model suggestion is never accepted automatically.</p>
+          <p className="hm-helper">Choose two to four distinct directions for this cycle. Recording a synthesis opens the next cycle and preserves every earlier decision.</p>
           <div className="hm-branches">{branches.map(e=><div className="hm-branch" key={e.id}>
             <div className="hm-branch-head"><span>{e.actor==='human'?'HUMAN IDEA':'PASTED '+e.actor.toUpperCase()+' / UNVERIFIED'}</span><span>{e.lens}</span></div>
             <p>{e.text}</p>
