@@ -25,4 +25,6 @@ def is_standalone_contract_script(path: Path) -> bool:
 
 def pytest_ignore_collect(collection_path: Path, config):  # type: ignore[no-untyped-def]
     del config
-    return is_standalone_contract_script(Path(collection_path))
+    if is_standalone_contract_script(Path(collection_path)):
+        return True
+    return None
