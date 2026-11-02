@@ -287,6 +287,45 @@ class Automaton3Tests(TestCase):
                     evaluator.evaluate(request, approval=approval).decision_root,
                 )
 
+
+    def test_external_effect_references_fail_closed(self):
+        # Neither an empty nor a malformed D3/D4 external action reference
+        # can serve as an idempotency or compensation guarantee.
+        malformed = (None, False, 3, "", " ", "none", "NULL", "N/A", "bad;ref", [])
+        for action_class in (D3, D4):
+            for field_name in ("idempotency_key", "compensation_reference"):
+                for value in malformed:
+                    with self.subTest(action_class=action_class, field=field_name, value=value):
+                        fields = {"idempotency_key": "NONE", "compensation_reference": "NONE"}
+                        fields[field_name] = value
+                        decision = self.evaluator.evaluate(
+                            self.request(action_class=action_class, **fields),
+                            approval=self.approval(action_class=action_class),
+                        )
+                        self.assertDenied(
+                            decision, "EXTERNAL_EFFECT_REQUIRES_IDEMPOTENCY_OR_COMPENSATION",
+                        )
+                        expected = (
+                            "IDEMPOTENCY_KEY_INVALID"
+                            if field_name == "idempotency_key"
+                            else "COMPENSATION_REFERENCE_INVALID"
+                        )
+                        self.assertIn(expected, decision.denial_codes)
+            for field_name in ("idempotency_key", "compensation_reference"):
+                with self.subTest(action_class=action_class, valid_field=field_name):
+                    accepted = self.evaluator.evaluate(
+                        self.request(action_class=action_class, **{
+                            field_name: "external-action-123",
+                        }),
+                        approval=self.approval(action_class=action_class),
+                    )
+                    # Still denied while trusted approval verification is unavailable.
+                    self.assertDenied(accepted, "TRUSTED_APPROVAL_VERIFIER_UNAVAILABLE")
+                    self.assertNotIn(
+                        "EXTERNAL_EFFECT_REQUIRES_IDEMPOTENCY_OR_COMPENSATION",
+                        accepted.denial_codes,
+                    )
+
     def test_event_law_and_operator_visibility_fields(self):
         payload={"content_type":"application/json","data":{"x":1},"text":"bounded message"}; digest=canonical_hash("RAW",payload)
         # Event payload digest is exact SHA-256 of canonical payload, not domain hash.
