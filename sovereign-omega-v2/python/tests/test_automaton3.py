@@ -248,6 +248,45 @@ class Automaton3Tests(TestCase):
         self.assertEqual(receipt.outcome,DENIED)
         self.assertIn("TRUSTED_APPROVAL_VERIFIER_UNAVAILABLE", receipt.denial_code)
 
+        # A policy-file downgrade must not bypass class-invariant authority.
+        # D2 was ADMITTED before this guard if approval=NONE and the evidence
+        # otherwise matched. D3/D4 could also skip external idempotency.
+        for action_class in (D2, D3, D4):
+            with self.subTest(action_class=action_class):
+                downgraded_policy = {
+                    level: dict(settings) for level, settings in POLICY.items()
+                }
+                downgraded_policy[action_class]["approval"] = "NONE"
+                if action_class in (D3, D4):
+                    downgraded_policy[action_class]["external_idempotency"] = False
+                capability = replace(
+                    self.capability, allowed_action_classes=(D1, D2, D3, D4),
+                )
+                evaluator = AuthorityEvaluator(
+                    policy=downgraded_policy,
+                    registry={"repository.mutate": capability},
+                    repository_root=self.root,
+                )
+                request = self.request(
+                    action_class=action_class, policy_root=evaluator.policy_root,
+                )
+                approval = self.approval(action_class=action_class)
+                rejected = evaluator.evaluate(request, approval=approval)
+                self.assertDenied(rejected, "MANDATORY_EXPLICIT_APPROVAL_POLICY")
+                if action_class in (D3, D4):
+                    self.assertIn(
+                        "MANDATORY_EXTERNAL_IDEMPOTENCY_POLICY",
+                        rejected.denial_codes,
+                    )
+                    self.assertIn(
+                        "EXTERNAL_EFFECT_REQUIRES_IDEMPOTENCY_OR_COMPENSATION",
+                        rejected.denial_codes,
+                    )
+                self.assertEqual(
+                    rejected.decision_root,
+                    evaluator.evaluate(request, approval=approval).decision_root,
+                )
+
     def test_event_law_and_operator_visibility_fields(self):
         payload={"content_type":"application/json","data":{"x":1},"text":"bounded message"}; digest=canonical_hash("RAW",payload)
         # Event payload digest is exact SHA-256 of canonical payload, not domain hash.
