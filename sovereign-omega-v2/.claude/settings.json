@@ -98,7 +98,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "result=$(cd \"${CLAUDE_PROJECT_DIR}\" && node scripts/verify-hashes.mjs 2>&1); if echo \"$result\" | grep -q 'VIOLATION\\|Error\\|error'; then echo \"{\\\"systemMessage\\\": \\\"⚠ FROZEN FILE VIOLATION — $result\\\"}\"; else echo \"{\\\"systemMessage\\\": \\\"✓ Constitutional files verified: gate.py · dna.py · router.py — all hashes match.\\\"}\"; fi",
+            "command": "ROOT=\"${CLAUDE_PROJECT_DIR:-$PWD}\"; if [ -f \"$ROOT/sovereign-omega-v2/.claude/hooks/session-hash-check.py\" ]; then python3 \"$ROOT/sovereign-omega-v2/.claude/hooks/session-hash-check.py\"; elif [ -f \"$ROOT/.claude/hooks/session-hash-check.py\" ]; then python3 \"$ROOT/.claude/hooks/session-hash-check.py\"; else printf '%s\\n' '{\"systemMessage\":\"AEGIS frozen-file verification UNKNOWN: hash checker hook not found; protected mutations HOLD.\"}'; fi",
             "statusMessage": "Verifying constitutional file hashes..."
           }
         ]
@@ -120,7 +120,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 \"${CLAUDE_PROJECT_DIR:-$PWD}/.claude/hooks/frozen-write-guard.py\"",
+            "command": "ROOT=\"${CLAUDE_PROJECT_DIR:-$PWD}\"; if [ -f \"$ROOT/sovereign-omega-v2/.claude/hooks/frozen-write-guard.py\" ]; then python3 \"$ROOT/sovereign-omega-v2/.claude/hooks/frozen-write-guard.py\"; elif [ -f \"$ROOT/.claude/hooks/frozen-write-guard.py\" ]; then python3 \"$ROOT/.claude/hooks/frozen-write-guard.py\"; else printf '%s\\n' '{\"hookSpecificOutput\":{\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"deny\",\"permissionDecisionReason\":\"AEGIS frozen guard missing; fail closed\"}}'; fi",
             "statusMessage": "AEGIS frozen-file guard (Write and Edit)"
           }
         ]
@@ -130,7 +130,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 \"${CLAUDE_PROJECT_DIR:-$PWD}/../scripts/claude-authority-guard.py\"",
+            "command": "ROOT=\"${CLAUDE_PROJECT_DIR:-$PWD}\"; if [ -f \"$ROOT/scripts/claude-authority-guard.py\" ]; then python3 \"$ROOT/scripts/claude-authority-guard.py\"; elif [ -f \"$ROOT/../scripts/claude-authority-guard.py\" ]; then python3 \"$ROOT/../scripts/claude-authority-guard.py\"; else printf '%s\\n' '{\"hookSpecificOutput\":{\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"deny\",\"permissionDecisionReason\":\"AEGIS authority guard missing; fail closed\"}}'; fi",
             "statusMessage": "Checking repository mutation authority..."
           }
         ]
