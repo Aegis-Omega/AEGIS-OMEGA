@@ -42,8 +42,19 @@ def evaluate(payload: object) -> dict:
         return response("deny", "AEGIS frozen guard: missing target path")
     try:
         path = Path(target)
-        resolved = (path if path.is_absolute() else ROOT / path).resolve()
+        # Root agent file paths begin with sovereign-omega-v2/, while nested
+        # project agents use paths relative to ROOT. Resolve both explicitly.
+        if path.is_absolute():
+            resolved = path.resolve()
+        elif path.parts and path.parts[0] == ROOT.name:
+            resolved = (ROOT.parent / path).resolve()
+        else:
+            resolved = (ROOT / path).resolve()
         protected = {(ROOT / relative).resolve() for relative in FROZEN}
+        protected.update({
+            (ROOT.parent / ".claude.json").resolve(),
+            (ROOT.parent / "skill-hashes.sha256").resolve(),
+        })
     except (OSError, ValueError, RuntimeError):
         return response("deny", "AEGIS frozen guard: cannot resolve target path")
     if resolved in protected:
