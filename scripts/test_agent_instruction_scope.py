@@ -160,6 +160,63 @@ class TestInstructionConsistency(unittest.TestCase):
         self.assertIn("frozen-write-guard.py", legacy)
         self.assertNotIn("CLAUDE_TOOL_INPUT_PATH", legacy)
 
+    def test_commit_gate_rejects_nonzero_tools_and_bad_hook_payloads(self):
+        import json
+        import os
+        import subprocess
+        import tempfile
+
+        gate = ROOT / ".claude/hooks/pre-commit-gate.sh"
+        settings = json.loads(read(".claude/settings.json"))
+        hooks = settings["hooks"]["PreToolUse"]
+        self.assertTrue(any(
+            item["matcher"] == "Bash"
+            and any("pre-commit-gate.sh" in hook["command"] for hook in item["hooks"])
+            for item in hooks
+        ), "Pre-commit gate exists but is not registered on actual Bash calls")
+
+        def run_case(command, failed_stage=None, platform=True, malformed=False):
+            with tempfile.TemporaryDirectory() as d:
+                temp = Path(d)
+                project = temp / "sovereign-omega-v2"
+                project.mkdir()
+                if platform:
+                    test = project / "python/tests/test_platform.py"
+                    test.parent.mkdir(parents=True)
+                    test.write_text("print('PASS: 1  FAIL: 0')\n")
+                bindir = temp / "bin"
+                bindir.mkdir()
+                npm = bindir / "npm"
+                npm.write_text(
+                    "#!/bin/sh\n"
+                    + (f'if [ "$2" = "{failed_stage}" ]; then exit 17; fi\n'
+                       if failed_stage else "")
+                    + "exit 0\n"
+                )
+                npm.chmod(0o755)
+                env = dict(os.environ,
+                           CLAUDE_PROJECT_DIR=str(temp),
+                           PATH=str(bindir) + os.pathsep + os.environ["PATH"])
+                event = "{}" if malformed else json.dumps({
+                    "tool_name": "Bash", "tool_input": {"command": command}
+                })
+                return subprocess.run(
+                    ["bash", str(gate)], input=event, text=True,
+                    capture_output=True, env=env, timeout=15
+                )
+
+        self.assertEqual(run_case("git status", failed_stage="test").returncode, 0)
+        self.assertNotEqual(run_case("git commit -m x", malformed=True).returncode, 0)
+        for invocation in ("git commit -m x", "git -C repo commit -m x"):
+            for stage in ("test", "typecheck", "build"):
+                with self.subTest(invocation=invocation, stage=stage):
+                    result = run_case(invocation, failed_stage=stage)
+                    self.assertEqual(result.returncode, 2, result.stdout + result.stderr)
+        self.assertEqual(run_case("git commit -m x", platform=False).returncode, 2)
+        good = run_case("git commit -m x")
+        self.assertEqual(good.returncode, 0, good.stdout + good.stderr)
+        self.assertIn("Gate 8 passed", good.stdout)
+
     def test_preflight_hooks_have_no_implicit_mutations(self):
         import re
 
