@@ -71,6 +71,15 @@ before building (rule 1).
 Implement it. Surgical, match existing style, no speculative scope (rules 2–3).
 `deepFreeze` state. T0/T1/T2 discipline holds.
 
+## STEP 4 — VERIFY THE AFFECTED DOMAIN
+
+The runtime Gate 8 commands below are mandatory for runtime changes that
+require them. They are NOT Lean or Coq proof verification. For mathematical
+work, use exact statement comparison, source-bound imports, pinned compiler
+kernel replay and axiom inspection; if the compiler is unavailable, explicitly
+mark kernel verification UNKNOWN and continue another safe research action.
+Do not equate passing an unrelated runtime gate with a proven theorem.
+
 ## STEP 4 — PROVE
 
 ```
@@ -92,5 +101,8 @@ Every tick ends by answering out loud:
 
 > **"Did I use what already exists, and is this on a path to `main`, verified, today?"**
 
-If "no" to either, that is the next tick's first job — before anything new is started.
+For runtime delivery, unresolved authorized integration must be tracked.
+For mathematical research, a theorem can have valid exact-head evidence without
+being merged: never interrupt an independent executable proof path just because
+one branch has not entered `main`. Preserve the checkpoint and continue.
 `/evening-seal` before stopping: nothing uncommitted, unpushed, or stranded.
