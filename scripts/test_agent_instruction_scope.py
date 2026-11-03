@@ -355,5 +355,15 @@ class TestInstructionConsistency(unittest.TestCase):
                                      text=True, capture_output=True, timeout=5)
             self.assertIn("UNKNOWN", invalid.stdout)
 
+    def test_stop_hook_never_demands_unapproved_push(self):
+        import json
+
+        nested = json.loads(read("sovereign-omega-v2/.claude/settings.json"))
+        command = nested["hooks"]["Stop"][0]["hooks"][0]["command"]
+        self.assertIn("do not auto-commit or push without authorization", command)
+        self.assertNotIn("commit and push before ending session", command)
+        self.assertIn("git status failed; no clean-state claim", command)
+        self.assertIn("not a Git checkout", command)
+
 if __name__ == "__main__":
     unittest.main()
