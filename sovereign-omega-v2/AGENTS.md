@@ -80,12 +80,27 @@ Step P3: python python/tests/stress_test.py (full 12 hours — run before produc
 
 DEPENDENCY: PGCS must pass (zero disk I/O) before P2 or P3 telemetry is meaningful.
 
-### Phase 4 — Integration
-python python/bridge.py &   (start Python bridge on port 7890)
-npm run build               (TypeScript build)
-vercel --prod               (deploy, only after Gate 8 and Step P1 pass)
+### Phase 4 — Integration (explicit operator authorization)
 
-### Phase 5 — Orchestration Setup
+These are reference commands, not an automatic continuation of the gate
+sequence. Runtime deployment, publishing, gateway changes and production
+side effects are FORBIDDEN without a fresh explicit operator authorization,
+independently of whether Gate 8/P1 passed. A successful gate is necessary but
+never by itself deploy authority. For read-only research, none of these
+commands may be executed.
+
+python python/bridge.py &   (local bridge only with authorization)
+npm run build               (TypeScript build when relevant)
+vercel --prod               (MANUAL-ONLY: explicit deployment approval + all required gates)
+
+### Phase 5 — Orchestration Setup (opt-in only)
+
+Do not install plugins, onboard external agents, expand permissions, configure
+subscriptions, connect credentials, or create paid resources as part of routine
+preflight. Only perform these mutations when explicitly authorized, after
+checking actual currently connected capabilities and existing setup. These
+commands are optional operator-approved examples, not required setup:
+
 paperclipai onboard --yes --bind lan
 /plugin marketplace add obra/superpowers
 npx antigravity-awesome-skills --claude
