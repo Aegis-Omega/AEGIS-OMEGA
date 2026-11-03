@@ -109,7 +109,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "dirty=$(git -C \"${CLAUDE_PROJECT_DIR}\" status --porcelain 2>/dev/null | grep -v ' aegis-runtime/target/'); if [ -n \"$dirty\" ]; then count=$(echo \"$dirty\" | wc -l | tr -d ' '); echo \"{\\\"systemMessage\\\": \\\"$count uncommitted file(s) — commit and push before ending session.\\\"}\"; fi"
+            "command": "ROOT=\"${CLAUDE_PROJECT_DIR:-$PWD}\"; if ! git -C \"$ROOT\" rev-parse --show-toplevel >/dev/null 2>&1; then printf '%s\\n' '{\"systemMessage\":\"AEGIS worktree status UNKNOWN: not a Git checkout; do not infer clean state.\"}'; else if RAW=$(git -C \"$ROOT\" status --porcelain 2>/dev/null); then DIRTY=$(printf '%s\\n' \"$RAW\" | grep -v ' aegis-runtime/target/' || true); if [ -n \"$DIRTY\" ]; then COUNT=$(printf '%s\\n' \"$DIRTY\" | wc -l | tr -d ' '); printf '{\"systemMessage\":\"AEGIS has %s uncommitted file(s). Preserve the work; do not auto-commit or push without authorization.\"}\\n' \"$COUNT\"; fi; else printf '%s\\n' '{\"systemMessage\":\"AEGIS worktree status UNKNOWN: git status failed; no clean-state claim.\"}'; fi; fi"
           }
         ]
       }
