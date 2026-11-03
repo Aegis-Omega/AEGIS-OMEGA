@@ -138,11 +138,12 @@
     ],
     "PostToolUse": [
       {
-        "matcher": "Write",
+        "matcher": "Write|Edit",
         "hooks": [
           {
             "type": "command",
-            "command": "bash .claude/hooks/tier-check.sh \"$CLAUDE_TOOL_INPUT_PATH\""
+            "command": "ROOT=\"${CLAUDE_PROJECT_DIR:-$PWD}\"; if [ -f \"$ROOT/sovereign-omega-v2/.claude/hooks/tier-check.sh\" ]; then bash \"$ROOT/sovereign-omega-v2/.claude/hooks/tier-check.sh\"; elif [ -f \"$ROOT/.claude/hooks/tier-check.sh\" ]; then bash \"$ROOT/.claude/hooks/tier-check.sh\"; else printf '%s\\n' 'AEGIS tier-check UNKNOWN: hook file not found'; fi",
+            "statusMessage": "AEGIS read-only source tier warning (Write and Edit)"
           }
         ]
       }
