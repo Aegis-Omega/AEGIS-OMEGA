@@ -116,11 +116,12 @@
     ],
     "PreToolUse": [
       {
-        "matcher": "Write",
+        "matcher": "Write|Edit",
         "hooks": [
           {
             "type": "command",
-            "command": "bash .claude/hooks/block-frozen-writes.sh \"$CLAUDE_TOOL_INPUT_PATH\""
+            "command": "python3 \"${CLAUDE_PROJECT_DIR:-$PWD}/.claude/hooks/frozen-write-guard.py\"",
+            "statusMessage": "AEGIS frozen-file guard (Write and Edit)"
           }
         ]
       },
