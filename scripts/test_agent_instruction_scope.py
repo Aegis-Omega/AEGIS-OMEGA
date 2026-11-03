@@ -365,5 +365,54 @@ class TestInstructionConsistency(unittest.TestCase):
         self.assertIn("git status failed; no clean-state claim", command)
         self.assertIn("not a Git checkout", command)
 
+    def test_github_mcp_cannot_bypass_frozen_file_membrane(self):
+        import importlib.util
+        import json
+
+        path = ROOT / "scripts/claude-authority-guard.py"
+        spec = importlib.util.spec_from_file_location("aegis_authority_guard", path)
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        def decide(tool, target="src/ordinary.ts", branch="feature/review", files=None):
+            data = {"repository_full_name": "Aegis-Omega/AEGIS-OMEGA",
+                    "branch": branch, "path": target}
+            if files is not None:
+                data["files"] = files
+            return module.evaluate({"tool_name": tool, "tool_input": data})[
+                "hookSpecificOutput"]["permissionDecision"]
+
+        for tool in ("mcp__github__create_or_update_file", "mcp__github__delete_file",
+                     "mcp__GitHub__create_file", "mcp__GitHub__update_file"):
+            with self.subTest(tool=tool):
+                for frozen in ("sovereign-omega-v2/python/gate.py",
+                               "sovereign-omega-v2/python/dna.py",
+                               "sovereign-omega-v2/python/../python/router.py",
+                               "sovereign-omega-v2/ARTIFACT_REGISTRY.md",
+                               ".claude.json", "skill-hashes.sha256"):
+                    self.assertEqual(decide(tool, target=frozen), "deny")
+                self.assertEqual(decide(tool), "allow")
+                self.assertEqual(decide(tool, branch="main"), "deny")
+                self.assertEqual(decide(tool, branch=""), "deny")
+        self.assertEqual(
+            decide("mcp__github__push_files",files=[
+                {"path": "src/good.py", "content": "ok"},
+                {"path": "sovereign-omega-v2/python/dna.py", "content": "bad"},
+            ]), "deny")
+        self.assertEqual(
+            decide("mcp__github__push_files",files=[{"path": "src/good.py"}]), "allow")
+        self.assertEqual(decide("mcp__github__push_files",files=[]), "deny")
+
+        for config in (".claude/settings.json",
+                       "sovereign-omega-v2/.claude/settings.json"):
+            with self.subTest(config=config):
+                data = json.loads(read(config))
+                guards = [h for h in data["hooks"]["PreToolUse"]
+                          if "claude-authority-guard.py" in str(h["hooks"])]
+                self.assertEqual(len(guards), 1)
+                matcher = guards[0]["matcher"]
+                for name in ("mcp__github__push_files", "mcp__github__delete_file",
+                             "mcp__GitHub__create_file", "mcp__GitHub__update_file"):
+                    self.assertIn(name, matcher)
+
 if __name__ == "__main__":
     unittest.main()
