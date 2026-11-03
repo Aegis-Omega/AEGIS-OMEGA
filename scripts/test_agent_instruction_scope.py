@@ -89,5 +89,13 @@ class TestInstructionConsistency(unittest.TestCase):
             "RiemannHypothesis", read(base + "rh-proof-verifier.md")
         )
 
+    def test_no_automatic_production_or_permission_mutation(self):
+        s = read("sovereign-omega-v2/AGENTS.md")
+        self.assertIn("Runtime deployment, publishing, gateway changes", s)
+        self.assertIn("FORBIDDEN without a fresh explicit operator authorization", s)
+        self.assertIn("MANUAL-ONLY: explicit deployment approval", s)
+        self.assertIn("Orchestration Setup (opt-in only)", s)
+        self.assertIn("Do not install plugins, onboard external agents", s)
+
 if __name__ == "__main__":
     unittest.main()
