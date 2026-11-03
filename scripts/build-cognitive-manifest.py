@@ -21,6 +21,17 @@ SCHEMA_ID = "https://aegisomega.com/schemas/cognitive-state.v1.schema.json"
 SYSTEM_IDENTIFIER = "AEGIS-OMEGA-LIVING-ANCHOR"
 SIGNATURE_MODE = "GITHUB_OIDC_ATTESTATION"
 ZERO_HASH = "0" * 64
+
+# The manifest describes the repository's skills tree. The branch that happened
+# to run the generator is not part of that description -- git already records it.
+# Writing the branch name here made state_hash branch-dependent, so an identical
+# tree produced different bytes on every branch and every long-lived branch
+# conflicted with main on this one generated file.
+#
+# Holding it constant makes the manifest byte-identical wherever it is built,
+# which is what lets validate-automaton2.py's replay check mean something: any
+# runner, on any ref, must reproduce exactly these bytes.
+CANONICAL_SOURCE_REF = "main"
 HASH_RE = re.compile(r"^[0-9a-f]{64}$")
 SKIP_DIRS = {
     ".git", ".next", ".venv", "build", "coverage", "dist",
@@ -98,6 +109,8 @@ def build_manifest(
     source_ref: str,
     parent_state_hash: str,
 ) -> tuple[dict[str, Any], str]:
+    # source_ref is accepted for call-site compatibility but deliberately not
+    # written into the manifest. See CANONICAL_SOURCE_REF.
     if not HASH_RE.fullmatch(parent_state_hash):
         raise ValueError("parent_state_hash must be lowercase SHA-256 hex")
     entries = discover_skills(root)
@@ -125,7 +138,7 @@ def build_manifest(
         "provenance": {
             "generator": "scripts/build-cognitive-manifest.py",
             "repository": "Aegis-Omega/AEGIS-OMEGA",
-            "source_ref": source_ref,
+            "source_ref": CANONICAL_SOURCE_REF,
             "parent_state_hash": parent_state_hash,
             "signature_mode": SIGNATURE_MODE,
         },

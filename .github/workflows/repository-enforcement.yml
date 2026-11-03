@@ -32,6 +32,10 @@ jobs:
         working-directory: scripts
         run: python3 -m unittest test_check_repository_enforcement.py -v
 
+      - name: Run shared agent environment regressions (#741)
+        working-directory: scripts
+        run: python3 -m unittest test_agent_env_setup.py -v
+
       - name: Verify GitHub enforcement boundary
         env:
           GITHUB_TOKEN: ${{ github.token }}
