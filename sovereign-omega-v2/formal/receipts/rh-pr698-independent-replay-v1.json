@@ -1,0 +1,56 @@
+{
+  "schema": "aegis.rh.scope-clean-independent-replay.v1",
+  "authority_effect": "NONE",
+  "rh_proven": false,
+  "active_lane": {
+    "repository": "Aegis-Omega/AEGIS-OMEGA",
+    "pull_request": 698,
+    "branch": "proof/rh-restricted-weil-v13-scope-clean-20260928",
+    "verified_proof_payload_head": "b6ec25c76f0c92b1fd52371b46311e3762866ec7"
+  },
+  "extraction_provenance": {
+    "source_pull_request": 679,
+    "source_exact_head": "2676c3bf40b0a196e3dc0ec52180c25c35ab9e7f",
+    "manifest_path": "sovereign-omega-v2/formal/receipts/rh-pr679-scope-clean-v1.json",
+    "manifest_sha256": "1d872022b07694e9658f69d0538eb1aff7214d50ed16c6f59e2fe6c270fc147d"
+  },
+  "independent_verifier": {
+    "repository": "tarikskalic33/formal-conjectures",
+    "pull_request": 49,
+    "head": "0583a8e8ff8a84aeee2c69b8b2f0f6b28121cd4a",
+    "workflow_run_id": 36477556808,
+    "job_id": 109114957858,
+    "job_name": "exact-head",
+    "conclusion": "success"
+  },
+  "replay": {
+    "lean_toolchain": "leanprover/lean4:v4.33.1",
+    "mathlib_sha": "0df444a360eaa60ab8c11dca51a86af692955474",
+    "li_criterion_sha": "35df682f3b709ffe5fbcfdd452dfa964bd622b87",
+    "local_closure_count": 91,
+    "axiom_log_sha256": "d13e70d729feed04ad732203e23c6cf7da7dd770a9055f0d1d19f97fce9a3fb2",
+    "replay_receipt_sha256": "0214cad96364c5eff46d9a895ebcc5d27be39b387012cfa2a9cdfe3fbaa76ab0",
+    "expected_axioms": [
+      "propext",
+      "Classical.choice",
+      "Quot.sound"
+    ],
+    "sorry_ax": false
+  },
+  "artifact": {
+    "id": 10994711868,
+    "name": "rh-restricted-weil-v13-scope-clean-b6ec25c76f0c92b1fd52371b46311e3762866ec7",
+    "size_bytes": 36639,
+    "sha256": "de35bf5a7adae0b9d56ea73f2f315ce4f58f8b034185edf1cffa3bc06ec31367",
+    "created_at": "2026-09-28T20:23:47Z",
+    "expires_at": "2026-10-28T20:23:47Z"
+  },
+  "headline_theorems": [
+    "AEGIS.RHRestrictedWeilBridgeV13.final_sign_implies_rh_v13",
+    "AEGIS.WeilRHImpliesFinalSignV13.rh_implies_final_sign_residual_v13",
+    "AEGIS.WeilRHImpliesFinalSignV13.rh_iff_universal_v13",
+    "AEGIS.WeilRHImpliesFinalSignV13.millennium_moment_iff_rh_v13",
+    "AEGIS.RHRestrictedWeilBridgeV13.restricted_weil_criterion_kernel_bridge_v13"
+  ],
+  "note": "Independent exact-head verification of the PR #698 proof payload at b6ec25c76f0c92b1fd52371b46311e3762866ec7. The canonical evidence binding is metadata-only and does not change proof semantics or assert RiemannHypothesis."
+}
