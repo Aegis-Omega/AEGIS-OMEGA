@@ -1,86 +1,143 @@
 #!/usr/bin/env python3
-"""Classify every open PR as close / move / review / keep from git evidence (#737).
+"""AEGIS #737: read-only PR triage, evidence-first; no PR state mutations.
 
-Input: a JSON list of open PRs, one object per PR with number, title, headRefName,
-headRefOid, baseRefName, updatedAt (the shape of
-`gh pr list --state open --limit 500 --json number,title,headRefName,headRefOid,baseRefName,updatedAt`).
-The PR heads must be fetched first:
-  git fetch origin main '+refs/pull/*/head:refs/remotes/pr/*'
+Inputs: gh pr list --json number,title,headRefName,headRefOid,baseRefName,updatedAt
+        plus a date YYYY-MM-DD. All referenced commits must exist locally.
+Output: TSV with KEEP, REVIEW or CANDIDATE_CLOSE. Never outputs a command to close.
 
-Rules (mechanical; nothing is closed by this script):
-  close  head contained in main; no changes; every changed file already identical on main;
-         stacked on a deleted or closed base; or no activity for more than 21 days
-  move   proof/, research/ or evidence/ lane: belongs in the lab repository (#742)
-  review stacked on a live branch
-  keep   active
-#698 is always kept (operator rule). Closing is reversible; execute only after the
-Actions billing lock (#735) is lifted.
+Guarantee: missing Git objects, failed Git calls, stale dates, research/proof
+category, or stacked PRs are NEVER sufficient to recommend closure.
 
-Usage: scripts/pr-triage.py open_prs.json YYYY-MM-DD > PR_TRIAGE.tsv
+This corrects the 2026-11-02 triage candidate from PR #509, NOT the
+current protected main tree. No paid, network, credential or write operations.
 """
-import datetime
+from __future__ import annotations
+
+import datetime as dt
 import json
+import re
 import subprocess
 import sys
+from pathlib import Path
 
-LANES = ("proof", "research", "evidence")
-
-
-def git(*args):
-    r = subprocess.run(["git", *args], capture_output=True, text=True)
-    return r.returncode, r.stdout.strip()
+_HEX = re.compile(r"(?:[0-9a-f]{40}|[0-9a-f]{64})\Z")
+_LANES = ("proof", "research", "evidence")
 
 
-def main():
-    prs = json.load(open(sys.argv[1]))
-    today = datetime.date.fromisoformat(sys.argv[2])
-    main_sha = git("rev-parse", "origin/main")[1]
-    by_head = {p["headRefName"]: p for p in prs}
-    rows = {}
-    for p in sorted(prs, key=lambda x: x["number"]):
-        sha, base, head = p["headRefOid"], p["baseRefName"], p["headRefName"]
-        updated = p["updatedAt"][:10]
-        idle = (today - datetime.date.fromisoformat(updated)).days
-        mb = git("merge-base", sha, main_sha)[1]
-        files = git("diff", "--name-only", mb, sha)[1].splitlines() if mb else []
-        same = 0
-        for f in files:
-            a, b = git("rev-parse", f"{sha}:{f}"), git("rev-parse", f"{main_sha}:{f}")
-            same += (a[0] != 0 and b[0] != 0) or (a[0] == 0 and b[0] == 0 and a[1] == b[1])
-        stacked = base != "main"
-        if p["number"] == 698:
-            v, why = "keep", "operator rule: do not touch #698"
-        elif git("merge-base", "--is-ancestor", sha, main_sha)[0] == 0:
-            v, why = "close", "head already contained in main"
-        elif not files:
-            v, why = "close", "no changes against main"
-        elif same == len(files):
-            v, why = "close", f"all {len(files)} changed files already identical on main"
-        elif stacked and git("rev-parse", "--verify", "-q", "origin/" + base)[0] != 0:
-            v, why = "close", f"stacked on deleted base {base}"
-        elif head.split("/")[0] in LANES:
-            v, why = "move", "proof/research lane: lab repository (#742)"
-        elif stacked:
-            v, why = "review", f"stacked on {base}"
-        elif idle > 21:
-            v, why = "close", f"abandoned: no activity for {idle} days (last update {updated})"
-        else:
-            v, why = "keep", f"active (last update {updated})"
-        rows[head] = [p["number"], v, why, head, base, updated]
-    changed = True
-    while changed:  # a stacked PR follows its base PR
-        changed = False
-        for head, r in rows.items():
-            b = rows.get(r[4])
-            if r[1] == "review" and b and b[1] in ("close", "move"):
-                r[1], r[2], changed = b[1], f"stacked on PR #{b[0]}, itself {b[1]}", True
-    for r in rows.values():
-        if r[1] == "review" and (today - datetime.date.fromisoformat(r[5])).days > 21:
-            r[1], r[2] = "close", f"abandoned stacked PR on {r[4]} (last update {r[5]})"
-    print("pr\tverdict\treason\thead\tbase\tupdated")
-    for r in sorted(rows.values()):
-        print("\t".join(str(x) for x in r))
+class SourceUnavailable(Exception):
+    pass
+
+
+def git(*args: str) -> str:
+    r = subprocess.run(["git", *args], stdout=subprocess.PIPE,
+                       stderr=subprocess.PIPE, text=True, check=False)
+    if r.returncode != 0:
+        raise SourceUnavailable("GIT_" + args[0].upper().replace("-", "_") + "_FAILED")
+    return r.stdout.strip()
+
+
+def days_since(value: str, today: dt.date) -> int | None:
+    try:
+        updated = dt.date.fromisoformat(value[:10])
+        gap = (today - updated).days
+        return gap if gap >= 0 else None
+    except (ValueError, TypeError, IndexError):
+        return None
+
+
+def valid_sha(value: object) -> bool:
+    return isinstance(value, str) and bool(_HEX.fullmatch(value))
+
+
+def classify(pr: dict, *, main_sha: str, today: dt.date) -> tuple[str, str]:
+    """Never infer no changes from missing history or a failed Git command."""
+    if pr.get("number") == 698:
+        return "KEEP", "OPERATOR_PRESERVE_698"
+    sha = pr.get("headRefOid")
+    base = pr.get("baseRefName")
+    head = pr.get("headRefName")
+    age = days_since(pr.get("updatedAt"), today)
+    if not valid_sha(sha) or not isinstance(base, str) or not isinstance(head, str):
+        return "REVIEW", "INVALID_PR_METADATA"
+    if age is None:
+        return "REVIEW", "INVALID_OR_FUTURE_UPDATED_DATE"
+    if base != "main":
+        return "REVIEW", "STACKED_DEPENDENCY_REQUIRES_SEMANTIC_REVIEW"
+    if head.split("/", 1)[0] in _LANES:
+        return "REVIEW", "RESEARCH_PROOF_PRESERVATION_REVIEW"
+    try:
+        # Distinguish genuinely integrated ancestry from a missing object.
+        git("cat-file", "-e", sha + "^{commit}")
+        if subprocess.run(["git", "merge-base", "--is-ancestor", sha, main_sha],
+                          capture_output=True).returncode == 0:
+            return "CANDIDATE_CLOSE", "HEAD_COMMIT_CONTAINED_IN_MAIN"
+        # A 1 means non-ancestor, while any other return code is an error.
+        ancestor = subprocess.run(["git", "merge-base", "--is-ancestor", sha, main_sha],
+                                  capture_output=True)
+        if ancestor.returncode != 1:
+            return "REVIEW", "ANCESTRY_UNVERIFIABLE"
+        merge_base = git("merge-base", sha, main_sha)
+        if not valid_sha(merge_base):
+            return "REVIEW", "MERGE_BASE_INVALID"
+        names = git("diff", "--name-only", merge_base, sha).splitlines()
+        if not names:
+            return "CANDIDATE_CLOSE", "EXACT_TREE_DIFF_EMPTY"
+        for path in names:
+            if not path or "\n" in path:
+                return "REVIEW", "DIFF_PATH_UNVERIFIABLE"
+            obj = []
+            for commit in (sha, main_sha):
+                r = subprocess.run(["git", "rev-parse", "--verify", f"{commit}:{path}"],
+                                   stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                                   text=True, check=False)
+                obj.append(r.stdout.strip() if r.returncode == 0 else None)
+            # A failed read is not proof of identical content, including both missing.
+            if obj[0] is None or obj[1] is None or obj[0] != obj[1]:
+                return "REVIEW", "UNINTEGRATED_OR_UNRESOLVED_FILE_BYTES"
+        return "CANDIDATE_CLOSE", "ALL_CHANGED_FILE_BLOBS_EQUAL_MAIN"
+    except (SourceUnavailable, OSError) as e:
+        return "REVIEW", "GIT_EVIDENCE_UNAVAILABLE"
+
+
+def render(prs: object, today: dt.date) -> str:
+    if not isinstance(prs, list):
+        raise ValueError("PR_LIST_REQUIRED")
+    main_sha = git("rev-parse", "--verify", "origin/main^{commit}")
+    if not valid_sha(main_sha):
+        raise SourceUnavailable("MAIN_SHA_INVALID")
+    rows = []
+    seen_ids, seen_refs = set(), set()
+    for p in prs:
+        if not isinstance(p, dict) or type(p.get("number")) is not int:
+            raise ValueError("INVALID_PR_ITEM")
+        if p["number"] in seen_ids or p.get("headRefName") in seen_refs:
+            raise ValueError("DUPLICATE_PR_ID_OR_HEAD")
+        seen_ids.add(p["number"])
+        seen_refs.add(p.get("headRefName"))
+        verdict, reason = classify(p, main_sha=main_sha, today=today)
+        cols = [p["number"], verdict, reason, p.get("headRefName", "UNKNOWN"),
+                p.get("baseRefName", "UNKNOWN"), str(p.get("updatedAt", ""))[:10]]
+        rows.append("\t".join(map(str, cols)))
+    return "pr\tverdict\treason\thead\tbase\tupdated\n" + "\n".join(sorted(rows, key=lambda x: int(x.split("\t", 1)[0]))) + "\n"
+
+
+def main(argv: list[str] | None = None) -> int:
+    args = sys.argv[1:] if argv is None else argv
+    if len(args) != 2:
+        print("usage: pr_triage_safe.py open_prs.json YYYY-MM-DD", file=sys.stderr)
+        return 2
+    try:
+        today = dt.date.fromisoformat(args[1])
+        path = Path(args[0])
+        if path.is_symlink() or not path.is_file() or path.stat().st_size > 4_000_000:
+            raise ValueError("SOURCE_FILE_UNAVAILABLE_OR_TOO_LARGE")
+        prs = json.loads(path.read_text(encoding="utf-8"))
+        sys.stdout.write(render(prs, today))
+        return 0
+    except (ValueError, OSError, SourceUnavailable, json.JSONDecodeError) as exc:
+        print(f"TRIAGE_ABORT: {exc}", file=sys.stderr)
+        return 2
 
 
 if __name__ == "__main__":
-    main()
+    raise SystemExit(main())
