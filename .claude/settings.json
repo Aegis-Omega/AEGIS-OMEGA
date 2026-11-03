@@ -23,6 +23,17 @@
             "statusMessage": "AEGIS: checking repository mutation authority"
           }
         ]
+      },
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"${CLAUDE_PROJECT_DIR:-$PWD}/.claude/hooks/pre-commit-gate.sh\"",
+            "timeout": 300,
+            "statusMessage": "AEGIS: verify commit gates"
+          }
+        ]
       }
     ],
     "SessionStart": [
