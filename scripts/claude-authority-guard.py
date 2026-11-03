@@ -24,6 +24,7 @@ GITHUB_CONTENT_WRITERS = {
     "mcp__github__update_file",
     "mcp__github__create_file",
 }
+GITHUB_REF_WRITERS = {"mcp__github__update_ref"}
 FROZEN_REPO_PATHS = frozenset({
     "sovereign-omega-v2/python/gate.py",
     "sovereign-omega-v2/python/dna.py",
@@ -134,6 +135,23 @@ def evaluate(payload: dict[str, Any]) -> dict[str, Any]:
                 "AEGIS authority guard: shell git push is forbidden; use a GitHub content writer with an explicit non-main branch",
             )
         return _decision("allow", "AEGIS authority guard: non-push Bash command")
+
+    if normalized_tool in GITHUB_REF_WRITERS:
+        repository = _repository_name(tool_input)
+        if not repository:
+            return _decision("deny", "AEGIS authority guard: branch ref mutation requires an explicit repository")
+        if repository.casefold() != TARGET_REPOSITORY.casefold():
+            return _decision("allow", "AEGIS authority guard: repository outside AEGIS boundary")
+        branch = _branch_name(tool_input).strip()
+        normalized = branch.casefold()
+        if not normalized or normalized in MAIN_REFS:
+            return _decision("deny", "AEGIS authority guard: cannot directly mutate canonical main or an unspecified ref")
+        expected_sha = tool_input.get("expected_sha")
+        if not isinstance(expected_sha, str) or not re.fullmatch(r"[0-9a-fA-F]{40}", expected_sha):
+            return _decision("deny", "AEGIS authority guard: non-main ref update needs an exact 40-hex head lease")
+        if tool_input.get("force", False) is not False:
+            return _decision("deny", "AEGIS authority guard: force updates need a separate, explicit authority path")
+        return _decision("allow", "AEGIS authority guard: leased non-main branch ref update")
 
     if normalized_tool in GITHUB_CONTENT_WRITERS:
         repository = _repository_name(tool_input)
