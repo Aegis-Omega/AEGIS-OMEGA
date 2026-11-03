@@ -1,5 +1,7 @@
 # Archived proof/research lanes 2026-11-02 (#742)
 
+> **PRESERVATION NOTICE (2026-11-03):** This is a historical list of candidate branch names and abbreviated head hashes. The old assertion that all work safely continues in another repository is **NOT independently verified** and does not prove source/Lean/theorem equivalence, full branch preservation, valid checksums, or successful transfer. The list must **not** authorize mass closure, branch deletion, relocation, merge or new repositories. Compare *current exact* Git refs and immutable source/receipt trees for each lane before any future authorized archival decision. No such deletion or migration is performed in this patch. See #737 / #742 / #246.
+
 43 PRs from the proof/, research/, evidence/ and integration/ lanes were closed so that this repository's PR list carries only product and runtime work. Nothing was deleted: every branch below still exists at the head SHA shown. To restore one, reopen the PR or run `git fetch origin <branch>`. The Riemann-hypothesis work continues in the lab (formal-conjectures #92).
 
 | PR | branch | head | files | MB |
