@@ -132,6 +132,47 @@ class FileOverlap(unittest.TestCase):
         self.assertEqual(guard.jaccard(set(), set()), 0.0)
 
 
+class CriticalEntrypointOverlap(unittest.TestCase):
+    """Flag exact integration-file conflicts even in large mostly disjoint PRs."""
+
+    def test_agent_dispatch_path_does_not_get_diluted(self):
+        path = ".github/workflows/agent-dispatch.yml"
+        mine = modified(path, *(f"lane_a/part_{i}.py" for i in range(80)))
+        theirs = modified(path, *(f"lane_b/part_{i}.py" for i in range(80)))
+        found = guard.collide(
+            mine, [(342, "integration", theirs)], min_shared=2, min_jaccard=0.34,
+        )
+        self.assertEqual(len(found), 1)
+        self.assertEqual(found[0].critical_files, (path,))
+        self.assertLess(found[0].jaccard, 0.02)
+        self.assertIn(path, found[0].reason())
+
+    def test_console_entrypoint_requires_review(self):
+        path = "hub/src/lib/platformConsole.ts"
+        mine = modified(path, *(f"mesh/part_{i}.ts" for i in range(80)))
+        theirs = modified(path, *(f"glass/part_{i}.ts" for i in range(80)))
+        found = guard.collide(
+            mine, [(745, "holon", theirs)], min_shared=2, min_jaccard=0.34,
+        )
+        self.assertEqual([c.number for c in found], [745])
+        self.assertEqual(found[0].critical_files, (path,))
+
+    def test_low_similarity_ordinary_overlap_remains_allowed(self):
+        shared = ("docs/ordinary_a.md", "docs/ordinary_b.md")
+        mine = modified(*shared, *(f"a/file_{i}.py" for i in range(80)))
+        theirs = modified(*shared, *(f"b/file_{i}.py" for i in range(80)))
+        self.assertEqual(guard.collide(
+            mine, [(3, "unrelated", theirs)], min_shared=2, min_jaccard=0.34,
+        ), [])
+
+    def test_generated_manifest_still_ignored(self):
+        mine = modified(".claude.json", "only/a.py")
+        theirs = modified(".claude.json", "only/b.py")
+        self.assertEqual(guard.collide(
+            mine, [(3, "unrelated", theirs)], min_shared=2, min_jaccard=0.34,
+        ), [])
+
+
 class Reporting(unittest.TestCase):
     def test_clean_report_names_the_pr(self):
         self.assertIn("#7", guard.render(7, []))
