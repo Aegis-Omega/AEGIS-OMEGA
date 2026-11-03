@@ -126,7 +126,7 @@
         ]
       },
       {
-        "matcher": "Bash|mcp__github__push_files|mcp__github__create_or_update_file|mcp__github__delete_file|mcp__github__update_file|mcp__github__create_file|mcp__GitHub__update_file|mcp__GitHub__create_file|mcp__GitHub__delete_file|mcp__GitHub__update_ref|mcp__github__update_ref",
+        "matcher": "Bash|mcp__github__push_files|mcp__github__create_or_update_file|mcp__github__delete_file|mcp__github__update_file|mcp__github__create_file|mcp__GitHub__update_file|mcp__GitHub__create_file|mcp__GitHub__delete_file|mcp__GitHub__update_ref|mcp__github__update_ref|mcp__GitHub__merge_pull_request|mcp__github__merge_pull_request",
         "hooks": [
           {
             "type": "command",
