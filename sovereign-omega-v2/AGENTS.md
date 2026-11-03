@@ -19,6 +19,21 @@ Project memory: CLAUDE.md
 
 ---
 
+## Scope and configuration precedence
+
+Before starting, load the root `CLAUDE.md` and `WORKFLOW.md` together with
+this directory's `AGENTS.md` and `CLAUDE.md`, then inspect the **actual**
+commands, files, tool permissions, repository HEAD, and independent test paths.
+This directory is a deterministic *runtime* project; its strict gate sequence
+protects runtime operations and deployment, but does **not** define what is
+mathematically proven in AEGIS RH, Lean or Coq repositories. A missing compiler,
+failed import, offline GitHub Actions runner or failed runtime gate cannot imply
+that other research branches, theorem statements or source proofs are false.
+For RH: use the multi-route source-first rules of the root documents and the
+four `rh-*` agents. Reuse existing producer theorems, and distinguish
+proven / source-only / uncompiled / refuted / unknown obligations. Never invent
+a stronger auxiliary premise solely because one chosen method stopped.
+
 ## Session Start Protocol
 
 1. Read CLAUDE.md
@@ -31,6 +46,11 @@ Project memory: CLAUDE.md
 ## Execution Phases
 
 ### Phase 1 — Environment Setup
+
+The following are implementation-time commands, **not** mandatory preflight
+side effects. Do not install dependencies or create `.env` from examples
+merely to inspect a repo; never write credentials, enable billing or trigger
+paid resources without explicit approval.
 npm install
 pip install -r requirements.txt
 cp .env.example .env (fill in required values)
@@ -46,7 +66,11 @@ Gate 6: npm run test -- test/unit/gate.test.ts
 Gate 7: npm run test -- test/integration/replay.test.ts test/integration/pipeline.test.ts
 Gate 8: npm run test && npm run typecheck && npm run build
 
-RULE: Failure at any gate = HALT. Report the failure. Do not proceed.
+RULE: Failure at any gate = HALT progression to *the next dependent runtime gate*
+or production promotion. Preserve the failure, locate the causal source and
+run authorized targeted repair tests. Independent read-only diagnosis and
+unrelated formally authorized research may proceed. Never bypass the failed
+gate, label it PASS, weaken its assertions or deploy from a failed gate.
 
 ### Phase 3 — Python Layer (3 Validation Steps, Strict Order)
 
@@ -115,4 +139,7 @@ Modification requires /guardian APPROVED verdict.
 1. Check docs/SOVEREIGN_OMEGA_INTEGRATED_SPEC_v2.md
 2. If unresolved, check docs/SOVEREIGN_OMEGA_IMPL_BRIEF_Qwen.md
 3. If still unresolved, add: // AGENT-FLAG: ambiguity at [location] — [description]
-4. Report and halt. Do not silently resolve architectural ambiguities.
+4. Report and halt the **affected implementation or production transition**.
+   Preserve verified checkpoints and continue independent read-only inspection
+   or alternative authorized mathematical routes. Do not silently resolve
+   architectural ambiguities, lower a safety gate, or claim it passed.
