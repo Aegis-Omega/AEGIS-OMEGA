@@ -5,11 +5,13 @@ from __future__ import annotations
 import hashlib
 import importlib.util
 import json
+import os
 import subprocess
 import sys
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 MODULE_PATH = Path(__file__).resolve().parents[1] / 'harness/sdk/source_plane.py'
 spec = importlib.util.spec_from_file_location('aegis_source_plane_local', MODULE_PATH)
@@ -123,6 +125,38 @@ class LocalGitContract(unittest.TestCase):
         linked = self.plane.artifact(self.req(sha=sha, path='link'))
         self.assertEqual(linked['mode'], '120000')
         self.assertEqual(self.plane.blob_bytes(linked['repository'], linked['blob_sha1']), b'file.txt')
+
+    def test_git_object_reader_explicitly_disables_lazy_network_fetch(self):
+        # A promisor/partial clone can lazy-fetch missing objects via `git cat-file`.
+        # A local transport must prohibit that, not merely omit `git fetch` calls.
+        with patch.object(mod.subprocess, 'run', wraps=subprocess.run) as runner:
+            result = mod.LocalGitTransport._git(self.a, 'cat-file', '-t', self.head_a, limit=128)
+        self.assertEqual(result.strip(), b'commit')
+        env = runner.call_args.kwargs.get('env', {})
+        self.assertEqual(env.get('GIT_NO_LAZY_FETCH'), '1')
+        self.assertEqual(env.get('GIT_OPTIONAL_LOCKS'), '0')
+        self.assertEqual(env.get('GIT_TERMINAL_PROMPT'), '0')
+
+    def test_missing_promisor_blob_is_not_lazy_fetched(self):
+        # This creates a LOCAL file:// partial clone inside TemporaryDirectory.
+        # Missing promised Git blob must remain missing: no silent Git fetch.
+        git(self.a, 'config', 'uploadpack.allowFilter', 'true')
+        partial = self.base / 'partial'
+        subprocess.run(['git', 'clone', '-q', '--filter=blob:none', '--no-checkout',
+                        self.a.as_uri(), str(partial)], check=True,
+                       stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        blob = git(self.a, 'rev-parse', 'HEAD:docs/README.md')
+        guarded = dict(os.environ, GIT_NO_LAZY_FETCH='1', GIT_TERMINAL_PROMPT='0')
+        def has_object_without_network():
+            result = subprocess.run(['git', '-C', str(partial), 'cat-file', '-e', blob],
+                                    env=guarded, stdout=subprocess.DEVNULL,
+                                    stderr=subprocess.DEVNULL)
+            return result.returncode == 0
+        self.assertFalse(has_object_without_network(), 'test needs genuinely missing promisor blob')
+        plane = mod.SourcePlane(transport=mod.LocalGitTransport({'Aegis-Omega/AEGIS-OMEGA': partial}))
+        with self.assertRaisesRegex(mod.SourcePlaneError, 'local Git object missing'):
+            plane.artifact(self.req())
+        self.assertFalse(has_object_without_network(), 'transport unexpectedly fetched missing promisor blob')
 
     def test_cli_local_mode_no_network(self):
         cmd = [sys.executable, str(MODULE_PATH),

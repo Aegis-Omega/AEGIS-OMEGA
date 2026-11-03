@@ -135,11 +135,18 @@ class LocalGitTransport:
 
     @staticmethod
     def _git(root: Path, *args: str, limit: int = MAX_OBJECT_BYTES) -> bytes:
+        # `git cat-file` may silently fetch missing promisor objects from a
+        # partial clone. Deny all lazy fetches and incidental lock writes.
+        # Never inherit an environment setting that silently enables either.
+        env = os.environ.copy()
+        env["GIT_NO_LAZY_FETCH"] = "1"
+        env["GIT_OPTIONAL_LOCKS"] = "0"
+        env["GIT_TERMINAL_PROMPT"] = "0"
         try:
             result = subprocess.run(
                 ["git", "--no-pager", "-C", str(root), *args],
                 stdin=subprocess.DEVNULL, stdout=subprocess.PIPE,
-                stderr=subprocess.DEVNULL, timeout=12, check=False,
+                stderr=subprocess.DEVNULL, timeout=12, check=False, env=env,
             )
         except (OSError, subprocess.TimeoutExpired) as exc:
             raise SourcePlaneError("local Git object lookup unavailable") from exc
