@@ -28,6 +28,8 @@ Checks, in order:
 8. Hosted evidence must have a real runner and nonempty executed steps. runner_id=0 or steps=[] is NOT_EXECUTED.
 9. If the theorem concludes RiemannHypothesis, inspect all immediate premises and reject circularity or imported unproven RH.
 10. Compare against Mathlib's exact RiemannHypothesis target.
+11. A failed route, absent import, missing olean or CI error never proves another route impossible or an underlying theorem false. Keep epistemic states distinct: kernel-proven, source-only, compile-failed, CI-unavailable, and mathematically refuted.
+12. Before any global negative proof-status statement, verify the claimed source scope across alternative proof routes; qualify the conclusion to precisely the inspected sources. No automatic global promotion from one failed pathway.
 
 Verdicts:
 VERIFIED_EXACT_HEAD
