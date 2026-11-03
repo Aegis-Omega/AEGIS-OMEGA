@@ -166,12 +166,20 @@ class TestInstructionConsistency(unittest.TestCase):
         session = read(".claude/hooks/session-start.sh")
         ground = read("scripts/ground-truth.sh")
         intake = read(".claude/hooks/user-prompt-intake.sh")
+        danger = re.compile(
+            r"(?m)^[ \t]*(?:npm[ \t]+install|pip3?[ \t]+install|"
+            r"git[ \t]+fetch|curl\b|npx\b|node[ \t]+[^\n]*[ \t]+observe\b)"
+        )
+        # Negative controls prove that the guard itself is not an inert string test.
+        for sample in ("npm install dep", "pip install pkg", "git fetch origin main",
+                       "curl https://example.com", "npx unsafe-cli",
+                       'node "$CHAIN_MJS" observe SENSATION T1 prompt'):
+            with self.subTest(hazard=sample):
+                self.assertIsNotNone(danger.search(sample))
         for path, source in (("session", session), ("ground", ground), ("intake", intake)):
             with self.subTest(hook=path):
                 self.assertIsNone(
-                    re.search(r"(?m)^\\s*(?:npm\\s+install|pip3?\\s+install|"
-                              r"git\\s+fetch|curl\\b|npx\\b|node\\s+[^\\n]*\\s+observe\\b)",
-                              source),
+                    danger.search(source),
                     "Unexpected default network/install/write command",
                 )
         self.assertNotIn('node "$CHAIN_MJS" observe', intake)
