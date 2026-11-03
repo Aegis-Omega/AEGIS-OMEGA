@@ -58,6 +58,15 @@ if (BRIDGE) {
       const responseHeaders = { ...response.headers }
       for (const key of ['connection', 'transfer-encoding', 'upgrade']) delete responseHeaders[key]
       res.writeHead(response.statusCode ?? 502, responseHeaders)
+      // A source can disconnect after delivering headers. IncomingMessage's
+      // error/aborted events do not automatically terminate the downstream
+      // ServerResponse, so clients (including SSE consumers) could hang.
+      const abortDownstream = () => { if (!res.destroyed) res.destroy() }
+      response.on('aborted', abortDownstream)
+      response.on('error', abortDownstream)
+      response.on('close', () => {
+        if (!response.complete) abortDownstream()
+      })
       response.pipe(res)
     })
     upstream.on('error', () => {
