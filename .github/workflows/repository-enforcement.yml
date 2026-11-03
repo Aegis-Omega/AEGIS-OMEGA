@@ -32,6 +32,9 @@ jobs:
         working-directory: scripts
         run: python3 -m unittest test_check_repository_enforcement.py -v
 
+      - name: Verify effective agent instruction contract (regression gate)
+        run: python3 -m unittest discover -s scripts -p 'test_agent_instruction_scope.py' -v
+
       - name: Verify GitHub enforcement boundary
         env:
           GITHUB_TOKEN: ${{ github.token }}
