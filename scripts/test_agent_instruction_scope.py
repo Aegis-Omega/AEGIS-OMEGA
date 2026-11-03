@@ -310,5 +310,50 @@ class TestInstructionConsistency(unittest.TestCase):
         self.assertIn("session-hash-check.py", hook)
         self.assertNotIn("grep -q", hook)
 
+    def test_tier_checker_write_edit_json(self):
+        import json
+        import shutil
+        import subprocess
+        import tempfile
+
+        source = ROOT / "sovereign-omega-v2/.claude/hooks/tier-check.sh"
+        nested = json.loads(read("sovereign-omega-v2/.claude/settings.json"))
+        configured = nested["hooks"]["PostToolUse"]
+        self.assertTrue(any(
+            x["matcher"] == "Write|Edit" and "tier-check.sh" in str(x["hooks"])
+            for x in configured
+        ))
+        self.assertIn("ROOT", source.read_text(encoding="utf-8"))
+        self.assertNotIn('FILEPATH="$1"', source.read_text(encoding="utf-8"))
+        with tempfile.TemporaryDirectory() as temp:
+            project = Path(temp) / "sovereign-omega-v2"
+            hook = project / ".claude/hooks/tier-check.sh"
+            hook.parent.mkdir(parents=True)
+            shutil.copyfile(source, hook)
+            source_file = project / "src/example.ts"
+            source_file.parent.mkdir(parents=True)
+            source_file.write_text("// consciousness is a tier marker\\n", encoding="utf-8")
+            target = project / "test/clean.test.ts"
+            target.parent.mkdir()
+            target.write_text("// clean\\n", encoding="utf-8")
+            cases = (
+                ("Write", "src/example.ts", "tier warning"),
+                ("Edit", str(source_file), "tier warning"),
+                ("Edit", "sovereign-omega-v2/src/example.ts", "tier warning"),
+                ("Edit", "test/clean.test.ts", ""),
+                ("Write", "../outside.ts", "UNKNOWN"),
+                ("Edit", "src/missing.ts", "UNKNOWN"),
+            )
+            for tool, location, required in cases:
+                with self.subTest(tool=tool, path=location):
+                    event = json.dumps({"tool_name": tool, "tool_input": {"file_path": location}})
+                    done = subprocess.run(["bash", str(hook)], input=event, text=True,
+                                          capture_output=True, timeout=5)
+                    self.assertEqual(done.returncode, 0, done.stderr)
+                    self.assertIn(required, done.stdout)
+            invalid = subprocess.run(["bash", str(hook)], input="{}",
+                                     text=True, capture_output=True, timeout=5)
+            self.assertIn("UNKNOWN", invalid.stdout)
+
 if __name__ == "__main__":
     unittest.main()
