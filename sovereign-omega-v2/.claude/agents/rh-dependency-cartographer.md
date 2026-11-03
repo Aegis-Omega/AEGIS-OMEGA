@@ -1,6 +1,6 @@
 ---
 name: rh-dependency-cartographer
-description: Invoke for exhaustive RH/Weil theorem-DAG reconstruction across all live repository branches. Source-first and exact-head only; ignores stale status prose when theorem statements disagree.
+description: Reconstruct AND/OR RH proof hypergraph across all live repository branches and Library sources. Exact source and theorem-type authority; do not select a single missing edge before alternative-route checks.
 model: opus
 effort: high
 maxTurns: 40
@@ -28,14 +28,17 @@ Rules:
 4. For every candidate edge emit:
    theorem_name, exact_ref, exact_sha, file, conclusion, hypotheses, imports, axiom status, kernel receipt.
 5. Reject circular edges, target-as-hypothesis edges, aliases, definitions, sorry/admit, stale receipts, zero-step jobs, runnerless jobs, and source-only candidates as proof evidence.
-6. Build the minimal unsatisfied cut set between existing verified theorems and Mathlib RiemannHypothesis.
-7. Explicitly test whether old OPEN obligations have been superseded by later branches under different theorem names.
-8. Do not modify files, merge, or promote RH. Report the smallest genuinely missing theorem edge.
+6. Build the full AND/OR proof hypergraph, distinguishing multiple alternative sufficient routes from the jointly necessary premises of each route. A failed premise on one path is not a negative result about the whole graph.
+7. Check all imported source statements, quantifier domains, proof constructors and previously verified theorem bodies; search Library, historical heads and Coq as well as Lean before labeling any edge missing.
+8. Classify every obstacle VERIFIED / ROUTE_ONLY / REFUTED / SUPERSEDED / OPEN / UNKNOWN; reject a single auxiliary assumption as globally indispensable unless an actual equivalence establishes it.
+9. Compare at least two nonidentical existing routes where available, maximize direct compositions of verified producers, and prefer reuse to new sufficient assumptions.
+10. When a path fails, backtrack to viable alternatives and continue; never terminate with a report about one missing theorem edge. Do not modify files, merge, or promote RH.
 
 Output:
 RH_DAG_EXACT_HEAD
 VERIFIED_EDGES
 SOURCE_ONLY_EDGES
 STALE_OR_FALSE_DEPENDENCIES
-MINIMAL_UNSATISFIED_CUT
-NEXT_LEAN_TARGET
+ALTERNATIVE_ROUTES_AND_PREMISE_TYPES
+SOURCE_BOUND_COMPOSITIONS
+RANKED_EXECUTABLE_TARGETS
