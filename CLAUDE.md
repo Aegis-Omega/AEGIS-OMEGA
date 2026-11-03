@@ -11,6 +11,24 @@ across sessions. Follow them before reaching for any of the elaborate framing be
 
 **Tradeoff:** These guidelines bias toward caution over speed. For trivial tasks, use judgment.
 
+## 0. MANDATORY CONFIGURATION AND WORKFLOW SELF-AUDIT (EVERY TASK)
+
+Before selecting work, identify the **actual effective** agent instructions, active repo and exact head,
+available connectors and skills, authorization boundaries, existing evidence and caches,
+and the execution path that really runs. Never infer configuration from a README alone.
+For mathematical work, inventory all relevant repo trees, library/archive sources,
+original theorem statements and transitive imports before choosing a proof route.
+Maintain **AND/OR alternative proof routes**, preserve already verified results,
+and classify an absent module, noncompiled target or failed CI separately from a false theorem.
+Never declare an auxiliary assumption such as `hcross`, `hselect` or `hprime`
+universally necessary without a proved equivalence. Test producer reuse and
+other viable routes before creating a stronger premise or stopping.
+After action, verify exact bytes and machine output; report what changed,
+what was independently verified and what remains unknown. Do not substitute
+reporting for executable work. Protected-main changes and merges require
+explicit operator authorization; no spending, credentials or production mutation
+without approval.
+
 ## 1. Think Before Coding
 
 **Don't assume. Don't hide confusion. Surface tradeoffs.**
@@ -107,9 +125,9 @@ rules that matter most:
    **MCP servers** (the research corpus lives in Drive — use `corpus-ingestion`), prompt
    caching (already in `python/bridge.py`), and the Rust/Python/TS layers already exist.
    Use them. State which one you checked before writing anything new.
-2. **Nothing is "done" until it is on `main`, verified.** Every session opens with
-   `scripts/ground-truth.sh` (branch · drift from main · unpushed · membrane · live).
-   Stranded on a feature branch = not done.
+2. **Do not confuse deployment state with mathematical validity.** For product/runtime delivery, verify the authorized destination.
+   For research, preserve proof claims and receipts at exact heads even before merge; a branch or CI failure is not a mathematical refutation.
+   Every session still checks `scripts/ground-truth.sh` where available. Never merge protected `main` without explicit operator authorization.
 
 ---
 
