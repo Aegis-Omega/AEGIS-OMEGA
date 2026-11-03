@@ -22,6 +22,8 @@ import sys
 import subprocess
 from pathlib import Path
 from dataclasses import dataclass
+from concurrent.futures import Future
+from threading import Lock
 from typing import Callable, Mapping, Sequence
 from urllib.error import HTTPError, URLError
 from urllib.parse import quote
@@ -305,23 +307,49 @@ class SourcePlane:
         self.token = token
         self.max_blob_bytes = max_blob_bytes
         self._api_cache: dict[str, Mapping[str, object]] = {}
+        # A request keyed by immutable Git object path has one in-flight owner.
+        # Different object paths can load in parallel without locking transport I/O.
+        self._cache_lock = Lock()
+        self._inflight: dict[str, Future[Mapping[str, object]]] = {}
         self._blob_cache: dict[tuple[str, str], bytes] = {}
 
     def _get(self, api_path: str) -> Mapping[str, object]:
-        cached = self._api_cache.get(api_path)
-        if cached is not None:
-            return cached
-        raw = self.transport(api_path, self.token)
-        if len(raw) > MAX_JSON_BYTES:
-            raise SourcePlaneError("API response exceeds safe size limit")
+        """Deduplicate concurrent immutable Git object reads, without serializing I/O.
+
+        A failed read is never admitted to the cache, and all concurrent callers
+        receive the failure. A later request may retry using the same instance.
+        """
+        with self._cache_lock:
+            cached = self._api_cache.get(api_path)
+            if cached is not None:
+                return cached
+            pending = self._inflight.get(api_path)
+            owner = pending is None
+            if owner:
+                pending = Future()
+                self._inflight[api_path] = pending
+        assert pending is not None
+        if not owner:
+            return pending.result()
         try:
-            value = json.loads(raw)
-        except (ValueError, UnicodeDecodeError) as exc:
-            raise SourcePlaneError("GitHub API returned invalid JSON") from exc
-        if not isinstance(value, dict):
-            raise SourcePlaneError("GitHub API returned non-object")
-        # Bound memory cache implicitly by the request count in a single manifest.
-        self._api_cache[api_path] = value
+            raw = self.transport(api_path, self.token)
+            if len(raw) > MAX_JSON_BYTES:
+                raise SourcePlaneError("API response exceeds safe size limit")
+            try:
+                value = json.loads(raw)
+            except (ValueError, UnicodeDecodeError) as exc:
+                raise SourcePlaneError("GitHub API returned invalid JSON") from exc
+            if not isinstance(value, dict):
+                raise SourcePlaneError("GitHub API returned non-object")
+        except BaseException as exc:
+            with self._cache_lock:
+                self._inflight.pop(api_path, None)
+                pending.set_exception(exc)
+            raise
+        with self._cache_lock:
+            self._api_cache[api_path] = value
+            self._inflight.pop(api_path, None)
+            pending.set_result(value)
         return value
 
     @staticmethod

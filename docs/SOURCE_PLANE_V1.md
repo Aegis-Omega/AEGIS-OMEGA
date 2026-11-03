@@ -92,3 +92,22 @@ After review, apply the minimal diff from `integration/repository-knowledge-ci.p
 The **exact canonical source bytes** of `harness/sdk/repository_knowledge.py` were retrieved from GitHub via the connected read-only repository interface. Their recomputed Git blob OID is `8a4468fa94ae71c3410f89b87d6c0055bf5ba3af` (matching the GitHub tree). The unchanged canonical file was temporarily placed next to `source_plane.py` for 8 true integration tests, then omitted from the distributable patch, which only adds the new source plane module and tests. Existing `.github/workflows/repository-knowledge.yml` is patched without increasing permissions or creating a new workflow. Its original blob OID is `840e3c78f8ccddfae820646ec5248dfa0219ac60`.
 
 The test suite totals **38/38 PASS** in the local staging environment. This supports code-path compatibility, not a source-tree-native hosted PASS, production authorization, or independent end-to-end network performance. `git apply --check` against the independently reconstructed exact old blob files is used to validate the patch.
+
+## Agent-scale parallel reads (V1.2 hardening)
+
+The memory-only API cache now performs **single-flight** request deduplication:
+concurrent callers of the same immutable Git object share one in-flight read.
+Distinct object IDs still load concurrently; failures wake all waiters, are
+not cached as successful objects, and permit a subsequent retry. Source plane
+remains read-only and authority-neutral; this adds no process, persistent cache,
+network endpoint, credential or background agent.
+
+Offline regression: `python -m unittest discover -s scripts -p 'test_source_plane*.py' -v`.
+Offline benchmark: `python scripts/bench_source_plane_parallel.py --trials 3`.
+The benchmark compares independent clients, a reconstructed pre-fix shared
+cache, and shared single-flight for 32 jobs on local Git objects. It injects an
+explicit 8 ms per-object delay to model latency. Numbers are machine-dependent:
+**never interpret them as measured GitHub API, production Pando/Scion, multi-host,
+or physical disk/network throughput.** Backend object request counts and
+negative concurrency/failure regression tests provide reproducible evidence;
+performance is informational and is not an authority or merge gate.
