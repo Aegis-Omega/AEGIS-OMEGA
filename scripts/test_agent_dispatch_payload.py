@@ -4,6 +4,9 @@ from __future__ import annotations
 
 import importlib.util
 import json
+import os
+import subprocess
+import textwrap
 import sys
 import unittest
 from pathlib import Path
@@ -155,6 +158,52 @@ class AgentDispatchPayloadTests(unittest.TestCase):
         self.assertNotIn("if: vars.PROXY_URL != ''", workflow)
         self.assertIn("DEFERRED_NOT_CONFIGURED", workflow)
         self.assertIn("scripts/agent_dispatch_payload.py", workflow)
+
+
+    def test_trusted_actor_gate_runs_before_dispatch(self) -> None:
+        """Execute the workflow's actual shell gate against trusted/untrusted actors."""
+        workflow = WORKFLOW.read_text(encoding="utf-8")
+        heading = "      - name: Require a trusted actor for externally triggered events"
+        next_step = "      - name: Build bounded event envelope"
+        self.assertIn(heading, workflow)
+        self.assertLess(workflow.index(heading), workflow.index(next_step))
+        actor_step = workflow.split(heading, 1)[1].split(next_step, 1)[0]
+        shell = textwrap.dedent(actor_step.split("        run: |\n", 1)[1])
+        for event_name, assoc, trusted in (
+            ("issues", "OWNER", True),
+            ("issues", "MEMBER", True),
+            ("issues", "COLLABORATOR", True),
+            ("issues", "NONE", False),
+            ("issues", "CONTRIBUTOR", False),
+            ("issues", "", False),
+            ("issue_comment", "OWNER", True),
+            ("issue_comment", "MEMBER", True),
+            ("issue_comment", "COLLABORATOR", True),
+            ("issue_comment", "FIRST_TIME_CONTRIBUTOR", False),
+            ("issue_comment", "NONE", False),
+            ("issue_comment", "", False),
+            ("workflow_run", "", True),
+            ("repository_dispatch", "OWNER", False),
+        ):
+            with self.subTest(event=event_name, association=assoc):
+                env = dict(os.environ)
+                env.update({
+                    "EVENT_NAME": event_name,
+                    "ISSUE_ASSOCIATION": assoc if event_name == "issues" else "",
+                    "COMMENT_ASSOCIATION": assoc if event_name == "issue_comment" else "",
+                })
+                result = subprocess.run(
+                    ["bash", "-c", shell],
+                    env=env,
+                    text=True,
+                    capture_output=True,
+                    check=False,
+                )
+                self.assertEqual(
+                    result.returncode == 0,
+                    trusted,
+                    f"event={event_name} association={assoc}: {result.stderr}",
+                )
 
     def test_network_dispatch_is_authenticated_bounded_and_checked(self) -> None:
         workflow = WORKFLOW.read_text(encoding="utf-8")

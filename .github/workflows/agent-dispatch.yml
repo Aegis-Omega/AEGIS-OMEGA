@@ -25,6 +25,31 @@ jobs:
           persist-credentials: false
           ref: ${{ github.event.repository.default_branch }}
 
+      - name: Require a trusted actor for externally triggered events
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          ISSUE_ASSOCIATION: ${{ github.event.issue.author_association }}
+          COMMENT_ASSOCIATION: ${{ github.event.comment.author_association }}
+        run: |
+          set -euo pipefail
+
+          # Fail-closed: only repository-trusted associations may drive dispatch.
+          # `workflow_run` is raised by the repository itself, not by an external
+          # actor, so it carries no author association to check.
+          validate_actor() {
+            case "$1" in
+              OWNER|MEMBER|COLLABORATOR) return 0 ;;
+              *) echo "DENIED: untrusted actor association: ${1:-<empty>}" >&2; return 1 ;;
+            esac
+          }
+
+          case "$EVENT_NAME" in
+            workflow_run)   ;;
+            issues)         validate_actor "$ISSUE_ASSOCIATION" ;;
+            issue_comment)  validate_actor "$COMMENT_ASSOCIATION" ;;
+            *)              echo "DENIED: unsupported event: $EVENT_NAME" >&2; exit 1 ;;
+          esac
+
       - name: Build bounded event envelope
         id: classify
         env:
