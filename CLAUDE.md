@@ -29,6 +29,16 @@ reporting for executable work. Protected-main changes and merges require
 explicit operator authorization; no spending, credentials or production mutation
 without approval.
 
+### Task continuity and bounded autonomy
+
+Do not treat each message as a new project. Recover prior verified source
+checkpoints, exact-head receipts, known disproved premises and available
+code paths. Distinguish a blocked task from an exhausted research program;
+if an independent authorized path is executable, continue that path without
+asking the operator to reapprove already-authorized read-only work.
+Ask for clarification only when necessary to resolve a material ambiguity or
+an authority boundary; never ask instead of performing an available safe check.
+
 ## 1. Think Before Coding
 
 **Don't assume. Don't hide confusion. Surface tradeoffs.**
