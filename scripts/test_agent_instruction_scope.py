@@ -449,5 +449,54 @@ class TestInstructionConsistency(unittest.TestCase):
             self.assertEqual(len(guards), 1)
             self.assertIn("mcp__GitHub__update_ref", guards[0]["matcher"])
 
+    def test_exact_head_merge_guard(self):
+        import importlib.util
+        import json
+
+        spec = importlib.util.spec_from_file_location(
+            "aegis_merge_authority_guard",
+            ROOT / "scripts/claude-authority-guard.py",
+        )
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+
+        def verdict(args, tool="mcp__GitHub__merge_pull_request"):
+            payload = {"tool_name": tool, "tool_input": {
+                "repository_full_name": "Aegis-Omega/AEGIS-OMEGA", **args,
+            }}
+            return module.evaluate(payload)["hookSpecificOutput"]["permissionDecision"]
+
+        good = {"pr_number": 793, "expected_head_sha": "f" * 40,
+                "merge_method": "squash"}
+        self.assertEqual(verdict(good), "allow")
+        self.assertEqual(verdict(good, tool="mcp__github__merge_pull_request"), "allow")
+        for rejected in (
+            {"pr_number": 793},
+            {"pr_number": 793, "expected_head_sha": "0" * 39},
+            {"pr_number": 0, "expected_head_sha": "f" * 40},
+            {"pr_number": "793", "expected_head_sha": "f" * 40},
+            {"pr_number": 793, "expected_head_sha": "f" * 40,
+             "merge_method": "force"},
+        ):
+            with self.subTest(rejected=rejected):
+                self.assertEqual(verdict(rejected), "deny")
+
+        invalid_ref = {"tool_name": "mcp__GitHub__update_ref", "tool_input": {
+            "repository_full_name": "Aegis-Omega/AEGIS-OMEGA",
+            "branch_name": "feature/review", "expected_sha": "f" * 40,
+            "sha": "not-a-sha", "force": False,
+        }}
+        self.assertEqual(
+            module.evaluate(invalid_ref)["hookSpecificOutput"]["permissionDecision"], "deny"
+        )
+        for settings_path in (".claude/settings.json",
+                              "sovereign-omega-v2/.claude/settings.json"):
+            with self.subTest(settings_path=settings_path):
+                settings = json.loads(read(settings_path))
+                entries = [h for h in settings["hooks"]["PreToolUse"]
+                           if "claude-authority-guard.py" in str(h["hooks"])]
+                self.assertEqual(len(entries), 1)
+                self.assertIn("mcp__GitHub__merge_pull_request", entries[0]["matcher"])
+
 if __name__ == "__main__":
     unittest.main()
