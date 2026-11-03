@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Refuse a pull request that duplicates an already-open one.
+"""Flag probable PR duplication and critical integration-path collisions.
 
 EPISTEMIC TIER: T2. The overlap measure is deterministic and testable; the
 thresholds are policy choices, not derived results.
@@ -57,6 +57,19 @@ GENERATED = (
     "poetry.lock",
     "uv.lock",
 )
+
+#: A contested integration entrypoint matters even when large PRs dilute
+#: whole-PR Jaccard similarity. This is a review obligation, NOT proof of
+#: duplicate implementations. Keep this exact-path list deliberately narrow.
+CRITICAL_ENTRYPOINTS = frozenset({
+    ".github/workflows/agent-dispatch.yml",
+    "agents/coordinator.py",
+    "harness/sdk/authority_client.py",
+    "scripts/automaton3-authority.py",
+    "sovereign-omega-v2/mcp-server/src/index.ts",
+    "hub/src/components/console/ConsolePage.tsx",
+    "hub/src/lib/platformConsole.ts",
+})
 
 #: Applied to a PR that is a deliberate continuation rather than a rediscovery.
 OVERRIDE_LABEL = "stacked-pr"
@@ -163,10 +176,13 @@ class Collision:
     shared_files: tuple[str, ...]
     shared_territory: tuple[str, ...]
     jaccard: float
+    critical_files: tuple[str, ...] = ()
 
     def reason(self) -> str:
         if self.shared_territory:
             return f"both create `{'`, `'.join(self.shared_territory)}`"
+        if self.critical_files:
+            return "critical integration path(s): " + ", ".join(self.critical_files)
         return f"{len(self.shared_files)} shared files, {self.jaccard:.0%} overlap"
 
 
@@ -186,7 +202,8 @@ def collide(
     """Pure decision function. `others` is (number, title, files) per open PR.
 
     A territory collision reports on its own: two PRs inventing the same new
-    directory is decisive even when no single path matches.
+    directory is decisive even when no single path matches. An exact critical
+    entrypoint overlap always requires review, even for very large PRs.
     """
     mine = significant(touched(candidate_files))
     my_land = territory(candidate_files, existing)
@@ -196,8 +213,9 @@ def collide(
         theirs = significant(touched(files))
         shared = mine & theirs
         land = my_land & territory(files, existing)
+        critical = shared & CRITICAL_ENTRYPOINTS
         score = jaccard(mine, theirs)
-        if land or (len(shared) >= min_shared and score >= min_jaccard):
+        if land or critical or (len(shared) >= min_shared and score >= min_jaccard):
             found.append(
                 Collision(
                     number=number,
@@ -205,9 +223,13 @@ def collide(
                     shared_files=tuple(sorted(shared)),
                     shared_territory=tuple(sorted(land)),
                     jaccard=score,
+                    critical_files=tuple(sorted(critical)),
                 )
             )
-    return sorted(found, key=lambda c: (-len(c.shared_territory), -c.jaccard, c.number))
+    return sorted(
+        found,
+        key=lambda c: (-len(c.shared_territory), -len(c.critical_files), -c.jaccard, c.number),
+    )
 
 
 def render(candidate: int, collisions: list[Collision]) -> str:
@@ -226,7 +248,7 @@ def render(candidate: int, collisions: list[Collision]) -> str:
             lines.append(f"      - ... and {len(c.shared_files) - 8} more")
         lines.append("")
     lines.append(
-        f"Reconcile unique work before closing a duplicate. `{OVERRIDE_LABEL}` only "
+        f"Reconcile shared source before merging; an overlap does not prove duplication. `{OVERRIDE_LABEL}` only "
         f"exempts an exact-base, ancestry-verified parent/child pair; never unrelated PRs."
     )
     return "\n".join(lines)
