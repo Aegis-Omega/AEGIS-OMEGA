@@ -17,7 +17,10 @@ PASS_MARKER = "All frozen files present and hash-verified."
 
 def classify(returncode: int, stdout: str, stderr: str) -> dict:
     if returncode == 0:
-        if PASS_MARKER in stdout and all(f"OK:   {path}" in stdout for path in REQUIRED):
+        lines = {line.strip() for line in stdout.splitlines()}
+        checked = all(f"OK:   {path}" in lines for path in REQUIRED)
+        contradictory = any(line.startswith(("FAIL:", "WARN:")) for line in lines)
+        if PASS_MARKER in lines and checked and not contradictory:
             return {"status": "VERIFIED", "message": "AEGIS frozen-file hashes verified (3/3, exit 0)."}
         return {"status": "UNKNOWN", "message": "AEGIS hash checker returned 0 without the required success receipt; no verification claim."}
     if returncode == 1:
