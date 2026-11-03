@@ -126,7 +126,7 @@
         ]
       },
       {
-        "matcher": "Bash|mcp__github__push_files|mcp__github__create_or_update_file|mcp__github__delete_file",
+        "matcher": "Bash|mcp__github__push_files|mcp__github__create_or_update_file|mcp__github__delete_file|mcp__github__update_file|mcp__github__create_file|mcp__GitHub__update_file|mcp__GitHub__create_file|mcp__GitHub__delete_file",
         "hooks": [
           {
             "type": "command",
