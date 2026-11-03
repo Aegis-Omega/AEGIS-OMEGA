@@ -97,5 +97,13 @@ class TestInstructionConsistency(unittest.TestCase):
         self.assertIn("Orchestration Setup (opt-in only)", s)
         self.assertIn("Do not install plugins, onboard external agents", s)
 
+    def test_no_unbounded_ask_first_loops(self):
+        root = read("CLAUDE.md")
+        flow = read("WORKFLOW.md")
+        self.assertNotIn("If uncertain, ask.", root)
+        self.assertNotIn("If something is unclear, stop. Name what's confusing. Ask.", root)
+        self.assertIn("Ask only when unresolved ambiguity would change a consequential action", root)
+        self.assertIn("Do not repeat questions answered by existing evidence.", flow)
+
 if __name__ == "__main__":
     unittest.main()
