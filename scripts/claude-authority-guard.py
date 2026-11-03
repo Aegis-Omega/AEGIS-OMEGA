@@ -25,6 +25,7 @@ GITHUB_CONTENT_WRITERS = {
     "mcp__github__create_file",
 }
 GITHUB_REF_WRITERS = {"mcp__github__update_ref"}
+GITHUB_PR_MERGERS = {"mcp__github__merge_pull_request"}
 FROZEN_REPO_PATHS = frozenset({
     "sovereign-omega-v2/python/gate.py",
     "sovereign-omega-v2/python/dna.py",
@@ -136,6 +137,23 @@ def evaluate(payload: dict[str, Any]) -> dict[str, Any]:
             )
         return _decision("allow", "AEGIS authority guard: non-push Bash command")
 
+    if normalized_tool in GITHUB_PR_MERGERS:
+        repository = _repository_name(tool_input)
+        if not repository:
+            return _decision("deny", "AEGIS authority guard: PR merge requires explicit repository")
+        if repository.casefold() != TARGET_REPOSITORY.casefold():
+            return _decision("allow", "AEGIS authority guard: merge outside AEGIS target boundary")
+        number = tool_input.get("pr_number")
+        if type(number) is not int or number < 1:
+            return _decision("deny", "AEGIS authority guard: PR merge requires a valid PR number")
+        expected = tool_input.get("expected_head_sha")
+        if not isinstance(expected, str) or not re.fullmatch(r"[0-9a-fA-F]{40}", expected):
+            return _decision("deny", "AEGIS authority guard: PR merge requires exact candidate head SHA")
+        method = tool_input.get("merge_method")
+        if method not in (None, "merge", "squash", "rebase"):
+            return _decision("deny", "AEGIS authority guard: invalid PR merge method")
+        return _decision("allow", "AEGIS authority guard: exact-head PR merge candidate; GitHub protections and operator approval remain mandatory")
+
     if normalized_tool in GITHUB_REF_WRITERS:
         repository = _repository_name(tool_input)
         if not repository:
@@ -146,6 +164,9 @@ def evaluate(payload: dict[str, Any]) -> dict[str, Any]:
         normalized = branch.casefold()
         if not normalized or normalized in MAIN_REFS:
             return _decision("deny", "AEGIS authority guard: cannot directly mutate canonical main or an unspecified ref")
+        target_sha = tool_input.get("sha")
+        if not isinstance(target_sha, str) or not re.fullmatch(r"[0-9a-fA-F]{40}", target_sha):
+            return _decision("deny", "AEGIS authority guard: non-main ref update needs an exact target SHA")
         expected_sha = tool_input.get("expected_sha")
         if not isinstance(expected_sha, str) or not re.fullmatch(r"[0-9a-fA-F]{40}", expected_sha):
             return _decision("deny", "AEGIS authority guard: non-main ref update needs an exact 40-hex head lease")
