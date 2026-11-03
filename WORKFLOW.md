@@ -7,7 +7,7 @@
 
 This loop closes both. It runs on top of what already exists — RALPH, the 8 gates,
 the skills, the hooks — and makes two things mandatory: **use what exists before
-building**, and **nothing is done until it is on `main`, verified.**
+building**, and **product delivery requires authorized integration; formal proof authority requires exact-source kernel evidence, independent of merge status.**
 
 Drive the loop with `/loop`. Every session also opens with `scripts/ground-truth.sh`
 so none starts blind.
@@ -20,7 +20,7 @@ so none starts blind.
 bash scripts/ground-truth.sh
 ```
 Branch · ahead/behind `main` · unpushed · membrane · prod-live. If work is stranded
-(ahead of `main`), resolving that is the first job — before anything new.
+(ahead of `main`), preserve it and assess integration eligibility; do not block independent formal research or merge without explicit operator approval.
 
 ---
 
@@ -46,6 +46,20 @@ and why it doesn't already cover it.
 
 ---
 
+## RH RESEARCH OVERRIDE: MULTI-ROUTE FIRST
+
+For RH, preflight effective agent and connector configuration, Git exact heads,
+Library/archives, compiler/cache availability, and all existing theorem producers.
+Represent candidate proof strategies as an AND/OR hypergraph. Before choosing a
+new analytic premise, test direct producer-to-consumer composition in **every
+relevant existing route**, classify unsupported, refuted and stronger-than-needed
+assumptions, and preserve previous proof checkpoints. A blocked selected route
+cannot justify a universal negative conclusion. Keep mathematical validity,
+Lean/Coq kernel verification, CI access, and protected-main integration separate.
+Use targeted exact-head compile/replay; never relaunch the full pipeline merely
+to compensate for missing cache or billing/runner access. No paid resources,
+credentials, or changes to protected main without express authorization.
+
 ## STEP 2 — ASSESS (L6)
 
 Classify the tier. Pick the **smallest** change that moves the goal. State the goal
@@ -68,8 +82,7 @@ A claim like "it's wired" must be backed by the thing actually working end-to-en
 
 ## STEP 5 — SHIP (HARMONIZE)
 
-`commit → push → PR to **main**`. Work is **not done** until it is on `main`, or an
-open PR to `main` with green CI. Stranded on a feature branch = not done.
+`commit → push → authorized review`. Product delivery requires approved integration and the relevant gates. Formal mathematics must retain exact-head proof evidence independently of merge state. Never merge protected `main` without explicit operator authorization.
 
 ---
 
