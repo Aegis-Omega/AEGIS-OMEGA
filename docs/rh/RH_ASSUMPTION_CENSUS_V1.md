@@ -4,6 +4,36 @@
 
 **Result:** `RH_STATUS = NOT_PROVEN`; `CLAIM_PROMOTION = BLOCKED`.
 
+## Scope correction (2026-11-03)
+
+**Historical, scope-limited evidence only.** The negative inventory below applies
+**exclusively** to tracked files at AEGIS-OMEGA base commit
+`495bfd85d79abcb2b4f6898fe9c156488492426a` and the environment of
+that historical audit. It is **not** a statement about the mathematical
+contents of Aegis-Omega/formal-conjectures, the 43 research-lanes preserved
+in `tarikskalic33/Aegis-Omega-aegis-research-lanes`, the AEGIS Library
+archives, or other Git history. The original observations are retained below
+for auditability, not promoted as the project's present research state.
+
+Confirmed source discovery outside that narrow base includes:
+- `Aegis-Omega/formal-conjectures` PR #92 exact head
+  `2d244e6927571cd58477b939dad21fcaa53c70ee`, with thousands of
+  Lean source files and mathematical RH proof developments.
+- `Aegis-Omega/AEGIS-OMEGA` RH research-lanes #659, #679, #683, #686,
+  and #721, among others, preserving distinct historical proof versions.
+- Source-bound Weil, Krein, CvS, Li/Hadamard, Gamma and prime-window
+  constructions; their existence does not independently certify an
+  unconditional RH proof.
+
+**Superseded guidance:** "construct zeta/xi from scratch" and
+`RH_D0_ANALYTIC_FOUNDATIONS` below were provisional next actions for
+the audited *empty product-base scope*. Do **not** assign them as a
+globally required RH step or duplicate already available libraries.
+Select future proof work from actual theorem statements, existing
+source-bound producers and an AND/OR proof-route graph after checking
+exact source hashes and kernel receipts. No merge, CI, or math proof is
+established merely by this documentation correction.
+
 ## Inventory result
 
 The tracked repository contains no RH, zeta, Guinand--Weil, CoRN, or Coq
