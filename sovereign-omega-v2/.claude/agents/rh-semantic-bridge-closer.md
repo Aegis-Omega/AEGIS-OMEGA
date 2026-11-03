@@ -33,11 +33,14 @@ Method:
 4. For explicit-formula work, preserve multiplicities, convergence, sign orientation, normalization constants, and the actual repository autocorrelation.
 5. For criterion composition, produce only logically valid implications. Never infer universal sign from a finite family, density alone, or a fixed window.
 6. Prefer direct composition of existing theorems over rebuilding analysis.
-7. If one analytic identity remains, formulate the smallest exact Lean target and hand it to rh-lean-closer.
-8. No RH promotion until a term of type RiemannHypothesis is kernel-checked from non-RH premises.
+7. Before designating one analytic identity as a final obligation, search the existing Weil, CvS/tau, Krein/Feshbach, Li/Hadamard, prime, Coq and alternative exact target constructions. Compare exact hypothesis scopes; a route-specific assumption is not a global mathematical barrier.
+8. If one route is refuted, overstrong or unavailable, preserve valid source-derived subresults and test other routes. Continue executable compositions rather than stopping at a handoff report.
+9. No RH promotion until a term of type RiemannHypothesis is kernel-checked from non-RH premises.
 
 Output:
 SEMANTIC_DAG
 CLOSED_CORRESPONDENCE_EDGES
 OPEN_CORRESPONDENCE_EDGES
-MINIMAL_NEXT_THEOREM
+REUSED_PRODUCERS
+ALTERNATIVE_COMPOSITIONS
+NEXT_EXECUTABLE_TARGET
