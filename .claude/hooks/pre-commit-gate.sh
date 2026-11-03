@@ -10,16 +10,29 @@ set -uo pipefail
 REPO="${CLAUDE_PROJECT_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"
 
 INPUT=$(cat)
-CMD=$(echo "$INPUT" | python3 -c "
-import sys, json
+# PreToolUse carries Bash arguments inside tool_input, not at the top level.
+# Malformed hook input must never silently bypass a mutation gate.
+if ! MODE=$(printf '%s' "$INPUT" | python3 -c '
+import json, re, sys
 try:
-    d = json.load(sys.stdin)
-    print(d.get('command', ''))
-except Exception:
-    print('')
-" 2>/dev/null || echo "")
+    event = json.load(sys.stdin)
+    command = event["tool_input"]["command"]
+    if not isinstance(command, str):
+        raise ValueError("missing Bash command")
+except (ValueError, TypeError, KeyError, AttributeError):
+    sys.exit(2)
+git_commit = re.search(
+    r"(?<![A-Za-z0-9_.-])git(?:\s+(?:-C|--git-dir|--work-tree|--namespace|-c)\s+\S+|\s+--(?:git-dir|work-tree|namespace)=\S+)*\s+commit(?=\s|$|[;&|])",
+    command,
+    re.IGNORECASE,
+)
+print("COMMIT" if git_commit else "OTHER")
+' 2>/dev/null); then
+  echo "BLOCKED: missing or malformed PreToolUse Bash command" >&2
+  exit 2
+fi
 
-if ! echo "$CMD" | grep -q "git commit"; then
+if [[ "$MODE" != "COMMIT" ]]; then
   exit 0
 fi
 
@@ -70,29 +83,26 @@ fi
 echo "GATE 8 pre-commit: Gate1 → typecheck → build..."
 cd "$REPO/sovereign-omega-v2" || { echo "BLOCKED: $REPO/sovereign-omega-v2 not found — Gate 8 cannot run."; exit 2; }
 
-# Gate 1: T0 canonicalization foundation (fast ~2-5s — must be green always)
-GATE1=$(npm run test -- test/unit/jcs.test.ts 2>&1 | tail -6)
-if echo "$GATE1" | grep -qE " FAIL | failed|× "; then
-  echo "BLOCKED: Gate 1 (jcs.test.ts) failed — T0 canonicalization broken."
-  echo "$GATE1"
+# Gate 1: T0 canonicalization foundation
+if ! GATE1=$(npm run test -- test/unit/jcs.test.ts 2>&1); then
+  echo "BLOCKED: Gate 1 (jcs.test.ts) failed (nonzero process exit)." >&2
+  printf '%s\n' "$GATE1" | tail -6 >&2
   exit 2
 fi
 echo "  Gate 1 (jcs): OK"
 
-# Typecheck: operational closure check
-TYPECHECK=$(npm run typecheck 2>&1 | tail -8)
-if echo "$TYPECHECK" | grep -qE "error TS|Found [0-9]+ error"; then
-  echo "BLOCKED: typecheck failed."
-  echo "$TYPECHECK"
+# Typecheck: trust the command exit status, not matching log text.
+if ! TYPECHECK=$(npm run typecheck 2>&1); then
+  echo "BLOCKED: typecheck failed (nonzero process exit)." >&2
+  printf '%s\n' "$TYPECHECK" | tail -8 >&2
   exit 2
 fi
 echo "  typecheck: OK"
 
-# Build: dist artifact must compile
-BUILD=$(npm run build 2>&1 | tail -8)
-if echo "$BUILD" | grep -qiE "^error[^s]|Build failed"; then
-  echo "BLOCKED: build failed."
-  echo "$BUILD"
+# Build: fail closed even when the last log lines contain no word "error".
+if ! BUILD=$(npm run build 2>&1); then
+  echo "BLOCKED: build failed (nonzero process exit)." >&2
+  printf '%s\n' "$BUILD" | tail -8 >&2
   exit 2
 fi
 echo "  build: OK"
@@ -103,6 +113,10 @@ echo "  build: OK"
 # so a regression here once committed silently (649b6138 → 450/3). Block on it:
 # a red platform contract may not enter the branch. Exit 1 from the suite = fail.
 PLAT="python/tests/test_platform.py"
+if [[ ! -f "$PLAT" ]]; then
+  echo "BLOCKED: required platform contract test missing: $PLAT" >&2
+  exit 2
+fi
 if [ -f "$PLAT" ]; then
   if ! PLAT_OUT=$(python python/tests/test_platform.py 2>&1); then
     echo "BLOCKED: platform contract regression — test_platform.py failed."
