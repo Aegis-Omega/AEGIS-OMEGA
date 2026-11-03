@@ -17,15 +17,77 @@ set -u
 
 log() { echo "agent-env-setup: $*"; }
 
-REPO="${1:-}"
-if [ -z "$REPO" ] || [ ! -d "$REPO/.git" ]; then
+# --verify is read-only and fail-closed. Normal setup remains best-effort for
+# cloud session bootstraps, but its exit code is never a readiness certificate.
+VERIFY=0
+if [ "${1:-}" = "--verify" ]; then
+  VERIFY=1
+  REPO="${2:-}"
+  [ "$#" -le 2 ] || { log "usage: $0 [repo-root] | --verify [repo-root]"; exit 2; }
+elif [[ "${1:-}" == --* ]]; then
+  log "unknown option: $1"
+  exit 2
+else
+  REPO="${1:-}"
+  [ "$#" -le 1 ] || { log "usage: $0 [repo-root] | --verify [repo-root]"; exit 2; }
+fi
+if [ -z "$REPO" ] || { [ "$VERIFY" -eq 0 ] && [ ! -d "$REPO/.git" ] && [ ! -f "$REPO/.git" ]; }; then
   REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." 2>/dev/null && pwd)"
 fi
-if [ ! -d "$REPO/.git" ]; then
-  log "no git repository at $REPO, skipping"
+if [ ! -d "$REPO/.git" ] && [ ! -f "$REPO/.git" ]; then
+  log "no git repository at $REPO"
+  if [ "$VERIFY" -eq 1 ]; then log 'AEGIS_AGENT_ENV=BLOCKED'; exit 2; fi
+  log 'AEGIS_AGENT_ENV=BEST_EFFORT'
   exit 0
 fi
 log "repository: $REPO"
+
+if [ "$VERIFY" -eq 1 ]; then
+  # The presence of a manifest never proves that its dependencies installed.
+  # Neither this gate nor the normal setup reads secrets, runs npm/pip installs,
+  # mutates Git, or contacts any remote service in --verify mode.
+  failures=0
+  if ! command -v git >/dev/null 2>&1 ||
+     ! git -C "$REPO" rev-parse --show-toplevel >/dev/null 2>&1; then
+    log 'missing or invalid Git checkout'
+    failures=$((failures + 1))
+  fi
+  js_found=0
+  for dir in packages/shared sovereign-omega-v2 hub platform-picker hook-generator \
+             content-calendar cockpit studio enterprise aegisomega-webgpu; do
+    if [ -f "$REPO/$dir/package.json" ]; then
+      js_found=1
+      if [ ! -d "$REPO/$dir/node_modules" ]; then
+        log "missing JavaScript dependencies: $dir/node_modules"
+        failures=$((failures + 1))
+      fi
+    fi
+  done
+  if [ "$js_found" -eq 1 ] && ! command -v node >/dev/null 2>&1; then
+    log 'Node runtime unavailable'
+    failures=$((failures + 1))
+  fi
+  PY="$(command -v python3 || command -v python || true)"
+  REQ="$REPO/sovereign-omega-v2/python/requirements.txt"
+  if [ -f "$REQ" ]; then
+    if [ -z "$PY" ] || ! "$PY" -c 'import anthropic' >/dev/null 2>&1; then
+      log 'Python runtime or required anthropic import unavailable'
+      failures=$((failures + 1))
+    fi
+  fi
+  if [ -f "$REPO/packages/aegis-py/pyproject.toml" ]; then
+    if [ -z "$PY" ] || ! "$PY" -c 'import aegis' >/dev/null 2>&1; then
+      log 'Python runtime or required aegis import unavailable'
+      failures=$((failures + 1))
+    fi
+  fi
+  if [ "$failures" -ne 0 ]; then
+    log "AEGIS_AGENT_ENV=BLOCKED failures=$failures"
+    exit 2
+  fi
+  log 'AEGIS_AGENT_ENV=DEPENDENCIES_PRESENT'
+  exit 0
+fi
 
 if command -v npm >/dev/null 2>&1; then
   # Same order as .claude/hooks/session-start.sh (shared package first).
@@ -55,5 +117,6 @@ else
   log "python or requirements.txt not found, skipping Python dependencies"
 fi
 
-log "done"
+log "done (best effort; run --verify to check dependency presence)"
+log "AEGIS_AGENT_ENV=BEST_EFFORT"
 exit 0
