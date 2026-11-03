@@ -1,5 +1,7 @@
 # aegis-research-lanes
 
+> **DO NOT EXECUTE THIS HISTORICAL MIGRATION KIT (2026-11-03).** The former instructions below to create `Aegis-Omega/aegis-research-lanes`, publish a release, or delete 43 branches **are superseded and NOT authorized**. There is no verified complete source-to-source transfer, cryptographic lineage comparison, proof-preservation audit, or operator approval for destructive cleanup. Preserve existing repositories, branches and receipts. `#735` is not a demonstrated current blanket GitHub Actions billing lock. This file remains for historical forensics only; do **not** run `import.sh` or copy the workflow without a separately approved preservation plan. See issues #246, #737 and #742.
+
 The proof/, research/, evidence/ and integration/ lanes closed in Aegis-Omega/AEGIS-OMEGA on 2026-11-02 (#742), kept here so that the product repository carries only product and runtime code.
 
 ## Contents
