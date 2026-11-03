@@ -282,5 +282,33 @@ class TestInstructionConsistency(unittest.TestCase):
                      "Bash(npm run build*)", "Bash(git status*)"):
             self.assertIn(safe, nested_allow)
 
+    def test_hash_verifier_never_falsely_green(self):
+        import importlib.util
+        import json
+
+        path = ROOT / "sovereign-omega-v2/.claude/hooks/session-hash-check.py"
+        spec = importlib.util.spec_from_file_location("aegis_session_hash_guard", path)
+        self.assertIsNotNone(spec)
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        receipt = "".join("  OK:   " + item + "\n" for item in module.REQUIRED)
+        receipt += module.PASS_MARKER
+        cases = (
+            (0, receipt, "VERIFIED"),
+            (1, "  FAIL: python/dna.py", "FAILED"),
+            (2, "  WARN: python/dna.py", "INCOMPLETE"),
+            (0, "  OK:   python/gate.py", "UNKNOWN"),
+            (0, receipt.replace("router.py", "router.pyx"), "UNKNOWN"),
+            (0, receipt + "\n  FAIL: python/dna.py", "UNKNOWN"),
+            (3, receipt, "UNKNOWN"),
+        )
+        for rc, out, expected in cases:
+            with self.subTest(rc=rc,expected=expected):
+                self.assertEqual(module.classify(rc, out, "")["status"], expected)
+        nested = json.loads(read("sovereign-omega-v2/.claude/settings.json"))
+        hook = nested["hooks"]["SessionStart"][0]["hooks"][0]["command"]
+        self.assertIn("session-hash-check.py", hook)
+        self.assertNotIn("grep -q", hook)
+
 if __name__ == "__main__":
     unittest.main()
