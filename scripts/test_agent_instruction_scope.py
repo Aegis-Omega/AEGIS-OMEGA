@@ -414,5 +414,40 @@ class TestInstructionConsistency(unittest.TestCase):
                              "mcp__GitHub__create_file", "mcp__GitHub__update_file"):
                     self.assertIn(name, matcher)
 
+    def test_ref_updates_require_exact_head_lease(self):
+        import importlib.util
+        import json
+
+        spec = importlib.util.spec_from_file_location(
+            "aegis_ref_guard", ROOT / "scripts/claude-authority-guard.py"
+        )
+        self.assertIsNotNone(spec)
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        cases = (
+            ("main", "1" * 40, False, "deny"),
+            ("refs/heads/main", "1" * 40, False, "deny"),
+            ("feature/a", "", False, "deny"),
+            ("feature/a", "not-a-sha", False, "deny"),
+            ("feature/a", "1" * 40, True, "deny"),
+            ("feature/a", "1" * 40, False, "allow"),
+        )
+        for branch, expected_sha, force, expected in cases:
+            with self.subTest(branch=branch, expected_sha=expected_sha, force=force):
+                payload = {"tool_name": "mcp__GitHub__update_ref", "tool_input": {
+                    "repository_full_name": "Aegis-Omega/AEGIS-OMEGA",
+                    "branch_name": branch, "expected_sha": expected_sha,
+                    "sha": "0" * 40, "force": force}}
+                self.assertEqual(
+                    module.evaluate(payload)["hookSpecificOutput"]["permissionDecision"],
+                    expected,
+                )
+        for path in (".claude/settings.json", "sovereign-omega-v2/.claude/settings.json"):
+            settings = json.loads(read(path))
+            guards = [x for x in settings["hooks"]["PreToolUse"]
+                      if "claude-authority-guard.py" in str(x["hooks"])]
+            self.assertEqual(len(guards), 1)
+            self.assertIn("mcp__GitHub__update_ref", guards[0]["matcher"])
+
 if __name__ == "__main__":
     unittest.main()
