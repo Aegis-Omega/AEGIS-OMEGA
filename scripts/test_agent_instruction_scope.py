@@ -105,5 +105,80 @@ class TestInstructionConsistency(unittest.TestCase):
         self.assertIn("Ask only when unresolved ambiguity would change a consequential action", root)
         self.assertIn("Do not repeat questions answered by existing evidence.", flow)
 
+    def test_frozen_guard_negative_and_positive_inputs(self):
+        import importlib.util
+
+        path = ROOT / "sovereign-omega-v2/.claude/hooks/frozen-write-guard.py"
+        spec = importlib.util.spec_from_file_location("aegis_frozen_guard", path)
+        self.assertIsNotNone(spec)
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+
+        cases = (
+            ("Write", "python/gate.py", "deny"),
+            ("Edit", "python/dna.py", "deny"),
+            ("Write", "sovereign-omega-v2/python/router.py", "deny"),
+            ("Edit", "docs/SOVEREIGN_OMEGA_INTEGRATED_SPEC_v2.md", "deny"),
+            ("Write", "ARTIFACT_REGISTRY.md", "deny"),
+            ("Edit", "python/../python/gate.py", "deny"),
+            ("Edit", str((ROOT / "sovereign-omega-v2/python/gate.py").resolve()), "deny"),
+            ("Write", "../.claude.json", "deny"),
+            ("Edit", "../skill-hashes.sha256", "deny"),
+            ("Write", "src/event/allowed.ts", "allow"),
+            ("Edit", "test/good.test.ts", "allow"),
+        )
+        for tool, file_path, decision in cases:
+            with self.subTest(tool=tool, path=file_path):
+                payload = {"tool_name": tool, "tool_input": {"file_path": file_path}}
+                actual = module.evaluate(payload)["hookSpecificOutput"]["permissionDecision"]
+                self.assertEqual(decision, actual)
+
+        for payload in (None, {}, {"tool_name": "Edit", "tool_input": {}},
+                        {"tool_name": "Write", "tool_input": {"file_path": 123}},
+                        {"tool_name": "Bash", "tool_input": {"file_path": "python/gate.py"}}):
+            with self.subTest(malformed=repr(payload)):
+                self.assertEqual(
+                    "deny", module.evaluate(payload)["hookSpecificOutput"]["permissionDecision"]
+                )
+
+    def test_both_hook_layers_enforce_write_and_edit(self):
+        import json
+
+        root = json.loads(read(".claude/settings.json"))
+        nested = json.loads(read("sovereign-omega-v2/.claude/settings.json"))
+        root_guards = root["hooks"]["PreToolUse"]
+        nested_guards = nested["hooks"]["PreToolUse"]
+        self.assertTrue(any("Write|Edit" in x["matcher"]
+                            and "pre-write-tier.sh" in str(x["hooks"]) for x in root_guards))
+        self.assertTrue(any(x["matcher"] == "Write|Edit"
+                            and "frozen-write-guard.py" in str(x["hooks"]) for x in nested_guards))
+        shell = read(".claude/hooks/pre-write-tier.sh")
+        self.assertIn("FROZEN_GUARD", shell)
+        self.assertIn("AEGIS frozen guard crashed; fail closed", shell)
+        self.assertIn("permissionDecision", shell)
+        legacy = read("sovereign-omega-v2/.claude/hooks/block-frozen-writes.sh")
+        self.assertIn("frozen-write-guard.py", legacy)
+        self.assertNotIn("CLAUDE_TOOL_INPUT_PATH", legacy)
+
+    def test_preflight_hooks_have_no_implicit_mutations(self):
+        import re
+
+        session = read(".claude/hooks/session-start.sh")
+        ground = read("scripts/ground-truth.sh")
+        intake = read(".claude/hooks/user-prompt-intake.sh")
+        for path, source in (("session", session), ("ground", ground), ("intake", intake)):
+            with self.subTest(hook=path):
+                self.assertIsNone(
+                    re.search(r"(?m)^\\s*(?:npm\\s+install|pip3?\\s+install|"
+                              r"git\\s+fetch|curl\\b|npx\\b|node\\s+[^\\n]*\\s+observe\\b)",
+                              source),
+                    "Unexpected default network/install/write command",
+                )
+        self.assertNotIn('node "$CHAIN_MJS" observe', intake)
+        self.assertIn('node "$CHAIN_MJS" certify', intake)
+        self.assertIn("No prompt-triggered observation was appended", intake)
+        self.assertIn("NOT_CHECKED", ground)
+        self.assertIn("UNKNOWN", intake)
+
 if __name__ == "__main__":
     unittest.main()
