@@ -63,8 +63,10 @@ credentials, or changes to protected main without express authorization.
 ## STEP 2 — ASSESS (L6)
 
 Classify the tier. Pick the **smallest** change that moves the goal. State the goal
-as a verifiable check (CLAUDE.md §Behavioral Guidelines, rule 4). If unclear — ask
-before building (rule 1).
+as a verifiable check (CLAUDE.md §Behavioral Guidelines, rule 4).
+Inspect existing sources and verify safe alternatives first. Ask only when
+ambiguity materially changes authority, safety, a theorem statement, or
+the acceptance gate. Do not repeat questions answered by existing evidence.
 
 ## STEP 3 — LOCK
 
