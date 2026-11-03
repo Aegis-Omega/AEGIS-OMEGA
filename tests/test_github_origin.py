@@ -54,6 +54,33 @@ def test_provider_verified_exact_source_passes_only_as_prerequisite(foreign, mon
     assert r["source_head_sha"] == snapshot["source_head_sha"]
 
 
+@pytest.mark.parametrize("mutation", ["unstaged", "staged", "deleted", "untracked"])
+def test_dirty_source_denies_before_provider_io(foreign, monkeypatch, mutation):
+    root, snapshot = foreign
+    if mutation == "deleted":
+        (root / "foreign.txt").unlink()
+    elif mutation == "untracked":
+        (root / "injected.py").write_text("raise RuntimeError('untrusted')\n")
+    else:
+        (root / "foreign.txt").write_text("changed without committing\n")
+        if mutation == "staged":
+            git(root, "add", "foreign.txt")
+    monkeypatch.setattr(knowledge, "_github_api_document", lambda *_a, **_kw: pytest.fail("dirty source must deny before provider I/O"))
+    assert verify(root, snapshot) == {"status": "DENIED", "reason_codes": ["SOURCE_WORKTREE_DIRTY"]}
+
+
+def test_worktree_edit_during_provider_io_denies(foreign, monkeypatch):
+    root, snapshot = foreign
+    good = provider(snapshot)
+    def mutate(path, **kwargs):
+        result = good(path, **kwargs)
+        if "/commits/" in path:
+            (root / "foreign.txt").write_text("edited during provider read\n")
+        return result
+    monkeypatch.setattr(knowledge, "_github_api_document", mutate)
+    assert verify(root, snapshot) == {"status": "DENIED", "reason_codes": ["SOURCE_WORKTREE_DIRTY"]}
+
+
 def test_wrong_provider_repo_id_denies(foreign, monkeypatch):
     root, snapshot = foreign
     good = provider(snapshot)

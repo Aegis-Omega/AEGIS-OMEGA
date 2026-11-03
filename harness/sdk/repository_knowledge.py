@@ -315,6 +315,11 @@ def verify_snapshot_github_origin(
     local = verify_snapshot(repo, snapshot, expected_repository_id=expected_repository_id)
     if local["status"] != "ESTABLISHED":
         return {"status": "DENIED", "reason_codes": local["reason_codes"]}
+    # HEAD/tree provenance alone does not describe the files Python executes.
+    # Reject tracked edits, staged additions/deletions and non-ignored untracked
+    # files before provider I/O; repeat after I/O to catch concurrent edits.
+    if _git_text(repo, "status", "--porcelain=v1", "--untracked-files=all"):
+        return {"status": "DENIED", "reason_codes": ["SOURCE_WORKTREE_DIRTY"]}
     if (
         not isinstance(expected_repository_id, int)
         or isinstance(expected_repository_id, bool)
@@ -354,6 +359,8 @@ def verify_snapshot_github_origin(
     latest = verify_snapshot(repo, snapshot, expected_repository_id=expected_repository_id)
     if latest["status"] != "ESTABLISHED":
         return {"status": "DENIED", "reason_codes": latest["reason_codes"]}
+    if _git_text(repo, "status", "--porcelain=v1", "--untracked-files=all"):
+        return {"status": "DENIED", "reason_codes": ["SOURCE_WORKTREE_DIRTY"]}
     return {
         "status": "ESTABLISHED",
         "reason_codes": [],

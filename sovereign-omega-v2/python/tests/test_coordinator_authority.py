@@ -129,7 +129,18 @@ def test_identical_central_inputs_produce_identical_routing_receipts(tmp_path: P
     assert first_role.receipt_hash == second_role.receipt_hash
 
 
-def test_dispatch_does_not_execute_denied_role(tmp_path: Path, monkeypatch: Any) -> None:
+@pytest.fixture
+def established_knowledge(monkeypatch: Any) -> None:
+    # These tests isolate central admission from provider availability and from
+    # the working tree used to run pytest. Origin has its own negative suite.
+    monkeypatch.setattr(coordinator, "establish_repository_knowledge", lambda **_kw: {
+        "status": "ESTABLISHED", "reason_codes": [],
+        "snapshot_digest": "6" * 64, "source_head_sha": "7" * 40,
+        "source_tree_sha": "8" * 40, "receipt_hash": "9" * 64,
+    })
+
+
+def test_dispatch_does_not_execute_denied_role(tmp_path: Path, monkeypatch: Any, established_knowledge: None) -> None:
     instance = router(tmp_path, {"declared_cap": "declared"})
     monkeypatch.setattr(coordinator, "authorize_from_environment", lambda **_kwargs: denied_decision("IDENTITY_UNAVAILABLE"))
     role = coordinator.AgentRole.ENGINEERING
@@ -149,7 +160,7 @@ def test_dispatch_does_not_execute_denied_role(tmp_path: Path, monkeypatch: Any)
     assert receipts[0]["authority_score"] == 0.0
 
 
-def test_dispatch_executes_only_after_central_admission(tmp_path: Path, monkeypatch: Any) -> None:
+def test_dispatch_executes_only_after_central_admission(tmp_path: Path, monkeypatch: Any, established_knowledge: None) -> None:
     instance = router(tmp_path, {"observed_cap": "observed"})
     monkeypatch.setattr(coordinator, "authorize_from_environment", lambda **_kwargs: admitted_decision())
     role = coordinator.AgentRole.ENGINEERING
