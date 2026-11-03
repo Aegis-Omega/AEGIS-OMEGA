@@ -9,16 +9,30 @@ Write/Edit denies; this guard covers shell pushes and GitHub content-write MCPs.
 from __future__ import annotations
 
 import json
+import posixpath
 import re
 import sys
 from typing import Any
 
 TARGET_REPOSITORY = "Aegis-Omega/AEGIS-OMEGA"
+# The plugin name is case-insensitive, while accepted tool verbs are explicit.
+# A content mutation through MCP must obey the SAME frozen-file rule as Write/Edit.
 GITHUB_CONTENT_WRITERS = {
     "mcp__github__push_files",
     "mcp__github__create_or_update_file",
     "mcp__github__delete_file",
+    "mcp__github__update_file",
+    "mcp__github__create_file",
 }
+FROZEN_REPO_PATHS = frozenset({
+    "sovereign-omega-v2/python/gate.py",
+    "sovereign-omega-v2/python/dna.py",
+    "sovereign-omega-v2/python/router.py",
+    "sovereign-omega-v2/docs/sovereign_omega_integrated_spec_v2.md",
+    "sovereign-omega-v2/artifact_registry.md",
+    ".claude.json",
+    "skill-hashes.sha256",
+})
 MAIN_REFS = {
     "main",
     "refs/heads/main",
@@ -75,8 +89,37 @@ def _branch_name(tool_input: dict[str, Any]) -> str:
     return _first_string(tool_input, "branch", "branch_name", "ref")
 
 
+def _canonical_repo_path(value: object) -> str | None:
+    if not isinstance(value, str) or not value.strip() or "\x00" in value:
+        return None
+    path = value.strip().replace("\\", "/")
+    if path.startswith("/") or re.match(r"^[A-Za-z]:/", path):
+        return None
+    canonical = posixpath.normpath(path)
+    if canonical in (".", "..") or canonical.startswith("../"):
+        return None
+    return canonical.casefold()
+
+
+def _written_paths(tool_name: str, args: dict[str, Any]) -> list[str] | None:
+    if tool_name.endswith("__push_files"):
+        files = args.get("files")
+        if not isinstance(files, list) or not files:
+            return None
+        raw_paths = [file.get("path") if isinstance(file, dict) else None for file in files]
+    else:
+        raw_paths = [args.get("path", args.get("file_path"))]
+    paths = [_canonical_repo_path(path) for path in raw_paths]
+    return paths if all(path is not None for path in paths) else None
+
+
 def evaluate(payload: dict[str, Any]) -> dict[str, Any]:
+    if not isinstance(payload, dict):
+        return _decision("deny", "AEGIS authority guard: malformed hook payload")
     tool_name = payload.get("tool_name") or payload.get("toolName") or ""
+    if not isinstance(tool_name, str):
+        return _decision("deny", "AEGIS authority guard: malformed tool_name")
+    normalized_tool = tool_name.casefold()
     tool_input = payload.get("tool_input") or payload.get("toolInput") or {}
     if not isinstance(tool_input, dict):
         return _decision("deny", "AEGIS authority guard: malformed tool_input")
@@ -92,7 +135,7 @@ def evaluate(payload: dict[str, Any]) -> dict[str, Any]:
             )
         return _decision("allow", "AEGIS authority guard: non-push Bash command")
 
-    if tool_name in GITHUB_CONTENT_WRITERS:
+    if normalized_tool in GITHUB_CONTENT_WRITERS:
         repository = _repository_name(tool_input)
         branch = _branch_name(tool_input)
 
@@ -121,9 +164,16 @@ def evaluate(payload: dict[str, Any]) -> dict[str, Any]:
                 "AEGIS authority guard: direct content mutation of canonical main is forbidden",
             )
 
+        paths = _written_paths(normalized_tool, tool_input)
+        if paths is None:
+            return _decision("deny", "AEGIS authority guard: missing or unsafe destination path")
+        for path in paths:
+            if path in FROZEN_REPO_PATHS:
+                return _decision("deny", f"AEGIS authority guard: protected source path cannot be mutated via GitHub content writer ({path})")
+
         return _decision(
             "allow",
-            f"AEGIS authority guard: explicit non-main branch accepted ({branch.strip()})",
+            f"AEGIS authority guard: explicit non-main branch accepted ({branch.strip()}); {len(paths)} non-frozen path(s) checked",
         )
 
     return _decision("allow", "AEGIS authority guard: tool is outside this mutation boundary")
