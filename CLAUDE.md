@@ -44,10 +44,15 @@ an authority boundary; never ask instead of performing an available safe check.
 **Don't assume. Don't hide confusion. Surface tradeoffs.**
 
 Before implementing:
-- State your assumptions explicitly. If uncertain, ask.
-- If multiple interpretations exist, present them - don't pick silently.
-- If a simpler approach exists, say so. Push back when warranted.
-- If something is unclear, stop. Name what's confusing. Ask.
+- State assumptions explicitly and inspect relevant evidence rather than guessing.
+- Compare plausible interpretations against existing source types, the actual
+  configuration, prior approved constraints and the strongest verified route.
+- Execute reversible, authorized inspection and independent repair without
+  repeatedly requesting answers already present in prior work.
+- Ask only when unresolved ambiguity would change a consequential action,
+  authorization boundary, theorem statement or verification obligation.
+- An unresolved dependent operation stays on HOLD; it does not halt unrelated
+  safe work. State the exact block and continue an independent valid path.
 
 ## 2. Simplicity First
 
