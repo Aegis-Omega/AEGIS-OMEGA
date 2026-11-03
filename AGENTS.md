@@ -47,20 +47,25 @@ for d in "${CLAUDE_PROJECT_DIR:-}" "$PWD" /home/user/AEGIS-OMEGA /workspace/AEGI
 
 ## CI and limits
 
-- GitHub Actions on Aegis-Omega are locked by billing (#735): jobs do not start, so
-  nothing can be verified or merged until the operator lifts it. Do not poll CI.
+- GitHub Actions billing rejection is historical, not a blanket current lock (#735).
+  Native runner execution succeeded on 2026-11-02 (runs 41403116306 and 41406485670).
+  Current billing state and isolated startup failures remain UNKNOWN. Inspect each
+  run's exact head, jobs and annotations before claiming any build is blocked or green.
+  Do not poll CI.
 - The weekly plan limit is the binding constraint: no subagents, workflows, scheduled
   wake-ups or new sessions unless the operator asks; no full-file rewrites when a small
   change will do.
 
 ## Only the operator can (web UI)
 
-Lifting the billing lock, enabling Pages, installing the Claude GitHub App, approving
-bot workflow runs, deleting branches, editing an environment's setup script. Say so once,
+Checking or changing organization billing, enabling Pages, installing the Claude
+GitHub App, approving bot workflow runs, deleting branches, editing an environment's
+setup script. Say so once,
 with the exact place, and continue with everything else.
 
 ## Open priorities
 
-#735 billing lock (operator) · #737 PR queue 392 to under 30 (classify now, execute after
-#735) · #741 this page and a short CLAUDE.md · #742 move proof/ and research/ lanes to
-their own repository · RH lab queue in HANDOFF.md.
+#735 verify residual billing status (not a universal CI blocker) · #737 PR triage
+(use current issue and source, not historical queue counts) · #741 this page and
+a short CLAUDE.md · #742 preserve and index proof/ and research/ lanes before
+any move · RH lab queue in HANDOFF.md.
