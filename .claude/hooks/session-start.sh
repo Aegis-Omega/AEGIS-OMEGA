@@ -1,48 +1,18 @@
-#!/bin/bash
-# Session-start dependency installer for Claude Code on the web.
-# Idempotent — skips dirs where node_modules already exists.
+#!/usr/bin/env bash
+# AEGIS SessionStart: local, read-only inventory. Never install on a hook.
 set -euo pipefail
-
-if [ "${CLAUDE_CODE_REMOTE:-}" != "true" ]; then
+if [[ "${CLAUDE_CODE_REMOTE:-}" != "true" ]]; then
   exit 0
 fi
-
-echo '{"async": true, "asyncTimeout": 300000}'
-
 REPO="${CLAUDE_PROJECT_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"
-
-install_npm() {
-  local dir="$REPO/$1"
-  if [ -f "$dir/package.json" ] && [ ! -d "$dir/node_modules" ]; then
-    echo "  installing $1..."
-    npm install --prefix "$dir" --prefer-offline --no-audit --no-fund --silent
-  fi
-}
-
-echo "SessionStart: installing npm deps..."
-
-# Install in dependency order
-install_npm packages/shared
-install_npm sovereign-omega-v2
-install_npm hub
-install_npm platform-picker
-install_npm hook-generator
-install_npm content-calendar
-install_npm cockpit
-install_npm studio
-install_npm enterprise
-install_npm aegisomega-webgpu
-
-echo "SessionStart: all deps ready."
-
-# Python agent-layer deps (bridge + swarm). Idempotent: skip if already importable.
-if [ -f "$REPO/sovereign-omega-v2/python/requirements.txt" ]; then
-  if ! python -c "import anthropic" >/dev/null 2>&1; then
-    echo "  installing python agent deps..."
-    pip install -q -r "$REPO/sovereign-omega-v2/python/requirements.txt" 2>/dev/null || true
-  fi
+if [[ ! -d "$REPO" ]]; then
+  printf 'AEGIS session preflight UNKNOWN: repository unavailable. No dependencies installed.\n'
+  exit 0
 fi
-
-# Ground truth — open every session knowing branch / main-drift / unpushed / membrane / live.
-# Per WORKFLOW.md: no session starts blind; nothing is "done" until it is on main.
-bash "$REPO/scripts/ground-truth.sh" 2>/dev/null || true
+printf 'AEGIS session preflight: no auto-install, no credential changes, no network fetch.\n'
+if [[ -f "$REPO/scripts/ground-truth.sh" ]]; then
+  (cd "$REPO" && bash scripts/ground-truth.sh) || printf 'AEGIS local inventory UNKNOWN: inspect repository before acting.\n'
+else
+  printf 'AEGIS local inventory UNKNOWN: ground-truth.sh is absent.\n'
+fi
+printf 'Missing dependencies remain UNKNOWN until explicit, authorized setup; do not infer readiness.\n'

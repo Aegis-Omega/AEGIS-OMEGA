@@ -1,42 +1,40 @@
 #!/usr/bin/env bash
-# AEGIS ground-truth — the sense organ every session opens with.
-# Answers, in five lines, the questions that kept getting forgotten:
-#   what branch am I on · is work stranded off main · is it pushed ·
-#   is the membrane intact · is production actually live.
-# Read-only. Safe to run anytime, in a loop, at session start.
+# AEGIS local ground-truth. Read-only: no git fetch, install, curl or deploy.
 set -uo pipefail
-cd "$(git rev-parse --show-toplevel 2>/dev/null || echo .)" || exit 0
-
-echo "── AEGIS GROUND TRUTH ──────────────────────────────"
+ROOT=$(git rev-parse --show-toplevel 2>/dev/null) || {
+  echo 'AEGIS local ground-truth: UNKNOWN (not a git checkout)'
+  exit 0
+}
+cd "$ROOT" || exit 0
+echo '── AEGIS LOCAL GROUND TRUTH ─────────────────────────'
 BR=$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo '?')
 echo "branch:       $BR"
-
-git fetch -q origin main 2>/dev/null || true
-AHEAD=$(git rev-list --count origin/main..HEAD 2>/dev/null || echo '?')
-BEHIND=$(git rev-list --count HEAD..origin/main 2>/dev/null || echo '?')
-echo "vs main:      ${AHEAD} ahead · ${BEHIND} behind"
-[ "$AHEAD" != "0" ] && [ "$AHEAD" != "?" ] && \
-  echo "  ⚠ ${AHEAD} commit(s) are NOT on main — this work is stranded until merged."
-
-UNPUSHED=$(git log --oneline '@{u}..' 2>/dev/null | wc -l | tr -d ' ')
-DIRTY=$(git status --porcelain 2>/dev/null | wc -l | tr -d ' ')
-echo "unpushed:     ${UNPUSHED:-0} commit(s)"
-echo "uncommitted:  ${DIRTY:-0} file(s)"
-[ "${UNPUSHED:-0}" != "0" ] && \
-  echo "  ⚠ local commits not on origin — push or they die with the container."
-
-if [ -f sovereign-omega-v2/scripts/verify-hashes.mjs ]; then
-  if (cd sovereign-omega-v2 && node scripts/verify-hashes.mjs >/dev/null 2>&1); then
-    echo "membrane:     INTACT"
-  else
-    echo "membrane:     ⚠ HASH MISMATCH — halt, re-anchor before proceeding."
-  fi
+if git show-ref --verify --quiet refs/remotes/origin/main; then
+  AHEAD=$(git rev-list --count origin/main..HEAD 2>/dev/null || echo '?')
+  BEHIND=$(git rev-list --count HEAD..origin/main 2>/dev/null || echo '?')
+  echo "vs main:      ${AHEAD} ahead · ${BEHIND} behind (LAST-FETCHED LOCAL REF, not live)"
+else
+  echo 'vs main:      UNKNOWN (no local origin/main; remote not queried)'
 fi
-
-for u in "https://aegisomega.com" "https://aegis-vertex.aegisomega.com/platform/status"; do
-  code=$(curl -s -o /dev/null -w "%{http_code}" -L --max-time 6 "$u" 2>/dev/null || echo "---")
-  echo "live:         $u -> $code"
-done
-echo "────────────────────────────────────────────────────"
-echo "Loop: ground-truth → R·A·L·P·H → Gate 8 → push → PR to main."
-echo "Nothing is 'done' until it is on main and verified."
+UPSTREAM=$(git rev-parse --abbrev-ref --symbolic-full-name '@{u}' 2>/dev/null || true)
+if [[ -n "$UPSTREAM" ]]; then
+  UNPUSHED=$(git rev-list --count "$UPSTREAM"..HEAD 2>/dev/null || echo '?')
+  echo "unpushed:     $UNPUSHED commit(s), relative to local upstream"
+else
+  echo 'unpushed:     UNKNOWN (upstream not configured locally)'
+fi
+DIRTY=$(git status --porcelain 2>/dev/null | wc -l | tr -d ' ')
+echo "uncommitted:  ${DIRTY:-?} file(s)"
+if [[ -f sovereign-omega-v2/scripts/verify-hashes.mjs ]]; then
+  if (cd sovereign-omega-v2 && node scripts/verify-hashes.mjs >/dev/null 2>&1); then
+    echo 'membrane:     VERIFIED by current local hash checker'
+  else
+    echo 'membrane:     FAILED or UNAVAILABLE; no promotion without inspection'
+  fi
+else
+  echo 'membrane:     UNKNOWN (hash checker missing)'
+fi
+echo 'production:   NOT_CHECKED (no automatic HTTP or deploy operations)'
+echo 'CI status:    NOT_CHECKED (local inventory is not a native CI receipt)'
+echo 'Proof status: NOT_ASSESSED (branch/CI state is not mathematical truth)'
+echo '────────────────────────────────────────────────────'
