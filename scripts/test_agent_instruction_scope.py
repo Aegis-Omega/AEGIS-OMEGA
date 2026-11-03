@@ -188,5 +188,42 @@ class TestInstructionConsistency(unittest.TestCase):
         self.assertIn("NOT_CHECKED", ground)
         self.assertIn("UNKNOWN", intake)
 
+    def test_consequential_operations_not_auto_approved(self):
+        import json
+        import re
+
+        root_settings = json.loads(read(".claude/settings.json"))
+        nested_settings = json.loads(read("sovereign-omega-v2/.claude/settings.json"))
+        root_allow = set(root_settings["permissions"]["allow"])
+        nested_allow = set(nested_settings["permissions"]["allow"])
+        shell_auto = re.compile(
+            r"^Bash\((?:npm install|npx |pip |pip3 |curl \*|gcloud |supabase |"
+            r"git (?:push|merge|rebase|reset|cherry-pick|remote set-url|pull|stash|tag))"
+        )
+        privileged_connectors = re.compile(
+            r"__(?:apply_migration|execute_sql|confirm_cost|create_project|"
+            r"delete_branch|deploy_edge_function|merge_branch|pause_project|"
+            r"restore_project|rebase_branch|reset_branch|create_repository|"
+            r"delete_file|merge_pull_request|enable_pr_auto_merge|"
+            r"disable_pr_auto_merge|update_pull_request_branch|deploy_to_vercel|"
+            r"d1_database_create|d1_database_delete|d1_database_query|"
+            r"hyperdrive_config_delete|r2_bucket_create|r2_bucket_delete)$"
+        )
+        for permission in root_allow:
+            with self.subTest(level="root", permission=permission):
+                self.assertIsNone(shell_auto.search(permission))
+                self.assertIsNone(privileged_connectors.search(permission))
+        for forbidden in (
+            "Bash(npm:*)", "Bash(npx:*)", "Bash(git:*)",
+            "Bash(pip:*)", "Bash(pip3:*)", "Bash(curl:*)",
+            "mcp__71923ddf-e9ee-4959-b191-9ef0ac574e2a__apply_migration",
+            "mcp__71923ddf-e9ee-4959-b191-9ef0ac574e2a__execute_sql",
+        ):
+            with self.subTest(level="nested", permission=forbidden):
+                self.assertNotIn(forbidden, nested_allow)
+        for safe in ("Bash(npm run test*)", "Bash(npm run typecheck*)",
+                     "Bash(npm run build*)", "Bash(git status*)"):
+            self.assertIn(safe, nested_allow)
+
 if __name__ == "__main__":
     unittest.main()
