@@ -45,23 +45,43 @@ jobs:
           COMMENT_BODY: ${{ github.event.comment.body }}
           COMMENT_ISSUE_NUMBER: ${{ github.event.issue.number }}
           ACTOR: ${{ github.actor }}
-          ACTOR_TYPE: ${{ github.actor_association }}
+          ISSUE_ASSOCIATION: ${{ github.event.issue.author_association }}
+          COMMENT_ASSOCIATION: ${{ github.event.comment.author_association }}
+          PR_ASSOCIATION: ${{ github.event.pull_request.author_association }}
+          PR_AUTHOR: ${{ github.event.pull_request.user.login }}
+          WF_HEAD_REPO: ${{ github.event.workflow_run.head_repository.full_name }}
+          EXPECTED_REPOSITORY: ${{ github.repository }}
         run: |
           set -euo pipefail
 
-          # Fail-closed: require trusted actor for external events
+          # AEGIS_TRUST_GATE_BEGIN
+          # Reuse the event-bound association policy from existing PR #778.
+          # github.actor_association is not a documented GitHub Actions context.
           validate_actor() {
-            local association="$1"
-            case "$association" in
+            case "$1" in
               OWNER|MEMBER|COLLABORATOR) return 0 ;;
-              *) echo "DENIED: untrusted actor association: $association" >&2; return 1 ;;
+              *) echo "DENIED: untrusted author association" >&2; return 1 ;;
             esac
           }
-
-          # External events require trusted actor
-          if [[ "$EVENT_NAME" != "workflow_run" ]]; then
-            validate_actor "$ACTOR_TYPE" || exit 1
-          fi
+          case "$EVENT_NAME" in
+            workflow_run)
+              if [[ "$WF_BRANCH" != "main" || "$WF_HEAD_REPO" != "$EXPECTED_REPOSITORY" ]]; then
+                echo "DENIED: CI event is not from this repository's protected main" >&2; exit 1
+              fi
+              ;;
+            issues) validate_actor "$ISSUE_ASSOCIATION" ;;
+            issue_comment) validate_actor "$COMMENT_ASSOCIATION" ;;
+            pull_request)
+              validate_actor "$PR_ASSOCIATION"
+              # A PR author-association is NOT evidence of a different
+              # review-requesting actor's authority. Reject that ambiguity.
+              if [[ -z "$PR_AUTHOR" || "$ACTOR" != "$PR_AUTHOR" ]]; then
+                echo "DENIED: PR trigger actor not proven to be trusted PR author" >&2; exit 1
+              fi
+              ;;
+            *) echo "DENIED: unsupported GitHub event" >&2; exit 1 ;;
+          esac
+          # AEGIS_TRUST_GATE_END
 
           EVENT_TYPE=""
           PAYLOAD="{}"
