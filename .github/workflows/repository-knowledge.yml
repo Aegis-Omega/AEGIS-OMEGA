@@ -44,6 +44,46 @@ jobs:
           python scripts/test-repository-cartographer.py
           python -m unittest discover -s scripts -p 'test_source_plane*.py' -v
 
+      - name: Verify live pinned cross-repository source objects
+        shell: bash
+        env:
+          # Ephemeral, repository-scoped Actions token; read-only permission above.
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import os
+          from harness.sdk.source_plane import (
+              ArtifactRequest, SourcePlane, verify_manifest_document,
+          )
+
+          # Immutable fixtures verified independently from GitHub Git objects.
+          # Cross-repository HTTP GETs exercise the production transport, not mocks.
+          expected = {
+              ("Aegis-Omega/AEGIS-OMEGA",
+               "c6f4f2131ab06c5b20cfd3d0eafd99e3ca246bc8",
+               "harness/sdk/repository_knowledge.py"):
+                  "8a4468fa94ae71c3410f89b87d6c0055bf5ba3af",
+              ("Aegis-Omega/formal-conjectures",
+               "791f16d6cd8bab1cdc9b3fd4be1272e799eacd3e",
+               "lean-toolchain"):
+                  "a8afa7d1b02d96f0671eba854a8dc4b416beb473",
+          }
+          requests = [ArtifactRequest(*key) for key in expected]
+          manifest = SourcePlane(token=os.environ["GITHUB_TOKEN"]).manifest(requests)
+          observed = {
+              (a["repository"], a["commit_sha"], a["path"]): a["blob_sha1"]
+              for a in manifest["artifacts"]
+          }
+          if observed != expected:
+              raise SystemExit("SOURCE_PLANE_PINNED_BLOB_MISMATCH")
+          if manifest["authority"] != "NONE" or manifest["access"] != "READ_ONLY":
+              raise SystemExit("SOURCE_PLANE_AUTHORITY_ESCALATION")
+          if verify_manifest_document(manifest)["status"] != "ESTABLISHED":
+              raise SystemExit("SOURCE_PLANE_MANIFEST_INVALID")
+          print("SOURCE_PLANE_LIVE_CROSS_REPO_PASS: 2 pinned repositories; authority=NONE")
+          PY
+
       - name: Assert authority neutrality
         shell: bash
         run: |
