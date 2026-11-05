@@ -114,7 +114,7 @@ jobs:
             'cd crates/constitutional-substrate && cargo test'
 
           run_suite typescript-sovereign-runtime vitest TESTED_ONLY_MIXED_WITH_WIRED_SHELL \
-            'cd sovereign-omega-v2 && npm ci && npm run test -- --reporter=verbose && npm run typecheck && npm run build'
+            'bash scripts/test-start-here.sh && cd sovereign-omega-v2 && npm ci && cd .. && bash start-here.sh --gates'
 
           run_suite typescript-sovereign-lint none WIRED_QUALITY_GATE \
             'cd sovereign-omega-v2 && npm ci && npm run lint'
