@@ -205,5 +205,25 @@ class RepositoryCartographerContract(unittest.TestCase):
             mod.build_runtime_export_manifest(altered)
 
 
+    def test_vertex_docker_source_stage_and_ci_are_bound_to_same_payload(self) -> None:
+        dockerfile = (ROOT / "vertex/Dockerfile").read_text(encoding="utf-8")
+        workflow = (ROOT / ".github/workflows/repository-knowledge.yml").read_text(encoding="utf-8")
+        self.assertIn("FROM scratch AS source-payload", dockerfile)
+        self.assertIn("COPY vertex/serve.py /app/serve.py", dockerfile)
+        self.assertIn("COPY agents /app/agents", dockerfile)
+        self.assertIn("COPY harness /app/harness", dockerfile)
+        for path in ("serve.py", "agents", "harness"):
+            self.assertIn(
+                "COPY --from=source-payload /app/" + path + " /app/" + path,
+                dockerfile,
+            )
+        self.assertIn("docker build --target source-payload --network none", workflow)
+        self.assertIn("docker cp", workflow)
+        self.assertIn("verify_runtime_export_manifest(", workflow)
+        self.assertIn('receipt["authority"] != "NOT_GRANTED"', workflow)
+        self.assertNotIn("docker push", workflow)
+        self.assertNotIn("gcloud builds submit", workflow)
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)

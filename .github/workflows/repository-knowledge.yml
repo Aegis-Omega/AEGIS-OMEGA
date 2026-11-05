@@ -86,6 +86,47 @@ jobs:
               sort_keys=True))
           PY
 
+
+      - name: Validate real Docker source layer offline (no registry or Cloud Build)
+        shell: bash
+        run: |
+          set -euo pipefail
+          # Local source stage does not pull a base, run a container, or install deps.
+          probe="aegis-source-probe:$CANDIDATE_SHA"
+          docker build --target source-payload --network none \
+            --file vertex/Dockerfile --tag "$probe" .
+          container="$(docker create "$probe" /bin/true)"
+          trap 'docker rm -f "$container" >/dev/null 2>&1 || true' EXIT
+          image_root="$RUNNER_TEMP/runtime-export/docker-source-layer"
+          mkdir -p "$image_root"
+          docker cp "$container:/app/." "$image_root/"
+          IMAGE_ROOT="$image_root" python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+          from harness.sdk.repository_knowledge import verify_runtime_export_manifest
+          output = Path(os.environ["RUNNER_TEMP"]) / "runtime-export"
+          manifest = json.loads((output / "manifest.json").read_text(encoding="utf-8"))
+          receipt = verify_runtime_export_manifest(
+              Path(os.environ["IMAGE_ROOT"]), manifest,
+              expected_head=os.environ["CANDIDATE_SHA"],
+          )
+          if receipt["status"] != "CONTENT_MATCH_ONLY" or receipt["authority"] != "NOT_GRANTED":
+              raise SystemExit("DENIED: Docker source payload differs from exact Git source: "
+                               + json.dumps(receipt, sort_keys=True))
+          (output / "docker-source-receipt.json").write_text(
+              json.dumps(receipt, sort_keys=True, separators=(",", ":")) + "\n",
+              encoding="utf-8",
+          )
+          print(json.dumps({"source_head_sha": receipt["source_head_sha"],
+                            "status": receipt["status"], "authority": receipt["authority"],
+                            "scope": "SOURCE_LAYER_ONLY",
+                            "image_attestation": "NOT_PRESENT"}, sort_keys=True))
+          PY
+          # Do not upload extracted source files. Upload only content metadata.
+          rm -rf -- "$image_root"
+
+
       - name: Upload image content evidence
         uses: actions/upload-artifact@v4
         with:
