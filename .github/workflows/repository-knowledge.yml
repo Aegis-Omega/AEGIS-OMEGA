@@ -127,6 +127,43 @@ jobs:
           rm -rf -- "$image_root"
 
 
+
+      - name: Cross-check exact source via read-only GitHub API
+        env:
+          GH_TOKEN: ${{ github.token }}
+          EXPECTED_REPOSITORY: ${{ github.repository }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$EXPECTED_REPOSITORY" == "Aegis-Omega/AEGIS-OMEGA" ]] || exit 1
+          gh api "repos/${EXPECTED_REPOSITORY}/git/commits/${CANDIDATE_SHA}" \
+            > "$RUNNER_TEMP/aegis-remote-commit.json"
+          python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+          from harness.sdk.repository_knowledge import verify_remote_git_source
+          out = Path(os.environ["RUNNER_TEMP"]) / "runtime-export"
+          manifest = json.loads((out / "manifest.json").read_text())
+          content = json.loads((out / "docker-source-receipt.json").read_text())
+          remote = json.loads((Path(os.environ["RUNNER_TEMP"]) / "aegis-remote-commit.json").read_text())
+          result = verify_remote_git_source(
+              manifest, content,
+              expected_head=os.environ["CANDIDATE_SHA"],
+              expected_repository=os.environ["EXPECTED_REPOSITORY"],
+              remote_commit_sha=remote.get("sha", ""),
+              remote_tree_sha=remote.get("tree", {}).get("sha", ""),
+          )
+          assert result["status"] == "REMOTE_GIT_MATCH_ONLY", result
+          assert result["authority"] == "NOT_GRANTED", result
+          (out / "github-readback.json").write_text(
+              json.dumps(result, sort_keys=True, separators=(",", ":")) + "\n")
+          print(json.dumps({"head": result["source_head_sha"],
+                            "tree": result["source_tree_sha"],
+                            "status": result["status"],
+                            "authority": result["authority"]}, sort_keys=True))
+          PY
+
       - name: Upload image content evidence
         uses: actions/upload-artifact@v4
         with:

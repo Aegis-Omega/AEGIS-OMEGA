@@ -225,5 +225,47 @@ class RepositoryCartographerContract(unittest.TestCase):
         self.assertNotIn("gcloud builds submit", workflow)
 
 
+    def test_read_only_github_identity_cross_check_denies_mismatch(self) -> None:
+        mod = load_module()
+        snapshot = mod.build_snapshot(self.repo, repository_id=123)
+        manifest = mod.build_runtime_export_manifest(snapshot)
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            for item in manifest["files"]:
+                name = item["path"]
+                src = self.repo / ("vertex/serve.py" if name == "serve.py" else name)
+                dst = root / name
+                dst.parent.mkdir(parents=True, exist_ok=True)
+                shutil.copy2(src, dst)
+            content = mod.verify_runtime_export_manifest(
+                root, manifest, expected_head=snapshot["source_head_sha"])
+        binding = {
+            "expected_head": snapshot["source_head_sha"],
+            "expected_repository": "Aegis-Omega/AEGIS-OMEGA",
+            "remote_commit_sha": snapshot["source_head_sha"],
+            "remote_tree_sha": snapshot["source_tree_sha"],
+        }
+        verified = mod.verify_remote_git_source(manifest, content, **binding)
+        self.assertEqual(verified["status"], "REMOTE_GIT_MATCH_ONLY", verified)
+        self.assertEqual(verified["authority"], "NOT_GRANTED")
+        self.assertEqual(verified["attestation"], "NOT_PRESENT")
+        for changed, reason in (
+            ({"remote_commit_sha": "f" * 40}, "REMOTE_COMMIT_MISMATCH"),
+            ({"remote_tree_sha": "f" * 40}, "REMOTE_TREE_MISMATCH"),
+            ({"expected_repository": "other/repo"}, "REPOSITORY_MISMATCH"),
+            ({"expected_head": "f" * 40}, "SOURCE_HEAD_MISMATCH"),
+        ):
+            with self.subTest(code=reason):
+                result = mod.verify_remote_git_source(manifest, content, **{**binding, **changed})
+                self.assertIn(reason, result["reason_codes"])
+                self.assertEqual(result["status"], "DENIED")
+        fake = copy.deepcopy(manifest)
+        fake["source_tree_sha"] = "f" * 40
+        self.assertIn("MANIFEST_INVALID", mod.verify_remote_git_source(
+            fake, content, **binding)["reason_codes"])
+        self.assertIn("CONTENT_NOT_VERIFIED", mod.verify_remote_git_source(
+            manifest, {**content, "authority": "ADMITTED"}, **binding)["reason_codes"])
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)

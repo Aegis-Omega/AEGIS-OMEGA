@@ -404,6 +404,54 @@ def verify_runtime_export_manifest(image_root: str | Path, manifest: Mapping[str
 
 
 
+
+def verify_remote_git_source(
+    manifest: Mapping[str, Any],
+    content_receipt: Mapping[str, Any],
+    *,
+    expected_head: str,
+    expected_repository: str,
+    remote_commit_sha: str,
+    remote_tree_sha: str,
+) -> dict[str, Any]:
+    """Independent read-only Git API observation, NOT a signed attestation."""
+    if not isinstance(manifest, Mapping) or not isinstance(content_receipt, Mapping):
+        return {"status": "DENIED", "reason_codes": ["INPUT_INVALID"], "authority": "NOT_GRANTED"}
+    reasons: set[str] = set()
+    body = dict(manifest)
+    digest = body.pop("manifest_digest", None)
+    if digest != _digest(body) or manifest.get("schema") != RUNTIME_EXPORT_SCHEMA:
+        reasons.add("MANIFEST_INVALID")
+    if manifest.get("authority") != "CONTENT_OBSERVATION_ONLY" or manifest.get("attestation") != "NOT_PRESENT":
+        reasons.add("MANIFEST_AUTHORITY_INVALID")
+    if content_receipt.get("status") != "CONTENT_MATCH_ONLY" or content_receipt.get("authority") != "NOT_GRANTED":
+        reasons.add("CONTENT_NOT_VERIFIED")
+    if content_receipt.get("manifest_digest") != digest or content_receipt.get("source_head_sha") != expected_head:
+        reasons.add("CONTENT_BINDING_MISMATCH")
+    if content_receipt.get("source_tree_sha") != manifest.get("source_tree_sha"):
+        reasons.add("TREE_BINDING_MISMATCH")
+    if not _HEX40.fullmatch(str(expected_head)) or manifest.get("source_head_sha") != expected_head:
+        reasons.add("SOURCE_HEAD_MISMATCH")
+    if expected_repository != "Aegis-Omega/AEGIS-OMEGA":
+        reasons.add("REPOSITORY_MISMATCH")
+    if not _HEX40.fullmatch(str(remote_commit_sha)) or remote_commit_sha != expected_head:
+        reasons.add("REMOTE_COMMIT_MISMATCH")
+    if not _HEX40.fullmatch(str(remote_tree_sha)) or remote_tree_sha != manifest.get("source_tree_sha"):
+        reasons.add("REMOTE_TREE_MISMATCH")
+    return {
+        "schema": "aegis-github-readback/1",
+        "status": "DENIED" if reasons else "REMOTE_GIT_MATCH_ONLY",
+        "reason_codes": sorted(reasons),
+        "repository": expected_repository,
+        "source_head_sha": expected_head,
+        "source_tree_sha": manifest.get("source_tree_sha"),
+        "manifest_digest": digest,
+        "authority": "NOT_GRANTED",
+        "attestation": "NOT_PRESENT",
+    }
+
+
+
 __all__ = [
     "build_snapshot",
     "compute_delta",
@@ -411,4 +459,5 @@ __all__ = [
     "verify_snapshot_document",
     "build_runtime_export_manifest",
     "verify_runtime_export_manifest",
+    "verify_remote_git_source",
 ]
