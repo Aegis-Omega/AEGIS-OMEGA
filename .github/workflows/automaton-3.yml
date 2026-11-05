@@ -193,6 +193,12 @@ jobs:
               *) echo "DENIED: unexpected attestation subject" >&2; exit 1 ;;
             esac
             test -s "$artifact"
+            # Source paths contain '/', but verifier output must remain one flat file.
+            subject_key="${subject//\//__}"
+            [[ "$subject_key" =~ ^[A-Za-z0-9_.-]+$ ]] || {
+              echo "DENIED: unsafe attestation receipt key" >&2
+              exit 1
+            }
             verified=0
             for attempt in 1 2 3; do
               if gh attestation verify "$artifact" \
@@ -201,7 +207,7 @@ jobs:
                   --source-digest "$GITHUB_SHA" \
                   --cert-oidc-issuer "https://token.actions.githubusercontent.com/aegis-omega" \
                   --deny-self-hosted-runners \
-                  --format json > "$out/$subject.verified.json"; then
+                  --format json > "$out/$subject_key.verified.json"; then
                 verified=1
                 break
               fi
@@ -211,8 +217,8 @@ jobs:
               echo "DENIED: missing or invalid GitHub OIDC attestation for $subject" >&2
               exit 1
             fi
-            SUBJECT="$artifact" VERIFIED_JSON="$out/$subject.verified.json" \
-              VERIFIED_RECORD="$out/$subject.receipt.json" python - <<'PY'
+            SUBJECT="$artifact" VERIFIED_JSON="$out/$subject_key.verified.json" \
+              VERIFIED_RECORD="$out/$subject_key.receipt.json" python - <<'PY'
           import hashlib
           import json
           import os
@@ -247,7 +253,7 @@ jobs:
               json.dumps(observation, sort_keys=True, separators=(",", ":")) + "\n")
           print(json.dumps(observation, sort_keys=True))
           PY
-            rm -f "$out/$subject.verified.json"
+            rm -f "$out/$subject_key.verified.json"
           done
 
       - name: Upload verified Automaton-3 signature observations
