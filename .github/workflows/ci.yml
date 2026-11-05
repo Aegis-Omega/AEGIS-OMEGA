@@ -144,6 +144,7 @@ jobs:
       - name: Gate 8 — Full suite + typecheck + build
         id: suite
         run: |
+          set -o pipefail
           npm run test -- --reporter=verbose 2>&1 | tee /tmp/ts-results.txt
           npm run typecheck
           npm run build
@@ -151,6 +152,22 @@ jobs:
             | tail -1 | grep -oP '\d+' | head -1)
           echo "ts_tests=${PASSED:-unknown}" >> "$GITHUB_OUTPUT"
           echo "✓ TypeScript Gate 8 passed"
+
+      - name: Validate shared operations configuration
+        working-directory: .
+        run: npm run ops:check
+
+      - name: Verify MCP connections and authority boundary
+        working-directory: sovereign-omega-v2/mcp-server
+        run: npm ci && npm run test:resources && npm run test:connections && npm run test:automaton3
+
+      - name: Verify Cockpit bridge proxy
+        working-directory: cockpit/server
+        run: npm ci && npm run test:bridge
+
+      - name: Build Cockpit with shared packages
+        working-directory: cockpit
+        run: npm ci && npm run build
 
 # ── ORGANISM — Python bridge smoke ───────────────────────────────────────────
   python-tests:

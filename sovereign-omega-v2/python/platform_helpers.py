@@ -250,7 +250,7 @@ def verify_api_key(api_key: str):
     """
     Verify against Supabase api_key_store. Returns (email, tier).
     Raises ValueError on failure.
-    Falls back to dev bypass when SUPABASE_URL is unset (local dev / CI).
+    Dev bypass is available only when AEGIS_DEV_AUTH=1 is explicitly set.
     """
     import hashlib as _hl
     import urllib.request as _ur
@@ -265,8 +265,9 @@ def verify_api_key(api_key: str):
     service_key  = os.environ.get('SUPABASE_SERVICE_ROLE_KEY', '')
 
     if not supabase_url or not service_key:
-        # dev bypass — any aegis_* prefix key works when Supabase is not configured
-        if api_key.startswith('aegis_'):
+        # Local-only bypass requires an explicit opt-in; missing production
+        # configuration must fail closed rather than grant a synthetic tier.
+        if os.environ.get('AEGIS_DEV_AUTH') == '1' and api_key.startswith('aegis_'):
             return 'dev@local', 'explorer'
         raise ValueError('API key verification unavailable (Supabase not configured)')
 
@@ -587,7 +588,7 @@ def query_api_key_info(api_key: str):
     """
     Fetch usage record for api_key from api_key_store. Does NOT increment usage_count.
     Returns dict with customer_email, tier, usage_count, usage_limit, or None on failure.
-    Dev bypass: any aegis_* key returns explorer defaults when SUPABASE_URL is unset.
+    Dev bypass: aegis_* keys return explorer defaults only with AEGIS_DEV_AUTH=1.
     """
     import hashlib as _hl2
     import urllib.request as _ur2
@@ -605,7 +606,7 @@ def query_api_key_info(api_key: str):
     service_key  = os.environ.get('SUPABASE_SERVICE_ROLE_KEY', '')
 
     if not supabase_url or not service_key:
-        if api_key.startswith('aegis_'):
+        if os.environ.get('AEGIS_DEV_AUTH') == '1' and api_key.startswith('aegis_'):
             return {'customer_email': 'dev@local', 'tier': 'explorer',
                     'usage_count': 0, 'usage_limit': 10}
         return None

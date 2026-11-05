@@ -1,0 +1,72 @@
+{
+  "repository": "Aegis-Omega/AEGIS-OMEGA",
+  "gcp": {
+    "project": "aegisomegav1",
+    "region": "europe-west3"
+  },
+  "supabase": {
+    "project": "rwehltdwpsncnwxzkwik"
+  },
+  "vercel_team": "team_R1tLynD1gTpyoY7nKpbtt7pF",
+  "services": [
+    {
+      "name": "bridge",
+      "url": "https://aegis-vertex.aegisomega.com/platform/status",
+      "source": "sovereign-omega-v2/python/bridge.py",
+      "provider": "cloud-run"
+    },
+    {
+      "name": "hub",
+      "url": "https://aegisomega.com",
+      "source": "hub",
+      "provider": "vercel",
+      "project": "prj_Y6qVEfvd18cSB31rmeZR5t0u8PId",
+      "production_ref": "preview/hub/mcp-production-v1"
+    },
+    {
+      "name": "platform-picker",
+      "url": "https://platform.aegisomega.com",
+      "source": "platform-picker",
+      "provider": "vercel",
+      "project": "prj_vFb4nyQzOtSyJzQRjcIEfkkCS92u",
+      "production_ref": "main"
+    },
+    {
+      "name": "hook-generator",
+      "url": "https://hooks.aegisomega.com",
+      "source": "hook-generator",
+      "provider": "vercel",
+      "project": "prj_nu6WgYhL3OaKwBsoBEzCFvbXFgJf",
+      "production_ref": "main"
+    },
+    {
+      "name": "content-calendar",
+      "url": "https://calendar.aegisomega.com",
+      "source": "content-calendar",
+      "provider": "cloud-run"
+    }
+  ],
+  "sources": {
+    "compose": "docker-compose.yml",
+    "agents": "agents/agents.yaml",
+    "managed_agent_ids": "agents/agent_registry.json",
+    "coordinator": "agents/coordinator.py",
+    "authority": "harness/sdk/authority_client.py",
+    "mcp": "sovereign-omega-v2/mcp-server/src/index.ts",
+    "sdk": "packages/aegis-py/aegis/client.py",
+    "cloud_run_deploy": ".github/workflows/deploy.yml",
+    "cloud_run_wif": ".github/workflows/deploy-cloud-run.yml"
+  },
+  "tracking": {
+    "reconciliation_issue": 246,
+    "parent_issue": 734,
+    "mcp_issue": 756,
+    "related_control_plane_candidate": {
+      "pull_request": 225,
+      "source_commit": "476c236548386ef46cd33bea4e1f5ec801202cce",
+      "registry_path": "platform/sol/contracts/platform-registry.v1.json",
+      "registry_git_blob": "7f0a64dcf4fd0487bc0793c428979d785fa6bf1d",
+      "status": "UNADMITTED_CANDIDATE_REFERENCE"
+    }
+  }
+}

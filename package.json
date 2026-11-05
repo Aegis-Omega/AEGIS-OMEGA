@@ -1,9 +1,17 @@
 {
   "name": "aegis-tactical-dashboard",
-  "workspaces": ["backend"],
+  "workspaces": [
+    "backend"
+  ],
   "scripts": {
     "dev-backend": "npm run dev --prefix backend",
-    "dev": "npm run dev-backend"
+    "dev": "npm run dev-backend",
+    "ops:status": "python3 scripts/operations-status.py",
+    "ops:check": "python3 scripts/operations-status.py --offline && docker compose --profile agents config --quiet",
+    "ops:up": "docker compose up -d --build",
+    "ops:up:agents": "docker compose --profile agents up -d --build",
+    "ops:down": "docker compose --profile agents down",
+    "mcp": "bash scripts/start-aegis-mcp.sh"
   },
   "devDependencies": {
     "concurrently": "latest"
