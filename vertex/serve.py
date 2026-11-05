@@ -207,7 +207,7 @@ PLATFORM_API_KEY = os.environ.get("PLATFORM_API_KEY", "")  # missing key denies 
 RATE_LIMIT_PER_MIN = int(os.environ.get("RATE_LIMIT_PER_MIN", "60"))
 
 # Cost-bearing routes share one fail-closed auth decision with native regressions.
-from agents.platform_access import platform_access_state
+from agents.platform_access import live_pipeline_state, platform_access_state
 
 # In-memory metrics (per-process; Cloud Run logs aggregate across instances).
 METRICS: dict[str, Any] = {
@@ -665,6 +665,8 @@ async def platform_collaborate(request: Request):
     mode = body.get("mode", "revenue")
     objective = body.get("objective") or body.get("topic") or ""
     live = bool(body.get("live", False))
+    if live_pipeline_state(live) == "HOLD_NO_ADMISSION":
+        raise HTTPException(403, "LIVE_PIPELINE_AUTHORITY_UNAVAILABLE")
 
     if not objective:
         raise HTTPException(400, "objective (or topic) is required")
@@ -868,6 +870,8 @@ async def platform_compare(request: Request):
     body = await request.json()
     objectives = body.get("objectives", [])
     live = bool(body.get("live", False))
+    if live_pipeline_state(live) == "HOLD_NO_ADMISSION":
+        raise HTTPException(403, "LIVE_PIPELINE_AUTHORITY_UNAVAILABLE")
 
     if not objectives:
         raise HTTPException(400, "objectives list is required")
@@ -959,6 +963,8 @@ async def platform_stream(request: Request):
     body = await request.json()
     objective = body.get("objective", "").strip()
     live = bool(body.get("live", False))
+    if live_pipeline_state(live) == "HOLD_NO_ADMISSION":
+        raise HTTPException(403, "LIVE_PIPELINE_AUTHORITY_UNAVAILABLE")
     if not objective:
         raise HTTPException(400, "objective is required")
 
@@ -1062,6 +1068,8 @@ async def schedule_revenue(request: Request):
     )
     objective = (body.get("objective") or default_objective).strip()
     live = bool(body.get("live", bool(os.environ.get("ANTHROPIC_API_KEY"))))
+    if live_pipeline_state(live) == "HOLD_NO_ADMISSION":
+        raise HTTPException(403, "LIVE_PIPELINE_AUTHORITY_UNAVAILABLE")
 
     import sys
     sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))

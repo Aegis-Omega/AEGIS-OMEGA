@@ -19,7 +19,7 @@ import unittest
 ROOT = Path(__file__).resolve().parents[1]
 WORKFLOW = ROOT / ".github/workflows/agent-dispatch.yml"
 sys.path.insert(0, str(ROOT))
-from agents.platform_access import GATED_ROUTES, github_webhook_auth_state, platform_access_state  # noqa: E402
+from agents.platform_access import GATED_ROUTES, github_webhook_auth_state, live_pipeline_state, platform_access_state  # noqa: E402
 
 
 class DispatchTrustGate(unittest.TestCase):
@@ -213,6 +213,23 @@ class DispatchTrustGate(unittest.TestCase):
         self.assertIn("github_webhook_auth_state(", webhook)
         self.assertIn("webhook_auth_unavailable", webhook)
         self.assertIn("repository_not_allowed", webhook)
+
+    def test_legacy_live_pipeline_paths_deny_only(self):
+        self.assertEqual(live_pipeline_state(True), "HOLD_NO_ADMISSION")
+        self.assertEqual(live_pipeline_state(False), "OFFLINE_ONLY")
+        source = (ROOT / "vertex/serve.py").read_text(encoding="utf-8")
+        endpoints = (
+            ("/platform/collaborate", "/agents/batch"),
+            ("/platform/compare", "/platform/stream"),
+            ("/platform/stream", "/platform/schedule/revenue"),
+            ("/platform/schedule/revenue", "/platform/analytics"),
+        )
+        for start, end in endpoints:
+            with self.subTest(endpoint=start):
+                section = source.split(f'@app.post("{start}")', 1)[1].split(f'@app.', 1)[0]
+                self.assertIn('if live_pipeline_state(live) == "HOLD_NO_ADMISSION":', section)
+                self.assertIn("LIVE_PIPELINE_AUTHORITY_UNAVAILABLE", section)
+                self.assertLess(section.index("LIVE_PIPELINE_AUTHORITY_UNAVAILABLE"), section.index("run_revenue_cycle(") if "run_revenue_cycle(" in section else len(section))
 
 if __name__ == "__main__":
     unittest.main()

@@ -36,3 +36,7 @@ def github_webhook_auth_state(*, configured_secret: str, supplied_signature: str
     if not hmac.compare_digest(supplied_signature, expected):
         return "UNAUTHORIZED"
     return "AUTHENTICATED"
+
+def live_pipeline_state(requested_live: bool) -> str:
+    """Deny-only boundary for legacy pipelines lacking Automaton-3 live admission."""
+    return "HOLD_NO_ADMISSION" if requested_live else "OFFLINE_ONLY"
