@@ -472,6 +472,102 @@ def read_optimus_policy(quick=False):
            "--jq", "{number:.number,state:.state,body:.body}", timeout=15))
 
 
+
+# Only enumerated states and canonical identifiers may cross into stdout.
+# Never serialize provider responses or local/private object attributes whole.
+_PUBLIC_HEX = "0123456789abcdef"
+_PUBLIC_MAIN_STATES = ("FRESH", "UNVERIFIED_QUICK", "REMOTE_IDENTITY_UNVERIFIED",
+    "FETCH_FAILED", "REF_UNVERIFIED", "REF_DIVERGED",
+    "GITHUB_HEAD_UNVERIFIED", "GITHUB_HEAD_DIVERGED")
+_PUBLIC_POLICY_STATES = ("SOURCE_UNAVAILABLE", "INVALID_SOURCE",
+    "SOURCE_ID_MISMATCH", "SOURCE_NOT_OPEN", "VERSION_MISSING_OR_AMBIGUOUS",
+    "VERSION_BOUNDARY_MISSING_OR_AMBIGUOUS", "VERSION_HEADER_MISMATCH",
+    "CONTENT_MISMATCH", "VERIFIED_SOURCE", "UNKNOWN_QUICK")
+_PUBLIC_DISPOSITIONS = ("HOLD_INCOMPLETE_SHARED_STATE",
+    "OPERATOR_ACTION_REQUIRED", "HOLD_CLAIMED_WORK_COORDINATE",
+    "REVIEW_EXISTING_PR_FIRST", "ISSUE_ASSIGNMENT_AND_REVIEW_REQUIRED",
+    "HOLD_UNVERIFIED_MAIN", "HOLD_OPTIMUS_POLICY_READBACK")
+_PUBLIC_BLOCKERS = ("HOLD_UNVERIFIED_MAIN", "HOLD_INCOMPLETE_PR_INVENTORY",
+    "HOLD_INCOMPLETE_ISSUE_BOARD", "OPERATOR_ACTION_REQUIRED",
+    "HOLD_CLAIMED_WORK_COORDINATE", "REVIEW_EXISTING_PR_FIRST",
+    "HOLD_OPTIMUS_POLICY_READBACK", "MAIN_FRESHNESS_UNVERIFIED",
+    "PR_INVENTORY_INCOMPLETE", "ISSUE_BOARD_INCOMPLETE",
+    "CLAIMED_ISSUE_COORDINATION", "POSSIBLE_PR_TITLE_OVERLAP",
+    "ISSUE_NOT_RESOLVED", "OPTIMUS_POLICY_READBACK_UNVERIFIED")
+
+
+def _public_enum(value, allowed, fallback):
+    for literal in allowed:
+        if value == literal:
+            return literal
+    return fallback
+
+
+def _public_hex(value, widths):
+    if not isinstance(value, str) or len(value) not in widths:
+        return None
+    alphabet = _PUBLIC_HEX
+    digits = []
+    for char in value:
+        if char not in alphabet:
+            return None
+        digits.append(alphabet[int(char, 16)])
+    return "".join(digits)
+
+
+def _public_date(value):
+    if not isinstance(value, str) or not re.fullmatch(r"\d{4}-\d{2}-\d{2}", value):
+        return None
+    try:
+        from datetime import date as calendar_date
+        y, m, d = (int(p) for p in value.split("-"))
+        return calendar_date(y, m, d).isoformat()
+    except ValueError:
+        return None
+
+
+def _public_count(value):
+    return value if type(value) is int and 0 <= value <= 100000000 else None
+
+
+def _public_behind(value):
+    if not isinstance(value, str) or not re.fullmatch(r"[0-9]{1,8}", value):
+        return "?"
+    return str(int(value))
+
+
+def _public_main_receipt(receipt):
+    state = _public_enum(receipt.get("state"), _PUBLIC_MAIN_STATES,
+                         "GITHUB_HEAD_UNVERIFIED")
+    sha = _public_hex(receipt.get("sha"), (40,)) if state == "FRESH" else None
+    if state == "FRESH" and sha is None:
+        state = "GITHUB_HEAD_UNVERIFIED"
+    return {"state": state, "sha": sha}
+
+
+def _public_policy_receipt(receipt):
+    state = _public_enum(receipt.get("state"), _PUBLIC_POLICY_STATES,
+                         "SOURCE_UNAVAILABLE")
+    observed = _public_hex(receipt.get("observed_sha256"), (64,))
+    if state == "VERIFIED_SOURCE" and observed != OPTIMUS_POLICY_SHA256:
+        state = "CONTENT_MISMATCH"
+    return {
+        "source": f"https://github.com/{REPO}/issues/{OPTIMUS_POLICY_ISSUE}",
+        "version": OPTIMUS_POLICY_VERSION,
+        "expected_sha256": OPTIMUS_POLICY_SHA256,
+        "observed_sha256": observed,
+        "state": state,
+        "execution_authority": "NOT_GRANTED",
+        "consent_acl": "UNVERIFIED",
+        "lesson_retraction": "UNVERIFIED",
+        "cross_provider_replay": "NOT_RUN",
+    }
+
+
+def _public_blockers(blockers):
+    return [_public_enum(value, _PUBLIC_BLOCKERS, "HOLD_UNVERIFIED_MAIN")
+            for value in blockers]
+
 def main():
     quick = "--quick" in sys.argv
     args = [a for a in sys.argv[1:] if a not in ("--json", "--quick")]
@@ -522,49 +618,66 @@ def main():
     code = existing_code(query) if query and not quick and main_verified else []
 
     if "--json" in sys.argv:
-        print(json.dumps({"main": sha if main_verified and re.fullmatch(r"[0-9a-f]{7,40}", sha or "") else None,
-                          "main_exact_sha": main_receipt["sha"] if main_verified else None,
-                          "main_date": date if main_verified and re.fullmatch(r"\d{4}-\d{2}-\d{2}", date or "") else None,
-                          "main_age_days": age_days if main_verified else None,
-                          "local_main": sha if re.fullmatch(r"[0-9a-f]{7,40}", sha or "") else None,
-                          "local_main_date": date if re.fullmatch(r"\d{4}-\d{2}-\d{2}", date or "") else None,
-                          "local_main_age_days": age_days,
-                          "branch": "[REDACTED_UNTRUSTED_BRANCH]",
-                          "behind_main": behind if main_verified and re.fullmatch(r"[0-9]{1,8}", behind or "") else None,
-                          "local_behind_main": behind if re.fullmatch(r"[0-9]{1,8}", behind or "") else "?",
-                          "main_freshness": main_receipt,
-                          "shared_state": {
-                              "authority_effect": "NONE", "admission": "NOT_VERIFIED",
-                              "verified_primary_lanes": shared_state["verified_primary_lanes"],
-                              "stale_primary_lanes": shared_state["stale_primary_lanes"],
-                              "out_of_scope_lanes": shared_state["out_of_scope_lanes"],
-                          },
-                           "optimus_policy": optimus_policy,
-                           "optimus_policy_blockers": policy_blockers,
-                          "open": len(prs) if source in ("github", "cache") else None,
-                          "stacked": len(stacked) if source in ("github", "cache") else None,
-                          "source": source, "ci_billing_locked": locked,
-                          "issue_source": issue_source,
-                          "issue_count": len(issues) if issue_source == "github" else None,
-                          "holon_disposition": disposition,
-                          "holon_blockers": holon_blocks,
-                          "coordination_blockers": coordination_blocks,
-                          "p0_issues": [{"number": i["n"], "title": "[REDACTED]",
-                                         "labels": [label for label in i["labels"]
-                                                    if label in ("p0", "needs-operator", "claimed")]}
-                                        for i in p0],
-                          "issue_matches": [{"number": i["n"], "title": "[REDACTED]",
-                                             "labels": [label for label in i["labels"]
-                                                        if label in ("p0", "p1", "p2", "claimed", "needs-operator", "task")],
-                                             "matched_term_count": len(m)}
-                                            for i, m in issue_hits],
-                          "overlaps": [{"pr": p["n"], "title": "[REDACTED]",
-                                        "head": "[REDACTED_UNTRUSTED_BRANCH]",
-                                        "base": "main" if p["b"] == "main" else "non-main-or-unknown",
-                                        "matched_term_count": len(m)}
-                                       for _, p, m in hits],
-                          "existing_code_status": code_status,
-                          "existing_code": [{"matched_term_count": len(m)} for _, m in code]}))
+        public_main = _public_main_receipt(main_receipt)
+        public_policy = _public_policy_receipt(optimus_policy)
+        public_sha = _public_hex(sha, range(7, 41))
+        public_date = _public_date(date)
+        public_behind = _public_behind(behind)
+        report = {
+            "main": public_sha if main_verified else None,
+            "main_exact_sha": public_main["sha"] if main_verified else None,
+            "main_date": public_date if main_verified else None,
+            "main_age_days": _public_count(age_days) if main_verified else None,
+            "local_main": public_sha,
+            "local_main_date": public_date,
+            "local_main_age_days": _public_count(age_days),
+            "branch": "[REDACTED_UNTRUSTED_BRANCH]",
+            "behind_main": public_behind if main_verified and public_behind != "?" else None,
+            "local_behind_main": public_behind,
+            "main_freshness": public_main,
+            "shared_state": {
+                "authority_effect": "NONE", "admission": "NOT_VERIFIED",
+                "verified_primary_lanes": _public_count(shared_state["verified_primary_lanes"]),
+                "stale_primary_lanes": _public_count(shared_state["stale_primary_lanes"]),
+                "out_of_scope_lanes": _public_count(shared_state["out_of_scope_lanes"]),
+            },
+            "optimus_policy": public_policy,
+            "optimus_policy_blockers": _public_blockers(policy_blockers),
+            "open": len(prs) if source in ("github", "cache") else None,
+            "stacked": len(stacked) if source in ("github", "cache") else None,
+            "source": _public_enum(source,
+                ("github", "cache", "partial", "branches", "unavailable"), "unavailable"),
+            "ci_billing_locked": locked if type(locked) is bool else None,
+            "issue_source": _public_enum(issue_source,
+                ("github", "partial", "unavailable"), "unavailable"),
+            "issue_count": len(issues) if issue_source == "github" else None,
+            "holon_disposition": _public_enum(disposition, _PUBLIC_DISPOSITIONS,
+                "HOLD_INCOMPLETE_SHARED_STATE"),
+            "holon_blockers": _public_blockers(holon_blocks),
+            "coordination_blockers": _public_blockers(coordination_blocks),
+            "p0_issues": [{"number": _public_count(i["n"]), "title": "[REDACTED]",
+                           "labels": [_public_enum(label, ("p0","needs-operator","claimed"), "")
+                                      for label in i["labels"]
+                                      if label in ("p0","needs-operator","claimed")]}
+                          for i in p0],
+            "issue_matches": [{"number": _public_count(i["n"]), "title": "[REDACTED]",
+                               "labels": [_public_enum(label,
+                                   ("p0","p1","p2","claimed","needs-operator","task"), "")
+                                   for label in i["labels"] if label in
+                                   ("p0","p1","p2","claimed","needs-operator","task")],
+                               "matched_term_count": len(m)}
+                              for i, m in issue_hits],
+            "overlaps": [{"pr": _public_count(p["n"]), "title": "[REDACTED]",
+                          "head": "[REDACTED_UNTRUSTED_BRANCH]",
+                          "base": "main" if p["b"] == "main" else "non-main-or-unknown",
+                          "matched_term_count": len(m)}
+                         for _, p, m in hits],
+            "existing_code_status": _public_enum(code_status,
+                ("SKIPPED_QUICK", "SKIPPED_UNVERIFIED_MAIN",
+                 "VERIFIED_REMOTE_MAIN", "NOT_REQUESTED"), "SKIPPED_UNVERIFIED_MAIN"),
+            "existing_code": [{"matched_term_count": len(m)} for _, m in code],
+        }
+        print(json.dumps(report))
         return
 
     kind = "open PRs" if source in ("github", "cache") else "remote branches (not a complete PR list)"

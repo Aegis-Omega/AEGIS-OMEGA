@@ -1026,5 +1026,49 @@ class OptimusPolicyReadbackTests(unittest.TestCase):
         self.assertEqual(data["holon_disposition"], "HOLD_OPTIMUS_POLICY_READBACK")
 
 
+
+class PublicReceiptBoundaryTests(unittest.TestCase):
+    def test_nested_private_values_are_never_logged(self):
+        secret = "PRIVATE_CANARY_DO_NOT_EXPORT_12345"
+        receipt = ctx._public_policy_receipt({
+            "state": secret, "source": secret, "version": secret,
+            "expected_sha256": secret, "observed_sha256": secret,
+            "execution_authority": secret, "consent_acl": secret,
+            "future_private_field": secret,
+        })
+        self.assertNotIn(secret, json.dumps(receipt))
+        self.assertEqual(receipt["execution_authority"], "NOT_GRANTED")
+        self.assertEqual(receipt["state"], "SOURCE_UNAVAILABLE")
+        self.assertIsNone(receipt["observed_sha256"])
+        main = ctx._public_main_receipt({"state": secret, "sha": secret})
+        self.assertNotIn(secret, json.dumps(main))
+        self.assertEqual(main["state"], "GITHUB_HEAD_UNVERIFIED")
+
+    def test_valid_exact_sha_and_policy_pin_retained_fail_closed(self):
+        pin = ctx.OPTIMUS_POLICY_SHA256
+        good = ctx._public_policy_receipt({
+            "state": "VERIFIED_SOURCE", "observed_sha256": pin,
+        })
+        self.assertEqual(good["state"], "VERIFIED_SOURCE")
+        self.assertEqual(good["observed_sha256"], pin)
+        self.assertEqual(good["execution_authority"], "NOT_GRANTED")
+        mismatch = ctx._public_policy_receipt({
+            "state": "VERIFIED_SOURCE", "observed_sha256": "a" * 64,
+        })
+        self.assertEqual(mismatch["state"], "CONTENT_MISMATCH")
+        self.assertEqual(ctx._public_main_receipt({"state": "FRESH", "sha": "b" * 40}),
+                         {"state": "FRESH", "sha": "b" * 40})
+        self.assertEqual(ctx._public_main_receipt({"state": "FRESH",
+                                                    "sha": "UNTRUSTED"})["state"],
+                         "GITHUB_HEAD_UNVERIFIED")
+
+    def test_date_count_and_hex_safe_normalizers(self):
+        self.assertEqual(ctx._public_hex("a" * 40, (40,)), "a" * 40)
+        self.assertIsNone(ctx._public_hex("PRIVATE_CANARY", (40,)))
+        self.assertEqual(ctx._public_date("2026-11-05"), "2026-11-05")
+        self.assertIsNone(ctx._public_date("2026-13-05"))
+        self.assertEqual(ctx._public_behind("002"), "2")
+        self.assertEqual(ctx._public_behind("PRIVATE_CANARY"), "?")
+
 if __name__ == "__main__":
     unittest.main()
