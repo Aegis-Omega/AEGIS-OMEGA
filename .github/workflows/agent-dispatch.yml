@@ -24,9 +24,6 @@ jobs:
     if: vars.PROXY_URL != ''
 
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
       - name: Determine event type and validate actor
         id: classify
         # All untrusted external inputs bound to env vars — never interpolated inline.
@@ -51,6 +48,9 @@ jobs:
           PR_AUTHOR: ${{ github.event.pull_request.user.login }}
           WF_HEAD_REPO: ${{ github.event.workflow_run.head_repository.full_name }}
           EXPECTED_REPOSITORY: ${{ github.repository }}
+          PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          WF_HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
+          GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
 
@@ -83,6 +83,20 @@ jobs:
           esac
           # AEGIS_TRUST_GATE_END
 
+          # AEGIS_HEAD_FRESHNESS_BEGIN
+          # Git-native, API-only consistency check; no checkout, no model call.
+          # Reject outdated events before WIF, platform-key brokering or dispatch.
+          if [[ "$EVENT_NAME" == "pull_request" ]]; then
+            [[ "$PR_NUMBER" =~ ^[1-9][0-9]*$ && "$PR_HEAD_SHA" =~ ^[0-9a-f]{40}$ ]] || { echo "DENIED: malformed PR identity" >&2; exit 1; }
+            live_sha=$(gh api "repos/${EXPECTED_REPOSITORY}/pulls/${PR_NUMBER}" --jq '.head.sha')
+            [[ "$live_sha" == "$PR_HEAD_SHA" ]] || { echo "DENIED: PR head changed since event" >&2; exit 1; }
+          elif [[ "$EVENT_NAME" == "workflow_run" ]]; then
+            [[ "$WF_HEAD_SHA" =~ ^[0-9a-f]{40}$ ]] || { echo "DENIED: malformed workflow commit" >&2; exit 1; }
+            live_sha=$(gh api "repos/${EXPECTED_REPOSITORY}/branches/main" --jq '.commit.sha')
+            [[ "$live_sha" == "$WF_HEAD_SHA" ]] || { echo "DENIED: workflow commit is no longer main" >&2; exit 1; }
+          fi
+          # AEGIS_HEAD_FRESHNESS_END
+
           EVENT_TYPE=""
           PAYLOAD="{}"
 
@@ -93,12 +107,14 @@ jobs:
                 --arg branch "$WF_BRANCH" \
                 --arg run_id "$WF_RUN_ID" \
                 --arg conclusion "$WF_CONCLUSION" \
-                '{"branch": $branch, "run_id": $run_id, "failures": $conclusion}')
+                --arg source_head_sha "$WF_HEAD_SHA" \
+                '{"branch": $branch, "run_id": $run_id, "failures": $conclusion, "source_head_sha": $source_head_sha}')
             elif [ "$WF_CONCLUSION" = "success" ]; then
               EVENT_TYPE="github_ci_success"
               PAYLOAD=$(jq -n \
                 --arg branch "$WF_BRANCH" \
-                '{"branch": $branch}')
+                --arg source_head_sha "$WF_HEAD_SHA" \
+                '{"branch": $branch, "source_head_sha": $source_head_sha}')
             fi
 
           elif [ "$EVENT_NAME" = "pull_request" ]; then
@@ -107,7 +123,8 @@ jobs:
               --arg title "$PR_TITLE" \
               --arg number "$PR_NUMBER" \
               --arg url "$PR_URL" \
-              '{"title": $title, "number": $number, "url": $url}')
+              --arg source_head_sha "$PR_HEAD_SHA" \
+              '{"title": $title, "number": $number, "url": $url, "source_head_sha": $source_head_sha}')
 
           elif [ "$EVENT_NAME" = "issues" ]; then
             EVENT_TYPE="github_issue_opened"
