@@ -477,18 +477,22 @@ async def agent_run(request: Request):
     Response: {"task_id": "...", "role": "...", "output": "...", "governance": {...}, ...}
     """
     body = await request.json()
+    if not isinstance(body, dict):
+        raise HTTPException(400, "request body must be a JSON object")
     role = body.get("role", "engineering")
     task_instruction = body.get("task", "")
-    cycles = int(body.get("cycles", 3))
-
-    if not task_instruction:
-        raise HTTPException(400, "task is required")
-
-    # Inline import to keep coordinator dependencies optional
+    if not isinstance(task_instruction, str) or not task_instruction.strip():
+        raise HTTPException(400, "task must be a nonempty string")
     try:
-        import sys, os
-        sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
-        from agents.coordinator import AgentTask, AgentRole, run_agent
+        cycles = int(body.get("cycles", 3))
+    except (ValueError, TypeError):
+        raise HTTPException(400, "cycles must be an integer") from None
+    if not 1 <= cycles <= 3:
+        raise HTTPException(400, "cycles must be between 1 and 3")
+
+    # Reuse governed coordinator routing; do not call legacy run_agent directly.
+    try:
+        from agents.coordinator import AgentRole, dispatch_event
     except ImportError as exc:
         raise HTTPException(503, f"Agent coordinator not available: {exc}")
 
@@ -497,13 +501,16 @@ async def agent_run(request: Request):
     except ValueError:
         raise HTTPException(400, f"Unknown role: {role}. Valid: {[r.value for r in AgentRole]}")
 
-    task_obj = AgentTask(
-        task_id=str(uuid.uuid4()),
-        role=agent_role,
-        instruction=task_instruction,
+    results = await dispatch_event(
+        "manual_role",
+        {"role": agent_role.value, "task": task_instruction},
+        requested_roles=[agent_role],
+        instruction_override=task_instruction,
         max_ralph_cycles=cycles,
     )
-    result = await run_agent(task_obj)
+    if not results:
+        raise HTTPException(403, "CENTRAL_AUTHORITY_DENIED")
+    result = results[0]
     return {
         "task_id": result.task_id,
         "role": result.role.value,
@@ -512,6 +519,7 @@ async def agent_run(request: Request):
         "ralph_cycles": result.ralph_cycles,
         "duration_ms": result.duration_ms,
         "is_valid": result.is_valid,
+        "execution_state": "NOT_EXECUTED" if result.governance.get("dry_run") else "EXECUTED",
     }
 
 

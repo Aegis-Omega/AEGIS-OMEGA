@@ -178,5 +178,16 @@ class DispatchTrustGate(unittest.TestCase):
         self.assertIn('access == "UNAUTHORIZED"', source)
         self.assertNotIn("if PLATFORM_API_KEY and any(", source)
 
+    def test_direct_http_agent_run_cannot_bypass_central_coordinator(self):
+        source = (ROOT / "vertex/serve.py").read_text(encoding="utf-8")
+        direct_run = source.split('@app.post("/agents/run")', 1)[1].split('@app.post("/agents/dispatch")', 1)[0]
+        self.assertIn("from agents.coordinator import AgentRole, dispatch_event", direct_run)
+        self.assertNotIn("run_agent(", direct_run)
+        self.assertIn("requested_roles=[agent_role]", direct_run)
+        self.assertIn("instruction_override=task_instruction", direct_run)
+        self.assertIn("max_ralph_cycles=cycles", direct_run)
+        self.assertIn("CENTRAL_AUTHORITY_DENIED", direct_run)
+        self.assertIn('"execution_state": "NOT_EXECUTED"', direct_run)
+
 if __name__ == "__main__":
     unittest.main()
