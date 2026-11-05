@@ -572,7 +572,8 @@ def main():
     quick = "--quick" in sys.argv
     args = [a for a in sys.argv[1:] if a not in ("--json", "--quick")]
     query = " ".join(args)
-    main_receipt = verify_main_freshness(quick=quick)
+    # Validate source-bound identity before it can influence admission or logs.
+    main_receipt = _public_main_receipt(verify_main_freshness(quick=quick))
     # A per-prompt hook must not inherit the 30s command timeout four times.
     # These local measurements are advisory whenever remote main is unverified.
     local_timeout = 2 if quick else 30
@@ -591,7 +592,8 @@ def main():
     prs, source = open_prs(quick=quick)
     shared_state = shared_state_audit.inspect(prs, source, main_receipt)
     issues, issue_source = open_issue_board(timeout=4 if quick else 15)
-    optimus_policy = read_optimus_policy(quick=quick)
+    # An asserted VERIFIED_SOURCE is insufficient without matching the exact pin.
+    optimus_policy = _public_policy_receipt(read_optimus_policy(quick=quick))
     stacked = [p for p in prs if p["b"] not in ("main", "?")]
     locked = (billing_locked(prs) if not quick and source in ("github", "cache") else None)
     hits = overlaps(prs, query)

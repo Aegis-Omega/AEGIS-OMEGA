@@ -1028,6 +1028,55 @@ class OptimusPolicyReadbackTests(unittest.TestCase):
 
 
 class PublicReceiptBoundaryTests(unittest.TestCase):
+
+    def test_malformed_fresh_main_is_hold_before_planning(self):
+        marker = "PRIVATE_TEST_MAIN_SHA_NOT_A_COMMIT"
+        out = io.StringIO()
+        with patch.object(ctx, "verify_main_freshness",
+                          return_value={"state": "FRESH", "sha": marker}), \
+             patch.object(ctx, "sh", return_value=""), \
+             patch.object(ctx, "open_prs", return_value=([], "github")), \
+             patch.object(ctx, "open_issue_board", return_value=([], "github")), \
+             patch.object(ctx, "billing_locked", return_value=None), \
+             patch.object(ctx, "read_optimus_policy",
+                          return_value=ctx.verify_optimus_issue("")), \
+             patch.object(ctx.shared_state_audit, "inspect",
+                          return_value={"verified_primary_lanes": 0,
+                                        "stale_primary_lanes": 1,
+                                        "out_of_scope_lanes": 0, "reason": None}), \
+             patch.object(sys, "argv", ["agent_context.py", "--json"]), \
+             contextlib.redirect_stdout(out):
+            ctx.main()
+        self.assertNotIn(marker, out.getvalue())
+        receipt = json.loads(out.getvalue())
+        self.assertEqual(receipt["main_freshness"]["state"], "GITHUB_HEAD_UNVERIFIED")
+        self.assertIsNone(receipt["main_exact_sha"])
+        self.assertEqual(receipt["holon_disposition"], "HOLD_UNVERIFIED_MAIN")
+        self.assertIn("HOLD_UNVERIFIED_MAIN", receipt["holon_blockers"])
+
+    def test_unpinned_verified_policy_claim_never_bypasses_hold(self):
+        out = io.StringIO()
+        with patch.object(ctx, "verify_main_freshness",
+                          return_value={"state": "FRESH", "sha": "a" * 40}), \
+             patch.object(ctx, "sh", return_value=""), \
+             patch.object(ctx, "open_prs", return_value=([], "github")), \
+             patch.object(ctx, "open_issue_board", return_value=([], "github")), \
+             patch.object(ctx, "billing_locked", return_value=None), \
+             patch.object(ctx, "read_optimus_policy",
+                          return_value={"state": "VERIFIED_SOURCE",
+                                        "observed_sha256": "b" * 64}), \
+             patch.object(ctx.shared_state_audit, "inspect",
+                          return_value={"verified_primary_lanes": 0,
+                                        "stale_primary_lanes": 0,
+                                        "out_of_scope_lanes": 0, "reason": None}), \
+             patch.object(sys, "argv", ["agent_context.py", "--json"]), \
+             contextlib.redirect_stdout(out):
+            ctx.main()
+        receipt = json.loads(out.getvalue())
+        self.assertEqual(receipt["optimus_policy"]["state"], "CONTENT_MISMATCH")
+        self.assertIn("HOLD_OPTIMUS_POLICY_READBACK", receipt["holon_blockers"])
+        self.assertEqual(receipt["optimus_policy"]["execution_authority"], "NOT_GRANTED")
+
     def test_nested_private_values_are_never_logged(self):
         secret = "PRIVATE_CANARY_DO_NOT_EXPORT_12345"
         receipt = ctx._public_policy_receipt({
