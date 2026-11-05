@@ -42,6 +42,58 @@ jobs:
         shell: bash
         run: python scripts/test-repository-cartographer.py
 
+
+      - name: Produce exact-head image content observation (no authority)
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json
+          import os
+          import shutil
+          import tempfile
+          from pathlib import Path
+          from harness.sdk.repository_knowledge import (
+              build_snapshot, build_runtime_export_manifest,
+              verify_runtime_export_manifest,
+          )
+          repo = Path.cwd()
+          snapshot = build_snapshot(repo, repository_id=1095915905,
+                                    repository_full_name="Aegis-Omega/AEGIS-OMEGA")
+          assert snapshot["source_head_sha"] == os.environ["CANDIDATE_SHA"]
+          manifest = build_runtime_export_manifest(snapshot)
+          with tempfile.TemporaryDirectory() as temp:
+              image = Path(temp)
+              for record in manifest["files"]:
+                  path = record["path"]
+                  src = repo / ("vertex/serve.py" if path == "serve.py" else path)
+                  target = image / path
+                  target.parent.mkdir(parents=True, exist_ok=True)
+                  shutil.copy2(src, target)
+              result = verify_runtime_export_manifest(
+                  image, manifest, expected_head=os.environ["CANDIDATE_SHA"])
+              assert result["status"] == "CONTENT_MATCH_ONLY", result
+              assert result["authority"] == "NOT_GRANTED", result
+          out = Path(os.environ["RUNNER_TEMP"]) / "runtime-export"
+          out.mkdir(exist_ok=True)
+          (out / "manifest.json").write_text(
+              json.dumps(manifest, sort_keys=True, separators=(",", ":")) + "\n")
+          (out / "receipt.json").write_text(
+              json.dumps(result, sort_keys=True, separators=(",", ":")) + "\n")
+          print(json.dumps({"source_head": manifest["source_head_sha"],
+              "source_tree": manifest["source_tree_sha"], "files": len(manifest["files"]),
+              "observation": result["status"], "authority": result["authority"]},
+              sort_keys=True))
+          PY
+
+      - name: Upload image content evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: runtime-export-${{ env.CANDIDATE_SHA }}
+          path: ${{ runner.temp }}/runtime-export/
+          if-no-files-found: error
+          retention-days: 14
+
       - name: Assert authority neutrality
         shell: bash
         run: |
