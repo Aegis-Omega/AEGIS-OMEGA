@@ -1,10 +1,7 @@
 name: AEGIS Repository-Wide Verification
 
 on:
-  # Temporary head-bound verification trigger while this workflow is PR-only.
-  # No changes to the 14 mandatory suites or admission criteria.
-  push:
-    branches: ['verification/repository-wide-receipt-v1']
+  workflow_call:
   pull_request:
     branches: [main]
   workflow_dispatch:
