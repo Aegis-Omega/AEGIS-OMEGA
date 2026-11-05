@@ -10,10 +10,13 @@ import argparse
 import hashlib
 import json
 import re
+import sys
 from pathlib import Path
 from typing import Any, Mapping
 
-from harness.sdk.repository_knowledge import verify_remote_git_source
+# This script is executed as a file by GitHub Actions; expose the existing repo package.
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from harness.sdk.repository_knowledge import verify_remote_git_source  # noqa: E402
 
 REPOSITORY = "Aegis-Omega/AEGIS-OMEGA"
 REPOSITORY_ID = 1095915905
