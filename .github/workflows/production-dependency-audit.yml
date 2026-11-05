@@ -98,12 +98,40 @@ jobs:
           NODE
           echo "status=$status" >> "$GITHUB_OUTPUT"
 
+      # This diagnostic never commits to the repository. It proposes only a
+      # package-lock update in the ephemeral GitHub runner and remains fail-closed
+      # against the original, source-bound production-audit result.
+      - name: Prepare non-executing lockfile remediation candidate
+        if: ${{ steps.audit.outputs.status != '0' }}
+        working-directory: ${{ matrix.directory }}
+        shell: bash
+        run: |
+          set +e
+          npm audit fix --package-lock-only --ignore-scripts --no-fund --no-progress > production-audit-candidate.log 2>&1
+          fix_status=$?
+          cp package-lock.json production-audit-candidate-lock.json
+          npm audit --omit=dev --audit-level=high --json > production-audit-candidate-result.json
+          candidate_status=$?
+          printf 'audit_fix_exit=%s\ncandidate_audit_exit=%s\n' "$fix_status" "$candidate_status" > production-audit-candidate-status.txt
+
+          # Refuse any proposal that edits the package manifest. No forced
+          # major changes or new permissions are authorized by this workflow.
+          if ! git diff --quiet -- package.json; then
+            echo 'INVALID_CANDIDATE: npm changed package.json' | tee -a production-audit-candidate-status.txt
+          fi
+          exit 0
+
       - name: Upload exact audit report
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: production-audit-${{ matrix.surface }}-${{ env.CANDIDATE_SHA }}
-          path: ${{ matrix.directory }}/production-audit.json
+          path: |
+            ${{ matrix.directory }}/production-audit.json
+            ${{ matrix.directory }}/production-audit-candidate-lock.json
+            ${{ matrix.directory }}/production-audit-candidate-result.json
+            ${{ matrix.directory }}/production-audit-candidate-status.txt
+            ${{ matrix.directory }}/production-audit-candidate.log
           if-no-files-found: error
           retention-days: 90
 
