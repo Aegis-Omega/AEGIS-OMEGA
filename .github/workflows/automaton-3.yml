@@ -179,6 +179,7 @@ jobs:
                   --repo "$GITHUB_REPOSITORY" \
                   --signer-workflow "$signer" \
                   --source-digest "$CANDIDATE_SHA" \
+                  --cert-oidc-issuer "https://token.actions.githubusercontent.com/aegis-omega" \
                   --deny-self-hosted-runners \
                   --format json > "$out/$subject.verified.json"; then
                 verified=1

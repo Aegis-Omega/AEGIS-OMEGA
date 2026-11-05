@@ -334,6 +334,8 @@ class RepositoryCartographerContract(unittest.TestCase):
         self.assertIn("gh attestation verify", step)
         self.assertIn("--signer-workflow", step)
         self.assertIn("--source-digest", step)
+        self.assertIn('--cert-oidc-issuer "https://token.actions.githubusercontent.com/aegis-omega"', step)
+        self.assertNotIn("--cert-oidc-issuer \"https://token.actions.githubusercontent.com\" ", step)
         self.assertIn("--deny-self-hosted-runners", step)
         self.assertIn("SIGNATURE_VERIFIED", step)
         self.assertIn('"final_image_attested": False', step)
