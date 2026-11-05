@@ -4,6 +4,7 @@ from __future__ import annotations
 import copy
 import importlib.util
 import json
+import shutil
 import subprocess
 import tempfile
 import unittest
@@ -60,6 +61,7 @@ class RepositoryCartographerContract(unittest.TestCase):
         )
         write(self.repo, "harness/skill_tree.json", '{"skills":[{"skill_id":"existing_skill"}]}\n')
         write(self.repo, "agents/engineering.py", "CAPABILITY = 'engineering'\n")
+        write(self.repo, "vertex/serve.py", "APP_NAME = 'aegis'\n")
         write(self.repo, ".github/workflows/ci.yml", "name: CI\n")
         write(self.repo, "supabase/migrations/001.sql", "select 1;\n")
         write(self.repo, "formal/theories/Foo.v", "Theorem foo : True. Proof. exact I. Qed.\n")
@@ -154,6 +156,53 @@ class RepositoryCartographerContract(unittest.TestCase):
         self.assertEqual(verification["status"], "DENIED")
         self.assertIn("ARTIFACTS_DIGEST_MISMATCH", verification["reason_codes"])
         self.assertIn("SNAPSHOT_DIGEST_MISMATCH", verification["reason_codes"])
+
+
+    def test_gitless_package_content_receipt_denies_tamper(self) -> None:
+        mod = load_module()
+        snapshot = mod.build_snapshot(self.repo, repository_id=123)
+        manifest = mod.build_runtime_export_manifest(snapshot)
+        self.assertEqual(manifest, mod.build_runtime_export_manifest(snapshot))
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            for entry in manifest["files"]:
+                name = entry["path"]
+                src = self.repo / ("vertex/serve.py" if name == "serve.py" else name)
+                dst = root / name
+                dst.parent.mkdir(parents=True, exist_ok=True)
+                shutil.copy2(src, dst)
+            receipt = mod.verify_runtime_export_manifest(
+                root, manifest, expected_head=snapshot["source_head_sha"])
+            self.assertEqual(receipt["status"], "CONTENT_MATCH_ONLY", receipt)
+            self.assertEqual(receipt["authority"], "NOT_GRANTED")
+            self.assertEqual(receipt["attestation"], "NOT_PRESENT")
+            (root / "agents/engineering.py").write_text("tampered\n")
+            self.assertIn("FILE_CONTENT_MISMATCH", mod.verify_runtime_export_manifest(
+                root, manifest, expected_head=snapshot["source_head_sha"])["reason_codes"])
+            shutil.copy2(self.repo / "agents/engineering.py", root / "agents/engineering.py")
+            (root / "agents/untracked.py").write_text("injected\n")
+            self.assertIn("FILE_SET_MISMATCH", mod.verify_runtime_export_manifest(
+                root, manifest, expected_head=snapshot["source_head_sha"])["reason_codes"])
+            (root / "agents/untracked.py").unlink()
+            self.assertIn("SOURCE_HEAD_MISMATCH", mod.verify_runtime_export_manifest(
+                root, manifest, expected_head="f" * 40)["reason_codes"])
+            fake = copy.deepcopy(manifest)
+            fake["files"][0]["git_blob_sha"] = "0" * 40
+            self.assertIn("MANIFEST_DIGEST_MISMATCH", mod.verify_runtime_export_manifest(
+                root, fake, expected_head=snapshot["source_head_sha"])["reason_codes"])
+
+    def test_runtime_export_rejects_nonregular_git_source(self) -> None:
+        mod = load_module()
+        snapshot = mod.build_snapshot(self.repo, repository_id=123)
+        altered = copy.deepcopy(snapshot)
+        for file in altered["artifacts"]:
+            if file["path"] == "agents/engineering.py":
+                file["mode"] = "120000"
+        altered["artifacts_digest"] = mod._digest(altered["artifacts"])
+        altered.pop("snapshot_digest")
+        altered["snapshot_digest"] = mod._digest(altered)
+        with self.assertRaisesRegex(ValueError, "NONREGULAR"):
+            mod.build_runtime_export_manifest(altered)
 
 
 if __name__ == "__main__":
