@@ -171,7 +171,7 @@ class DispatchTrustGate(unittest.TestCase):
 
     def test_platform_middleware_delegates_to_native_fail_closed_contract(self):
         source = (ROOT / "vertex/serve.py").read_text(encoding="utf-8")
-        self.assertIn("from agents.platform_access import platform_access_state", source)
+        self.assertIn("from agents.platform_access import live_pipeline_state, platform_access_state", source)
         self.assertIn("access = platform_access_state(", source)
         self.assertIn('request.headers.get("x-api-key", "")', source)
         self.assertIn('access == "SERVER_UNCONFIGURED"', source)
