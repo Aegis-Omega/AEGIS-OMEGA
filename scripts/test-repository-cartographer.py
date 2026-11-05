@@ -368,7 +368,7 @@ class RepositoryCartographerContract(unittest.TestCase):
         self.assertIn('"authority": "NOT_GRANTED"', verified)
         self.assertIn("--source-digest \"$GITHUB_SHA\"", verified)
         self.assertIn("--signer-workflow \"$signer\"", verified)
-        self.assertIn("expected PR base/head", verified)
+        self.assertIn('[[ "$parents" == "$EXPECTED_PARENT_SHA $CANDIDATE_SHA" ]]', verified)
         self.assertNotIn("docker push", verified)
         self.assertNotIn("id-token: write", (ROOT / ".github/workflows/repository-knowledge.yml").read_text())
 
