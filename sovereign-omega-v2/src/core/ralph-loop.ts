@@ -69,17 +69,18 @@ export class RalphLoop {
     const links: string[] = []
     const patches: RalphPatch[] = []
 
-    const loop = this
+    const cycleNumber = this._cycleNumber
+    const targetScale = this.targetScale
     const builder: RalphCycleBuilder = {
       addFinding(f) { findings.push(f); return builder },
       addAnalysisNote(n) { analysisNotes.push(n); return builder },
       addLink(d) { links.push(d); return builder },
       addPatch(p) { patches.push(p); return builder },
-      harmonize(gateResult) {
+      harmonize: (gateResult) => {
         const cycle = deepFreeze<RalphCycle>({
           cycle_id: cycleId as UUIDv7,
-          cycle_number: loop._cycleNumber,
-          target_scale: loop.targetScale,
+          cycle_number: cycleNumber,
+          target_scale: targetScale,
           phase: RalphPhase.HARMONIZE,
           findings: findings.map(f => f.description),
           analysis_notes: analysisNotes,
@@ -89,7 +90,7 @@ export class RalphLoop {
           gate_result: gateResult,
           sequence,
         })
-        loop.cycles.push(cycle)
+        this.cycles.push(cycle)
         return cycle
       },
     }

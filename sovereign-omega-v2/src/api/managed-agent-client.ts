@@ -61,6 +61,38 @@ export interface ManagedAgentClientConfig {
   readonly agentId?: string  // pre-existing agent to reuse
 }
 
+interface ManagedAgentWireRecord {
+  readonly id: string
+}
+
+interface ManagedSessionWireRecord {
+  readonly id: string
+  readonly agent_id?: string
+  readonly status?: AgentSession['status']
+  readonly created_at?: string
+}
+
+interface ManagedSessionWireEvent {
+  readonly type?: SessionEvent['type']
+  readonly content?: unknown
+}
+
+type ManagedSessionWireStream = AsyncIterable<ManagedSessionWireEvent>
+
+interface ManagedAnthropicExtension {
+  readonly beta: {
+    readonly agents: {
+      create(input: unknown): Promise<ManagedAgentWireRecord>
+    }
+    readonly sessions: {
+      create(input: unknown): Promise<ManagedSessionWireRecord>
+      stream(sessionId: string): ManagedSessionWireStream | null | Promise<ManagedSessionWireStream | null>
+      createEvent(sessionId: string, event: unknown): Promise<unknown>
+      retrieve(sessionId: string): Promise<ManagedSessionWireRecord>
+    }
+  }
+}
+
 // ─── Client ───────────────────────────────────────────────
 
 export class ManagedAgentClient {
@@ -77,12 +109,16 @@ export class ManagedAgentClient {
     this._agentId = config.agentId ?? null
   }
 
+  private managedClient(): ManagedAnthropicExtension {
+    return this._client as unknown as ManagedAnthropicExtension
+  }
+
   /** Create or retrieve the AEGIS constitutional agent. Returns agent_id. */
   async ensureAgent(): Promise<string> {
     if (this._agentId) return this._agentId
 
     try {
-      const agent = await (this._client as any).beta?.agents?.create({
+      const agent = await this.managedClient().beta.agents.create({
         name: AEGIS_AGENT_DEFINITION.name,
         model: AEGIS_AGENT_DEFINITION.model,
         system_prompt: AEGIS_AGENT_DEFINITION.system_prompt,
@@ -98,7 +134,8 @@ export class ManagedAgentClient {
       // Managed agents may not be available in all regions/tiers
       throw new Error(
         `[MANAGED_AGENT] Failed to create agent: ${String(err)}. ` +
-        `Ensure your API key has Managed Agents access.`
+        `Ensure your API key has Managed Agents access.`,
+        { cause: err },
       )
     }
   }
@@ -107,7 +144,7 @@ export class ManagedAgentClient {
   async startSession(task: string): Promise<AgentSession> {
     const agentId = await this.ensureAgent()
 
-    const session = await (this._client as any).beta?.sessions?.create({
+    const session = await this.managedClient().beta.sessions.create({
       agent_id: agentId,
       initial_message: task,
     })
@@ -123,7 +160,7 @@ export class ManagedAgentClient {
 
   /** Stream events from a running session. */
   async *streamSession(sessionId: string): AsyncGenerator<SessionEvent> {
-    const stream = await (this._client as any).beta?.sessions?.stream(sessionId)
+    const stream = await this.managedClient().beta.sessions.stream(sessionId)
 
     if (!stream) {
       yield {
@@ -147,7 +184,7 @@ export class ManagedAgentClient {
 
   /** Send a follow-up message to a running session. */
   async sendEvent(sessionId: string, message: string): Promise<void> {
-    await (this._client as any).beta?.sessions?.createEvent(sessionId, {
+    await this.managedClient().beta.sessions.createEvent(sessionId, {
       type: 'user',
       content: message,
     })
@@ -155,7 +192,7 @@ export class ManagedAgentClient {
 
   /** Get the current status of a session. */
   async getSession(sessionId: string): Promise<AgentSession> {
-    const session = await (this._client as any).beta?.sessions?.retrieve(sessionId)
+    const session = await this.managedClient().beta.sessions.retrieve(sessionId)
     return {
       session_id: session.id,
       /* c8 ignore next -- SDK always provides agent_id; ?? fallbacks structurally unreachable */
@@ -169,7 +206,7 @@ export class ManagedAgentClient {
 
   /** Interrupt a running session. */
   async interrupt(sessionId: string): Promise<void> {
-    await (this._client as any).beta?.sessions?.createEvent(sessionId, {
+    await this.managedClient().beta.sessions.createEvent(sessionId, {
       type: 'interrupt',
     })
   }

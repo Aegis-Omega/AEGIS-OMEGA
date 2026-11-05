@@ -173,7 +173,10 @@ export class ConstitutionalClaudeClient {
           delta: '',
           is_final: false,
           usage: {
-            input_tokens: (event as any).usage?.input_tokens ?? 0,
+            input_tokens:
+              'input_tokens' in event.usage && typeof event.usage.input_tokens === 'number'
+                ? event.usage.input_tokens
+                : 0,
             output_tokens: event.usage.output_tokens,
           },
         }

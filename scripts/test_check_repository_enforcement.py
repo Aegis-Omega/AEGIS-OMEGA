@@ -1,7 +1,9 @@
 #!/usr/bin/env python3
 from __future__ import annotations
 
+import re
 import unittest
+from pathlib import Path
 from unittest.mock import patch
 
 import check_repository_enforcement as enforcement
@@ -222,6 +224,91 @@ class RepositoryEnforcementTests(unittest.TestCase):
         self.assertFalse(result.ok)
         self.assertFalse(result.required_status_check_publishers_pinned)
         self.assertEqual(set(result.publisher_mismatch_contexts), set(CONTEXTS))
+
+
+# T1: negative CI permission regression for untrusted PR-owned source.
+# This is a source-contract check, not a GitHub provider authorization test.
+def _runs_untrusted_pull_request(workflow: str) -> bool:
+    lines = workflow.splitlines()
+    for i, line in enumerate(lines):
+        if not line.startswith("on:"):
+            continue
+        inline = line[3:].split("#", 1)[0].strip()
+        if inline:
+            return bool(re.search(r"\bpull_request\b", inline))
+        for next_line in lines[i + 1:]:
+            if next_line and not next_line[0].isspace():
+                break
+            if re.match(r"^  pull_request\s*:", next_line):
+                return True
+        return False
+    return False
+
+
+def _allows_pr_branch_mutation(workflow: str) -> bool:
+    if not _runs_untrusted_pull_request(workflow):
+        return False
+    import re
+
+    # A PR-owned workflow cannot inherit a repository writer or push directly.
+    # OIDC is separate from the Git repository write-token capability.
+    return bool(
+        re.search(r"(?m)^\s*(?:contents|actions)\s*:\s*write\s*(?:#.*)?$", workflow)
+        or re.search(r"(?m)^\s*permissions\s*:\s*write-all\s*(?:#.*)?$", workflow)
+        or re.search(r"(?m)^\s*permissions\s*:\s*\{[^}\n]*\b(?:contents|actions)\s*:\s*write\b", workflow)
+        or re.search(r"\bgit\s+push\b", workflow)
+    )
+
+
+class PullRequestWriteBoundaryTests(unittest.TestCase):
+    def test_removed_legacy_pull_request_writer_stays_absent(self) -> None:
+        root = Path(__file__).resolve().parents[1]
+        self.assertFalse((root / ".github/workflows/typescript-source-lint-repair.yml").exists())
+
+    def test_all_tracked_pull_request_workflows_are_git_read_only(self) -> None:
+        root = Path(__file__).resolve().parents[1]
+        workflows = sorted((root / ".github/workflows").glob("*.yml"))
+        workflows += sorted((root / ".github/workflows").glob("*.yaml"))
+        self.assertTrue(workflows, "No local workflows found; cannot audit")
+        violations = [
+            path.name for path in workflows
+            if _allows_pr_branch_mutation(path.read_text(encoding="utf-8"))
+        ]
+        self.assertEqual(violations, [], f"PR workflow Git mutation risk: {violations}")
+
+    def test_synthetic_pr_writer_with_checkout_is_denied(self) -> None:
+        malicious = (
+            "name: Unsafe PR mutation\non:\n  pull_request:\n"
+            "permissions:\n  contents: write\n"
+            "jobs:\n  mutate:\n    runs-on: ubuntu-latest\n"
+            "    steps:\n      - uses: actions/checkout@v4\n"
+            "      - run: git push origin HEAD:main\n"
+        )
+        self.assertTrue(_allows_pr_branch_mutation(malicious))
+
+    def test_synthetic_pr_writer_without_literal_git_push_is_denied(self) -> None:
+        malicious = "on: [push, pull_request]\npermissions:\n  contents: write\n"
+        self.assertTrue(_allows_pr_branch_mutation(malicious))
+
+    def test_pr_scoped_write_all_is_denied(self) -> None:
+        workflow = "on: [pull_request]\npermissions: write-all\n"
+        self.assertTrue(_allows_pr_branch_mutation(workflow))
+
+    def test_pr_scoped_inline_write_token_is_denied(self) -> None:
+        workflow = "on: [pull_request]\npermissions: {contents: write}\n"
+        self.assertTrue(_allows_pr_branch_mutation(workflow))
+
+    def test_pr_scoped_read_token_does_not_allow_branch_write(self) -> None:
+        safe = "on:\n  pull_request:\npermissions:\n  contents: read\n"
+        self.assertFalse(_allows_pr_branch_mutation(safe))
+
+    def test_oidc_does_not_count_as_git_repository_write_permission(self) -> None:
+        oidc = "on:\n  pull_request:\npermissions:\n  contents: read\n  id-token: write\n"
+        self.assertFalse(_allows_pr_branch_mutation(oidc))
+
+    def test_manual_writer_is_not_misidentified_as_pr_execution(self) -> None:
+        manual = "on:\n  workflow_dispatch:\npermissions:\n  contents: write\n"
+        self.assertFalse(_allows_pr_branch_mutation(manual))
 
 
 if __name__ == "__main__":

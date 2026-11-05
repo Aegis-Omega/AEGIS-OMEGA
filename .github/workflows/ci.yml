@@ -390,3 +390,20 @@ jobs:
           echo ""
           echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
           echo ""
+
+# Reuse the single authoritative 14-suite workflow. Keep this result independent
+# of the six-vote constitutional ceremony; it is a separate full-corpus gate.
+  repository-verification:
+    name: ⊕ REPOSITORY · Exact-head 14-suite receipt
+    permissions:
+      contents: read
+    uses: ./.github/workflows/repository-verification.yml
+
+# Run the existing production audit as a separate, fail-closed reusable CI gate.
+# Covers eleven existing lockfile-backed production surfaces; known root
+# workspace-lock drift remains explicitly outside this exact-head receipt.
+  production-dependency-audit:
+    name: ⊕ SECURITY · Production dependencies (11 surfaces)
+    permissions:
+      contents: read
+    uses: ./.github/workflows/production-dependency-audit.yml
