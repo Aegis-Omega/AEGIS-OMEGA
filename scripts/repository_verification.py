@@ -187,9 +187,17 @@ def aggregate(root: Path, required: Sequence[str]) -> tuple[dict[str, Any], str]
     failed = sorted(key for key, item in by_id.items() if item.get("status") != "PASSED")
     commits = sorted({str(item.get("commit_sha")) for item in results})
     trees = sorted({str(item.get("tree_sha")) for item in results})
-    identity_valid = len(commits) == 1 and len(trees) == 1
+    # Every component of an exact-head receipt must come from the same Git
+    # revision. A passing suite set cannot authenticate a stale census.
+    identity_valid = (
+        len(commits) == 1
+        and len(trees) == 1
+        and census is not None
+        and census.get("commit_sha") == commits[0]
+        and census.get("tree_sha") == trees[0]
+    )
     parsed = [item for item in results if isinstance(item.get("executed_tests"), int)]
-    complete = census is not None and not missing and not failed and identity_valid
+    complete = not missing and not failed and identity_valid
     body: dict[str, Any] = {
         "schema_version": SCHEMA_VERSION,
         "artifact_kind": RECEIPT_KIND,
