@@ -1,0 +1,38 @@
+name: Body/Head Provenance
+
+on:
+  pull_request:
+    types: [opened, edited, synchronize, reopened]
+    branches: [main]
+
+permissions:
+  contents: read
+  pull-requests: read
+
+concurrency:
+  group: body-head-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  binding:
+    name: Body cites current head
+    runs-on: ubuntu-latest
+    env:
+      CANDIDATE_SHA: ${{ github.event.pull_request.head.sha }}
+    steps:
+      - name: Checkout candidate commit
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.CANDIDATE_SHA }}
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Verifier regression tests
+        working-directory: scripts
+        run: python3 test_verify_body_head_binding.py
+
+      - name: Assert the description cites this exact head
+        run: python3 scripts/verify_body_head_binding.py --head-sha "$CANDIDATE_SHA"

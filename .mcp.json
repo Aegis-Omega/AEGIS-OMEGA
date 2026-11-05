@@ -1,11 +1,14 @@
 {
   "mcpServers": {
     "aegis": {
-      "command": "node",
-      "args": ["/home/user/AEGIS-OMEGA/sovereign-omega-v2/mcp-server/dist/index.js"],
+      "command": "bash",
+      "args": [
+        "-c",
+        "cd \"${CLAUDE_PROJECT_DIR:-$PWD}/sovereign-omega-v2/mcp-server\" && [ -f dist/index.js ] || { npm ci --silent >&2 && npm run build >&2; }; exec node dist/index.js"
+      ],
       "env": {
-        "AEGIS_BRIDGE_URL": "https://aegis-vertex.aegisomega.com",
-        "AEGIS_API_KEY": ""
+        "AEGIS_BRIDGE_URL": "${AEGIS_BRIDGE_URL:-https://aegisomega.crimson-fire-3523.workers.dev}",
+        "AEGIS_API_KEY": "${AEGIS_API_KEY:-}"
       }
     }
   }
