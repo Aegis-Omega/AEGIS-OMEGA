@@ -157,6 +157,9 @@ jobs:
             harness/policies/capability-map.v1.json
             schemas/execution-identity-envelope.v1.schema.json
             schemas/mutation-receipt.v1.schema.json
+            vertex/Dockerfile
+            vertex/cloudbuild.yaml
+            harness/sdk/repository_knowledge.py
 
       - name: Verify signed Automaton-3 candidate with GitHub Sigstore
         env:
@@ -183,8 +186,12 @@ jobs:
           signer="$GITHUB_REPOSITORY/.github/workflows/automaton-3.yml"
           out="$RUNNER_TEMP/automaton3-verified"
           mkdir -p "$out"
-          for subject in AUTOMATON3_RECEIPT.json AUTOMATON3_CANDIDATE_MANIFEST.json; do
-            artifact="$RUNNER_TEMP/$subject"
+          for subject in AUTOMATON3_RECEIPT.json AUTOMATON3_CANDIDATE_MANIFEST.json vertex/Dockerfile vertex/cloudbuild.yaml harness/sdk/repository_knowledge.py; do
+            case "$subject" in
+              AUTOMATON3_RECEIPT.json|AUTOMATON3_CANDIDATE_MANIFEST.json) artifact="$RUNNER_TEMP/$subject" ;;
+              vertex/Dockerfile|vertex/cloudbuild.yaml|harness/sdk/repository_knowledge.py) artifact="$PWD/$subject" ;;
+              *) echo "DENIED: unexpected attestation subject" >&2; exit 1 ;;
+            esac
             test -s "$artifact"
             verified=0
             for attempt in 1 2 3; do
@@ -232,7 +239,7 @@ jobs:
               "source_head_sha": os.environ["CANDIDATE_SHA"],
               "signer_workflow": os.environ["GITHUB_REPOSITORY"] + "/.github/workflows/automaton-3.yml",
               "verified_attestation_count": len(valid),
-              "scope": "AUTOMATON3_CANDIDATE_RECEIPT_ONLY",
+              "scope": "AUTOMATON3_CANDIDATE_OR_BUILD_RECIPE_ONLY",
               "final_image_attested": False,
               "authority": "NOT_GRANTED",
           }

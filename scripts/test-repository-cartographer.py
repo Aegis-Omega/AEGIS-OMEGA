@@ -353,5 +353,26 @@ class RepositoryCartographerContract(unittest.TestCase):
 
 
 
+    def test_automaton3_signs_and_verifies_existing_build_recipe_inputs_without_image_claims(self) -> None:
+        workflow = (ROOT / ".github/workflows/automaton-3.yml").read_text(encoding="utf-8")
+        signed = workflow.split("      - name: Attest exact Automaton-3 candidate", 1)[1].split(
+            "      - name: Verify signed Automaton-3 candidate with GitHub Sigstore", 1)[0]
+        verified = workflow.split("      - name: Verify signed Automaton-3 candidate with GitHub Sigstore", 1)[1]
+        for path in ("vertex/Dockerfile", "vertex/cloudbuild.yaml", "harness/sdk/repository_knowledge.py"):
+            with self.subTest(subject=path):
+                self.assertIn("            " + path + "\n", signed)
+                self.assertIn(path, verified)
+                self.assertTrue((ROOT / path).is_file())
+        self.assertIn("AUTOMATON3_CANDIDATE_OR_BUILD_RECIPE_ONLY", verified)
+        self.assertIn('"final_image_attested": False', verified)
+        self.assertIn('"authority": "NOT_GRANTED"', verified)
+        self.assertIn("--source-digest \"$GITHUB_SHA\"", verified)
+        self.assertIn("--signer-workflow \"$signer\"", verified)
+        self.assertIn("expected PR base/head", verified)
+        self.assertNotIn("docker push", verified)
+        self.assertNotIn("id-token: write", (ROOT / ".github/workflows/repository-knowledge.yml").read_text())
+
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)
