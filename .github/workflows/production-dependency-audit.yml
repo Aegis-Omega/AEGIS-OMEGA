@@ -4,6 +4,7 @@ on:
   pull_request:
     branches: [main]
   workflow_dispatch:
+  workflow_call:
 
 permissions:
   contents: read
@@ -22,6 +23,7 @@ jobs:
     timeout-minutes: 20
     strategy:
       fail-fast: false
+      max-parallel: 4
       matrix:
         include:
           - surface: sovereign-runtime
@@ -33,6 +35,30 @@ jobs:
           - surface: mcp-server
             directory: sovereign-omega-v2/mcp-server
             lockfile: sovereign-omega-v2/mcp-server/package-lock.json
+          - surface: hub
+            directory: hub
+            lockfile: hub/package-lock.json
+          - surface: cockpit
+            directory: cockpit
+            lockfile: cockpit/package-lock.json
+          - surface: cockpit-server
+            directory: cockpit/server
+            lockfile: cockpit/server/package-lock.json
+          - surface: enterprise
+            directory: enterprise
+            lockfile: enterprise/package-lock.json
+          - surface: platform-picker
+            directory: platform-picker
+            lockfile: platform-picker/package-lock.json
+          - surface: hook-generator
+            directory: hook-generator
+            lockfile: hook-generator/package-lock.json
+          - surface: content-calendar
+            directory: content-calendar
+            lockfile: content-calendar/package-lock.json
+          - surface: tactical
+            directory: tactical
+            lockfile: tactical/package-lock.json
     steps:
       - name: Checkout exact candidate head
         uses: actions/checkout@v4
