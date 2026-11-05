@@ -288,5 +288,41 @@ class RepositoryCartographerContract(unittest.TestCase):
         self.assertIn("FROM scratch AS source-payload", dockerfile)
 
 
+    def test_final_image_cross_binding_rejects_forged_claims(self) -> None:
+        mod = load_module()
+        snap = mod.build_snapshot(self.repo, repository_id=123)
+        manifest = mod.build_runtime_export_manifest(snap)
+        with tempfile.TemporaryDirectory() as folder:
+            image = Path(folder)
+            for item in manifest["files"]:
+                name = item["path"]
+                src = self.repo / ("vertex/serve.py" if name == "serve.py" else name)
+                dst = image / name
+                dst.parent.mkdir(parents=True, exist_ok=True)
+                shutil.copy2(src, dst)
+            content = mod.verify_runtime_export_manifest(
+                image, manifest, expected_head=snap["source_head_sha"])
+        args = dict(expected_head=snap["source_head_sha"],
+                    expected_repository="Aegis-Omega/AEGIS-OMEGA",
+                    remote_commit_sha=snap["source_head_sha"], remote_tree_sha=snap["source_tree_sha"])
+        image = dict(schema="aegis-final-image-local-observation/1",
+                     scope="CI_LOCAL_IMAGE_ONLY", source_head_sha=snap["source_head_sha"],
+                     source_tree_sha=snap["source_tree_sha"], manifest_digest=manifest["manifest_digest"],
+                     image_id="sha256:"+"a"*64, source_status="CONTENT_MATCH_ONLY",
+                     authority="NOT_GRANTED", attestation="NOT_PRESENT")
+        good = mod.verify_remote_git_source(manifest, content, final_image_receipt=image, **args)
+        self.assertEqual(good["status"], "REMOTE_GIT_MATCH_ONLY", good)
+        self.assertEqual(good["final_image_binding"], "CI_LOCAL_CONTENT_MATCH_ONLY")
+        self.assertEqual(good["authority"], "NOT_GRANTED")
+        for field, bad in (("image_id", "invalid"), ("source_head_sha", "f"*40),
+                           ("source_tree_sha", "f"*40), ("manifest_digest", "f"*64),
+                           ("scope", "DEPLOYED"), ("attestation", "SIGNED"),
+                           ("authority", "ADMITTED"), ("source_status", "DENIED")):
+            with self.subTest(field=field):
+                result = mod.verify_remote_git_source(
+                    manifest, content, final_image_receipt={**image, field:bad}, **args)
+                self.assertEqual(result["status"], "DENIED")
+                self.assertIn("FINAL_IMAGE_BINDING_MISMATCH", result["reason_codes"])
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)

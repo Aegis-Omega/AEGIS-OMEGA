@@ -212,6 +212,7 @@ jobs:
           out = Path(os.environ["RUNNER_TEMP"]) / "runtime-export"
           manifest = json.loads((out / "manifest.json").read_text())
           content = json.loads((out / "docker-source-receipt.json").read_text())
+          final_image = json.loads((out / "final-image-receipt.json").read_text())
           remote = json.loads((Path(os.environ["RUNNER_TEMP"]) / "aegis-remote-commit.json").read_text())
           result = verify_remote_git_source(
               manifest, content,
@@ -219,8 +220,10 @@ jobs:
               expected_repository=os.environ["EXPECTED_REPOSITORY"],
               remote_commit_sha=remote.get("sha", ""),
               remote_tree_sha=remote.get("tree", {}).get("sha", ""),
+              final_image_receipt=final_image,
           )
           assert result["status"] == "REMOTE_GIT_MATCH_ONLY", result
+          assert result["final_image_binding"] == "CI_LOCAL_CONTENT_MATCH_ONLY", result
           assert result["authority"] == "NOT_GRANTED", result
           (out / "github-readback.json").write_text(
               json.dumps(result, sort_keys=True, separators=(",", ":")) + "\n")

@@ -413,8 +413,9 @@ def verify_remote_git_source(
     expected_repository: str,
     remote_commit_sha: str,
     remote_tree_sha: str,
+    final_image_receipt: Mapping[str, Any] | None = None,
 ) -> dict[str, Any]:
-    """Independent read-only Git API observation, NOT a signed attestation."""
+    """Source and local image readback, NOT a signed attestation."""
     if not isinstance(manifest, Mapping) or not isinstance(content_receipt, Mapping):
         return {"status": "DENIED", "reason_codes": ["INPUT_INVALID"], "authority": "NOT_GRANTED"}
     reasons: set[str] = set()
@@ -438,6 +439,24 @@ def verify_remote_git_source(
         reasons.add("REMOTE_COMMIT_MISMATCH")
     if not _HEX40.fullmatch(str(remote_tree_sha)) or remote_tree_sha != manifest.get("source_tree_sha"):
         reasons.add("REMOTE_TREE_MISMATCH")
+    final_image_binding = "NOT_EVALUATED"
+    if final_image_receipt is not None:
+        if not isinstance(final_image_receipt, Mapping):
+            reasons.add("FINAL_IMAGE_RECEIPT_INVALID")
+        elif (
+            final_image_receipt.get("schema") != "aegis-final-image-local-observation/1"
+            or final_image_receipt.get("scope") != "CI_LOCAL_IMAGE_ONLY"
+            or final_image_receipt.get("source_head_sha") != expected_head
+            or final_image_receipt.get("source_tree_sha") != manifest.get("source_tree_sha")
+            or final_image_receipt.get("manifest_digest") != digest
+            or final_image_receipt.get("source_status") != "CONTENT_MATCH_ONLY"
+            or final_image_receipt.get("authority") != "NOT_GRANTED"
+            or final_image_receipt.get("attestation") != "NOT_PRESENT"
+            or not re.fullmatch(r"sha256:[0-9a-f]{64}", str(final_image_receipt.get("image_id", "")))
+        ):
+            reasons.add("FINAL_IMAGE_BINDING_MISMATCH")
+        else:
+            final_image_binding = "CI_LOCAL_CONTENT_MATCH_ONLY"
     return {
         "schema": "aegis-github-readback/1",
         "status": "DENIED" if reasons else "REMOTE_GIT_MATCH_ONLY",
@@ -448,6 +467,7 @@ def verify_remote_git_source(
         "manifest_digest": digest,
         "authority": "NOT_GRANTED",
         "attestation": "NOT_PRESENT",
+        "final_image_binding": final_image_binding,
     }
 
 
