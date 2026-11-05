@@ -9,6 +9,7 @@ sender identity to the trusted author.
 from __future__ import annotations
 
 import os
+import sys
 from pathlib import Path
 import subprocess
 import tempfile
@@ -17,6 +18,8 @@ import unittest
 
 ROOT = Path(__file__).resolve().parents[1]
 WORKFLOW = ROOT / ".github/workflows/agent-dispatch.yml"
+sys.path.insert(0, str(ROOT))
+from agents.platform_access import GATED_ROUTES, platform_access_state  # noqa: E402
 
 
 class DispatchTrustGate(unittest.TestCase):
@@ -154,6 +157,26 @@ class DispatchTrustGate(unittest.TestCase):
         self.assertIn('-H "x-api-key: $PLATFORM_KEY"', source)
         self.assertNotIn('-H "Authorization: Bearer $PLATFORM_KEY"', source)
         self.assertIn("if: vars.PROXY_URL != ''", source)
+
+    def test_native_platform_auth_denies_missing_and_invalid_keys(self):
+        for route in GATED_ROUTES:
+            with self.subTest(route=route):
+                self.assertEqual(platform_access_state(route, configured_key="", supplied_key=""), "SERVER_UNCONFIGURED")
+                self.assertEqual(platform_access_state(route, configured_key="secret", supplied_key=""), "UNAUTHORIZED")
+                self.assertEqual(platform_access_state(route, configured_key="secret", supplied_key="wrong"), "UNAUTHORIZED")
+                self.assertEqual(platform_access_state(route, configured_key="secret", supplied_key="secret"), "AUTHENTICATED")
+        self.assertIn("/agents/batch", GATED_ROUTES)
+        self.assertEqual(platform_access_state("/health", configured_key="", supplied_key=""), "NOT_GATED")
+        self.assertEqual(platform_access_state("/agents/runaway", configured_key="", supplied_key=""), "NOT_GATED")
+
+    def test_platform_middleware_delegates_to_native_fail_closed_contract(self):
+        source = (ROOT / "vertex/serve.py").read_text(encoding="utf-8")
+        self.assertIn("from agents.platform_access import platform_access_state", source)
+        self.assertIn("access = platform_access_state(", source)
+        self.assertIn('request.headers.get("x-api-key", "")', source)
+        self.assertIn('access == "SERVER_UNCONFIGURED"', source)
+        self.assertIn('access == "UNAUTHORIZED"', source)
+        self.assertNotIn("if PLATFORM_API_KEY and any(", source)
 
 if __name__ == "__main__":
     unittest.main()

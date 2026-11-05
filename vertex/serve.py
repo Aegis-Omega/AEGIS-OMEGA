@@ -203,11 +203,11 @@ app = FastAPI(
 # Honors the deploy caveat — public Cloud Run exposure requires auth on the
 # cost-incurring routes, error handling, and observability before going live.
 
-PLATFORM_API_KEY = os.environ.get("PLATFORM_API_KEY", "")  # if set, gates cost routes
+PLATFORM_API_KEY = os.environ.get("PLATFORM_API_KEY", "")  # missing key denies cost routes
 RATE_LIMIT_PER_MIN = int(os.environ.get("RATE_LIMIT_PER_MIN", "60"))
 
-# Routes that spend compute/money — require the API key when one is configured.
-_GATED_PREFIXES = ("/platform/collaborate", "/agents/run", "/agents/dispatch", "/v1/messages", "/predict")
+# Cost-bearing routes share one fail-closed auth decision with native regressions.
+from agents.platform_access import platform_access_state
 
 # In-memory metrics (per-process; Cloud Run logs aggregate across instances).
 METRICS: dict[str, Any] = {
@@ -247,12 +247,18 @@ async def observability_and_guard(request: Request, call_next):
             {"error": "rate_limited", "limit_per_min": RATE_LIMIT_PER_MIN}, status_code=429
         )
 
-    # Auth gate on cost-incurring routes when a key is configured.
-    if PLATFORM_API_KEY and any(path.startswith(p) for p in _GATED_PREFIXES):
-        provided = request.headers.get("x-api-key", "")
-        if provided != PLATFORM_API_KEY:
-            METRICS["requests_total"] += 1
-            return JSONResponse({"error": "unauthorized"}, status_code=401)
+    # HTTP credentials are necessary but never sufficient for Automaton-3 admission.
+    access = platform_access_state(
+        path,
+        configured_key=PLATFORM_API_KEY,
+        supplied_key=request.headers.get("x-api-key", ""),
+    )
+    if access == "SERVER_UNCONFIGURED":
+        METRICS["requests_total"] += 1
+        return JSONResponse({"error": "platform_auth_unavailable"}, status_code=503)
+    if access == "UNAUTHORIZED":
+        METRICS["requests_total"] += 1
+        return JSONResponse({"error": "unauthorized"}, status_code=401)
 
     try:
         response = await call_next(request)
