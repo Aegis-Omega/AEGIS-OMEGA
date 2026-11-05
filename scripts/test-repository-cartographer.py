@@ -267,5 +267,26 @@ class RepositoryCartographerContract(unittest.TestCase):
             manifest, {**content, "authority": "ADMITTED"}, **binding)["reason_codes"])
 
 
+    def test_local_final_image_ci_is_bounded_and_non_authoritative(self) -> None:
+        workflow = (ROOT / ".github/workflows/repository-knowledge.yml").read_text(encoding="utf-8")
+        dockerfile = (ROOT / "vertex/Dockerfile").read_text(encoding="utf-8")
+        job = workflow.split("      - name: Verify complete Vertex image locally", 1)[1].split(
+            "      - name: Cross-check exact source via read-only GitHub API", 1)[0]
+        self.assertIn("timeout 240s docker build", job)
+        self.assertIn("docker cp", job)
+        self.assertIn("verify_runtime_export_manifest(", job)
+        self.assertIn("CI_LOCAL_IMAGE_ONLY", job)
+        self.assertIn('"attestation": "NOT_PRESENT"', job)
+        self.assertIn('"authority": "NOT_GRANTED"', job)
+        self.assertIn("docker run --rm --network none --read-only", job)
+        self.assertIn("GITLESS_RUNTIME_DENIED_AS_EXPECTED", job)
+        self.assertIn("python-dependencies.txt", job)
+        self.assertIn("--entrypoint python", job)
+        self.assertNotIn("docker push", job)
+        self.assertNotIn("gcloud", job)
+        self.assertNotIn("id-token: write", workflow)
+        self.assertIn("FROM scratch AS source-payload", dockerfile)
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)
