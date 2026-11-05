@@ -145,5 +145,15 @@ class DispatchTrustGate(unittest.TestCase):
         self.assertIn("# AEGIS_OFFLINE_PREFLIGHT_BEGIN", preflight)
         self.assertIn("# AEGIS_OFFLINE_PREFLIGHT_END", preflight)
 
+
+    def test_live_proxy_dispatch_header_matches_existing_platform_auth(self):
+        source = WORKFLOW.read_text(encoding="utf-8")
+        platform = (ROOT / "vertex/serve.py").read_text(encoding="utf-8")
+        self.assertIn('@app.post("/agents/dispatch")', platform)
+        self.assertIn('request.headers.get("x-api-key", "")', platform)
+        self.assertIn('-H "x-api-key: $PLATFORM_KEY"', source)
+        self.assertNotIn('-H "Authorization: Bearer $PLATFORM_KEY"', source)
+        self.assertIn("if: vars.PROXY_URL != ''", source)
+
 if __name__ == "__main__":
     unittest.main()
