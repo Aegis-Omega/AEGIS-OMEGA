@@ -256,6 +256,123 @@ jobs:
             rm -f "$out/$subject_key.verified.json"
           done
 
+
+      - name: Import exact-head read-only Docker CI observation
+        if: github.event_name == 'pull_request'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$GITHUB_REPOSITORY" == "Aegis-Omega/AEGIS-OMEGA" ]] || exit 1
+          [[ "$CANDIDATE_SHA" =~ ^[0-9a-f]{40}$ ]] || exit 1
+          [[ "$PR_NUMBER" =~ ^[1-9][0-9]*$ ]] || exit 1
+          current_head=$(gh api "repos/$GITHUB_REPOSITORY/pulls/$PR_NUMBER" --jq '.head.sha')
+          [[ "$current_head" == "$CANDIDATE_SHA" ]] || {
+            echo "DENIED: stale pull request head" >&2
+            exit 1
+          }
+          run_id=""
+          for attempt in 1 2 3 4 5 6 7 8 9 10 11 12; do
+            gh api "repos/$GITHUB_REPOSITORY/actions/runs?head_sha=$CANDIDATE_SHA&per_page=100" \
+              > "$RUNNER_TEMP/aegis-ci-runs.json"
+            run_id=$(jq -r --arg sha "$CANDIDATE_SHA" \
+              '[.workflow_runs[] | select(.path == ".github/workflows/repository-knowledge.yml" and .head_sha == $sha and .status == "completed" and .conclusion == "success" and .repository.full_name == "Aegis-Omega/AEGIS-OMEGA") ] | sort_by([.run_number,.run_attempt]) | last | .id // empty' \
+              "$RUNNER_TEMP/aegis-ci-runs.json")
+            [[ "$run_id" =~ ^[1-9][0-9]*$ ]] && break
+            if [[ "$attempt" -lt 12 ]]; then sleep 5; fi
+          done
+          [[ "$run_id" =~ ^[1-9][0-9]*$ ]] || {
+            echo "DENIED: no successful exact-head Repository Knowledge run" >&2
+            exit 1
+          }
+          gh api "repos/$GITHUB_REPOSITORY/actions/runs/$run_id" \
+            > "$RUNNER_TEMP/aegis-ci-run.json"
+          gh api "repos/$GITHUB_REPOSITORY/actions/runs/$run_id/artifacts" \
+            > "$RUNNER_TEMP/aegis-ci-artifacts.json"
+          artifact_name="runtime-export-$CANDIDATE_SHA"
+          jq -e --arg name "$artifact_name" \
+            '[.artifacts[] | select(.name == $name and .expired == false)] | if length == 1 then .[0] else empty end' \
+            "$RUNNER_TEMP/aegis-ci-artifacts.json" > "$RUNNER_TEMP/aegis-ci-artifact.json"
+          output="$RUNNER_TEMP/aegis-image-observation-import"
+          mkdir -p "$output"
+          gh run download "$run_id" -R "$GITHUB_REPOSITORY" \
+            -n "$artifact_name" -D "$output"
+          source_tree=$(git rev-parse "$CANDIDATE_SHA^{tree}")
+          python scripts/ci_image_observation.py \
+            --package-dir "$output" \
+            --run-json "$RUNNER_TEMP/aegis-ci-run.json" \
+            --artifact-json "$RUNNER_TEMP/aegis-ci-artifact.json" \
+            --expected-head "$CANDIDATE_SHA" \
+            --expected-tree "$source_tree" \
+            --output "$RUNNER_TEMP/FINAL_IMAGE_CI_OBSERVATION.json"
+
+      - name: Attest exact source-bound CI-local image observation
+        if: github.event_name == 'pull_request'
+        uses: actions/attest@v4
+        with:
+          subject-path: ${{ runner.temp }}/FINAL_IMAGE_CI_OBSERVATION.json
+
+      - name: Verify signed CI-local image observation
+        if: github.event_name == 'pull_request'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          subject="$RUNNER_TEMP/FINAL_IMAGE_CI_OBSERVATION.json"
+          out="$RUNNER_TEMP/automaton3-verified"
+          mkdir -p "$out"
+          signer="$GITHUB_REPOSITORY/.github/workflows/automaton-3.yml"
+          gh attestation verify "$subject" \
+            --repo "$GITHUB_REPOSITORY" \
+            --signer-workflow "$signer" \
+            --source-digest "$GITHUB_SHA" \
+            --cert-oidc-issuer "https://token.actions.githubusercontent.com/aegis-omega" \
+            --deny-self-hosted-runners \
+            --format json > "$out/CI_LOCAL_IMAGE_OBSERVATION.proof.json"
+          SUBJECT="$subject" PROOF="$out/CI_LOCAL_IMAGE_OBSERVATION.proof.json" \
+            OUTPUT="$out/CI_LOCAL_IMAGE_OBSERVATION.receipt.json" python - <<'PY'
+          import hashlib
+          import json
+          import os
+          from pathlib import Path
+          subject = Path(os.environ["SUBJECT"])
+          bound = json.loads(subject.read_text(encoding="utf-8"))
+          digest = hashlib.sha256(subject.read_bytes()).hexdigest()
+          verification = json.loads(Path(os.environ["PROOF"]).read_text(encoding="utf-8"))
+          assert isinstance(verification, list) and verification
+          assert any(
+              item.get("verificationResult", {}).get("statement", {}).get("subject", [])
+              and any(
+                  sub.get("digest", {}).get("sha256") == digest
+                  for sub in item.get("verificationResult", {}).get("statement", {}).get("subject", [])
+              )
+              for item in verification
+          ), "DENIED: signature did not cover exact observed file"
+          assert bound["status"] == "SOURCE_BOUND_CI_OBSERVATION"
+          assert bound["source_head_sha"] == os.environ["CANDIDATE_SHA"]
+          assert bound["image_signature"] == "NOT_PRESENT"
+          assert bound["authority"] == "NOT_GRANTED"
+          result = {
+              "schema": "aegis-signed-ci-image-observation/1",
+              "status": "OBSERVATION_SIGNATURE_VERIFIED",
+              "observed_sha256": digest,
+              "source_head_sha": bound["source_head_sha"],
+              "ci_local_image_id": bound["ci_local_image_id"],
+              "scope": "CI_LOCAL_IMAGE_OBSERVATION_ONLY",
+              "image_signature": "NOT_PRESENT",
+              "deployment_attested": False,
+              "authority": "NOT_GRANTED",
+          }
+          Path(os.environ["OUTPUT"]).write_text(
+              json.dumps(result, sort_keys=True, separators=(",", ":")) + "\n",
+              encoding="utf-8")
+          print(json.dumps(result, sort_keys=True))
+          PY
+          rm -f "$out/CI_LOCAL_IMAGE_OBSERVATION.proof.json"
+
       - name: Upload verified Automaton-3 signature observations
         uses: actions/upload-artifact@v4
         with:

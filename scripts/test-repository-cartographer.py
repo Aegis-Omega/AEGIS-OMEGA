@@ -378,5 +378,101 @@ class RepositoryCartographerContract(unittest.TestCase):
 
 
 
+    def test_ci_image_artifact_requires_exact_run_head_and_no_authority(self) -> None:
+        spec = importlib.util.spec_from_file_location(
+            "aegis_ci_image_observation", ROOT / "scripts/ci_image_observation.py"
+        )
+        assert spec and spec.loader
+        mod = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(mod)
+        knowledge = load_module()
+        snapshot = knowledge.build_snapshot(self.repo, repository_id=123)
+        manifest = knowledge.build_runtime_export_manifest(snapshot)
+        with tempfile.TemporaryDirectory() as temp:
+            image = Path(temp)
+            for item in manifest["files"]:
+                name = item["path"]
+                src = self.repo / ("vertex/serve.py" if name == "serve.py" else name)
+                dst = image / name
+                dst.parent.mkdir(parents=True, exist_ok=True)
+                shutil.copy2(src, dst)
+            content = knowledge.verify_runtime_export_manifest(
+                image, manifest, expected_head=snapshot["source_head_sha"])
+        head, tree = snapshot["source_head_sha"], snapshot["source_tree_sha"]
+        final = {
+            "schema": "aegis-final-image-local-observation/1",
+            "scope": "CI_LOCAL_IMAGE_ONLY",
+            "source_head_sha": head, "source_tree_sha": tree,
+            "manifest_digest": manifest["manifest_digest"],
+            "image_id": "sha256:" + "a" * 64,
+            "source_status": "CONTENT_MATCH_ONLY", "authority": "NOT_GRANTED",
+            "attestation": "NOT_PRESENT",
+        }
+        readback = knowledge.verify_remote_git_source(
+            manifest, content, expected_head=head,
+            expected_repository="Aegis-Omega/AEGIS-OMEGA",
+            remote_commit_sha=head, remote_tree_sha=tree,
+            final_image_receipt=final,
+        )
+        package = {"manifest": manifest, "docker-source-receipt": content,
+                   "final-image-receipt": final, "github-readback": readback}
+        run = {"id": 123, "path": ".github/workflows/repository-knowledge.yml",
+               "head_sha": head, "status": "completed", "conclusion": "success",
+               "event": "pull_request",
+               "repository": {"full_name": "Aegis-Omega/AEGIS-OMEGA"},
+               "head_repository": {"full_name": "Aegis-Omega/AEGIS-OMEGA"}}
+        artifact = {"id": 456, "name": f"runtime-export-{head}", "expired": False,
+                    "digest": "sha256:" + "b" * 64, "size_in_bytes": 512,
+                    "workflow_run": {"id": 123, "head_sha": head,
+                        "repository_id": 1095915905, "head_repository_id": 1095915905}}
+        good = mod.verify_ci_image_observation(
+            package, run, artifact, expected_head=head, expected_tree=tree,
+            dependencies="fastapi==0.115.0\n")
+        self.assertEqual(good["status"], "SOURCE_BOUND_CI_OBSERVATION", good)
+        self.assertEqual(good["authority"], "NOT_GRANTED")
+        self.assertEqual(good["image_signature"], "NOT_PRESENT")
+        self.assertFalse(good["deployment_attested"])
+        bad_cases = (
+            (run | {"head_sha": "f"*40}, artifact, package, "SOURCE_WORKFLOW_UNTRUSTED"),
+            (run | {"conclusion": "failure"}, artifact, package, "SOURCE_WORKFLOW_UNTRUSTED"),
+            (run | {"path": ".github/workflows/other.yml"}, artifact, package, "SOURCE_WORKFLOW_UNTRUSTED"),
+            (run, artifact | {"digest": "unsigned"}, package, "ARTIFACT_IDENTITY_MISMATCH"),
+            (run, artifact | {"name": "other"}, package, "ARTIFACT_IDENTITY_MISMATCH"),
+            (run, artifact | {"workflow_run": artifact["workflow_run"] | {"head_sha": "f"*40}},
+             package, "ARTIFACT_IDENTITY_MISMATCH"),
+            (run, artifact, package | {"final-image-receipt": final | {"authority": "ADMITTED"}},
+             "IMAGE_SOURCE_BINDING_INVALID"),
+            (run, artifact, package | {"github-readback": readback | {"authority": "ADMITTED"}},
+             "GITHUB_READBACK_INCONSISTENT"),
+        )
+        for run_in, artifact_in, package_in, reason in bad_cases:
+            with self.subTest(reason=reason):
+                bad = mod.verify_ci_image_observation(
+                    package_in, run_in, artifact_in, expected_head=head,
+                    expected_tree=tree, dependencies="fastapi==0.115.0\n")
+                self.assertEqual(bad["status"], "DENIED", bad)
+                self.assertIn(reason, bad["reason_codes"])
+        self.assertIn("DEPENDENCY_INVENTORY_MISSING", mod.verify_ci_image_observation(
+            package, run, artifact, expected_head=head,
+            expected_tree=tree, dependencies="")["reason_codes"])
+
+    def test_existing_oidc_signer_attests_only_source_bound_ci_receipt(self) -> None:
+        source = (ROOT / ".github/workflows/automaton-3.yml").read_text(encoding="utf-8")
+        self.assertIn("Import exact-head read-only Docker CI observation", source)
+        self.assertIn("Attest exact source-bound CI-local image observation", source)
+        self.assertIn("Verify signed CI-local image observation", source)
+        self.assertIn("scripts/ci_image_observation.py", source)
+        self.assertIn("gh run download", source)
+        self.assertIn("source_tree=$(git rev-parse", source)
+        self.assertIn("final-image-receipt", (ROOT / "scripts/ci_image_observation.py").read_text())
+        self.assertIn('"image_signature": "NOT_PRESENT"', source)
+        self.assertIn('"authority": "NOT_GRANTED"', source)
+        self.assertIn('if: github.event_name == \'pull_request\'', source)
+        self.assertIn("gh attestation verify", source)
+        self.assertNotIn("contents: write", source)
+        self.assertNotIn("docker push", source)
+
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)
