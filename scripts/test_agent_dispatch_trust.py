@@ -19,7 +19,7 @@ import unittest
 ROOT = Path(__file__).resolve().parents[1]
 WORKFLOW = ROOT / ".github/workflows/agent-dispatch.yml"
 sys.path.insert(0, str(ROOT))
-from agents.platform_access import GATED_ROUTES, platform_access_state  # noqa: E402
+from agents.platform_access import GATED_ROUTES, github_webhook_auth_state, platform_access_state  # noqa: E402
 
 
 class DispatchTrustGate(unittest.TestCase):
@@ -188,6 +188,31 @@ class DispatchTrustGate(unittest.TestCase):
         self.assertIn("max_ralph_cycles=cycles", direct_run)
         self.assertIn("CENTRAL_AUTHORITY_DENIED", direct_run)
         self.assertIn('"execution_state": "NOT_EXECUTED"', direct_run)
+
+    def test_extended_cost_routes_and_webhook_hmac_fail_closed(self):
+        import hashlib
+        import hmac
+        for path in ("/platform/compare", "/platform/stream", "/platform/schedule/revenue"):
+            self.assertEqual(platform_access_state(path, configured_key="", supplied_key=""), "SERVER_UNCONFIGURED")
+            self.assertEqual(platform_access_state(path, configured_key="key", supplied_key="key"), "AUTHENTICATED")
+        body = b'{"repository":{"full_name":"Aegis-Omega/AEGIS-OMEGA"}}'
+        sig = "sha256=" + hmac.new(b"test-key", body, hashlib.sha256).hexdigest()
+        self.assertEqual(github_webhook_auth_state(configured_secret="", supplied_signature=sig, body=body), "SERVER_UNCONFIGURED")
+        self.assertEqual(github_webhook_auth_state(configured_secret="test-key", supplied_signature="bad", body=body), "UNAUTHORIZED")
+        self.assertEqual(github_webhook_auth_state(configured_secret="test-key", supplied_signature=sig, body=body), "AUTHENTICATED")
+        self.assertEqual(github_webhook_auth_state(configured_secret="test-key", supplied_signature=sig, body=body+b" "), "UNAUTHORIZED")
+
+    def test_batch_and_webhook_require_central_and_signed_boundaries(self):
+        source = (ROOT / "vertex/serve.py").read_text(encoding="utf-8")
+        batch = source.split('@app.post("/agents/batch")', 1)[1].split('@app.post("/platform/compare")', 1)[0]
+        self.assertIn("from agents.coordinator import AgentRole, dispatch_event", batch)
+        self.assertNotIn("run_agent(", batch)
+        self.assertIn("requested_roles=[agent_role]", batch)
+        self.assertIn("CENTRAL_AUTHORITY_DENIED", batch)
+        webhook = source.split('@app.post("/platform/webhooks/github")', 1)[1]
+        self.assertIn("github_webhook_auth_state(", webhook)
+        self.assertIn("webhook_auth_unavailable", webhook)
+        self.assertIn("repository_not_allowed", webhook)
 
 if __name__ == "__main__":
     unittest.main()
