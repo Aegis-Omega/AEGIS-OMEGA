@@ -124,5 +124,26 @@ class DispatchTrustGate(unittest.TestCase):
         self.assertFalse(self.decision("workflow_run", live_main="c" * 40))
         self.assertFalse(self.decision("workflow_run", wf_head="not-a-sha"))
 
+
+    def test_offline_preflight_is_source_bound_and_non_authoritative(self):
+        source = WORKFLOW.read_text(encoding="utf-8")
+        preflight = source.split("  offline-preflight:\n", 1)[1].split("  dispatch:\n", 1)[0]
+        self.assertIn("if: vars.PROXY_URL == '' && github.event_name == 'pull_request'", preflight)
+        self.assertIn("pull-requests: read", preflight)
+        self.assertIn("contents: read", preflight)
+        self.assertNotIn("id-token: write", preflight)
+        self.assertNotIn("actions/checkout", preflight)
+        self.assertNotIn("ANTHROPIC_API_KEY", preflight)
+        self.assertNotIn("OPENAI_API_KEY", preflight)
+        self.assertIn('agent_execution: "NOT_EXECUTED"', preflight)
+        self.assertIn("provider_calls: 0", preflight)
+        self.assertIn("live_head", preflight)
+        self.assertIn('"$live_head" == "$PR_HEAD_SHA"', preflight)
+        self.assertIn("HOLD_NO_ADMISSION", preflight)
+        self.assertIn("UNTRUSTED_TRIGGER_ACTOR", preflight)
+        self.assertIn("UNTRUSTED_PR_AUTHOR", preflight)
+        self.assertIn("# AEGIS_OFFLINE_PREFLIGHT_BEGIN", preflight)
+        self.assertIn("# AEGIS_OFFLINE_PREFLIGHT_END", preflight)
+
 if __name__ == "__main__":
     unittest.main()

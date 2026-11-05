@@ -12,6 +12,71 @@ on:
     types: [created]
 
 jobs:
+  offline-preflight:
+    name: aegis / agent route (offline, no provider)
+    if: vars.PROXY_URL == '' && github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    permissions:
+      contents: read
+      pull-requests: read
+    env:
+      GH_TOKEN: ${{ github.token }}
+      EXPECTED_REPOSITORY: ${{ github.repository }}
+      PR_NUMBER: ${{ github.event.pull_request.number }}
+      PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+      PR_AUTHOR: ${{ github.event.pull_request.user.login }}
+      PR_ASSOCIATION: ${{ github.event.pull_request.author_association }}
+      EVENT_ACTOR: ${{ github.actor }}
+    steps:
+      - name: Verify Git origin and emit zero-key, non-authoritative routing receipt
+        shell: bash
+        run: |
+          set -euo pipefail
+          # AEGIS_OFFLINE_PREFLIGHT_BEGIN
+          [[ "$PR_NUMBER" =~ ^[1-9][0-9]*$ && "$PR_HEAD_SHA" =~ ^[0-9a-f]{40}$ ]] || {
+            echo "DENIED: malformed PR identity" >&2
+            exit 1
+          }
+          [[ "$EXPECTED_REPOSITORY" =~ ^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$ ]] || exit 1
+          live_head=$(gh api "repos/${EXPECTED_REPOSITORY}/pulls/${PR_NUMBER}" --jq '.head.sha')
+          [[ "$live_head" == "$PR_HEAD_SHA" ]] || {
+            echo "DENIED: stale PR event" >&2
+            exit 1
+          }
+          reason="PROXY_NOT_CONFIGURED"
+          case "$PR_ASSOCIATION" in
+            OWNER|MEMBER|COLLABORATOR)
+              if [[ -z "$PR_AUTHOR" || "$PR_AUTHOR" != "$EVENT_ACTOR" ]]; then
+                reason="UNTRUSTED_TRIGGER_ACTOR"
+              fi
+              ;;
+            *) reason="UNTRUSTED_PR_AUTHOR" ;;
+          esac
+          receipt=$(jq -nc \
+            --arg source_head_sha "$PR_HEAD_SHA" \
+            --arg repository "$EXPECTED_REPOSITORY" \
+            --arg pr_number "$PR_NUMBER" \
+            --arg reason "$reason" \
+            '{
+              schema: "aegis-agent-preflight/1",
+              repository: $repository,
+              pull_request: $pr_number,
+              source_head_sha: $source_head_sha,
+              status: "HOLD_NO_ADMISSION",
+              reason: $reason,
+              mode: "read_only",
+              agent_execution: "NOT_EXECUTED",
+              provider_calls: 0,
+              approval: "NOT_GRANTED"
+            }')
+          printf '%s\n' "$receipt"
+          {
+            echo "### AEGIS offline agent preflight"
+            printf '%s\n' "$receipt"
+          } >> "$GITHUB_STEP_SUMMARY"
+          # AEGIS_OFFLINE_PREFLIGHT_END
+
   dispatch:
     name: Dispatch to AEGIS Agent Ecosystem
     runs-on: ubuntu-latest
