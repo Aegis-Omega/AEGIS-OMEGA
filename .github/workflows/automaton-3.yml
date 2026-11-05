@@ -157,3 +157,82 @@ jobs:
             harness/policies/capability-map.v1.json
             schemas/execution-identity-envelope.v1.schema.json
             schemas/mutation-receipt.v1.schema.json
+
+      - name: Verify signed Automaton-3 candidate with GitHub Sigstore
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          # Verify the OIDC signature; subject is the A3 receipts, NOT Docker.
+          [[ "$GITHUB_REPOSITORY" == "Aegis-Omega/AEGIS-OMEGA" ]]
+          [[ "$CANDIDATE_SHA" =~ ^[0-9a-f]{40}$ ]]
+          signer="$GITHUB_REPOSITORY/.github/workflows/automaton-3.yml"
+          out="$RUNNER_TEMP/automaton3-verified"
+          mkdir -p "$out"
+          for subject in AUTOMATON3_RECEIPT.json AUTOMATON3_CANDIDATE_MANIFEST.json; do
+            artifact="$RUNNER_TEMP/$subject"
+            test -s "$artifact"
+            verified=0
+            for attempt in 1 2 3; do
+              if gh attestation verify "$artifact" \
+                  --repo "$GITHUB_REPOSITORY" \
+                  --signer-workflow "$signer" \
+                  --source-digest "$CANDIDATE_SHA" \
+                  --deny-self-hosted-runners \
+                  --format json > "$out/$subject.verified.json"; then
+                verified=1
+                break
+              fi
+              if [[ "$attempt" -lt 3 ]]; then sleep 4; fi
+            done
+            if [[ "$verified" != 1 ]]; then
+              echo "DENIED: missing or invalid GitHub OIDC attestation for $subject" >&2
+              exit 1
+            fi
+            SUBJECT="$artifact" VERIFIED_JSON="$out/$subject.verified.json" \
+              VERIFIED_RECORD="$out/$subject.receipt.json" python - <<'PY'
+          import hashlib
+          import json
+          import os
+          from pathlib import Path
+          subject = Path(os.environ["SUBJECT"])
+          digest = hashlib.sha256(subject.read_bytes()).hexdigest()
+          proof = json.loads(Path(os.environ["VERIFIED_JSON"]).read_text())
+          if not isinstance(proof, list) or not proof:
+              raise SystemExit("DENIED: verified signature output missing")
+          valid = []
+          for item in proof:
+              record = item.get("verificationResult", {})
+              statement = record.get("statement", {})
+              subjects = statement.get("subject", [])
+              if any(x.get("digest", {}).get("sha256") == digest for x in subjects):
+                  valid.append(record)
+          if not valid:
+              raise SystemExit("DENIED: cryptographic proof does not reference expected subject")
+          observation = {
+              "schema": "aegis-automaton3-oidc-verification/1",
+              "status": "SIGNATURE_VERIFIED",
+              "subject_name": subject.name,
+              "subject_sha256": digest,
+              "source_head_sha": os.environ["CANDIDATE_SHA"],
+              "signer_workflow": os.environ["GITHUB_REPOSITORY"] + "/.github/workflows/automaton-3.yml",
+              "verified_attestation_count": len(valid),
+              "scope": "AUTOMATON3_CANDIDATE_RECEIPT_ONLY",
+              "final_image_attested": False,
+              "authority": "NOT_GRANTED",
+          }
+          Path(os.environ["VERIFIED_RECORD"]).write_text(
+              json.dumps(observation, sort_keys=True, separators=(",", ":")) + "\n")
+          print(json.dumps(observation, sort_keys=True))
+          PY
+            rm -f "$out/$subject.verified.json"
+          done
+
+      - name: Upload verified Automaton-3 signature observations
+        uses: actions/upload-artifact@v4
+        with:
+          name: aegis-automaton3-verified-${{ env.CANDIDATE_SHA }}
+          path: ${{ runner.temp }}/automaton3-verified/*.receipt.json
+          if-no-files-found: error
+          retention-days: 30

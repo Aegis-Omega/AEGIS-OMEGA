@@ -324,5 +324,29 @@ class RepositoryCartographerContract(unittest.TestCase):
                 self.assertEqual(result["status"], "DENIED")
                 self.assertIn("FINAL_IMAGE_BINDING_MISMATCH", result["reason_codes"])
 
+    def test_automaton3_crypto_verifier_is_source_bound_and_never_image_admission(self) -> None:
+        source = (ROOT / ".github/workflows/automaton-3.yml").read_text(encoding="utf-8")
+        self.assertIn("      - name: Attest exact Automaton-3 candidate", source)
+        self.assertIn("      - name: Verify signed Automaton-3 candidate with GitHub Sigstore", source)
+        self.assertLess(source.index("      - name: Attest exact Automaton-3 candidate"),
+                        source.index("      - name: Verify signed Automaton-3 candidate with GitHub Sigstore"))
+        step = source.split("      - name: Verify signed Automaton-3 candidate with GitHub Sigstore", 1)[1]
+        self.assertIn("gh attestation verify", step)
+        self.assertIn("--signer-workflow", step)
+        self.assertIn("--source-digest", step)
+        self.assertIn("--deny-self-hosted-runners", step)
+        self.assertIn("SIGNATURE_VERIFIED", step)
+        self.assertIn('"final_image_attested": False', step)
+        self.assertIn('"authority": "NOT_GRANTED"', step)
+        self.assertIn("subject_sha256", step)
+        self.assertIn('if [[ "$verified" != 1 ]]; then', step)
+        self.assertNotIn("docker push", step)
+        self.assertNotIn("gcloud", step)
+        self.assertIn("id-token: write", source)
+        self.assertIn("attestations: write", source)
+        self.assertNotIn("contents: write", source)
+
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)
