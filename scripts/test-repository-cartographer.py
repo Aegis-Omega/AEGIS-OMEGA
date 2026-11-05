@@ -333,7 +333,10 @@ class RepositoryCartographerContract(unittest.TestCase):
         step = source.split("      - name: Verify signed Automaton-3 candidate with GitHub Sigstore", 1)[1]
         self.assertIn("gh attestation verify", step)
         self.assertIn("--signer-workflow", step)
-        self.assertIn("--source-digest", step)
+        self.assertIn('--source-digest "$GITHUB_SHA"', step)
+        self.assertNotIn('--source-digest "$CANDIDATE_SHA"', step)
+        self.assertIn("EXPECTED_PARENT_SHA $CANDIDATE_SHA", step)
+        self.assertIn('gh api "repos/$GITHUB_REPOSITORY/git/commits/$GITHUB_SHA"', step)
         self.assertIn('--cert-oidc-issuer "https://token.actions.githubusercontent.com/aegis-omega"', step)
         self.assertNotIn("--cert-oidc-issuer \"https://token.actions.githubusercontent.com\" ", step)
         self.assertIn("--deny-self-hosted-runners", step)

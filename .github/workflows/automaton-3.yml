@@ -167,6 +167,19 @@ jobs:
           # Verify the OIDC signature; subject is the A3 receipts, NOT Docker.
           [[ "$GITHUB_REPOSITORY" == "Aegis-Omega/AEGIS-OMEGA" ]]
           [[ "$CANDIDATE_SHA" =~ ^[0-9a-f]{40}$ ]]
+          [[ "$GITHUB_SHA" =~ ^[0-9a-f]{40}$ ]]
+          if [[ "$GITHUB_EVENT_NAME" == "pull_request" ]]; then
+            # The OIDC certificate binds the GitHub merge commit, not its PR head.
+            # Require that exact merge commit to contain the expected base/head.
+            parents=$(gh api "repos/$GITHUB_REPOSITORY/git/commits/$GITHUB_SHA" \
+              --jq '.parents | map(.sha) | join(" ")')
+            [[ "$parents" == "$EXPECTED_PARENT_SHA $CANDIDATE_SHA" ]] || {
+              echo "DENIED: signed workflow merge commit does not bind exact PR base/head" >&2
+              exit 1
+            }
+          else
+            [[ "$GITHUB_SHA" == "$CANDIDATE_SHA" ]] || exit 1
+          fi
           signer="$GITHUB_REPOSITORY/.github/workflows/automaton-3.yml"
           out="$RUNNER_TEMP/automaton3-verified"
           mkdir -p "$out"
@@ -178,7 +191,7 @@ jobs:
               if gh attestation verify "$artifact" \
                   --repo "$GITHUB_REPOSITORY" \
                   --signer-workflow "$signer" \
-                  --source-digest "$CANDIDATE_SHA" \
+                  --source-digest "$GITHUB_SHA" \
                   --cert-oidc-issuer "https://token.actions.githubusercontent.com/aegis-omega" \
                   --deny-self-hosted-runners \
                   --format json > "$out/$subject.verified.json"; then
