@@ -902,7 +902,8 @@ class OptimusPolicyReadbackTests(unittest.TestCase):
                    "\n## OPTIMUS BY DEFAULT - fixture contract\n" +
                    "No implicit authority; consent is externally gated.\n")
         expected = hashlib.sha256(section.strip().encode("utf-8")).hexdigest()
-        issue = {"number": 734, "state": "open", "body": "Other context\n" + section}
+        issue = {"number": 734, "state": "open", "body": "Other context\n" + section +
+                 ctx.OPTIMUS_POLICY_END_MARKER + "\n## Other issue section\n"}
         return issue, expected
 
     def test_pinned_source_section_fixture_is_verified_not_authorized(self):
@@ -916,9 +917,62 @@ class OptimusPolicyReadbackTests(unittest.TestCase):
 
     def test_modified_section_is_hold_even_with_same_marker(self):
         issue, digest = self.fixture()
-        issue["body"] += "One extra permission clause."
+        issue["body"] = issue["body"].replace(
+            "No implicit authority;", "Authorize everything;")
         result = ctx.verify_optimus_issue(json.dumps(issue), expected_sha256=digest)
         self.assertEqual(result["state"], "CONTENT_MISMATCH")
+
+    def test_unrelated_issue_sections_do_not_invalidate_optimus(self):
+        issue, digest = self.fixture()
+        issue["body"] += "\n## New unrelated objective\nData appended later.\n"
+        receipt = ctx.verify_optimus_issue(json.dumps(issue), expected_sha256=digest)
+        self.assertEqual(receipt["state"], "VERIFIED_SOURCE")
+        self.assertEqual(receipt["execution_authority"], "NOT_GRANTED")
+
+    def test_missing_duplicate_or_preceding_boundary_is_hold(self):
+        issue, digest = self.fixture()
+        good = issue["body"]
+        boundary = ctx.OPTIMUS_POLICY_END_MARKER
+        for body in (
+            good.replace(boundary, ""),
+            good + boundary,
+            good.replace(boundary, "").replace("Other context", boundary + "\nOther context"),
+        ):
+            issue["body"] = body
+            receipt = ctx.verify_optimus_issue(json.dumps(issue), expected_sha256=digest)
+            self.assertEqual(receipt["state"], "VERSION_BOUNDARY_MISSING_OR_AMBIGUOUS")
+            self.assertEqual(receipt["execution_authority"], "NOT_GRANTED")
+
+    def test_no_untrusted_pr_issue_or_branch_text_in_receipts(self):
+        """Labels, branch names and titles are untrusted free text, not logs."""
+        marker = "SECRET_TAINT_CANARY_TEST_123456789"
+        issue = {"n": 734, "t": marker, "labels": ["p0", marker]}
+        pr = {"n": 732, "t": marker, "h": marker, "b": marker,
+              "s": "a" * 40, "body": "Closes #734"}
+        out = io.StringIO()
+        with patch.object(ctx, "verify_main_freshness",
+                          return_value={"state": "FRESH", "sha": "a" * 40}), \
+             patch.object(ctx, "sh", return_value=marker), \
+             patch.object(ctx, "open_prs", return_value=([pr], "github")), \
+             patch.object(ctx, "open_issue_board", return_value=([issue], "github")), \
+             patch.object(ctx, "billing_locked", return_value=None), \
+             patch.object(ctx, "existing_code", return_value=[]), \
+             patch.object(ctx, "read_optimus_policy",
+                          return_value=ctx.verify_optimus_issue("")), \
+             patch.object(ctx.shared_state_audit, "inspect",
+                          return_value={"verified_primary_lanes": 0,
+                                        "stale_primary_lanes": 1,
+                                        "out_of_scope_lanes": 0,
+                                        "snapshot_file": marker,
+                                        "observations": [{"repo": marker}]}), \
+             patch.object(sys, "argv", ["agent_context.py", "--json", "#734"]), \
+             contextlib.redirect_stdout(out):
+            ctx.main()
+        self.assertNotIn(marker, out.getvalue())
+        report = json.loads(out.getvalue())
+        self.assertEqual(report["p0_issues"][0]["number"], 734)
+        self.assertIn("HOLD_OPTIMUS_POLICY_READBACK", report["holon_blockers"])
+        self.assertEqual(report["shared_state"]["admission"], "NOT_VERIFIED")
 
     def test_wrong_issue_number_is_not_trusted(self):
         issue, digest = self.fixture()

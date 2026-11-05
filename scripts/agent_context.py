@@ -404,6 +404,7 @@ OPTIMUS_POLICY_VERSION = "AEGIS_OPTIMUS_BY_DEFAULT_V1_2026_10_16"
 OPTIMUS_POLICY_MARKER = "<!-- AEGIS_OPTIMUS_BY_DEFAULT_V1_2026_10_16 -->"
 OPTIMUS_POLICY_SHA256 = "e7943f3ede9804438a3f34da0f6bd6f462022cde3bab10fdbc8b3b0442392c46"
 OPTIMUS_POLICY_ISSUE = 734
+OPTIMUS_POLICY_END_MARKER = "\n---\n<!-- AEGIS_UNIFIED_LAB_CONTRACT_V1 -->"
 
 
 def verify_optimus_issue(raw, expected_sha256=OPTIMUS_POLICY_SHA256):
@@ -440,7 +441,17 @@ def verify_optimus_issue(raw, expected_sha256=OPTIMUS_POLICY_SHA256):
     if not isinstance(body, str) or body.count(OPTIMUS_POLICY_MARKER) != 1:
         receipt["state"] = "VERSION_MISSING_OR_AMBIGUOUS"
         return receipt
-    section = body[body.index(OPTIMUS_POLICY_MARKER):].strip()
+    start = body.index(OPTIMUS_POLICY_MARKER)
+    # #734 contains separate subsequent contracts. Pin only the unchanged
+    # OPTIMUS V1 section; never silently re-pin or permit a missing delimiter.
+    if body.count(OPTIMUS_POLICY_END_MARKER) != 1:
+        receipt["state"] = "VERSION_BOUNDARY_MISSING_OR_AMBIGUOUS"
+        return receipt
+    end = body.find(OPTIMUS_POLICY_END_MARKER, start)
+    if end < 0:
+        receipt["state"] = "VERSION_BOUNDARY_MISSING_OR_AMBIGUOUS"
+        return receipt
+    section = body[start:end].strip()
     if not section.startswith(OPTIMUS_POLICY_MARKER + "\n## OPTIMUS BY DEFAULT"):
         receipt["state"] = "VERSION_HEADER_MISMATCH"
         return receipt
@@ -511,18 +522,23 @@ def main():
     code = existing_code(query) if query and not quick and main_verified else []
 
     if "--json" in sys.argv:
-        print(json.dumps({"main": sha if main_verified else None,
+        print(json.dumps({"main": sha if main_verified and re.fullmatch(r"[0-9a-f]{7,40}", sha or "") else None,
                           "main_exact_sha": main_receipt["sha"] if main_verified else None,
-                          "main_date": date if main_verified else None,
+                          "main_date": date if main_verified and re.fullmatch(r"\d{4}-\d{2}-\d{2}", date or "") else None,
                           "main_age_days": age_days if main_verified else None,
-                          "local_main": sha or None,
-                          "local_main_date": date or None,
+                          "local_main": sha if re.fullmatch(r"[0-9a-f]{7,40}", sha or "") else None,
+                          "local_main_date": date if re.fullmatch(r"\d{4}-\d{2}-\d{2}", date or "") else None,
                           "local_main_age_days": age_days,
-                          "branch": branch,
-                          "behind_main": behind if main_verified else None,
-                          "local_behind_main": behind,
+                          "branch": "[REDACTED_UNTRUSTED_BRANCH]",
+                          "behind_main": behind if main_verified and re.fullmatch(r"[0-9]{1,8}", behind or "") else None,
+                          "local_behind_main": behind if re.fullmatch(r"[0-9]{1,8}", behind or "") else "?",
                           "main_freshness": main_receipt,
-                          "shared_state": shared_state,
+                          "shared_state": {
+                              "authority_effect": "NONE", "admission": "NOT_VERIFIED",
+                              "verified_primary_lanes": shared_state["verified_primary_lanes"],
+                              "stale_primary_lanes": shared_state["stale_primary_lanes"],
+                              "out_of_scope_lanes": shared_state["out_of_scope_lanes"],
+                          },
                            "optimus_policy": optimus_policy,
                            "optimus_policy_blockers": policy_blockers,
                           "open": len(prs) if source in ("github", "cache") else None,
@@ -533,13 +549,19 @@ def main():
                           "holon_disposition": disposition,
                           "holon_blockers": holon_blocks,
                           "coordination_blockers": coordination_blocks,
-                          "p0_issues": [{"number": i["n"], "title": i["t"], "labels": i["labels"]}
+                          "p0_issues": [{"number": i["n"], "title": "[REDACTED]",
+                                         "labels": [label for label in i["labels"]
+                                                    if label in ("p0", "needs-operator", "claimed")]}
                                         for i in p0],
-                          "issue_matches": [{"number": i["n"], "title": i["t"],
-                                             "labels": i["labels"], "matched_term_count": len(m)}
+                          "issue_matches": [{"number": i["n"], "title": "[REDACTED]",
+                                             "labels": [label for label in i["labels"]
+                                                        if label in ("p0", "p1", "p2", "claimed", "needs-operator", "task")],
+                                             "matched_term_count": len(m)}
                                             for i, m in issue_hits],
-                          "overlaps": [{"pr": p["n"], "title": p["t"], "head": p["h"],
-                                        "base": p["b"], "matched_term_count": len(m)}
+                          "overlaps": [{"pr": p["n"], "title": "[REDACTED]",
+                                        "head": "[REDACTED_UNTRUSTED_BRANCH]",
+                                        "base": "main" if p["b"] == "main" else "non-main-or-unknown",
+                                        "matched_term_count": len(m)}
                                        for _, p, m in hits],
                           "existing_code_status": code_status,
                           "existing_code": [{"matched_term_count": len(m)} for _, m in code]}))
@@ -548,9 +570,9 @@ def main():
     kind = "open PRs" if source in ("github", "cache") else "remote branches (not a complete PR list)"
     location = "verified remote main" if main_verified else "LOCAL unverified origin/main"
     lines = [f"AEGIS REPO STATE (checked now; remote state explicitly qualified)",
-             f"- {location} = {sha or '?'} from {date or '?'} "
+             f"- {location}: local ref and date labels redacted. "
              f"({age_days if age_days is not None else '?'} days old). "
-             f"You are on '{branch}', local behind-main count {behind}."]
+             f"Local branch label redacted, behind-main count not displayed."]
     lines.append(f"- Fetched main: {main_receipt['state']} "
                  f"({main_receipt['sha'] or 'SHA UNVERIFIED'}). Local origin/main is not a trusted remote fact otherwise.")
     if quick:
@@ -562,14 +584,15 @@ def main():
     if issue_source == "github":
         lines.append(f"- Issue board: {len(issues)} open issues ({len(p0)} P0); claims are advisory, not auto-expired.")
         for i in p0[:8]:
-            labels = ", ".join(i["labels"])
-            lines.append(f"  P0 #{i['n']} {i['t'][:100]} [{labels}]")
+            labels = ", ".join(label for label in i["labels"]
+                               if label in ("p0", "needs-operator", "claimed"))
+            lines.append(f"  P0 #{i['n']} [title redacted] [{labels}]")
     else:
         lines.append("- ISSUE BOARD UNKNOWN/PARTIAL: do not assume an unclaimed task.")
     if issue_hits:
         lines.append("- Related issues (check owners/claims; coordinate before editing):")
         for issue, matched in issue_hits:
-            lines.append(f"  #{issue['n']} {issue['t'][:100]} [labels: {', '.join(issue['labels'])}] "
+            lines.append(f"  #{issue['n']} [title/labels redacted] "
                          f"(matched terms: {len(matched)})")
     lines.append(f"- OPTIMUS #734 source readback: {optimus_policy['state']} "
                  f"(expected {optimus_policy['expected_sha256']}; "
@@ -596,8 +619,8 @@ def main():
         lines.append("- Open work that overlaps this task (read it, extend it or say why not; do not rebuild it):")
         for _, p, m in hits:
             ref = f"#{p['n']}" if p["n"] else "branch"
-            base = "" if p["b"] in ("main", "?") else f" [stacked on {p['b']}]"
-            lines.append(f"  {ref} {p['h']}{base} — {p['t'][:90]} "
+            base = "" if p["b"] in ("main", "?") else " [stacked on non-main ref]"
+            lines.append(f"  {ref} [branch/title redacted]{base} "
                          f"(matched terms: {len(m)})")
     elif query:
         lines.append("- No *title-keyword* PR overlap found in available data; code and file-path overlap NOT ruled out.")

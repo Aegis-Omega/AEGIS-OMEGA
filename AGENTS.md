@@ -42,7 +42,8 @@ spend money, deploy or change authority.
 Standing directive: [#734](https://github.com/Aegis-Omega/AEGIS-OMEGA/issues/734),
 section `<!-- AEGIS_OPTIMUS_BY_DEFAULT_V1_2026_10_16 -->`, version
 `AEGIS_OPTIMUS_BY_DEFAULT_V1_2026_10_16`.
-Pinned UTF-8 SHA-256 of the marker-to-end policy section, trimmed:
+Pinned UTF-8 SHA-256 of the trimmed OPTIMUS section up to the next
+`<!-- AEGIS_UNIFIED_LAB_CONTRACT_V1 -->` boundary:
 `e7943f3ede9804438a3f34da0f6bd6f462022cde3bab10fdbc8b3b0442392c46`.
 `python3 scripts/agent_context.py --json "task"` reports
 `optimus_policy.state`, `observed_sha256` and an independent
