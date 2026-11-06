@@ -18,15 +18,15 @@ SCHEMA = "aegis.topology.v1"
 OWNERS = {
     "sovereign-omega-v2": "runtime", "aegis-cl-psi": "runtime", "aegis-runtime": "runtime",
     "agents": "runtime", "harness": "runtime", "vertex": "runtime", "src": "runtime",
-    "core": "runtime", "backend": "runtime", "crates": "runtime",
+    "core": "runtime", "backend": "runtime", "crates": "runtime", "kernel-one": "runtime",
     "hub": "apps", "tactical": "apps", "cockpit": "apps", "studio": "apps",
     "platform-picker": "apps", "hook-generator": "apps", "content-calendar": "apps",
     "enterprise": "apps", "aegisomega-webgpu": "apps",
-    "packages": "packages", "clients": "packages", "aegis-ccil-verifier": "packages",
+    "packages": "packages", "clients": "packages", "aegis-ccil-verifier": "packages", "schemas": "packages",
     "supabase": "integrations", "worker-src": "integrations", "terraform": "infrastructure",
     "genomics": "research", "verifiable": "research", "sovereign-mesh": "research",
     "paperclip": "research", "alignment": "research", "security": "security",
-    "docs": "documentation", "reports": "evidence", "scripts": "tooling",
+    "docs": "documentation", "reports": "evidence", ".aegis": "evidence", "scripts": "tooling",
     ".github": "automation", ".claude": "automation", ".agent": "automation",
     ".devcontainer": "tooling", ".vscode": "tooling", ".sovereign_context": "documentation",
 }

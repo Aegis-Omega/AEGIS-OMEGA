@@ -41,6 +41,11 @@ class TopologyContract(unittest.TestCase):
         git(self.repo, "add", "-A")
         git(self.repo, "commit", "-qm", "fixture")
 
+    def test_aegis_specific_roots_have_explicit_owners(self):
+        expected = {".aegis": "evidence", "kernel-one": "runtime", "schemas": "packages"}
+        for root, owner in expected.items():
+            self.assertEqual(module.OWNERS.get(root), owner)
+
     def test_exact_head_and_tree(self):
         a = module.audit(self.repo)
         self.assertEqual(a["head"], git(self.repo, "rev-parse", "HEAD"))

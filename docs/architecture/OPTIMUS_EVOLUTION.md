@@ -18,15 +18,15 @@ Aegis Omega Labs / AEGIS Ω
 │                      aegisomega-webgpu
 ├─ runtime              sovereign-omega-v2 (Python bridge + TS runtime),
 │                      aegis-cl-psi, aegis-runtime, agents, harness, vertex,
-│                      root src, core, crates, backend
-├─ packages             packages/*, clients/*, aegis-ccil-verifier
+│                      root src, core, crates, backend, kernel-one
+├─ packages             packages/*, clients/*, aegis-ccil-verifier, schemas
 ├─ integrations         supabase, worker-src
 ├─ research             genomics, verifiable, sovereign-mesh,
 │                      paperclip, alignment
 ├─ security             security
 ├─ infrastructure       terraform (deployment definitions; read-only by default)
 ├─ automation           .github, .claude, .agent
-├─ evidence             reports
+├─ evidence             reports, .aegis
 ├─ documentation        docs, .sovereign_context
 └─ tooling              scripts, .devcontainer, .vscode
 ```
@@ -55,6 +55,16 @@ The names above are **owners**, not assertions that every module is deployed or 
 - `reports/inventory.json` declares `generated_from=a0a74ac6f1c98dd72d4dde8837d2ec0efe4c7849` dated 2026-07-12, so must not be treated as live evidence for the inspected commit.
 - `docs/PROOF.md` records measured declarations/lines from 2026-06-30; declaration counts are not current-pass receipts.
 - The existing read-only `harness/sdk/repository_knowledge.py` and Source Plane PR #795 are reusable. Do not introduce a replacement cartographer or new write authority.
+
+## Current native topology observation (2026-11-06)
+
+Repository Knowledge Cartography on exact head `afa9d27e8a42d1df50ec7ce14e3cc99802f715bf`, run `42290856669`, observed **1,918 tracked files and 44 roots**. Three roots initially required classification. They were inspected directly from their immutable GitHub directory listings:
+
+- `.aegis/`: claims ledger and experiment-plan records → **evidence**. This is not a new grant of execution authority.
+- `kernel-one/`: local kernel, validator, daemon, tests → **runtime**. Path existence does not establish that the daemon is deployed.
+- `schemas/`: execution identity, envelope, mutation receipt and writer-lease schemas → **packages** (shared contracts).
+
+The auditor now knows all three roots, while unknown *future* roots still produce `REVIEW_REQUIRED`. The pre-reclassification run remains historical for its old exact head.
 
 ## Folder cleanup protocol
 
