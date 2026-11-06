@@ -107,18 +107,59 @@ def audit(repo: Path) -> dict:
     return data
 
 
+
+def render_markdown(audit_result: dict) -> str:
+    """Human-readable projection of this exact Git-tree receipt, never independent evidence."""
+    def esc(value: object) -> str:
+        return str(value).replace("\\", "\\\\").replace("|", "\\|").replace("\n", " ")
+
+    data = audit_result
+    lines = [
+        "# AEGIS Ω | Source-bound folder inventory",
+        "",
+        f"**HEAD:** \`{data['head']}\`  ",
+        f"**TREE:** \`{data['tree']}\`  ",
+        f"**Status:** {data['status']}  ",
+        f"**Tracked files:** {data['tracked_files']}; **root records:** {len(data['roots'])}",
+        "",
+        "> Logical owners classify source locations. They do not certify deployment,",
+        "> import connectivity, tests, commerce, security, or agent authority.",
+        "",
+        "| Git root | Logical owner | Tracked files |",
+        "|---|---|---:|",
+    ]
+    for record in data["roots"]:
+        lines.append(
+            f"| \`{esc(record['root'])}\` | {esc(record['logical_owner'])} | {record['tracked_files']} |"
+        )
+    if data["unclassified_roots"]:
+        lines.extend(["", "**REVIEW_REQUIRED:** " + ", ".join(data["unclassified_roots"])])
+    if data["errors"]:
+        lines.extend(["", "**MISSING SOURCE ANCHORS:** " + ", ".join(data["errors"])])
+    if data["historical_docs"]:
+        lines.extend(["", "## Document freshness (not runtime state)", ""])
+        for item in sorted(data["historical_docs"], key=lambda x: x["path"]):
+            lines.append(f"- \`{esc(item['path'])}\`: {esc(item['head_freshness'])}")
+    lines.extend(["", "Generated from immutable Git HEAD; do not commit as an evergreen current-state claim.", ""])
+    return "\n".join(lines)
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--repo", type=Path, default=Path("."))
     parser.add_argument("--strict", action="store_true", help="fail on missing anchors OR new unknown roots")
-    parser.add_argument("--summary", action="store_true", help="print brief human-readable outcome")
+    mode = parser.add_mutually_exclusive_group()
+    mode.add_argument("--summary", action="store_true", help="print brief human-readable outcome")
+    mode.add_argument("--markdown", action="store_true", help="render every Git root as source-pinned Markdown")
     a = parser.parse_args()
     try:
         result = audit(a.repo)
     except (OSError, ValueError, subprocess.CalledProcessError) as exc:
         print("TOPOLOGY_UNAVAILABLE: " + str(exc), file=sys.stderr)
         return 2
-    if a.summary:
+    if a.markdown:
+        print(render_markdown(result), end="")
+    elif a.summary:
         print(f"{result['status']} head={result['head']} tree={result['tree']} "
               f"files={result['tracked_files']} roots={len(result['roots'])}")
         for err in result["errors"]:

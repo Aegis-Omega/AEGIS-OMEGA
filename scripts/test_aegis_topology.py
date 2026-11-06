@@ -87,6 +87,18 @@ class TopologyContract(unittest.TestCase):
         (self.repo / "README.md").write_text("dirty uncommitted value")
         self.assertEqual(module.audit(self.repo), a)
 
+    def test_markdown_is_deterministic_and_covers_all_roots(self):
+        result = module.audit(self.repo)
+        rendered = module.render_markdown(result)
+        self.assertEqual(rendered, module.render_markdown(result))
+        self.assertIn(result["head"], rendered)
+        self.assertIn(result["tree"], rendered)
+        for row in result["roots"]:
+            self.assertIn("`" + row["root"] + "`", rendered)
+        self.assertIn("not runtime state", rendered)
+        self.assertIn("HISTORICAL", rendered)
+        self.assertNotIn("DEPLOYED: TRUE", rendered)
+
     def test_sorted_and_integrity(self):
         x = module.audit(self.repo)
         self.assertEqual([r["root"] for r in x["roots"]], sorted(r["root"] for r in x["roots"]))

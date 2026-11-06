@@ -83,7 +83,8 @@ The auditor now knows all three roots, while unknown *future* roots still produc
 ## Minimal runbook
 
 ```sh
-python3 scripts/aegis_topology.py --repo . --summary
+python3 scripts/aegis_topology.py --repo . --strict --summary
+python3 scripts/aegis_topology.py --repo . --strict --markdown > /tmp/aegis-folder-table.md
 python3 scripts/aegis_topology.py --repo . --strict > /tmp/aegis-topology.json
 python3 -m unittest discover -s scripts -p 'test_aegis_topology.py' -v
 # Existing canonical repository-knowledge proof (do not replace):
