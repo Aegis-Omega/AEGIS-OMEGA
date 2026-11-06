@@ -117,8 +117,8 @@ def render_markdown(audit_result: dict) -> str:
     lines = [
         "# AEGIS Ω | Source-bound folder inventory",
         "",
-        f"**HEAD:** \`{data['head']}\`  ",
-        f"**TREE:** \`{data['tree']}\`  ",
+        f"**HEAD:** `{data['head']}`  ",
+        f"**TREE:** `{data['tree']}`  ",
         f"**Status:** {data['status']}  ",
         f"**Tracked files:** {data['tracked_files']}; **root records:** {len(data['roots'])}",
         "",
@@ -130,7 +130,7 @@ def render_markdown(audit_result: dict) -> str:
     ]
     for record in data["roots"]:
         lines.append(
-            f"| \`{esc(record['root'])}\` | {esc(record['logical_owner'])} | {record['tracked_files']} |"
+            f"| `{esc(record['root'])}` | {esc(record['logical_owner'])} | {record['tracked_files']} |"
         )
     if data["unclassified_roots"]:
         lines.extend(["", "**REVIEW_REQUIRED:** " + ", ".join(data["unclassified_roots"])])
@@ -139,7 +139,7 @@ def render_markdown(audit_result: dict) -> str:
     if data["historical_docs"]:
         lines.extend(["", "## Document freshness (not runtime state)", ""])
         for item in sorted(data["historical_docs"], key=lambda x: x["path"]):
-            lines.append(f"- \`{esc(item['path'])}\`: {esc(item['head_freshness'])}")
+            lines.append(f"- `{esc(item['path'])}`: {esc(item['head_freshness'])}")
     lines.extend(["", "Generated from immutable Git HEAD; do not commit as an evergreen current-state claim.", ""])
     return "\n".join(lines)
 
