@@ -42,6 +42,9 @@ jobs:
         shell: bash
         run: |
           python scripts/test-repository-cartographer.py
+          python scripts/test_aegis_topology.py
+          python scripts/test_optimus_docs.py
+          python scripts/aegis_topology.py --summary
           python -m unittest discover -s scripts -p 'test_source_plane*.py' -v
 
       - name: Verify live pinned cross-repository source objects

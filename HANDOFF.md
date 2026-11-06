@@ -1,3 +1,10 @@
+<!-- AEGIS_OPTIMUS_EVOLUTION_DOC_BOUNDARY_V1 -->
+# Handoff chronology notice
+
+This handoff is historical (sections from June/July 2026). It is not the live 2026-11 operating state. Read `REPO_MAP.md` and `docs/architecture/OPTIMUS_EVOLUTION.md`; bind any action to current exact HEAD and native receipts. The embedded access/credential instructions are historical, not present authorization for secret retrieval or deployment.
+
+---
+
 # AEGIS-Ω — Handoff (ground truth as of 2026-07-19)
 
 A no-spin snapshot. Hand it to any engineer or AI and they're productive in 30 minutes.
