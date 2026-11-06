@@ -1,0 +1,33 @@
+name: Archive Runtime Python SDK
+
+on:
+  pull_request:
+    branches:
+      - main
+      - integration/archive-restoration-v1
+    paths:
+      - "packages/aegis-py/**"
+      - "reports/archive-runtime-sdk-v1.json"
+      - ".github/workflows/archive-runtime-sdk.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  archive-runtime-sdk:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install SDK dev dependencies
+        run: python -m pip install --disable-pip-version-check -e "packages/aegis-py[dev]"
+      - name: Run offline SDK tests
+        run: python -m pytest -q packages/aegis-py/tests/test_client.py packages/aegis-py/tests/test_archive_runtime.py
+      - name: Boundary
+        run: |
+          echo "publish=NOT_PERFORMED"
+          echo "deployment=NOT_PERFORMED"
+          echo "authority_effect=NONE"

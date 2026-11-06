@@ -1,0 +1,40 @@
+name: Tactical Archive Runtime
+
+on:
+  pull_request:
+    branches:
+      - main
+      - feat/archive-runtime-sdk-v1
+    paths:
+      - "tactical/**"
+      - "scripts/test-tactical-archive-runtime-contract.py"
+      - "reports/tactical-archive-runtime-v1.json"
+      - ".github/workflows/tactical-archive-runtime.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  tactical-archive-runtime:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: tactical/package-lock.json
+      - name: Build Tactical
+        run: |
+          cd tactical
+          npm ci
+          npm run build
+      - name: Verify GET-only bounded consumer
+        run: python scripts/test-tactical-archive-runtime-contract.py
+      - name: Verify execution-init PlatformEnvelope contract
+        run: python scripts/test-tactical-execution-envelope.py
+      - name: Boundary
+        run: |
+          echo "deployment=NOT_PERFORMED"
+          echo "authority_effect=NONE"

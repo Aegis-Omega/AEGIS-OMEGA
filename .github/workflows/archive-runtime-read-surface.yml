@@ -1,0 +1,33 @@
+name: Archive Runtime Read Surface
+
+on:
+  pull_request:
+    branches:
+      - main
+      - restore/archive-swarm-arc-v1
+    paths:
+      - "harness/sdk/archive_runtime.py"
+      - "harness/tests/test_archive_runtime.py"
+      - ".github/workflows/archive-runtime-read-surface.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  archive-runtime-read-surface:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install bounded test dependencies
+        run: python -m pip install --disable-pip-version-check pytest -r swarm_os/requirements-restoration-smoke.txt
+      - name: Execute read-surface contract
+        run: PYTHONPATH=. pytest -q harness/tests/test_archive_runtime.py
+      - name: Authority boundary
+        run: |
+          echo "authority_effect=NONE"
+          echo "persistent_state=false"
+          echo "network_authority=false"

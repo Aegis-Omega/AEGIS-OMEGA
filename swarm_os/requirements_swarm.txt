@@ -1,0 +1,21 @@
+# S.W.A.R.M. OS v4.0 — Python dependencies
+# © 2026 Tarik Skalic — Sovereign AGI OS. All rights reserved.
+#
+# Install: pip install -r requirements_swarm.txt --break-system-packages
+
+# Core SWARM engine
+chromadb>=0.4.22
+networkx>=3.2
+numpy>=1.26
+fastapi>=0.111.0
+uvicorn[standard]>=0.29.0
+pydantic>=2.6
+
+# Forager + Recall
+requests>=2.31
+wikipedia-api>=0.6.0
+
+# Existing Sovereign OS dependencies
+streamlit>=1.32.0
+plotly>=5.20.0
+google-cloud-storage>=2.16.0

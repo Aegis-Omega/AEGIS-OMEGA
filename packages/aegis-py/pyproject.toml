@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "aegis-omega"
-version = "1.0.0"
+version = "1.1.0"
 description = "AEGIS-Ω Python SDK — governed multi-agent AI with constitutional audit trail"
 readme = "README.md"
 license = { text = "MIT" }

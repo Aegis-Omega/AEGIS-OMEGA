@@ -1,0 +1,15 @@
+[package]
+name = "gcce"
+version = "0.1.0"
+edition = "2021"
+description = "Geometric Calligraphic Cognition Engine - N-dimensional causal manifold traversal"
+license = "AGPL-3.0-or-later"
+
+[dependencies]
+sha2 = "0.10"
+hex = "0.4"
+
+[dev-dependencies]
+
+[features]
+default = []
