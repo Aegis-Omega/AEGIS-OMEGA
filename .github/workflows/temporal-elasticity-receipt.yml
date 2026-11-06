@@ -1,0 +1,29 @@
+name: Temporal Elasticity Receipt
+
+on:
+  pull_request:
+    paths:
+      - "verifiable/temporal_elasticity.py"
+      - "verifiable/tests/test_temporal_elasticity.py"
+      - "verifiable/fixtures/temporal_elasticity/**"
+      - "schemas/temporal-elasticity-receipt.v1.schema.json"
+      - "docs/specs/TEMPORAL_ELASTICITY_RECEIPT_V1.md"
+      - ".github/workflows/temporal-elasticity-receipt.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  temporal-elasticity-receipt:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install focused test dependencies
+        run: python -m pip install --disable-pip-version-check pytest==8.3.5 jsonschema==4.23.0
+      - name: Run fail-closed receipt tests
+        run: PYTHONPATH=. python -m pytest -q verifiable/tests/test_temporal_elasticity.py
