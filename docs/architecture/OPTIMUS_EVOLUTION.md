@@ -24,7 +24,7 @@ Aegis Omega Labs / AEGIS Ω
 ├─ research             genomics, verifiable, sovereign-mesh,
 │                      paperclip, alignment
 ├─ security             security
-├─ infrastructure       terraform (deployment definitions; read-only by default)
+├─ infrastructure       terraform, infrastructure/production.json (candidate definitions, not deployed)
 ├─ automation           .github, .claude, .agent
 ├─ evidence             reports, .aegis
 ├─ documentation        docs, .sovereign_context
@@ -51,7 +51,7 @@ The names above are **owners**, not assertions that every module is deployed or 
 - `hub/src/components/PricingPage.tsx` `TIER_PRICE` is **49.00 / 499.00 USD** for Operator/Sovereign at the inspected SHA. The server-side `supabase/functions/verify-paypal/index.ts` shows **$49 / $499**. Older `REPO_MAP.md` and `ASSETS.md` say $48/$498; those entries are stale, not alternative pricing.
 - `REPO_MAP.md` incorrectly includes `agents/` in a blanket dormant/manual-only paragraph despite also describing agent-image bundling. Treat `agents/` as **mixed**, pending per-submodule import/deploy/runtime tracing.
 - Tactical's Vercel deployment config is present on an **unmerged branch** `docs/tactical-deploy-state-v1`, not on inspected `main`. Therefore no claim of current main deployment readiness is justified.
-- `docs/OPERATIONS.md` and `infrastructure/production.json` exist on candidate `codex/unify-aegis-operations` (related PR #775). They are candidate-only, **not current main production truth**.
+- `docs/OPERATIONS.md` and `infrastructure/production.json` came from candidate `codex/unify-aegis-operations` (PR #775) and are also present in the new unadmitted #795 integration. They are candidate-only, **not current main production truth**, and do not authorize deployment.
 - `reports/inventory.json` declares `generated_from=a0a74ac6f1c98dd72d4dde8837d2ec0efe4c7849` dated 2026-07-12, so must not be treated as live evidence for the inspected commit.
 - `docs/PROOF.md` records measured declarations/lines from 2026-06-30; declaration counts are not current-pass receipts.
 - The existing read-only `harness/sdk/repository_knowledge.py` and Source Plane PR #795 are reusable. Do not introduce a replacement cartographer or new write authority.
@@ -64,7 +64,7 @@ Repository Knowledge Cartography on exact head `afa9d27e8a42d1df50ec7ce14e3cc998
 - `kernel-one/`: local kernel, validator, daemon, tests → **runtime**. Path existence does not establish that the daemon is deployed.
 - `schemas/`: execution identity, envelope, mutation receipt and writer-lease schemas → **packages** (shared contracts).
 
-The auditor now knows all three roots, while unknown *future* roots still produce `REVIEW_REQUIRED`. The pre-reclassification run remains historical for its old exact head.
+The auditor now knows the three original roots and the inspected `infrastructure/` root introduced by integrating #775. Its `production.json` is a declarative source record, not proof of a deployed system. Unknown *future* roots still produce `REVIEW_REQUIRED`. The pre-reclassification run remains historical for its old exact head.
 
 ## Cross-PR deployment dependency gate (OPEN)
 

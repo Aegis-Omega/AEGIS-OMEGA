@@ -23,7 +23,7 @@ OWNERS = {
     "platform-picker": "apps", "hook-generator": "apps", "content-calendar": "apps",
     "enterprise": "apps", "aegisomega-webgpu": "apps",
     "packages": "packages", "clients": "packages", "aegis-ccil-verifier": "packages", "schemas": "packages",
-    "supabase": "integrations", "worker-src": "integrations", "terraform": "infrastructure",
+    "supabase": "integrations", "worker-src": "integrations", "terraform": "infrastructure", "infrastructure": "infrastructure",
     "genomics": "research", "verifiable": "research", "sovereign-mesh": "research",
     "paperclip": "research", "alignment": "research", "security": "security",
     "docs": "documentation", "reports": "evidence", ".aegis": "evidence", "scripts": "tooling",
