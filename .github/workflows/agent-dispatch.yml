@@ -12,6 +12,71 @@ on:
     types: [created]
 
 jobs:
+  offline-preflight:
+    name: aegis / agent route (offline, no provider)
+    if: vars.PROXY_URL == '' && github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    permissions:
+      contents: read
+      pull-requests: read
+    env:
+      GH_TOKEN: ${{ github.token }}
+      EXPECTED_REPOSITORY: ${{ github.repository }}
+      PR_NUMBER: ${{ github.event.pull_request.number }}
+      PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+      PR_AUTHOR: ${{ github.event.pull_request.user.login }}
+      PR_ASSOCIATION: ${{ github.event.pull_request.author_association }}
+      EVENT_ACTOR: ${{ github.actor }}
+    steps:
+      - name: Verify Git origin and emit zero-key, non-authoritative routing receipt
+        shell: bash
+        run: |
+          set -euo pipefail
+          # AEGIS_OFFLINE_PREFLIGHT_BEGIN
+          [[ "$PR_NUMBER" =~ ^[1-9][0-9]*$ && "$PR_HEAD_SHA" =~ ^[0-9a-f]{40}$ ]] || {
+            echo "DENIED: malformed PR identity" >&2
+            exit 1
+          }
+          [[ "$EXPECTED_REPOSITORY" =~ ^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$ ]] || exit 1
+          live_head=$(gh api "repos/${EXPECTED_REPOSITORY}/pulls/${PR_NUMBER}" --jq '.head.sha')
+          [[ "$live_head" == "$PR_HEAD_SHA" ]] || {
+            echo "DENIED: stale PR event" >&2
+            exit 1
+          }
+          reason="PROXY_NOT_CONFIGURED"
+          case "$PR_ASSOCIATION" in
+            OWNER|MEMBER|COLLABORATOR)
+              if [[ -z "$PR_AUTHOR" || "$PR_AUTHOR" != "$EVENT_ACTOR" ]]; then
+                reason="UNTRUSTED_TRIGGER_ACTOR"
+              fi
+              ;;
+            *) reason="UNTRUSTED_PR_AUTHOR" ;;
+          esac
+          receipt=$(jq -nc \
+            --arg source_head_sha "$PR_HEAD_SHA" \
+            --arg repository "$EXPECTED_REPOSITORY" \
+            --arg pr_number "$PR_NUMBER" \
+            --arg reason "$reason" \
+            '{
+              schema: "aegis-agent-preflight/1",
+              repository: $repository,
+              pull_request: $pr_number,
+              source_head_sha: $source_head_sha,
+              status: "HOLD_NO_ADMISSION",
+              reason: $reason,
+              mode: "read_only",
+              agent_execution: "NOT_EXECUTED",
+              provider_calls: 0,
+              approval: "NOT_GRANTED"
+            }')
+          printf '%s\n' "$receipt"
+          {
+            echo "### AEGIS offline agent preflight"
+            printf '%s\n' "$receipt"
+          } >> "$GITHUB_STEP_SUMMARY"
+          # AEGIS_OFFLINE_PREFLIGHT_END
+
   dispatch:
     name: Dispatch to AEGIS Agent Ecosystem
     runs-on: ubuntu-latest
@@ -24,9 +89,6 @@ jobs:
     if: vars.PROXY_URL != ''
 
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
       - name: Determine event type and validate actor
         id: classify
         # All untrusted external inputs bound to env vars — never interpolated inline.
@@ -45,23 +107,60 @@ jobs:
           COMMENT_BODY: ${{ github.event.comment.body }}
           COMMENT_ISSUE_NUMBER: ${{ github.event.issue.number }}
           ACTOR: ${{ github.actor }}
-          ACTOR_TYPE: ${{ github.actor_association }}
+          ISSUE_ASSOCIATION: ${{ github.event.issue.author_association }}
+          COMMENT_ASSOCIATION: ${{ github.event.comment.author_association }}
+          PR_ASSOCIATION: ${{ github.event.pull_request.author_association }}
+          PR_AUTHOR: ${{ github.event.pull_request.user.login }}
+          WF_HEAD_REPO: ${{ github.event.workflow_run.head_repository.full_name }}
+          EXPECTED_REPOSITORY: ${{ github.repository }}
+          PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          WF_HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
+          GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
 
-          # Fail-closed: require trusted actor for external events
+          # AEGIS_TRUST_GATE_BEGIN
+          # Reuse the event-bound association policy from existing PR #778.
+          # github.actor_association is not a documented GitHub Actions context.
           validate_actor() {
-            local association="$1"
-            case "$association" in
+            case "$1" in
               OWNER|MEMBER|COLLABORATOR) return 0 ;;
-              *) echo "DENIED: untrusted actor association: $association" >&2; return 1 ;;
+              *) echo "DENIED: untrusted author association" >&2; return 1 ;;
             esac
           }
+          case "$EVENT_NAME" in
+            workflow_run)
+              if [[ "$WF_BRANCH" != "main" || "$WF_HEAD_REPO" != "$EXPECTED_REPOSITORY" ]]; then
+                echo "DENIED: CI event is not from this repository's protected main" >&2; exit 1
+              fi
+              ;;
+            issues) validate_actor "$ISSUE_ASSOCIATION" ;;
+            issue_comment) validate_actor "$COMMENT_ASSOCIATION" ;;
+            pull_request)
+              validate_actor "$PR_ASSOCIATION"
+              # A PR author-association is NOT evidence of a different
+              # review-requesting actor's authority. Reject that ambiguity.
+              if [[ -z "$PR_AUTHOR" || "$ACTOR" != "$PR_AUTHOR" ]]; then
+                echo "DENIED: PR trigger actor not proven to be trusted PR author" >&2; exit 1
+              fi
+              ;;
+            *) echo "DENIED: unsupported GitHub event" >&2; exit 1 ;;
+          esac
+          # AEGIS_TRUST_GATE_END
 
-          # External events require trusted actor
-          if [[ "$EVENT_NAME" != "workflow_run" ]]; then
-            validate_actor "$ACTOR_TYPE" || exit 1
+          # AEGIS_HEAD_FRESHNESS_BEGIN
+          # Git-native, API-only consistency check; no checkout, no model call.
+          # Reject outdated events before WIF, platform-key brokering or dispatch.
+          if [[ "$EVENT_NAME" == "pull_request" ]]; then
+            [[ "$PR_NUMBER" =~ ^[1-9][0-9]*$ && "$PR_HEAD_SHA" =~ ^[0-9a-f]{40}$ ]] || { echo "DENIED: malformed PR identity" >&2; exit 1; }
+            live_sha=$(gh api "repos/${EXPECTED_REPOSITORY}/pulls/${PR_NUMBER}" --jq '.head.sha')
+            [[ "$live_sha" == "$PR_HEAD_SHA" ]] || { echo "DENIED: PR head changed since event" >&2; exit 1; }
+          elif [[ "$EVENT_NAME" == "workflow_run" ]]; then
+            [[ "$WF_HEAD_SHA" =~ ^[0-9a-f]{40}$ ]] || { echo "DENIED: malformed workflow commit" >&2; exit 1; }
+            live_sha=$(gh api "repos/${EXPECTED_REPOSITORY}/branches/main" --jq '.commit.sha')
+            [[ "$live_sha" == "$WF_HEAD_SHA" ]] || { echo "DENIED: workflow commit is no longer main" >&2; exit 1; }
           fi
+          # AEGIS_HEAD_FRESHNESS_END
 
           EVENT_TYPE=""
           PAYLOAD="{}"
@@ -73,12 +172,14 @@ jobs:
                 --arg branch "$WF_BRANCH" \
                 --arg run_id "$WF_RUN_ID" \
                 --arg conclusion "$WF_CONCLUSION" \
-                '{"branch": $branch, "run_id": $run_id, "failures": $conclusion}')
+                --arg source_head_sha "$WF_HEAD_SHA" \
+                '{"branch": $branch, "run_id": $run_id, "failures": $conclusion, "source_head_sha": $source_head_sha}')
             elif [ "$WF_CONCLUSION" = "success" ]; then
               EVENT_TYPE="github_ci_success"
               PAYLOAD=$(jq -n \
                 --arg branch "$WF_BRANCH" \
-                '{"branch": $branch}')
+                --arg source_head_sha "$WF_HEAD_SHA" \
+                '{"branch": $branch, "source_head_sha": $source_head_sha}')
             fi
 
           elif [ "$EVENT_NAME" = "pull_request" ]; then
@@ -87,7 +188,8 @@ jobs:
               --arg title "$PR_TITLE" \
               --arg number "$PR_NUMBER" \
               --arg url "$PR_URL" \
-              '{"title": $title, "number": $number, "url": $url}')
+              --arg source_head_sha "$PR_HEAD_SHA" \
+              '{"title": $title, "number": $number, "url": $url, "source_head_sha": $source_head_sha}')
 
           elif [ "$EVENT_NAME" = "issues" ]; then
             EVENT_TYPE="github_issue_opened"
@@ -138,7 +240,7 @@ jobs:
           # Fail-closed: validate response and error on any unexpected status
           response=$(curl -s -w "\n%{http_code}" -X POST "$PROXY_URL/agents/dispatch" \
             -H "Content-Type: application/json" \
-            -H "Authorization: Bearer $PLATFORM_KEY" \
+            -H "x-api-key: $PLATFORM_KEY" \
             --fail-with-body \
             -d "$(jq -n \
               --arg event_type "$DISPATCH_EVENT_TYPE" \

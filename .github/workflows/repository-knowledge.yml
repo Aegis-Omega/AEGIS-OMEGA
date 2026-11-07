@@ -89,6 +89,204 @@ jobs:
           print("SOURCE_PLANE_LIVE_CROSS_REPO_PASS: 2 pinned repositories; authority=NONE")
           PY
 
+      - name: Produce exact-head image content observation (no authority)
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json
+          import os
+          import shutil
+          import tempfile
+          from pathlib import Path
+          from harness.sdk.repository_knowledge import (
+              build_snapshot, build_runtime_export_manifest,
+              verify_runtime_export_manifest,
+          )
+          repo = Path.cwd()
+          snapshot = build_snapshot(repo, repository_id=1095915905,
+                                    repository_full_name="Aegis-Omega/AEGIS-OMEGA")
+          assert snapshot["source_head_sha"] == os.environ["CANDIDATE_SHA"]
+          manifest = build_runtime_export_manifest(snapshot)
+          with tempfile.TemporaryDirectory() as temp:
+              image = Path(temp)
+              for record in manifest["files"]:
+                  path = record["path"]
+                  src = repo / ("vertex/serve.py" if path == "serve.py" else path)
+                  target = image / path
+                  target.parent.mkdir(parents=True, exist_ok=True)
+                  shutil.copy2(src, target)
+              result = verify_runtime_export_manifest(
+                  image, manifest, expected_head=os.environ["CANDIDATE_SHA"])
+              assert result["status"] == "CONTENT_MATCH_ONLY", result
+              assert result["authority"] == "NOT_GRANTED", result
+          out = Path(os.environ["RUNNER_TEMP"]) / "runtime-export"
+          out.mkdir(exist_ok=True)
+          (out / "manifest.json").write_text(
+              json.dumps(manifest, sort_keys=True, separators=(",", ":")) + "\n")
+          (out / "receipt.json").write_text(
+              json.dumps(result, sort_keys=True, separators=(",", ":")) + "\n")
+          print(json.dumps({"source_head": manifest["source_head_sha"],
+              "source_tree": manifest["source_tree_sha"], "files": len(manifest["files"]),
+              "observation": result["status"], "authority": result["authority"]},
+              sort_keys=True))
+          PY
+
+
+      - name: Validate real Docker source layer offline (no registry or Cloud Build)
+        shell: bash
+        run: |
+          set -euo pipefail
+          # Local source stage does not pull a base, run a container, or install deps.
+          probe="aegis-source-probe:$CANDIDATE_SHA"
+          docker build --target source-payload --network none \
+            --file vertex/Dockerfile --tag "$probe" .
+          container="$(docker create "$probe" /bin/true)"
+          trap 'docker rm -f "$container" >/dev/null 2>&1 || true' EXIT
+          image_root="$RUNNER_TEMP/runtime-export/docker-source-layer"
+          mkdir -p "$image_root"
+          docker cp "$container:/app/." "$image_root/"
+          IMAGE_ROOT="$image_root" python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+          from harness.sdk.repository_knowledge import verify_runtime_export_manifest
+          output = Path(os.environ["RUNNER_TEMP"]) / "runtime-export"
+          manifest = json.loads((output / "manifest.json").read_text(encoding="utf-8"))
+          receipt = verify_runtime_export_manifest(
+              Path(os.environ["IMAGE_ROOT"]), manifest,
+              expected_head=os.environ["CANDIDATE_SHA"],
+          )
+          if receipt["status"] != "CONTENT_MATCH_ONLY" or receipt["authority"] != "NOT_GRANTED":
+              raise SystemExit("DENIED: Docker source payload differs from exact Git source: "
+                               + json.dumps(receipt, sort_keys=True))
+          (output / "docker-source-receipt.json").write_text(
+              json.dumps(receipt, sort_keys=True, separators=(",", ":")) + "\n",
+              encoding="utf-8",
+          )
+          print(json.dumps({"source_head_sha": receipt["source_head_sha"],
+                            "status": receipt["status"], "authority": receipt["authority"],
+                            "scope": "SOURCE_LAYER_ONLY",
+                            "image_attestation": "NOT_PRESENT"}, sort_keys=True))
+          PY
+          # Do not upload extracted source files. Upload only content metadata.
+          rm -rf -- "$image_root"
+
+
+
+
+      - name: Verify complete Vertex image locally (no push or deployment)
+        shell: bash
+        run: |
+          set -euo pipefail
+          # Bounded local Docker build; pip/network is required for dependencies.
+          # No model/API provider calls, registry push, or Cloud Build operation.
+          image="aegis-final-probe:$CANDIDATE_SHA"
+          timeout 240s docker build --file vertex/Dockerfile --tag "$image" \
+            --label "org.opencontainers.image.revision=$CANDIDATE_SHA" .
+          container="$(docker create "$image" /bin/true)"
+          trap 'docker rm -f "$container" >/dev/null 2>&1 || true; docker image rm "$image" >/dev/null 2>&1 || true' EXIT
+          image_root="$RUNNER_TEMP/runtime-export/final-image-root"
+          mkdir -p "$image_root"
+          docker cp "$container:/app/." "$image_root/"
+          IMAGE_ROOT="$image_root" IMAGE_TAG="$image" python - <<'PY'
+          import json
+          import os
+          import subprocess
+          from pathlib import Path
+          from harness.sdk.repository_knowledge import verify_runtime_export_manifest
+          output = Path(os.environ["RUNNER_TEMP"]) / "runtime-export"
+          manifest = json.loads((output / "manifest.json").read_text(encoding="utf-8"))
+          observed = verify_runtime_export_manifest(
+              Path(os.environ["IMAGE_ROOT"]), manifest,
+              expected_head=os.environ["CANDIDATE_SHA"])
+          if observed["status"] != "CONTENT_MATCH_ONLY" or observed["authority"] != "NOT_GRANTED":
+              raise SystemExit("FINAL_IMAGE_SOURCE_MISMATCH: " + json.dumps(observed, sort_keys=True))
+          image = os.environ["IMAGE_TAG"]
+          image_id = subprocess.check_output(
+              ["docker", "image", "inspect", image, "--format", "{{.Id}}"], text=True).strip()
+          revision = subprocess.check_output(
+              ["docker", "image", "inspect", image, "--format",
+               "{{index .Config.Labels \"org.opencontainers.image.revision\"}}"],
+              text=True).strip()
+          if not image_id.startswith("sha256:") or revision != os.environ["CANDIDATE_SHA"]:
+              raise SystemExit("FINAL_IMAGE_METADATA_MISMATCH")
+          record = {
+              "schema": "aegis-final-image-local-observation/1",
+              "scope": "CI_LOCAL_IMAGE_ONLY",
+              "source_head_sha": os.environ["CANDIDATE_SHA"],
+              "source_tree_sha": manifest["source_tree_sha"],
+              "manifest_digest": manifest["manifest_digest"],
+              "image_id": image_id,
+              "source_status": observed["status"],
+              "authority": "NOT_GRANTED",
+              "attestation": "NOT_PRESENT",
+          }
+          (output / "final-image-receipt.json").write_text(
+              json.dumps(record, sort_keys=True, separators=(",", ":")) + "\n",
+              encoding="utf-8")
+          print(json.dumps(record, sort_keys=True))
+          PY
+          rm -rf -- "$image_root"
+          # Runtime does not receive any provider credentials or network access.
+          docker run --rm --network none --read-only \
+            -e PYTHONDONTWRITEBYTECODE=1 -e ANTHROPIC_API_KEY= \
+            -e OPENAI_API_KEY= -e AEGIS_EXECUTION_IDENTITY_JSON= \
+            -e AEGIS_APPROVAL_GRANT_JSON= --entrypoint python "$image" \
+            -c 'from agents.coordinator import establish_repository_knowledge; decision = establish_repository_knowledge(); assert decision["status"] == "DENIED", decision; assert "REPOSITORY_KNOWLEDGE_UNAVAILABLE" in decision["reason_codes"], decision; print("GITLESS_RUNTIME_DENIED_AS_EXPECTED")'
+          docker run --rm --network none --read-only \
+            --entrypoint python "$image" -m pip check
+          docker run --rm --network none --read-only \
+            --entrypoint python "$image" -m pip freeze --all \
+            > "$RUNNER_TEMP/runtime-export/final-image-python-dependencies.txt"
+
+      - name: Cross-check exact source via read-only GitHub API
+        env:
+          GH_TOKEN: ${{ github.token }}
+          EXPECTED_REPOSITORY: ${{ github.repository }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$EXPECTED_REPOSITORY" == "Aegis-Omega/AEGIS-OMEGA" ]] || exit 1
+          gh api "repos/${EXPECTED_REPOSITORY}/git/commits/${CANDIDATE_SHA}" \
+            > "$RUNNER_TEMP/aegis-remote-commit.json"
+          python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+          from harness.sdk.repository_knowledge import verify_remote_git_source
+          out = Path(os.environ["RUNNER_TEMP"]) / "runtime-export"
+          manifest = json.loads((out / "manifest.json").read_text())
+          content = json.loads((out / "docker-source-receipt.json").read_text())
+          final_image = json.loads((out / "final-image-receipt.json").read_text())
+          remote = json.loads((Path(os.environ["RUNNER_TEMP"]) / "aegis-remote-commit.json").read_text())
+          result = verify_remote_git_source(
+              manifest, content,
+              expected_head=os.environ["CANDIDATE_SHA"],
+              expected_repository=os.environ["EXPECTED_REPOSITORY"],
+              remote_commit_sha=remote.get("sha", ""),
+              remote_tree_sha=remote.get("tree", {}).get("sha", ""),
+              final_image_receipt=final_image,
+          )
+          assert result["status"] == "REMOTE_GIT_MATCH_ONLY", result
+          assert result["final_image_binding"] == "CI_LOCAL_CONTENT_MATCH_ONLY", result
+          assert result["authority"] == "NOT_GRANTED", result
+          (out / "github-readback.json").write_text(
+              json.dumps(result, sort_keys=True, separators=(",", ":")) + "\n")
+          print(json.dumps({"head": result["source_head_sha"],
+                            "tree": result["source_tree_sha"],
+                            "status": result["status"],
+                            "authority": result["authority"]}, sort_keys=True))
+          PY
+
+      - name: Upload image content evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: runtime-export-${{ env.CANDIDATE_SHA }}
+          path: ${{ runner.temp }}/runtime-export/
+          if-no-files-found: error
+          retention-days: 14
+
       - name: Assert authority neutrality
         shell: bash
         run: |

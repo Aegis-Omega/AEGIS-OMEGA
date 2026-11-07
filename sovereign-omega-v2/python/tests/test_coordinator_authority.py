@@ -254,3 +254,81 @@ def test_dispatch_binds_established_repository_knowledge_into_authority_and_task
     }
     assert len(executed) == 1
     assert executed[0].context["repository_knowledge"] == calls[0]["action"]["repository_knowledge"]
+
+
+
+def test_single_role_endpoint_denies_without_identity_before_agent(tmp_path: Path, monkeypatch: Any) -> None:
+    instance = router(tmp_path, {"declared_cap": "declared"})
+    role = coordinator.AgentRole.CYBERSECURITY
+    monkeypatch.setattr(coordinator, "_skill_router", instance)
+    monkeypatch.setattr(coordinator._legacy, "EVENT_ROUTING", {"manual_role": [coordinator.AgentRole.ENGINEERING]})
+    monkeypatch.setattr(coordinator._legacy, "_load_agent_defs", lambda: {"agents": {role.value: {"capabilities": ["declared_cap"]}}})
+    monkeypatch.setattr(coordinator, "establish_repository_knowledge", lambda **_kwargs: {
+        "status": "ESTABLISHED",
+        "reason_codes": [],
+        "snapshot_digest": "6" * 64,
+        "source_head_sha": "7" * 40,
+        "source_tree_sha": "8" * 40,
+        "receipt_hash": "9" * 64,
+    })
+    monkeypatch.setattr(coordinator, "authorize_from_environment", lambda **_kw: denied_decision("IDENTITY_UNAVAILABLE"))
+
+    async def forbidden_backend(_task: Any) -> Any:
+        raise AssertionError("A denied direct-route task must never reach a provider")
+
+    monkeypatch.setattr(coordinator._legacy, "run_agent", forbidden_backend)
+    result = asyncio.run(coordinator.dispatch_event(
+        "manual_role", {"task": "check", "role": role.value},
+        requested_roles=[role], instruction_override="check", max_ralph_cycles=2,
+    ))
+    assert result == []
+    receipts = coordinator.last_dispatch_receipts()
+    assert len(receipts) == 1
+    assert receipts[0]["role"] == role.value
+    assert receipts[0]["outcome"] == "DENIED"
+    assert "IDENTITY_UNAVAILABLE" in receipts[0]["reason_codes"]
+
+
+def test_single_role_endpoint_admitted_task_preserves_scope(tmp_path: Path, monkeypatch: Any) -> None:
+    instance = router(tmp_path, {"declared_cap": "declared"})
+    role = coordinator.AgentRole.CYBERSECURITY
+    monkeypatch.setattr(coordinator, "_skill_router", instance)
+    monkeypatch.setattr(coordinator._legacy, "EVENT_ROUTING", {"manual_role": [coordinator.AgentRole.ENGINEERING]})
+    monkeypatch.setattr(coordinator._legacy, "_load_agent_defs", lambda: {"agents": {role.value: {"capabilities": ["declared_cap"]}}})
+    monkeypatch.setattr(coordinator, "establish_repository_knowledge", lambda **_kwargs: {
+        "status": "ESTABLISHED",
+        "reason_codes": [],
+        "snapshot_digest": "6" * 64,
+        "source_head_sha": "7" * 40,
+        "source_tree_sha": "8" * 40,
+        "receipt_hash": "9" * 64,
+    })
+    authorization: list[dict[str, Any]] = []
+    def central(**kwargs: Any) -> dict[str, Any]:
+        authorization.append(kwargs)
+        return admitted_decision()
+    monkeypatch.setattr(coordinator, "authorize_from_environment", central)
+    observed: list[Any] = []
+    async def fake_backend(task: Any) -> Any:
+        observed.append(task)
+        return {"result": "inert"}
+    monkeypatch.setattr(coordinator._legacy, "run_agent", fake_backend)
+    result = asyncio.run(coordinator.dispatch_event(
+        "manual_role", {"task": "bounded", "role": role.value},
+        requested_roles=[role], instruction_override="bounded", max_ralph_cycles=2,
+    ))
+    assert result == [{"result": "inert"}]
+    assert len(observed) == 1
+    assert observed[0].role == role
+    assert observed[0].instruction == "bounded"
+    assert observed[0].max_ralph_cycles == 2
+    assert authorization[0]["target"] == role.value
+
+
+def test_single_role_endpoint_rejects_unsafe_cycles_without_authority() -> None:
+    for cycles in (0, -1, 4, True, "3"):
+        with pytest.raises(ValueError):
+            asyncio.run(coordinator.dispatch_event(
+                "manual_role", {}, requested_roles=[coordinator.AgentRole.ENGINEERING],
+                instruction_override="task", max_ralph_cycles=cycles,
+            ))

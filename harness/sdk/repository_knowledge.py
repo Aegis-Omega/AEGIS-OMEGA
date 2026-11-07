@@ -8,6 +8,7 @@ it does not mutate repository state or grant execution authority.
 from __future__ import annotations
 
 import hashlib
+import re
 import json
 import subprocess
 from pathlib import Path
@@ -273,9 +274,210 @@ def compute_delta(before: Mapping[str, Any], after: Mapping[str, Any]) -> dict[s
     return delta
 
 
+
+# Exported image receipts prove packaged bytes only. They are NOT independently
+# signed build attestations and never grant operational authority.
+RUNTIME_EXPORT_SCHEMA = "aegis-runtime-export/1"
+_HEX40 = re.compile(r"^[a-f0-9]{40}$")
+
+
+def _image_path(repo_path: str) -> str | None:
+    if repo_path in ("vertex/serve.py", "serve.py"):
+        return "serve.py"
+    if repo_path.startswith(("agents/", "harness/")):
+        name = repo_path.rsplit("/", 1)[-1]
+        if name == ".env" or name.startswith(".env.") or name.endswith(".pyc") or "__pycache__" in repo_path.split("/"):
+            return None
+        return repo_path
+    return None
+
+
+def build_runtime_export_manifest(snapshot: Mapping[str, Any]) -> dict[str, Any]:
+    """Select tracked image files from a verified exact-head snapshot."""
+    if verify_snapshot_document(snapshot)["status"] != "ESTABLISHED":
+        raise ValueError("SOURCE_SNAPSHOT_INVALID")
+    if not _HEX40.fullmatch(str(snapshot.get("source_head_sha", ""))) or not _HEX40.fullmatch(str(snapshot.get("source_tree_sha", ""))):
+        raise ValueError("SOURCE_SHA_INVALID")
+    files: list[dict[str, str]] = []
+    for item in snapshot["artifacts"]:
+        name = _image_path(item["path"])
+        if name is None:
+            continue
+        if item["object_type"] != "blob" or item["mode"] not in ("100644", "100755"):
+            raise ValueError("RUNTIME_SOURCE_NONREGULAR")
+        if not _HEX40.fullmatch(item["object_sha"]):
+            raise ValueError("RUNTIME_SOURCE_BLOB_INVALID")
+        files.append({"path": name, "git_blob_sha": item["object_sha"]})
+    files.sort(key=lambda x: x["path"])
+    names = [x["path"] for x in files]
+    if "serve.py" not in names or names != sorted(set(names)):
+        raise ValueError("RUNTIME_SOURCE_INCOMPLETE")
+    record = {
+        "schema": RUNTIME_EXPORT_SCHEMA,
+        "source_head_sha": snapshot["source_head_sha"],
+        "source_tree_sha": snapshot["source_tree_sha"],
+        "source_snapshot_digest": snapshot["snapshot_digest"],
+        "files": files,
+        "authority": "CONTENT_OBSERVATION_ONLY",
+        "attestation": "NOT_PRESENT",
+    }
+    record["manifest_digest"] = _digest(record)
+    return record
+
+
+def verify_runtime_export_manifest(image_root: str | Path, manifest: Mapping[str, Any], *, expected_head: str) -> dict[str, Any]:
+    """Compare image files with a manifest, without Git or elevated authority."""
+    if not isinstance(manifest, Mapping):
+        return {"status": "DENIED", "reason_codes": ["MANIFEST_INVALID"]}
+    errors: set[str] = set()
+    unsigned = dict(manifest)
+    digest = unsigned.pop("manifest_digest", None)
+    if digest != _digest(unsigned):
+        errors.add("MANIFEST_DIGEST_MISMATCH")
+    if manifest.get("schema") != RUNTIME_EXPORT_SCHEMA:
+        errors.add("MANIFEST_SCHEMA_INVALID")
+    if manifest.get("authority") != "CONTENT_OBSERVATION_ONLY" or manifest.get("attestation") != "NOT_PRESENT":
+        errors.add("AUTHORITY_CLAIM_INVALID")
+    if not _HEX40.fullmatch(str(expected_head)) or manifest.get("source_head_sha") != expected_head:
+        errors.add("SOURCE_HEAD_MISMATCH")
+    if not _HEX40.fullmatch(str(manifest.get("source_tree_sha", ""))):
+        errors.add("SOURCE_TREE_INVALID")
+    records = manifest.get("files")
+    if not isinstance(records, list) or not records:
+        records = []
+        errors.add("FILE_INVENTORY_INVALID")
+    expected: dict[str, str] = {}
+    names: list[str] = []
+    for item in records:
+        if not isinstance(item, dict):
+            errors.add("FILE_INVENTORY_INVALID")
+            continue
+        name, blob = item.get("path"), item.get("git_blob_sha")
+        if not isinstance(name, str) or _image_path(name) != name:
+            errors.add("FILE_PATH_INVALID")
+            continue
+        if not _HEX40.fullmatch(str(blob)):
+            errors.add("FILE_BLOB_INVALID")
+            continue
+        names.append(name)
+        expected[name] = blob
+    if names != sorted(names) or len(names) != len(set(names)) or "serve.py" not in names:
+        errors.add("FILE_INVENTORY_ORDER_INVALID")
+    root = Path(image_root)
+    actual: set[str] = set()
+    for dirname in ("agents", "harness"):
+        directory = root / dirname
+        if directory.is_symlink() or not directory.is_dir():
+            errors.add("PACKAGE_DIRECTORY_MISSING")
+            continue
+        for item in directory.rglob("*"):
+            name = item.relative_to(root).as_posix()
+            if item.is_symlink():
+                errors.add("SYMLINK_DENIED")
+            elif item.is_file() and _image_path(name) is not None:
+                actual.add(name)
+    if (root / "serve.py").is_file():
+        actual.add("serve.py")
+    if actual != set(expected):
+        errors.add("FILE_SET_MISMATCH")
+    for name, sha in expected.items():
+        target = root / name
+        try:
+            if target.is_symlink() or not target.is_file():
+                errors.add("FILE_MISSING_OR_SYMLINK")
+                continue
+            body = target.read_bytes()
+            raw = b"blob " + str(len(body)).encode("ascii") + b"\0" + body
+            if hashlib.sha1(raw).hexdigest() != sha:
+                errors.add("FILE_CONTENT_MISMATCH")
+        except OSError:
+            errors.add("FILE_UNREADABLE")
+    return {
+        "status": "DENIED" if errors else "CONTENT_MATCH_ONLY",
+        "reason_codes": sorted(errors),
+        "source_head_sha": manifest.get("source_head_sha"),
+        "source_tree_sha": manifest.get("source_tree_sha"),
+        "manifest_digest": digest,
+        "authority": "NOT_GRANTED",
+        "attestation": "NOT_PRESENT",
+    }
+
+
+
+
+def verify_remote_git_source(
+    manifest: Mapping[str, Any],
+    content_receipt: Mapping[str, Any],
+    *,
+    expected_head: str,
+    expected_repository: str,
+    remote_commit_sha: str,
+    remote_tree_sha: str,
+    final_image_receipt: Mapping[str, Any] | None = None,
+) -> dict[str, Any]:
+    """Source and local image readback, NOT a signed attestation."""
+    if not isinstance(manifest, Mapping) or not isinstance(content_receipt, Mapping):
+        return {"status": "DENIED", "reason_codes": ["INPUT_INVALID"], "authority": "NOT_GRANTED"}
+    reasons: set[str] = set()
+    body = dict(manifest)
+    digest = body.pop("manifest_digest", None)
+    if digest != _digest(body) or manifest.get("schema") != RUNTIME_EXPORT_SCHEMA:
+        reasons.add("MANIFEST_INVALID")
+    if manifest.get("authority") != "CONTENT_OBSERVATION_ONLY" or manifest.get("attestation") != "NOT_PRESENT":
+        reasons.add("MANIFEST_AUTHORITY_INVALID")
+    if content_receipt.get("status") != "CONTENT_MATCH_ONLY" or content_receipt.get("authority") != "NOT_GRANTED":
+        reasons.add("CONTENT_NOT_VERIFIED")
+    if content_receipt.get("manifest_digest") != digest or content_receipt.get("source_head_sha") != expected_head:
+        reasons.add("CONTENT_BINDING_MISMATCH")
+    if content_receipt.get("source_tree_sha") != manifest.get("source_tree_sha"):
+        reasons.add("TREE_BINDING_MISMATCH")
+    if not _HEX40.fullmatch(str(expected_head)) or manifest.get("source_head_sha") != expected_head:
+        reasons.add("SOURCE_HEAD_MISMATCH")
+    if expected_repository != "Aegis-Omega/AEGIS-OMEGA":
+        reasons.add("REPOSITORY_MISMATCH")
+    if not _HEX40.fullmatch(str(remote_commit_sha)) or remote_commit_sha != expected_head:
+        reasons.add("REMOTE_COMMIT_MISMATCH")
+    if not _HEX40.fullmatch(str(remote_tree_sha)) or remote_tree_sha != manifest.get("source_tree_sha"):
+        reasons.add("REMOTE_TREE_MISMATCH")
+    final_image_binding = "NOT_EVALUATED"
+    if final_image_receipt is not None:
+        if not isinstance(final_image_receipt, Mapping):
+            reasons.add("FINAL_IMAGE_RECEIPT_INVALID")
+        elif (
+            final_image_receipt.get("schema") != "aegis-final-image-local-observation/1"
+            or final_image_receipt.get("scope") != "CI_LOCAL_IMAGE_ONLY"
+            or final_image_receipt.get("source_head_sha") != expected_head
+            or final_image_receipt.get("source_tree_sha") != manifest.get("source_tree_sha")
+            or final_image_receipt.get("manifest_digest") != digest
+            or final_image_receipt.get("source_status") != "CONTENT_MATCH_ONLY"
+            or final_image_receipt.get("authority") != "NOT_GRANTED"
+            or final_image_receipt.get("attestation") != "NOT_PRESENT"
+            or not re.fullmatch(r"sha256:[0-9a-f]{64}", str(final_image_receipt.get("image_id", "")))
+        ):
+            reasons.add("FINAL_IMAGE_BINDING_MISMATCH")
+        else:
+            final_image_binding = "CI_LOCAL_CONTENT_MATCH_ONLY"
+    return {
+        "schema": "aegis-github-readback/1",
+        "status": "DENIED" if reasons else "REMOTE_GIT_MATCH_ONLY",
+        "reason_codes": sorted(reasons),
+        "repository": expected_repository,
+        "source_head_sha": expected_head,
+        "source_tree_sha": manifest.get("source_tree_sha"),
+        "manifest_digest": digest,
+        "authority": "NOT_GRANTED",
+        "attestation": "NOT_PRESENT",
+        "final_image_binding": final_image_binding,
+    }
+
+
+
 __all__ = [
     "build_snapshot",
     "compute_delta",
     "verify_snapshot",
     "verify_snapshot_document",
+    "build_runtime_export_manifest",
+    "verify_runtime_export_manifest",
+    "verify_remote_git_source",
 ]
