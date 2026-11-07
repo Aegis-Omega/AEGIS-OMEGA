@@ -1,3 +1,10 @@
+<!-- AEGIS_OPTIMUS_EVOLUTION_DOC_BOUNDARY_V1 -->
+# Repository report freshness notice
+
+This is a historical report. Do not treat branch counts, test counts, root-file totals or connectivity from its historical timestamp as current. Use `scripts/aegis_topology.py` (exact Git tree), then compare against actual provider records. See `docs/architecture/OPTIMUS_EVOLUTION.md`.
+
+---
+
 # Repository Audit — AEGIS-OMEGA
 
 Generated 2026-07-12 by repository audit (session), from commit `a0a74ac6f1c98dd72d4dde8837d2ec0efe4c7849`.

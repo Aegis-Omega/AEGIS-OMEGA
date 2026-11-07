@@ -1,3 +1,6 @@
+<!-- AEGIS_OPTIMUS_EVOLUTION_HISTORICAL_GUMROAD_V1 -->
+> **HISTORICAL SALES COPY, NOT CURRENT COMMERCIAL INSTRUCTIONS (2026-11-06).** The $19 Gumroad listings and integration steps below are archived proposals, not verified products, prices or activated checkout links. The inspected `hub/src/components/PricingPage.tsx` advertises Operator $49 and Sovereign $499 via PayPal and includes these three creator tools in paid tier descriptions. See [REPO_MAP.md](../REPO_MAP.md) and [Optimus Evolution](architecture/OPTIMUS_EVOLUTION.md). No listing creation, payment or provider change is authorized by this document.
+
 # Gumroad Listing Copy — AEGIS Creator Toolkit
 
 Ready-to-paste titles, descriptions, and feature bullets for all three products.

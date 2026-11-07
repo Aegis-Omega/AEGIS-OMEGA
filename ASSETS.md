@@ -1,3 +1,10 @@
+<!-- AEGIS_OPTIMUS_EVOLUTION_DOC_BOUNDARY_V1 -->
+# Evidence freshness boundary
+
+The inventory below is a **historical asset register**, not proof that live services, purchases, credentials or integrations still work. Inspect `REPO_MAP.md`, `docs/architecture/OPTIMUS_EVOLUTION.md`, and provider-native receipts at the exact head. Prices in older snapshots ($48/$498) are superseded by code inspection ($49/$499) for main@c6f4f213; live checkout still requires verification.
+
+---
+
 # ASSETS.md — the complete asset inventory
 
 > **Read this before claiming the repo is "just" anything.** Every session that starts
