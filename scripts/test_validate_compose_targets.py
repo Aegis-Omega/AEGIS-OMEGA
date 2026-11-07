@@ -40,6 +40,11 @@ volumes:
         self.assertIn("python scripts/validate_compose_targets.py --repo .", workflow)
         self.assertNotIn("id-token: write", workflow)
 
+    def test_native_ci_validates_full_compose_graph_without_deployment(self):
+        workflow = (SOURCE.parents[1] / ".github" / "workflows" / "repository-knowledge.yml").read_text(encoding="utf-8")
+        self.assertIn("docker compose --profile agents config --quiet", workflow)
+        self.assertNotIn("docker compose up", workflow)
+
     def test_nonexistent_stage_is_failed(self):
         out = self.check()
         self.assertEqual(out["status"], "FAILED")

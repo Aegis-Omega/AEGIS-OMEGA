@@ -47,6 +47,8 @@ jobs:
           python scripts/test_docs_source_contract.py
           python scripts/test_validate_compose_targets.py
           python scripts/validate_compose_targets.py --repo .
+          # Validate the full local Compose graph without building or deploying.
+          docker compose --profile agents config --quiet
           python scripts/aegis_topology.py --strict --summary
           python -m unittest discover -s scripts -p 'test_source_plane*.py' -v
 
