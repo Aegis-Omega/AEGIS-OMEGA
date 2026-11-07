@@ -35,6 +35,11 @@ volumes:
     def check(self, text=None):
         return module.evaluate(self.root, self.compose if text is None else text)
 
+    def test_native_ci_uses_real_compose_source(self):
+        workflow = (SOURCE.parents[1] / ".github" / "workflows" / "repository-knowledge.yml").read_text(encoding="utf-8")
+        self.assertIn("python scripts/validate_compose_targets.py --repo .", workflow)
+        self.assertNotIn("id-token: write", workflow)
+
     def test_nonexistent_stage_is_failed(self):
         out = self.check()
         self.assertEqual(out["status"], "FAILED")
