@@ -1,0 +1,31 @@
+name: AEGIS PR795 One-Time GitHub Signed Squash Candidate
+
+# This file is a ONE-TIME transport: its own push triggers the job exactly once.
+# The signed candidate tree intentionally EXCLUDES this workflow file.
+on:
+  push:
+    branches: [feat/repository-cartographer-v1]
+    paths: [.github/workflows/aegis-pr795-signed-squash-once.yml]
+
+permissions:
+  contents: write
+
+jobs:
+  signed-squash-candidate:
+    if: "${{ github.event.head_commit.message == 'ops(signing): stage one-time GitHub-verified exact-tree candidate' }}"
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout immutable source DAG
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Verify exact one-time script bytes before granting write token
+        run: echo "ecdd1d732046f260e0c3af36546fe0a8deba912e096961ac7175ae23c58ba423  .github/workflows/aegis-pr795-signed-squash-once.py" | sha256sum -c -
+      - name: Generate signed candidate on disposable staging ref; NEVER update PR or main
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          AEGIS_GITHUB_EVENT_SHA: ${{ github.sha }}
+          AEGIS_GITHUB_REPOSITORY: ${{ github.repository }}
+        run: python3 .github/workflows/aegis-pr795-signed-squash-once.py
