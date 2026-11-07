@@ -45,6 +45,13 @@ volumes:
         self.assertIn("docker compose --profile agents config --quiet", workflow)
         self.assertNotIn("docker compose up", workflow)
 
+    def test_prepare_deployment_remains_executable(self):
+        import stat
+        script = SOURCE.parents[1] / "scripts" / "prepare-deployment.sh"
+        self.assertTrue(script.is_file())
+        self.assertTrue(script.stat().st_mode & stat.S_IXUSR,
+                        "Deployment preflight Bash script lost its executable mode")
+
     def test_nonexistent_stage_is_failed(self):
         out = self.check()
         self.assertEqual(out["status"], "FAILED")
