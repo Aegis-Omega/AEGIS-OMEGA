@@ -22,6 +22,12 @@ The table includes every tracked root and its logical owner. It does **not** ass
 - `harness/sdk/repository_knowledge.py`: existing source-bound repository cartographer, preserved.
 - `docs/archive/REPO_MAP_2026-07.md`: entire previous map, including historical deployment and pricing assertions, unchanged.
 
+## Cross-PR Compose dependency (OPEN)
+
+Source check at `main@c6f4f2131ab06c5b20cfd3d0eafd99e3ca246bc8`: `docker-compose.yml` selects bridge target `runtime`, but `sovereign-omega-v2/Dockerfile` has no matching named stage. This **build dependency is broken**, even if `docker compose config` reports valid YAML. PR #775, source `977523d7761c25264a4c0156e6a3f76bf8bfa16c`, already contains the candidate fix (removes the target); the fix is not part of this PR or protected main.
+
+The existing deployment preflight now invokes `scripts/validate_compose_targets.py` under `--docker-config`. Missing stage or missing Dockerfile is `FAILED`, unparseable/dynamic configuration is `UNKNOWN`, and a literal valid stage is `PASS`. This validates **source build targets only**, not image build, deployment, authorization, or provider status. The preflight is expected to fail on the current source until the existing #775 correction is admitted. Do not duplicate its Compose change here.
+
 ## Deployment classes
 
 `SOURCE_PRESENT` only establishes a path exists. Never conflate it with `CI_PASS`, `DEPLOYED`, `AUTHORIZED`, `COMMERCIAL_VERIFIED`, or `OPENAI_QUALIFIED`. Confirm each property independently from exact-source receipts. Repo presence is not a functional integration.

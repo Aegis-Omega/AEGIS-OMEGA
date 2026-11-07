@@ -66,6 +66,12 @@ Repository Knowledge Cartography on exact head `afa9d27e8a42d1df50ec7ce14e3cc998
 
 The auditor now knows all three roots, while unknown *future* roots still produce `REVIEW_REQUIRED`. The pre-reclassification run remains historical for its old exact head.
 
+## Cross-PR deployment dependency gate (OPEN)
+
+The existing `scripts/prepare-deployment.sh --docker-config` syntax check was not sufficient to detect `docker-compose.yml` selecting a non-existent Docker `runtime` stage. `scripts/validate_compose_targets.py` now performs a read-only literal-stage check before optional Docker Compose syntax validation; its regression suite runs in the existing Repository Knowledge workflow. This check requires no network, credentials, Docker daemon or paid resources.
+
+**Main / #795 source:** invalid `bridge.build.target=runtime` because `sovereign-omega-v2/Dockerfile` declares no corresponding named `FROM ... AS runtime` stage. **PR #775 source:** `codex/unify-aegis-operations@977523d7761c25264a4c0156e6a3f76bf8bfa16c` removes the invalid `target` and supplies existing `ops:check` / local-stack wiring. The original Compose fix and operations implementation remain on #775, not copied into #795. Explicitly track deployment readiness as `OPEN` until that change is independently admitted and a provider/runtime test succeeds. Syntax and static stage checks alone do not certify successful image builds.
+
 ## Folder cleanup protocol
 
 **Phase 0: Audit (this package).** Run the deterministic, read-only topology tool from the exact checkout. Track every root, every critical anchor, new roots and historical documents. `UNKNOWN` must remain visible. Nothing is removed.

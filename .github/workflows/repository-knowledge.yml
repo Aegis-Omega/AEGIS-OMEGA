@@ -45,6 +45,7 @@ jobs:
           python scripts/test_aegis_topology.py
           python scripts/test_optimus_docs.py
           python scripts/test_docs_source_contract.py
+          python scripts/test_validate_compose_targets.py
           python scripts/aegis_topology.py --strict --summary
           python -m unittest discover -s scripts -p 'test_source_plane*.py' -v
 

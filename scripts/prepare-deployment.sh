@@ -161,6 +161,11 @@ run_frontend_builds() {
 
 check_docker_compose() {
   info "Checking Docker Compose configuration"
+  if python3 "$REPO_ROOT/scripts/validate_compose_targets.py" --repo "$REPO_ROOT"; then
+    log "Literal Docker build-stage bindings passed"
+  else
+    fail "Docker build-stage target missing or unresolved"
+  fi
   if command -v docker >/dev/null 2>&1 && docker compose version >/dev/null 2>&1; then
     (cd "$REPO_ROOT" && docker compose config >/tmp/aegis-docker-compose.yml) \
       && log "docker compose config passed" \
