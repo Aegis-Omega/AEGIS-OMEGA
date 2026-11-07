@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import type { TelemetrySnapshot } from './types.js'
 
-const BRIDGE_URL = 'http://localhost:7890'
+const BRIDGE_URL = import.meta.env.VITE_BRIDGE_URL ?? (import.meta.env.DEV ? 'http://localhost:7890' : '/api/bridge')
 const POLL_MS = 5000
 
 export function useTelemetry() {

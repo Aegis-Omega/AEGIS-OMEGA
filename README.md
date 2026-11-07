@@ -82,7 +82,7 @@ npm run test && npm run typecheck && npm run build
 node scripts/verify-hashes.mjs
 ```
 
-New here? Read [`HANDOFF.md`](HANDOFF.md) (current ground truth) and [`REPO_MAP.md`](REPO_MAP.md) (what's wired vs dormant).
+New here? Begin with [`REPO_MAP.md`](REPO_MAP.md) (source-bound map and exact-HEAD audit) and [`docs/architecture/OPTIMUS_EVOLUTION.md`](docs/architecture/OPTIMUS_EVOLUTION.md) (folder ownership and migration gates). [`HANDOFF.md`](HANDOFF.md) is a dated historical handoff, not current operating evidence.
 
 ---
 
@@ -100,7 +100,7 @@ New here? Read [`HANDOFF.md`](HANDOFF.md) (current ground truth) and [`REPO_MAP.
 | `packages/shared/` | Shared infra | Inference router (DashScope→Ollama→Claude→CL-Ψ), constitutional-ai, payment tokens |
 | `clients/gemma-holon/` | Edge holon | Gemma-4E4B on-device constitutional validation node + Ogemma Mythos gates |
 | `hub/` | Web | [aegisomega.com](https://aegisomega.com) — live hash-chained metacognitive loop + WebGPU Φ-field |
-| `platform-picker/` · `hook-generator/` · `content-calendar/` | Products | Commercial creator tools ($19 each) |
+| `platform-picker/` · `hook-generator/` · `content-calendar/` | Products | Creator tools shown as included with Operator/Sovereign tiers in the current hub pricing source; deployed access and purchases require independent validation |
 | `supabase/functions/` | Edge functions | `verify-paypal`, `notify` |
 
 ---

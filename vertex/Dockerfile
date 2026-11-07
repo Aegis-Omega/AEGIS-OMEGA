@@ -2,6 +2,13 @@
 # IMPORTANT: build context is the REPOSITORY ROOT (not vertex/), because the
 # platform endpoints import the `agents` package and read `harness/skill_tree.json`.
 # Build with:  docker build -f vertex/Dockerfile -t <img> .
+# Zero-network source-only stage: CI can verify exactly what Docker COPY packages
+# without installing dependencies, running a container, or deploying anything.
+FROM scratch AS source-payload
+COPY vertex/serve.py /app/serve.py
+COPY agents /app/agents
+COPY harness /app/harness
+
 FROM python:3.12-slim
 
 WORKDIR /app
@@ -18,9 +25,9 @@ RUN pip install --no-cache-dir \
 # serve.py at /app, agents package at /app/agents, harness data at /app/harness.
 # evolution.py computes _REPO_ROOT = dirname(agents) = /app, so it finds
 # /app/harness/skill_tree.json. serve.py's path setup adds /app to sys.path.
-COPY vertex/serve.py /app/serve.py
-COPY agents /app/agents
-COPY harness /app/harness
+COPY --from=source-payload /app/serve.py /app/serve.py
+COPY --from=source-payload /app/agents /app/agents
+COPY --from=source-payload /app/harness /app/harness
 
 ENV PORT=8080
 EXPOSE 8080

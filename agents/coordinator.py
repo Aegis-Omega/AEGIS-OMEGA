@@ -254,9 +254,34 @@ def _knowledge_denial_receipts(
     )
 
 
-async def dispatch_event(event_type: str, payload: dict) -> list["AgentResult"]:
+async def dispatch_event(
+    event_type: str,
+    payload: dict,
+    *,
+    requested_roles: list["AgentRole"] | None = None,
+    instruction_override: str | None = None,
+    max_ralph_cycles: int = 3,
+) -> list["AgentResult"]:
+    """Route using one Automaton-3 decision per candidate role.
+
+    Explicit role selection is advisory, never an authority grant. Only the
+    existing source-bound central evaluator can authorize actual execution.
+    """
+    if requested_roles is not None:
+        if not requested_roles or any(not isinstance(role, _legacy.AgentRole) for role in requested_roles):
+            raise ValueError("requested_roles must contain known agent roles")
+    if isinstance(max_ralph_cycles, bool) or not isinstance(max_ralph_cycles, int) or not 1 <= max_ralph_cycles <= 3:
+        raise ValueError("max_ralph_cycles must be between 1 and 3")
+    if instruction_override is not None and (
+        not isinstance(instruction_override, str) or not instruction_override.strip()
+    ):
+        raise ValueError("instruction_override must be a nonempty string")
     global _last_dispatch_receipts
-    candidate_roles = _legacy.EVENT_ROUTING.get(event_type, [_legacy.AgentRole.ENGINEERING])
+    candidate_roles = (
+        list(requested_roles)
+        if requested_roles is not None
+        else _legacy.EVENT_ROUTING.get(event_type, [_legacy.AgentRole.ENGINEERING])
+    )
 
     knowledge = establish_repository_knowledge(repo_root=_legacy._REPO_ROOT)
     if knowledge.get("status") != "ESTABLISHED":
@@ -275,7 +300,7 @@ async def dispatch_event(event_type: str, payload: dict) -> list["AgentResult"]:
         return []
 
     definitions = _legacy._load_agent_defs(); agent_defs = definitions.get("agents", {})
-    instruction_sample = _legacy._event_to_instruction(event_type, payload, candidate_roles[0])
+    instruction_sample = instruction_override if instruction_override is not None else _legacy._event_to_instruction(event_type, payload, candidate_roles[0])
     indexed = [
         (
             index,
@@ -297,13 +322,13 @@ async def dispatch_event(event_type: str, payload: dict) -> list["AgentResult"]:
         task = _legacy.AgentTask(
             task_id=str(_legacy.uuid.uuid4()),
             role=role,
-            instruction=_legacy._event_to_instruction(event_type, payload, role),
+            instruction=instruction_override if instruction_override is not None else _legacy._event_to_instruction(event_type, payload, role),
             context={
                 "event_type": event_type,
                 "payload": payload,
                 "repository_knowledge": dict(knowledge_binding),
             },
-            max_ralph_cycles=3,
+            max_ralph_cycles=max_ralph_cycles,
         )
         results.append(await _legacy.run_agent(task))
     return results

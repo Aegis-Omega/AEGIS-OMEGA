@@ -25,6 +25,29 @@ jobs:
         with:
           ref: ${{ env.CANDIDATE_SHA }}
 
+      - name: Enforce workflow identity and exact candidate HEAD
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "${GITHUB_EVENT_NAME}" = "pull_request"
+          test "${GITHUB_REPOSITORY}" = "Aegis-Omega/AEGIS-OMEGA"
+          case "${GITHUB_WORKFLOW_REF}" in
+            "${GITHUB_REPOSITORY}/.github/workflows/body-head-binding.yml@"*) ;;
+            *) echo "::error::WORKFLOW_IDENTITY_MISMATCH"; exit 1 ;;
+          esac
+          test "$(git rev-parse HEAD)" = "${CANDIDATE_SHA}"
+          python3 - <<'PY'
+          import json
+          import os
+
+          with open(os.environ["GITHUB_EVENT_PATH"], encoding="utf-8") as fh:
+              event = json.load(fh)
+          pr = event["pull_request"]
+          assert pr["head"]["sha"] == os.environ["CANDIDATE_SHA"], "HEAD_SHA_MISMATCH"
+          assert pr["head"]["repo"]["full_name"] == os.environ["GITHUB_REPOSITORY"], "HEAD_REPOSITORY_MISMATCH"
+          assert pr["base"]["repo"]["full_name"] == os.environ["GITHUB_REPOSITORY"], "BASE_REPOSITORY_MISMATCH"
+          PY
+
       - name: Set up Python
         uses: actions/setup-python@v5
         with:

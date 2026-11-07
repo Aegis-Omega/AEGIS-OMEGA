@@ -1,4 +1,4 @@
-# AEGIS Cockpit — Cloud Run container (frontend SPA + Vertex AI inference server)
+# AEGIS Cockpit — Cloud Run container (build context: repository root)
 # Port 8080, single process, no nginx required.
 
 # Stage 1: Build the Vite frontend
@@ -6,17 +6,19 @@
 # on the same origin as the server (same-origin relative fetch).
 FROM node:22-alpine AS build-frontend
 WORKDIR /app
-COPY package*.json ./
-RUN npm ci
-COPY . .
+COPY cockpit/package*.json ./cockpit/
+RUN cd cockpit && npm ci
+COPY cockpit/ ./cockpit/
+COPY packages/shared/ ./packages/shared/
+WORKDIR /app/cockpit
 RUN VITE_BRIDGE_URL="" npm run build
 
 # Stage 2: Build the Node.js backend
 FROM node:22-alpine AS build-server
 WORKDIR /app/server
-COPY server/package*.json ./
+COPY cockpit/server/package*.json ./
 RUN npm ci
-COPY server/ ./
+COPY cockpit/server/ ./
 RUN npm run build
 
 # Stage 3: Runtime image
@@ -24,11 +26,11 @@ FROM node:22-alpine AS runtime
 WORKDIR /app
 
 # Copy production server deps only
-COPY server/package*.json ./server/
+COPY cockpit/server/package*.json ./server/
 RUN cd server && npm ci --omit=dev
 
 # Copy built artefacts
-COPY --from=build-frontend /app/dist ./dist
+COPY --from=build-frontend /app/cockpit/dist ./dist
 COPY --from=build-server   /app/server/dist ./server/dist
 
 EXPOSE 8080

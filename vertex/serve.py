@@ -203,11 +203,11 @@ app = FastAPI(
 # Honors the deploy caveat — public Cloud Run exposure requires auth on the
 # cost-incurring routes, error handling, and observability before going live.
 
-PLATFORM_API_KEY = os.environ.get("PLATFORM_API_KEY", "")  # if set, gates cost routes
+PLATFORM_API_KEY = os.environ.get("PLATFORM_API_KEY", "")  # missing key denies cost routes
 RATE_LIMIT_PER_MIN = int(os.environ.get("RATE_LIMIT_PER_MIN", "60"))
 
-# Routes that spend compute/money — require the API key when one is configured.
-_GATED_PREFIXES = ("/platform/collaborate", "/agents/run", "/agents/dispatch", "/v1/messages", "/predict")
+# Cost-bearing routes share one fail-closed auth decision with native regressions.
+from agents.platform_access import live_pipeline_state, platform_access_state
 
 # In-memory metrics (per-process; Cloud Run logs aggregate across instances).
 METRICS: dict[str, Any] = {
@@ -247,12 +247,18 @@ async def observability_and_guard(request: Request, call_next):
             {"error": "rate_limited", "limit_per_min": RATE_LIMIT_PER_MIN}, status_code=429
         )
 
-    # Auth gate on cost-incurring routes when a key is configured.
-    if PLATFORM_API_KEY and any(path.startswith(p) for p in _GATED_PREFIXES):
-        provided = request.headers.get("x-api-key", "")
-        if provided != PLATFORM_API_KEY:
-            METRICS["requests_total"] += 1
-            return JSONResponse({"error": "unauthorized"}, status_code=401)
+    # HTTP credentials are necessary but never sufficient for Automaton-3 admission.
+    access = platform_access_state(
+        path,
+        configured_key=PLATFORM_API_KEY,
+        supplied_key=request.headers.get("x-api-key", ""),
+    )
+    if access == "SERVER_UNCONFIGURED":
+        METRICS["requests_total"] += 1
+        return JSONResponse({"error": "platform_auth_unavailable"}, status_code=503)
+    if access == "UNAUTHORIZED":
+        METRICS["requests_total"] += 1
+        return JSONResponse({"error": "unauthorized"}, status_code=401)
 
     try:
         response = await call_next(request)
@@ -471,18 +477,22 @@ async def agent_run(request: Request):
     Response: {"task_id": "...", "role": "...", "output": "...", "governance": {...}, ...}
     """
     body = await request.json()
+    if not isinstance(body, dict):
+        raise HTTPException(400, "request body must be a JSON object")
     role = body.get("role", "engineering")
     task_instruction = body.get("task", "")
-    cycles = int(body.get("cycles", 3))
-
-    if not task_instruction:
-        raise HTTPException(400, "task is required")
-
-    # Inline import to keep coordinator dependencies optional
+    if not isinstance(task_instruction, str) or not task_instruction.strip():
+        raise HTTPException(400, "task must be a nonempty string")
     try:
-        import sys, os
-        sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
-        from agents.coordinator import AgentTask, AgentRole, run_agent
+        cycles = int(body.get("cycles", 3))
+    except (ValueError, TypeError):
+        raise HTTPException(400, "cycles must be an integer") from None
+    if not 1 <= cycles <= 3:
+        raise HTTPException(400, "cycles must be between 1 and 3")
+
+    # Reuse governed coordinator routing; do not call legacy run_agent directly.
+    try:
+        from agents.coordinator import AgentRole, dispatch_event
     except ImportError as exc:
         raise HTTPException(503, f"Agent coordinator not available: {exc}")
 
@@ -491,13 +501,16 @@ async def agent_run(request: Request):
     except ValueError:
         raise HTTPException(400, f"Unknown role: {role}. Valid: {[r.value for r in AgentRole]}")
 
-    task_obj = AgentTask(
-        task_id=str(uuid.uuid4()),
-        role=agent_role,
-        instruction=task_instruction,
+    results = await dispatch_event(
+        "manual_role",
+        {"role": agent_role.value, "task": task_instruction},
+        requested_roles=[agent_role],
+        instruction_override=task_instruction,
         max_ralph_cycles=cycles,
     )
-    result = await run_agent(task_obj)
+    if not results:
+        raise HTTPException(403, "CENTRAL_AUTHORITY_DENIED")
+    result = results[0]
     return {
         "task_id": result.task_id,
         "role": result.role.value,
@@ -506,6 +519,7 @@ async def agent_run(request: Request):
         "ralph_cycles": result.ralph_cycles,
         "duration_ms": result.duration_ms,
         "is_valid": result.is_valid,
+        "execution_state": "NOT_EXECUTED" if result.governance.get("dry_run") else "EXECUTED",
     }
 
 
@@ -651,6 +665,8 @@ async def platform_collaborate(request: Request):
     mode = body.get("mode", "revenue")
     objective = body.get("objective") or body.get("topic") or ""
     live = bool(body.get("live", False))
+    if live_pipeline_state(live) == "HOLD_NO_ADMISSION":
+        raise HTTPException(403, "LIVE_PIPELINE_AUTHORITY_UNAVAILABLE")
 
     if not objective:
         raise HTTPException(400, "objective (or topic) is required")
@@ -758,9 +774,11 @@ async def agent_batch(request: Request):
     or preparing a briefing from multiple specialist agents at once.
     """
     body = await request.json()
+    if not isinstance(body, dict):
+        raise HTTPException(400, "request body must be a JSON object")
     tasks_raw = body.get("tasks", [])
-    if not tasks_raw:
-        raise HTTPException(400, "tasks list is required")
+    if not isinstance(tasks_raw, list) or not tasks_raw:
+        raise HTTPException(400, "tasks must be a nonempty list")
     if len(tasks_raw) > 10:
         raise HTTPException(400, "max 10 tasks per batch")
 
@@ -768,30 +786,42 @@ async def agent_batch(request: Request):
     t_batch_start = time.time()
 
     try:
-        import sys
-        sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
-        from agents.coordinator import AgentTask, AgentRole, run_agent
+        from agents.coordinator import AgentRole, dispatch_event
     except ImportError as exc:
         raise HTTPException(503, f"Agent coordinator not available: {exc}")
 
     async def _run_one(task_dict: dict) -> dict:
+        if not isinstance(task_dict, dict):
+            return {"error": "invalid task", "execution_state": "NOT_EXECUTED"}
         role_str = task_dict.get("role", "engineering")
         task_text = task_dict.get("task", "")
-        cycles = int(task_dict.get("cycles", 3))
-        if not task_text:
-            return {"error": "task is required", "role": role_str}
+        if not isinstance(task_text, str) or not task_text.strip():
+            return {"error": "task must be a nonempty string", "execution_state": "NOT_EXECUTED"}
+        try:
+            cycles = int(task_dict.get("cycles", 3))
+        except (ValueError, TypeError):
+            return {"error": "invalid cycles", "execution_state": "NOT_EXECUTED"}
+        if not 1 <= cycles <= 3:
+            return {"error": "cycles must be between 1 and 3", "execution_state": "NOT_EXECUTED"}
         try:
             agent_role = AgentRole(role_str)
         except ValueError:
-            return {"error": f"unknown role: {role_str}", "role": role_str}
-        task_obj = AgentTask(
-            task_id=str(uuid.uuid4()),
-            role=agent_role,
-            instruction=task_text,
+            return {"error": "unknown role", "execution_state": "NOT_EXECUTED"}
+
+        results = await dispatch_event(
+            "manual_role",
+            {"task": task_text, "role": agent_role.value, "batch_id": batch_id},
+            requested_roles=[agent_role],
+            instruction_override=task_text,
             max_ralph_cycles=cycles,
         )
-        t0 = time.time()
-        result = await run_agent(task_obj)
+        if not results:
+            return {
+                "error": "CENTRAL_AUTHORITY_DENIED",
+                "role": agent_role.value,
+                "execution_state": "NOT_EXECUTED",
+            }
+        result = results[0]
         return {
             "task_id": result.task_id,
             "role": result.role.value,
@@ -799,6 +829,7 @@ async def agent_batch(request: Request):
             "ralph_cycles": result.ralph_cycles,
             "duration_ms": result.duration_ms,
             "is_valid": result.is_valid,
+            "execution_state": "NOT_EXECUTED" if result.governance.get("dry_run") else "EXECUTED",
         }
 
     results = await asyncio.gather(*[_run_one(t) for t in tasks_raw], return_exceptions=False)
@@ -839,6 +870,8 @@ async def platform_compare(request: Request):
     body = await request.json()
     objectives = body.get("objectives", [])
     live = bool(body.get("live", False))
+    if live_pipeline_state(live) == "HOLD_NO_ADMISSION":
+        raise HTTPException(403, "LIVE_PIPELINE_AUTHORITY_UNAVAILABLE")
 
     if not objectives:
         raise HTTPException(400, "objectives list is required")
@@ -930,6 +963,8 @@ async def platform_stream(request: Request):
     body = await request.json()
     objective = body.get("objective", "").strip()
     live = bool(body.get("live", False))
+    if live_pipeline_state(live) == "HOLD_NO_ADMISSION":
+        raise HTTPException(403, "LIVE_PIPELINE_AUTHORITY_UNAVAILABLE")
     if not objective:
         raise HTTPException(400, "objective is required")
 
@@ -1033,6 +1068,8 @@ async def schedule_revenue(request: Request):
     )
     objective = (body.get("objective") or default_objective).strip()
     live = bool(body.get("live", bool(os.environ.get("ANTHROPIC_API_KEY"))))
+    if live_pipeline_state(live) == "HOLD_NO_ADMISSION":
+        raise HTTPException(403, "LIVE_PIPELINE_AUTHORITY_UNAVAILABLE")
 
     import sys
     sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
@@ -1189,21 +1226,26 @@ async def github_webhook(request: Request):
     Receive GitHub webhook events and dispatch them to the appropriate agents.
     Handles: push, pull_request, issues, pull_request_review, check_run.
 
-    Verify GITHUB_WEBHOOK_SECRET if set (HMAC-SHA256).
+    Require GITHUB_WEBHOOK_SECRET (HMAC-SHA256) even when no agents run.
     """
-    import hmac, hashlib as _hl
+    from agents.platform_access import github_webhook_auth_state
 
-    # Signature verification
-    secret = os.environ.get("GITHUB_WEBHOOK_SECRET", "")
-    if secret:
-        sig_header = request.headers.get("x-hub-signature-256", "")
-        body_raw = await request.body()
-        expected = "sha256=" + hmac.new(secret.encode(), body_raw, _hl.sha256).hexdigest()
-        if not hmac.compare_digest(sig_header, expected):
-            return JSONResponse({"error": "invalid_signature"}, status_code=401)
+    body_raw = await request.body()
+    auth = github_webhook_auth_state(
+        configured_secret=os.environ.get("GITHUB_WEBHOOK_SECRET", ""),
+        supplied_signature=request.headers.get("x-hub-signature-256", ""),
+        body=body_raw,
+    )
+    if auth == "SERVER_UNCONFIGURED":
+        return JSONResponse({"error": "webhook_auth_unavailable"}, status_code=503)
+    if auth != "AUTHENTICATED":
+        return JSONResponse({"error": "invalid_signature"}, status_code=401)
+    try:
         body = json.loads(body_raw)
-    else:
-        body = await request.json()
+    except (ValueError, UnicodeError):
+        raise HTTPException(400, "invalid JSON body") from None
+    if not isinstance(body, dict) or body.get("repository", {}).get("full_name") != "Aegis-Omega/AEGIS-OMEGA":
+        raise HTTPException(403, "repository_not_allowed")
 
     event_type = request.headers.get("x-github-event", "unknown")
 
