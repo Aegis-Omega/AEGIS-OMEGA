@@ -175,6 +175,9 @@ jobs:
       - name: Run /platform/* contract tests
         run: python python/tests/test_platform.py
 
+      - name: Verify telemetry remains candidate evidence
+        run: python python/tests/test_live_state_is_measured.py -v
+
       - name: Contract equivalence gate — TS contract <-> Python runtime (no silent drift)
         run: python3 ../scripts/contract_equivalence_check.py
 
