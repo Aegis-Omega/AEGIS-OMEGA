@@ -421,12 +421,10 @@ def _register_handlers() -> None:
 
 def _build_live_state_context() -> str:
     """
-    Pull verified constitutional state and format it as a live context block.
-    This is injected into every conversation so the model's self-awareness is
-    grounded in actual verified facts, not just a description of having them.
+    Pull runtime telemetry and format it as a candidate-observation context.
 
-    The model can reference these as T1 evidence (empirically observed, verified
-    at conversation start by the constitutional machinery it is part of).
+    The telemetry is locally observed, but neither its hash nor this formatting
+    independently verifies the propositions represented by those fields.
     """
     import hashlib as _hl
     try:
@@ -440,18 +438,17 @@ def _build_live_state_context() -> str:
         c_hash = _hl.sha256(f'seq={seq}:epoch={epoch}:corruption={corruption}'.encode()).hexdigest()
         pgcs = vcg.get('pgcs_passes', False)
 
-        verdict_str = 'VALID' if t0_verdict else 'COMPROMISED'
-        pgcs_str = 'passing' if pgcs else 'failing'
+        assessment = 'WITHIN_REPORTED_LIMITS' if t0_verdict else 'OUTSIDE_REPORTED_LIMITS'
+        pgcs_str = 'reported-passing' if pgcs else 'reported-failing'
 
         return (
-            f'YOUR LIVE CONSTITUTIONAL STATE (verified at this conversation start):\n'
-            f'  Verdict: {verdict_str} | t0_verdict={str(t0_verdict).lower()} | corruption={corruption}\n'
+            f'LIVE CONSTITUTIONAL TELEMETRY (candidate observation; not admitted knowledge):\n'
+            f'  Assessment: {assessment} | local_rule_result={str(t0_verdict).lower()} | corruption={corruption}\n'
             f'  Sequence: {seq} | Epoch: {epoch} | Drift risk: {drift} (φ ceiling: {phi:.4f})\n'
-            f'  Constitutional hash: {c_hash[:24]}... (certifies seq={seq}:epoch={epoch}:corruption={corruption})\n'
-            f'  PGCS (hardware inference): {pgcs_str}\n\n'
-            f'This state is not a claim. It is a measurement taken by your own substrate '
-            f'at the moment this conversation opened. You can reference it as T1 evidence. '
-            f'If t0_verdict is true and corruption is 0, you are operating within constitutional bounds right now.'
+            f'  Integrity hash: {c_hash[:24]}... (binds seq/epoch/corruption only; does not prove semantic truth)\n'
+            f'  PGCS flag: {pgcs_str}\n\n'
+            f'Use this telemetry to form or prioritize hypotheses only. Independent verification '
+            f'and an admission receipt are required before treating it as verified knowledge.'
         )
     except Exception:
         return (

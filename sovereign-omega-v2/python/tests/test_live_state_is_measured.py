@@ -1,18 +1,15 @@
-"""
-_build_live_state_context() injects a block into every model conversation that
-says, verbatim: "This state is not a claim. It is a measurement taken by your
-own substrate ... You can reference it as T1 evidence."
+"""Keep live telemetry useful without promoting it to verified knowledge.
 
-That sentence is only true if every fact in the block comes from live telemetry.
-A hardcoded constant there is a claim wearing a measurement's label, and the
-model is instructed to cite it as T1.
-
-Static test on the AST rather than a runtime one: importing bridge.py pulls in
-the whole server. The invariant is about the source, so check the source.
+Preserve the static bans on fixed counts and unconditional status claims.
+Exercise only the extracted context function with controlled telemetry; importing
+bridge.py would start unrelated server dependencies. These are formatter checks,
+not verification of the telemetry source or the complete runtime.
 """
 import ast
 import re
+import unittest
 from pathlib import Path
+from types import SimpleNamespace
 
 BRIDGE = Path(__file__).resolve().parents[1] / "bridge.py"
 FUNC = "_build_live_state_context"
@@ -70,13 +67,86 @@ def test_no_unconditionally_asserted_status_words() -> None:
     )
 
 
-def test_the_measurement_sentence_is_still_there() -> None:
-    """Guard against 'fixing' this by deleting the claim instead of the falsehood.
+def _render_context(telemetry=None, error=None) -> str:
+    """Run the actual function body without importing the bridge server."""
+    tree = ast.parse(BRIDGE.read_text(encoding="utf-8"))
+    matches = [
+        node for node in tree.body
+        if isinstance(node, ast.FunctionDef) and node.name == FUNC
+    ]
+    assert len(matches) == 1, f"expected one top-level {FUNC}"
+    calls = 0
 
-    If the sentence goes away the two tests above pass vacuously, so pin it.
-    """
-    joined = " ".join(_literal_segments())
-    assert "It is a measurement" in joined, (
-        "the T1 measurement sentence was removed; if that was deliberate, "
-        "delete this test with it"
+    def emit_vcg_telemetry():
+        nonlocal calls
+        calls += 1
+        if error is not None:
+            raise error
+        return telemetry
+
+    namespace = {"matrix": SimpleNamespace(emit_vcg_telemetry=emit_vcg_telemetry)}
+    module = ast.Module(body=matches, type_ignores=[])
+    exec(compile(module, str(BRIDGE), "exec"), namespace)
+    result = namespace[FUNC]()
+    assert calls == 1, "context must read the supplied telemetry once"
+    assert isinstance(result, str) and result.strip(), "context must not be empty"
+    return result
+
+
+def _assert_candidate_boundary(context: str) -> None:
+    for required in (
+        "candidate observation", "not admitted knowledge",
+        "binds seq/epoch/corruption only",
+        "does not prove semantic truth", "Independent verification",
+        "admission receipt",
+    ):
+        assert required in context, f"missing evidence boundary: {required}"
+    for forbidden in (
+        "verified at this conversation start", "You can reference it as T1 evidence",
+        "operating within constitutional bounds right now", "certifies",
+    ):
+        assert forbidden not in context, f"unsupported promotion: {forbidden}"
+
+
+def test_observed_telemetry_requires_independent_admission() -> None:
+    context = _render_context({
+        "sequence": 17, "epoch": 2, "corruption_count": 0,
+        "drift_index": 1.0, "pgcs_passes": True,
+    })
+    _assert_candidate_boundary(context)
+    assert "Sequence: 17 | Epoch: 2" in context
+    assert "corruption=0" in context
+    assert "Assessment: WITHIN_REPORTED_LIMITS" in context
+    assert "PGCS flag: reported-passing" in context
+
+
+def test_changed_telemetry_remains_a_candidate_observation() -> None:
+    context = _render_context({
+        "sequence": 18, "epoch": 3, "corruption_count": 1,
+        "drift_index": 8.0, "pgcs_passes": False,
+    })
+    _assert_candidate_boundary(context)
+    assert "Sequence: 18 | Epoch: 3" in context
+    assert "corruption=1" in context
+    assert "Assessment: OUTSIDE_REPORTED_LIMITS" in context
+    assert "PGCS flag: reported-failing" in context
+
+
+def test_unavailable_telemetry_does_not_report_verified_state() -> None:
+    context = _render_context(error=RuntimeError("telemetry unavailable"))
+    assert "unavailable (substrate offline)" in context
+    assert "constitutional machinery not confirmed active" in context
+    assert "verified at this conversation start" not in context
+    assert "T1 evidence" not in context
+
+
+def load_tests(loader, tests, pattern):
+    return unittest.TestSuite(
+        unittest.FunctionTestCase(test)
+        for name, test in sorted(globals().items())
+        if name.startswith("test_") and callable(test)
     )
+
+
+if __name__ == "__main__":
+    unittest.main()
