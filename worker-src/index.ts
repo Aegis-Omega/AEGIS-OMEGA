@@ -1,3 +1,6 @@
+import { handlePaidInvocation } from './paidInvocation.js'
+import { paidCors, paidOriginAllowed, reservePaidInvocation } from './invocationGate.js'
+
 /**
  * AEGIS Omega — Cloudflare Worker Bridge
  *
@@ -19,6 +22,8 @@ interface Fetcher {
 
 interface Env {
   ANTHROPIC_API_KEY?: string
+  SUPABASE_URL?: string
+  SUPABASE_SERVICE_ROLE_KEY?: string
   ASSETS: Fetcher
 }
 
@@ -143,7 +148,9 @@ Return JSON:
     cycle_id: id,
     objective,
     mode,
-    departments_collaborated: DEPARTMENTS.length,
+    departments_requested: DEPARTMENTS.length,
+    departments_collaborated: artifacts.length, // count only artifacts actually returned by provider
+    coverage_note: artifacts.length === DEPARTMENTS.length ? 'requested_count_matched' : 'partial_model_output',
     artifacts,
     projection: { summary: parsed['summary'] ?? 'Constitutional analysis complete.' },
     // The model's own words about its output. Relabelled so it is not read as
@@ -166,6 +173,13 @@ export default {
     const method = request.method
 
     if (method === 'OPTIONS') {
+      if (pathname === '/platform/collaborate') {
+        const origin = request.headers.get('origin')
+        return new Response(null, {
+          status: paidOriginAllowed(origin) ? 204 : 403,
+          headers: paidCors(origin),
+        })
+      }
       return new Response(null, { status: 204, headers: CORS })
     }
 
@@ -261,20 +275,14 @@ export default {
     }
 
     if (pathname === '/platform/collaborate' && method === 'POST') {
-      if (!env.ANTHROPIC_API_KEY) {
-        return err('ANTHROPIC_API_KEY not configured', 'UNAUTHORIZED', 401)
-      }
-      try {
-        const body = await request.json() as { objective?: string; mode?: string }
-        const result = await runSwarm(
-          body.objective ?? 'Analyze governance objective',
-          body.mode ?? 'analysis',
-          env.ANTHROPIC_API_KEY,
-        )
-        return ok(envelope(execId('collab'), result))
-      } catch (e) {
-        return err(String(e), 'INTERNAL', 500)
-      }
+      return handlePaidInvocation(request, env, {
+        originAllowed: paidOriginAllowed,
+        cors: paidCors,
+        reserve: reservePaidInvocation,
+        provider: runSwarm,
+        envelope,
+        id: execId,
+      })
     }
 
     // ── Holon validation endpoint — external AI nodes submit constitutional verdicts ──
@@ -356,14 +364,10 @@ export default {
       }))
     }
 
-    // Async execution stub — returns immediately with a pending execution
+    // There is no durable execution store/queue in this Worker.
+    // Never return a fake pending execution or a stream URL that cannot work.
     if (pathname === '/platform/executions' && method === 'POST') {
-      const id = execId('exec')
-      return ok(envelope(id, {
-        execution_id: id,
-        stream_url: `/platform/executions/live?id=${id}`,
-        status: 'pending',
-      }))
+      return err('Durable asynchronous execution is not implemented here', 'NOT_IMPLEMENTED', 501)
     }
 
     // ── Fall through to WebGPU static assets ─────────────────────────────────
