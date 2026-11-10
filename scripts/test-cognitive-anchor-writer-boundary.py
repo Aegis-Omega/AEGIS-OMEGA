@@ -102,7 +102,7 @@ class TrustedAdmissionBoundaryTests(TestCase):
         for forbidden in ("contents: write", "checks: write", "id-token: write", "attestations: write", "pull-requests: write"):
             self.assertNotIn(forbidden, source)
         for required in (
-            "job.workflow_sha || github.workflow_sha",
+            "TRUSTED_SOURCE_SHA: ${{ github.event.pull_request.base.sha }}",
             "path: trusted-source",
             "path: base-data",
             "path: candidate-data",
@@ -123,6 +123,21 @@ class TrustedAdmissionBoundaryTests(TestCase):
         self.assertNotIn("candidate-data/scripts/", source)
         self.assertNotIn("working-directory: candidate-data", source)
         self.assertNotIn("pip install", source)
+
+    def test_trusted_source_checkout_uses_exact_protected_base_not_merge(self) -> None:
+        source = TRUSTED_WORKFLOW.read_text(encoding="utf-8")
+        trusted_steps = ("Checkout trusted writer evaluator", "Checkout trusted workflow source")
+        for step in trusted_steps:
+            marker = f"- name: {step}\\n"
+            self.assertEqual(source.count(marker), 1, f"unexpected trusted step: {step}")
+            checkout = source.split(marker, 1)[1].split("\\n      - name:", 1)[0]
+            self.assertIn("repository: ${{ github.event.pull_request.base.repo.full_name }}", checkout)
+            self.assertIn("ref: ${{ github.event.pull_request.base.sha }}", checkout)
+            self.assertNotIn("job.workflow_sha", checkout)
+            self.assertNotIn("github.sha", checkout)
+        self.assertIn("TRUSTED_SOURCE_SHA: ${{ github.event.pull_request.base.sha }}", source)
+        self.assertIn('--workflow-sha "$TRUSTED_SOURCE_SHA"', source)
+        self.assertNotIn("job.workflow_sha || github.workflow_sha", source)
 
     def test_ruleset_payload_is_evaluate_only_zero_bypass_and_exact_source_pinned(self) -> None:
         payload = json.loads(ORG_RULESET_PAYLOAD.read_text(encoding="utf-8"))
