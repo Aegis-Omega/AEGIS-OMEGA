@@ -10,7 +10,7 @@ Two independent evaluations of the same form:
   formula side : (1/pi) int_0^T S(t) |ghat(t)|^2 dt, arch + primes only     (d = 0 check)
 Numerical diagnostic; no proof authority.
 """
-import json, math, os, sys
+import json, math, os
 from multiprocessing import Pool
 
 import mpmath
@@ -48,11 +48,13 @@ def ghat(tau, L, dim):
 
 def zeta_zeros(n=2000):
     if os.path.exists(ZEROS):
-        return np.array(json.load(open(ZEROS)))
+        with open(ZEROS) as f:
+            return np.array(json.load(f))
     mpmath.mp.dps = 15
     with Pool(4) as p:
         z = p.map(lambda_zero, range(1, n + 1), chunksize=50)
-    json.dump(z, open(ZEROS, "w"))
+    with open(ZEROS, "w") as f:
+        json.dump(z, f)
     return np.array(z)
 
 

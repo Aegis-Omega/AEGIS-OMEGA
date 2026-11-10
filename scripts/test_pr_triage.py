@@ -7,7 +7,6 @@ from pathlib import Path
 import subprocess
 import tempfile
 import unittest
-from unittest.mock import patch
 
 import importlib.util
 HERE = Path(__file__).resolve().parent
