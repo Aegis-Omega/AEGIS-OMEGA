@@ -467,7 +467,26 @@ class BridgeHandler(BaseHTTPRequestHandler):
     def do_POST(self):
         global last_ack_sequence
         length = int(self.headers.get('Content-Length', 0))
-        data = json.loads(self.rfile.read(length)) if length else {}
+        _archive_post = self.path.split('?', 1)[0].startswith('/platform/archive/runtime')
+        if _archive_post and length > 4096:
+            self._platform_respond(
+                413,
+                {'error': 'archive runtime request too large', 'code': 'PAYLOAD_TOO_LARGE', 'authority_effect': 'NONE'},
+                cache_control='no-store',
+            )
+            return
+        _raw_body = self.rfile.read(length) if length else b''
+        try:
+            data = json.loads(_raw_body) if _raw_body else {}
+        except json.JSONDecodeError:
+            if _archive_post:
+                self._platform_respond(
+                    400,
+                    {'error': 'invalid JSON body', 'code': 'INVALID_REQUEST', 'authority_effect': 'NONE'},
+                    cache_control='no-store',
+                )
+                return
+            raise
 
         if self.path == '/gate_signal':
             seq = data.get('sequence', -1)
@@ -687,6 +706,60 @@ class BridgeHandler(BaseHTTPRequestHandler):
                 'sequence': sequence,
                 'threshold': '618034/1000000',
             })
+
+        elif self.path.startswith('/platform/archive/runtime'):
+            # Privacy-preserving recovered-runtime compute RPC.
+            # POST here is transport-only: adapter operations remain local,
+            # ephemeral, non-persistent, and authority-neutral.
+            import uuid as _uuid_ar_post
+            from archive_runtime_api import (
+                discover_archive_runtime_root as _discover_archive_runtime_root_post,
+                dispatch_archive_runtime_post as _dispatch_archive_runtime_post,
+            )
+
+            api_key = self.headers.get('x-api-key', '')
+            try:
+                _email, _tier = _platform_verify_api_key(api_key)
+            except ValueError as exc:
+                self._platform_respond(
+                    401,
+                    {'error': str(exc), 'code': 'UNAUTHORIZED', 'authority_effect': 'NONE'},
+                    cache_control='no-store',
+                )
+                return
+
+            try:
+                _archive_root = _discover_archive_runtime_root_post(__file__)
+                _archive_code, _archive_payload = _dispatch_archive_runtime_post(
+                    self.path,
+                    data,
+                    repository_root=_archive_root,
+                )
+            except Exception:
+                self._platform_respond(
+                    503,
+                    {
+                        'error': 'archive runtime unavailable',
+                        'code': 'INVALID_OR_STALE',
+                        'authority_effect': 'NONE',
+                    },
+                    cache_control='no-store',
+                )
+                return
+
+            if _archive_code == 200:
+                _archive_eid = str(_uuid_ar_post.uuid4())
+                self._platform_respond(
+                    200,
+                    _platform_envelope(_archive_eid, _archive_payload),
+                    cache_control='no-store',
+                )
+            else:
+                self._platform_respond(
+                    _archive_code,
+                    _archive_payload,
+                    cache_control='no-store',
+                )
 
         elif self.path == '/platform/collaborate':
             # POST /platform/collaborate — synchronous 39-dept collaboration.
@@ -1566,6 +1639,47 @@ class BridgeHandler(BaseHTTPRequestHandler):
                 'description': 'Each agent gives the next agent a grace.',
             }))
 
+        elif self.path.startswith('/platform/archive/runtime'):
+            # Public status stays GET. Compute GETs fail closed with 405 so
+            # user inputs cannot leak through query strings / access logs.
+            import uuid as _uuid_ar_get
+            from archive_runtime_api import (
+                discover_archive_runtime_root as _discover_archive_runtime_root_get,
+                dispatch_archive_runtime_get as _dispatch_archive_runtime_get,
+            )
+
+            try:
+                _archive_root = _discover_archive_runtime_root_get(__file__)
+                _archive_code, _archive_payload = _dispatch_archive_runtime_get(
+                    self.path,
+                    repository_root=_archive_root,
+                )
+            except Exception:
+                self._platform_respond(
+                    503,
+                    {
+                        'error': 'archive runtime unavailable',
+                        'code': 'INVALID_OR_STALE',
+                        'authority_effect': 'NONE',
+                    },
+                    cache_control='no-store',
+                )
+                return
+
+            if _archive_code == 200:
+                _archive_eid = str(_uuid_ar_get.uuid4())
+                self._platform_respond(
+                    200,
+                    _platform_envelope(_archive_eid, _archive_payload),
+                    cache_control='no-store',
+                )
+            else:
+                self._platform_respond(
+                    _archive_code,
+                    _archive_payload,
+                    cache_control='no-store',
+                )
+
         elif self.path.startswith('/platform/compliance/export'):
             # GET /platform/compliance/export — HIPAA §164.312(b) audit trail export.
             # Returns tamper-evident AI governance records from revenue_cycles.
@@ -1792,7 +1906,13 @@ class BridgeHandler(BaseHTTPRequestHandler):
         self._cors_headers()
         self.end_headers()
 
-    def _platform_respond(self, code: int, data: dict) -> None:
+    def _platform_respond(
+        self,
+        code: int,
+        data: dict,
+        *,
+        cache_control: str | None = None,
+    ) -> None:
         """Like _respond but adds contract version + git SHA headers."""
         body = json.dumps(data).encode()
         self.send_response(code)
@@ -1801,6 +1921,8 @@ class BridgeHandler(BaseHTTPRequestHandler):
         self.send_header('Content-Length', len(body))
         self.send_header('X-Contract-Version', _PLATFORM_CONTRACT_VERSION)
         self.send_header('X-Git-SHA', _PLATFORM_GIT_SHA)
+        if cache_control:
+            self.send_header('Cache-Control', cache_control)
         self.end_headers()
         self.wfile.write(body)
 

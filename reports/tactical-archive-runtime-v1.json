@@ -1,0 +1,41 @@
+{
+  "schema": "AEGIS_TACTICAL_ARCHIVE_RUNTIME_V1",
+  "base_pr": 628,
+  "base_head": "9124dd17d96d3703042b027af24af44e14e5e03f",
+  "surface": "tactical",
+  "features": [
+    "public recovered-runtime readiness status",
+    "manual fixed ROT90 2x2 verification probe"
+  ],
+  "probe": {
+    "method": "POST",
+    "input": [
+      [
+        1,
+        2
+      ],
+      [
+        3,
+        4
+      ]
+    ],
+    "operation_id": 1,
+    "expected_output": [
+      [
+        2,
+        4
+      ],
+      [
+        1,
+        3
+      ]
+    ],
+    "api_key": "EXISTING_TACTICAL_KEY",
+    "transport": "JSON_BODY"
+  },
+  "arbitrary_user_compute": false,
+  "deployment": "NOT_PERFORMED",
+  "authority_effect": "NONE",
+  "durable_mutation": false,
+  "query_payloads": false
+}
