@@ -15,29 +15,24 @@ except Exception:
     print('')
 " 2>/dev/null || echo "")
 
-if [ -z "$FILE_PATH" ]; then
+# Fail closed for missing/malformed Write/Edit paths and named frozen files.
+# The shared guard parses the actual PreToolUse JSON, canonicalizes paths,
+# and protects both root-relative and nested Sovereign Omega source paths.
+HOOK_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+FROZEN_GUARD="$HOOK_DIR/../../sovereign-omega-v2/.claude/hooks/frozen-write-guard.py"
+if [[ ! -f "$FROZEN_GUARD" ]]; then
+  echo '{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"deny","permissionDecisionReason":"AEGIS frozen guard missing; no Write/Edit until installed"}}'
   exit 0
 fi
-
-# ── Frozen-file membrane check (T0_ABORT) ──────────────────────────────────
-if echo "$FILE_PATH" | grep -qE "(python/(gate|dna|router)\.py)$"; then
-  BASENAME=$(basename "$FILE_PATH")
-  BASENAME="$BASENAME" python3 <<'PYEOF'
-import json, os
-bn = os.environ['BASENAME']
-print(json.dumps({
-  'systemMessage': f'T0_ABORT: {bn} is constitutionally frozen. Requires /guardian APPROVED.',
-  'hookSpecificOutput': {
-    'hookEventName': 'PreToolUse',
-    'permissionDecision': 'deny',
-    'permissionDecisionReason': (
-      f'{bn} is a frozen constitutional file (SHA-256 anchored). '
-      'Modification requires /guardian APPROVED. '
-      'Run: cd sovereign-omega-v2 && node scripts/verify-hashes.mjs'
-    )
-  }
-}))
-PYEOF
+if ! GUARD_OUTPUT=$(printf '%s' "$INPUT" | python3 "$FROZEN_GUARD" 2>/dev/null); then
+  echo '{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"deny","permissionDecisionReason":"AEGIS frozen guard crashed; fail closed"}}'
+  exit 0
+fi
+if [[ "$GUARD_OUTPUT" == *'"permissionDecision":"deny"'* ]]; then
+  printf '%s\n' "$GUARD_OUTPUT"
+  exit 0
+elif [[ "$GUARD_OUTPUT" != *'"permissionDecision":"allow"'* ]]; then
+  echo '{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"deny","permissionDecisionReason":"AEGIS frozen guard returned invalid verdict"}}'
   exit 0
 fi
 
