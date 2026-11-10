@@ -128,9 +128,9 @@ class TrustedAdmissionBoundaryTests(TestCase):
         source = TRUSTED_WORKFLOW.read_text(encoding="utf-8")
         trusted_steps = ("Checkout trusted writer evaluator", "Checkout trusted workflow source")
         for step in trusted_steps:
-            marker = f"- name: {step}\\n"
+            marker = f"- name: {step}\n"
             self.assertEqual(source.count(marker), 1, f"unexpected trusted step: {step}")
-            checkout = source.split(marker, 1)[1].split("\\n      - name:", 1)[0]
+            checkout = source.split(marker, 1)[1].split("\n      - name:", 1)[0]
             self.assertIn("repository: ${{ github.event.pull_request.base.repo.full_name }}", checkout)
             self.assertIn("ref: ${{ github.event.pull_request.base.sha }}", checkout)
             self.assertNotIn("job.workflow_sha", checkout)
