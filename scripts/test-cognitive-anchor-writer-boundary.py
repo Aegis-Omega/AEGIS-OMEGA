@@ -102,7 +102,7 @@ class TrustedAdmissionBoundaryTests(TestCase):
         for forbidden in ("contents: write", "checks: write", "id-token: write", "attestations: write", "pull-requests: write"):
             self.assertNotIn(forbidden, source)
         for required in (
-            "TRUSTED_SOURCE_SHA: ${{ github.event.pull_request.base.sha }}",
+            "job.workflow_sha || github.workflow_sha",
             "path: trusted-source",
             "path: base-data",
             "path: candidate-data",
@@ -172,6 +172,7 @@ class TrustedAdmissionBoundaryTests(TestCase):
             candidate,
             source_ref="feature/test",
             parent_state_hash=base_manifest["state_hash"],
+            canonical_source_ref=False,
         )
         (candidate / ".claude.json").write_text(generator.render_manifest(candidate_manifest), encoding="utf-8")
         (candidate / "skill-hashes.sha256").write_text(candidate_hashes, encoding="utf-8")
@@ -220,6 +221,60 @@ class TrustedAdmissionBoundaryTests(TestCase):
             candidate_path.write_text(json.dumps(candidate_obj, separators=(",", ":")) + "\n", encoding="utf-8")
             denied = evaluator.evaluate(**kwargs)
             self.assertEqual(denied["outcome"], "DENIED")
+
+    def test_opt_in_canonical_migration_is_exact_and_branch_invariant(self) -> None:
+        with TemporaryDirectory() as tmp:
+            evaluator, base, candidate = self._build_exact_fixture(Path(tmp))
+            generator = load_module(
+                "trusted_generator_canonical_fixture",
+                REPO_ROOT / "scripts" / "build-cognitive-manifest.py",
+            )
+            base_state = json.loads((base / ".claude.json").read_text(encoding="utf-8"))["state_hash"]
+            first, hashes = generator.build_manifest(
+                candidate,
+                source_ref="feature/test",
+                parent_state_hash=base_state,
+                canonical_source_ref=True,
+            )
+            second, second_hashes = generator.build_manifest(
+                candidate,
+                source_ref="feature/another",
+                parent_state_hash=base_state,
+                canonical_source_ref=True,
+            )
+            self.assertEqual(generator.render_manifest(first), generator.render_manifest(second))
+            self.assertEqual(hashes, second_hashes)
+            self.assertEqual(first["provenance"]["source_ref"], "main")
+            (candidate / ".claude.json").write_text(generator.render_manifest(first), encoding="utf-8")
+            (candidate / "skill-hashes.sha256").write_text(hashes, encoding="utf-8")
+            kwargs = dict(
+                candidate_root=candidate, base_root=base, source_ref="feature/test",
+                candidate_sha="a" * 40, base_sha="b" * 40, workflow_sha="c" * 40,
+            )
+            accepted = evaluator.evaluate(**kwargs)
+            self.assertEqual(accepted["outcome"], "ADMITTED", accepted["violations"])
+            self.assertEqual(accepted["candidate_provenance_mode"], "canonical-main-ref")
+            # Correctly hashed but stale parent must still be refused.
+            wrong, wrong_hashes = generator.build_manifest(
+                candidate, source_ref="feature/test",
+                parent_state_hash="f" * 64, canonical_source_ref=True,
+            )
+            (candidate / ".claude.json").write_text(generator.render_manifest(wrong), encoding="utf-8")
+            (candidate / "skill-hashes.sha256").write_text(wrong_hashes, encoding="utf-8")
+            denied = evaluator.evaluate(**kwargs)
+            self.assertEqual(denied["outcome"], "DENIED")
+            self.assertIn("candidate manifest canonical content differs from trusted regeneration", denied["violations"])
+
+    def test_existing_branch_scoped_manifest_keeps_legacy_contract(self) -> None:
+        with TemporaryDirectory() as tmp:
+            evaluator, base, candidate = self._build_exact_fixture(Path(tmp))
+            result = evaluator.evaluate(
+                candidate_root=candidate, base_root=base, source_ref="feature/test",
+                candidate_sha="a" * 40, base_sha="b" * 40, workflow_sha="c" * 40,
+            )
+            self.assertEqual(result["outcome"], "ADMITTED", result["violations"])
+            self.assertEqual(result["candidate_provenance_mode"], "legacy-branch-ref")
+
 
 
 if __name__ == "__main__":

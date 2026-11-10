@@ -21,16 +21,6 @@ SCHEMA_ID = "https://aegisomega.com/schemas/cognitive-state.v1.schema.json"
 SYSTEM_IDENTIFIER = "AEGIS-OMEGA-LIVING-ANCHOR"
 SIGNATURE_MODE = "GITHUB_OIDC_ATTESTATION"
 ZERO_HASH = "0" * 64
-
-# The manifest describes the repository's skills tree. The branch that happened
-# to run the generator is not part of that description -- git already records it.
-# Writing the branch name here made state_hash branch-dependent, so an identical
-# tree produced different bytes on every branch and every long-lived branch
-# conflicted with main on this one generated file.
-#
-# Holding it constant makes the manifest byte-identical wherever it is built,
-# which is what lets validate-automaton2.py's replay check mean something: any
-# runner, on any ref, must reproduce exactly these bytes.
 CANONICAL_SOURCE_REF = "main"
 HASH_RE = re.compile(r"^[0-9a-f]{64}$")
 SKIP_DIRS = {
@@ -108,9 +98,8 @@ def build_manifest(
     *,
     source_ref: str,
     parent_state_hash: str,
+    canonical_source_ref: bool = True,
 ) -> tuple[dict[str, Any], str]:
-    # source_ref is accepted for call-site compatibility but deliberately not
-    # written into the manifest. See CANONICAL_SOURCE_REF.
     if not HASH_RE.fullmatch(parent_state_hash):
         raise ValueError("parent_state_hash must be lowercase SHA-256 hex")
     entries = discover_skills(root)
@@ -138,7 +127,7 @@ def build_manifest(
         "provenance": {
             "generator": "scripts/build-cognitive-manifest.py",
             "repository": "Aegis-Omega/AEGIS-OMEGA",
-            "source_ref": CANONICAL_SOURCE_REF,
+            "source_ref": CANONICAL_SOURCE_REF if canonical_source_ref else source_ref,
             "parent_state_hash": parent_state_hash,
             "signature_mode": SIGNATURE_MODE,
         },
@@ -301,11 +290,13 @@ def write_or_check(
     parent_state_hash: str,
     check: bool,
     output_dir: Path | None,
+    canonical_source_ref: bool = True,
 ) -> int:
     manifest, hash_lines = build_manifest(
         root,
         source_ref=source_ref,
         parent_state_hash=parent_state_hash,
+        canonical_source_ref=canonical_source_ref,
     )
     rendered = {
         "manifest": render_manifest(manifest),
@@ -343,6 +334,8 @@ def write_or_check(
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--check", action="store_true")
+    parser.add_argument("--canonical-source-ref", action="store_true", help="Opt into branch-invariant manifest provenance")
+    parser.add_argument("--legacy-source-ref", action="store_true", help="Replay historical branch-bound manifests explicitly")
     parser.add_argument(
         "--ref",
         default=os.environ.get("AEGIS_MANIFEST_SOURCE_REF", "repository-state"),
@@ -358,6 +351,8 @@ def main() -> int:
     )
     parser.add_argument("--output-dir", default=None)
     args = parser.parse_args()
+    if args.canonical_source_ref and args.legacy_source_ref:
+        parser.error("--canonical-source-ref conflicts with --legacy-source-ref")
 
     root = (
         Path(args.root).resolve()
@@ -371,6 +366,7 @@ def main() -> int:
         parent_state_hash=args.parent_state_hash,
         check=args.check,
         output_dir=output_dir,
+        canonical_source_ref=not args.legacy_source_ref,
     )
 
 
