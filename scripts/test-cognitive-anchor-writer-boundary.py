@@ -102,7 +102,7 @@ class TrustedAdmissionBoundaryTests(TestCase):
         for forbidden in ("contents: write", "checks: write", "id-token: write", "attestations: write", "pull-requests: write"):
             self.assertNotIn(forbidden, source)
         for required in (
-            "job.workflow_sha || github.workflow_sha",
+            "github.event.pull_request.base.sha",
             "path: trusted-source",
             "path: base-data",
             "path: candidate-data",
