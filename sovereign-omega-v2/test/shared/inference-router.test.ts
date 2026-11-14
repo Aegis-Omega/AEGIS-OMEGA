@@ -41,7 +41,7 @@ describe('opt-in OpenAI backend gating', () => {
       return Promise.reject(new Error('network down'))
     })
 
-    const r = await routeInference({ systemPrompt: 'S', userMessage: 'U' })
+    const r = await routeInference({ systemPrompt: 'S', userMessage: 'U', backend: 'openai-compat', userAccessToken: 'header.payload.signature' })
     expect(r.backend).toBe('openai-compat')
     expect(r.content).toBe('{"ok":true}')
     expect(r.model).toBe('gpt-4o-mini')
@@ -70,7 +70,7 @@ describe('opt-in OpenAI backend gating', () => {
       return Promise.reject(new Error('network down'))
     })
 
-    const r = await routeInference({ systemPrompt: 'S', userMessage: 'U', model: 'client-requested-model' })
+    const r = await routeInference({ systemPrompt: 'S', userMessage: 'U', model: 'client-requested-model', backend: 'openai-compat', userAccessToken: 'header.payload.signature' })
     expect(r.model).toBe('server-chosen-model')
     expect(r.model).not.toBe('client-requested-model')
   })
@@ -106,7 +106,7 @@ describe('opt-in Nebius Token Factory backend gating', () => {
       return Promise.reject(new Error('network down'))
     })
 
-    const r = await routeInference({ systemPrompt: 'S', userMessage: 'U', userAccessToken: 'header.payload.signature' })
+    const r = await routeInference({ systemPrompt: 'S', userMessage: 'U', userAccessToken: 'header.payload.signature', backend: 'nebius-token-factory' })
     expect(r.backend).toBe('nebius-token-factory')
     expect(r.content).toBe('{"ok":true}')
     expect(r.model).toBe('deepseek-ai/DeepSeek-R1-0528')
@@ -158,6 +158,7 @@ describe('opt-in Nebius Token Factory backend gating', () => {
       systemPrompt: 'S',
       userMessage: 'U',
       model: 'client-requested-model',
+      backend: 'nebius-token-factory',
       userAccessToken: 'header.payload.signature',
     })
     expect(r.backend).toBe('nebius-token-factory')
@@ -187,7 +188,7 @@ describe('opt-in Azure OpenAI backend gating', () => {
       return Promise.reject(new Error('network down'))
     })
 
-    const r = await routeInference({ systemPrompt: 'S', userMessage: 'U' })
+    const r = await routeInference({ systemPrompt: 'S', userMessage: 'U', backend: 'azure-openai', userAccessToken: 'header.payload.signature' })
     expect(r.backend).toBe('azure-openai')
     expect(r.content).toBe('{"ok":true}')
     expect(r.model).toBe('aegis-gpt4o')
@@ -215,7 +216,7 @@ describe('opt-in Azure OpenAI backend gating', () => {
       return Promise.reject(new Error('network down'))
     })
 
-    const r = await routeInference({ systemPrompt: 'S', userMessage: 'U', model: 'client-requested-model' })
+    const r = await routeInference({ systemPrompt: 'S', userMessage: 'U', model: 'client-requested-model', backend: 'azure-openai', userAccessToken: 'header.payload.signature' })
     expect(r.model).toBe('server-deployment')
     expect(r.model).not.toBe('client-requested-model')
   })
@@ -258,3 +259,4 @@ describe('Nebius exact-provider no-fallback contract', () => {
     expect(fetchMock).not.toHaveBeenCalled()
   })
 })
+

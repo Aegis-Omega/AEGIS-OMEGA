@@ -29,6 +29,7 @@ on:
       - supabase/functions/chat/index.ts
       - supabase/functions/_shared/http.ts
       - scripts/chat-authorization.test.mjs
+      - scripts/inference-router.test.mjs
       - supabase/functions/agent/index.ts
       - supabase/functions/_shared/nebius-auth.ts
       - packages/shared/lib/inference-router.ts
@@ -65,7 +66,7 @@ jobs:
         with:
           node-version: '24'
       - name: Execute real chat handler with synthetic Auth and provider dependencies
-        run: node --test scripts/chat-authorization.test.mjs
+        run: node --test scripts/chat-authorization.test.mjs scripts/inference-router.test.mjs
 
   contracts-v1:
     name: V1 vectors and type safety
@@ -212,3 +213,4 @@ jobs:
 
       - name: Verify atomic high-water checkpoint in same isolated PostgreSQL
         run: python3 scripts/test_durable_generation_checkpoint_pg.py
+

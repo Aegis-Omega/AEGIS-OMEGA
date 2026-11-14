@@ -6,8 +6,9 @@
  * The governance layer (audit chain, CCIL-Ψ, martingale) is invariant.
  * The inference backend is pluggable: DashScope, Ollama, Claude, CL-Ψ, any OpenAI-compat.
  *
- * Priority: first backend that responds. Graceful fallback through the chain.
- * Every call — regardless of backend — produces the same ConstitutionalAuditRecord.
+ * Default fallback is limited to local backends. Hosted providers require explicit
+ * selection and a user session; provider credentials remain on the server.
+ * This router returns provenance; it does not itself certify a governance audit.
  */
 
 export type BackendType = 'dashscope' | 'ollama' | 'claude' | 'cl-psi' | 'openai-compat' | 'nebius-token-factory' | 'azure-openai'
@@ -18,7 +19,7 @@ export interface InferenceRequest {
   model?: string
   /** Explicit backend selection disables cross-provider failover. */
   backend?: BackendType
-  /** Supabase Auth user-session JWT. Required for the paid Nebius backend. */
+  /** Supabase Auth user-session JWT. Required for every hosted chat provider. */
   userAccessToken?: string
 }
 
@@ -31,37 +32,55 @@ export interface InferenceResponse {
 
 // ── Backend implementations ──────────────────────────────────────────────────
 
-async function callDashScopeBackend(req: InferenceRequest): Promise<InferenceResponse> {
-  const apiKey = import.meta.env.VITE_DASHSCOPE_API_KEY as string | undefined
-  if (!apiKey) throw new Error('VITE_DASHSCOPE_API_KEY not configured')
-
-  const model = req.model ?? (import.meta.env.VITE_DASHSCOPE_MODEL as string | undefined) ?? 'qwen3.7-plus'
-  // International endpoint first, fallback to China endpoint
-  const base = (import.meta.env.VITE_DASHSCOPE_BASE_URL as string | undefined)
-    ?? 'https://dashscope-intl.aliyuncs.com/compatible-mode/v1'
-
+/** All hosted chat providers share one authenticated, server-side-key path. */
+async function callChatBackend(
+  req: InferenceRequest,
+  backend: BackendType,
+  provider: 'dashscope' | 'openai' | 'nebius' | 'azure',
+  enabled: boolean,
+): Promise<InferenceResponse> {
+  if (!enabled) throw new Error(`${provider} is not enabled`)
+  const token = req.userAccessToken?.trim()
+  const publicKey = import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined
+  if (!token || token === publicKey?.trim()) {
+    throw new Error(`${provider} requires a Supabase Auth user session`)
+  }
+  const configuredUrl = (import.meta.env.VITE_SUPABASE_URL as string | undefined)
+    ?? 'https://rwehltdwpsncnwxzkwik.supabase.co'
+  const origin = new URL(configuredUrl)
+  if (origin.protocol !== 'https:' || origin.username || origin.password ||
+      origin.search || origin.hash || origin.pathname !== '/') {
+    throw new Error('Invalid chat proxy origin')
+  }
   const t0 = Date.now()
-  const res = await fetch(`${base}/chat/completions`, {
+  const res = await fetch(`${origin.origin}/functions/v1/chat`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` },
+    redirect: 'error',
+    headers: {
+      'Content-Type': 'application/json',
+      ...(publicKey ? { apikey: publicKey } : {}),
+      Authorization: `Bearer ${token}`,
+    },
     body: JSON.stringify({
-      model,
-      response_format: { type: 'json_object' },
-      messages: [
-        { role: 'system', content: req.systemPrompt },
-        { role: 'user', content: req.userMessage },
-      ],
+      provider,
+      message: req.userMessage,
+      system: req.systemPrompt + '\n\nRespond with valid JSON only.',
     }),
     signal: AbortSignal.timeout(60_000),
   })
-  if (!res.ok) throw new Error(`DashScope ${res.status}: ${await res.text()}`)
-  const data = (await res.json()) as { choices: { message: { content: string } }[] }
-  return {
-    content: data.choices[0]?.message?.content ?? '{}',
-    backend: 'dashscope',
-    model,
-    latency_ms: Date.now() - t0,
+  // Do not echo upstream bodies, which can contain private request data.
+  if (!res.ok) throw new Error(`${provider} proxy HTTP ${res.status}`)
+  const data = await res.json() as { reply?: unknown; error?: unknown; model?: unknown }
+  if (data.error) throw new Error(`${provider} proxy unavailable`)
+  if (typeof data.reply !== 'string' || !data.reply.trim() ||
+      typeof data.model !== 'string' || !data.model.trim()) {
+    throw new Error(`${provider} proxy returned an incomplete response`)
   }
+  return { content: data.reply, backend, model: data.model, latency_ms: Date.now() - t0 }
+}
+
+async function callDashScopeBackend(req: InferenceRequest): Promise<InferenceResponse> {
+  return callChatBackend(req, 'dashscope', 'dashscope', import.meta.env.VITE_ENABLE_DASHSCOPE === 'true')
 }
 
 async function callOllamaBackend(req: InferenceRequest): Promise<InferenceResponse> {
@@ -93,32 +112,8 @@ async function callOllamaBackend(req: InferenceRequest): Promise<InferenceRespon
   }
 }
 
-async function callClaudeBackend(req: InferenceRequest): Promise<InferenceResponse> {
-  const apiKey = import.meta.env.VITE_CLAUDE_API_KEY as string | undefined
-  if (!apiKey) throw new Error('VITE_CLAUDE_API_KEY not configured')
-
-  const model = req.model ?? (import.meta.env.VITE_CLAUDE_MODEL as string | undefined) ?? 'claude-haiku-4-5-20251001'
-  const t0 = Date.now()
-  const res = await fetch('https://api.anthropic.com/v1/messages', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'x-api-key': apiKey,
-      'anthropic-version': '2023-06-01',
-      'anthropic-beta': 'prompt-caching-2024-07-31',
-    },
-    body: JSON.stringify({
-      model,
-      max_tokens: 2048,
-      system: [{ type: 'text', text: req.systemPrompt + '\n\nRespond with valid JSON only.', cache_control: { type: 'ephemeral' } }],
-      messages: [{ role: 'user', content: req.userMessage }],
-    }),
-    signal: AbortSignal.timeout(60_000),
-  })
-  if (!res.ok) throw new Error(`Claude ${res.status}: ${await res.text()}`)
-  const data = (await res.json()) as { content: { type: string; text: string }[] }
-  const text = data.content.find(c => c.type === 'text')?.text ?? '{}'
-  return { content: text, backend: 'claude', model, latency_ms: Date.now() - t0 }
+async function callClaudeBackend(_req: InferenceRequest): Promise<InferenceResponse> {
+  throw new Error('Claude requires an authenticated server proxy; browser provider keys are unsupported')
 }
 
 async function callCLPsiBackend(req: InferenceRequest): Promise<InferenceResponse> {
@@ -146,129 +141,22 @@ async function callCLPsiBackend(req: InferenceRequest): Promise<InferenceRespons
 }
 
 async function callOpenAIBackend(req: InferenceRequest): Promise<InferenceResponse> {
-  // Opt-in flag — NOT a secret. The OpenAI API key itself never reaches the browser:
-  // it lives server-side as the Supabase function secret OPENAI_API_KEY, and this
-  // backend only ever talks to the chat edge function.
-  if ((import.meta.env.VITE_ENABLE_OPENAI as string | undefined) !== 'true') {
-    throw new Error('VITE_ENABLE_OPENAI not enabled')
-  }
-
-  const supabaseUrl = (import.meta.env.VITE_SUPABASE_URL as string | undefined)
-    ?? 'https://rwehltdwpsncnwxzkwik.supabase.co'
-  const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined
-
-  const t0 = Date.now()
-  const res = await fetch(`${supabaseUrl}/functions/v1/chat`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      ...(anonKey ? { Authorization: `Bearer ${anonKey}` } : {}),
-    },
-    body: JSON.stringify({
-      provider: 'openai',
-      message: req.userMessage,
-      system: req.systemPrompt + '\n\nRespond with valid JSON only.',
-    }),
-    signal: AbortSignal.timeout(60_000),
-  })
-  if (!res.ok) throw new Error(`OpenAI proxy ${res.status}: ${await res.text()}`)
-  const data = (await res.json()) as { reply?: string; error?: string; model?: string }
-  if (data.error || !data.reply) throw new Error(`OpenAI proxy: ${data.error ?? 'empty reply'}`)
-  return {
-    content: data.reply,
-    backend: 'openai-compat',
-    // Prefer the model the edge function actually used (server-side OPENAI_MODEL);
-    // fall back to req.model only if the response omits it.
-    model: data.model ?? req.model ?? 'openai',
-    latency_ms: Date.now() - t0,
-  }
+  return callChatBackend(req, 'openai-compat', 'openai', import.meta.env.VITE_ENABLE_OPENAI === 'true')
 }
 
 async function callNebiusBackend(req: InferenceRequest): Promise<InferenceResponse> {
-  // Opt-in flag only. The Nebius API key never reaches the browser; it remains
-  // server-side in the Supabase Edge Function as NEBIUS_API_KEY.
-  if ((import.meta.env.VITE_ENABLE_NEBIUS as string | undefined) !== 'true') {
-    throw new Error('VITE_ENABLE_NEBIUS not enabled')
-  }
-
-  if (!req.userAccessToken?.trim()) {
-    throw new Error('Nebius requires a Supabase Auth user session')
-  }
-  const supabaseUrl = (import.meta.env.VITE_SUPABASE_URL as string | undefined)
-    ?? 'https://rwehltdwpsncnwxzkwik.supabase.co'
-  const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined
-
-  const t0 = Date.now()
-  const res = await fetch(`${supabaseUrl}/functions/v1/chat`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      ...(anonKey ? { apikey: anonKey } : {}),
-      Authorization: `Bearer ${req.userAccessToken}`,
-    },
-    body: JSON.stringify({
-      provider: 'nebius',
-      message: req.userMessage,
-      system: req.systemPrompt + '\n\nRespond with valid JSON only.',
-    }),
-    signal: AbortSignal.timeout(60_000),
-  })
-  if (!res.ok) throw new Error(`Nebius proxy ${res.status}: ${await res.text()}`)
-  const data = (await res.json()) as { reply?: string; error?: string; model?: string }
-  if (data.error || !data.reply) throw new Error(`Nebius proxy: ${data.error ?? 'empty reply'}`)
-  return {
-    content: data.reply,
-    backend: 'nebius-token-factory',
-    model: data.model ?? req.model ?? 'nebius',
-    latency_ms: Date.now() - t0,
-  }
+  return callChatBackend(req, 'nebius-token-factory', 'nebius', import.meta.env.VITE_ENABLE_NEBIUS === 'true')
 }
 
 async function callAzureBackend(req: InferenceRequest): Promise<InferenceResponse> {
-  // Opt-in flag — NOT a secret. The Azure OpenAI key itself never reaches the
-  // browser: it lives server-side as the Supabase function secret
-  // AZURE_OPENAI_API_KEY, and this backend only ever talks to the chat edge function.
-  if ((import.meta.env.VITE_ENABLE_AZURE as string | undefined) !== 'true') {
-    throw new Error('VITE_ENABLE_AZURE not enabled')
-  }
-
-  const supabaseUrl = (import.meta.env.VITE_SUPABASE_URL as string | undefined)
-    ?? 'https://rwehltdwpsncnwxzkwik.supabase.co'
-  const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined
-
-  const t0 = Date.now()
-  const res = await fetch(`${supabaseUrl}/functions/v1/chat`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      ...(anonKey ? { Authorization: `Bearer ${anonKey}` } : {}),
-    },
-    body: JSON.stringify({
-      provider: 'azure',
-      message: req.userMessage,
-      system: req.systemPrompt + '\n\nRespond with valid JSON only.',
-    }),
-    signal: AbortSignal.timeout(60_000),
-  })
-  if (!res.ok) throw new Error(`Azure proxy ${res.status}: ${await res.text()}`)
-  const data = (await res.json()) as { reply?: string; error?: string; model?: string }
-  if (data.error || !data.reply) throw new Error(`Azure proxy: ${data.error ?? 'empty reply'}`)
-  return {
-    content: data.reply,
-    backend: 'azure-openai',
-    // Prefer the deployment the edge function actually used (server-side
-    // AZURE_OPENAI_DEPLOYMENT); fall back to req.model only if the response omits it.
-    model: data.model ?? req.model ?? 'azure-deployment',
-    latency_ms: Date.now() - t0,
-  }
+  return callChatBackend(req, 'azure-openai', 'azure', import.meta.env.VITE_ENABLE_AZURE === 'true')
 }
 
 // ── Priority-ordered backend registry ────────────────────────────────────────
 
 type BackendFn = (req: InferenceRequest) => Promise<InferenceResponse>
 
-// Order: CL-Ψ (local, private) → OpenAI → Nebius Token Factory → Azure OpenAI → Ollama → Claude → DashScope
-// Each backend is tried in sequence; first success wins.
+// Registry of supported targets. Hosted targets run only when explicitly selected.
 const BACKEND_CHAIN: Array<[BackendType, BackendFn]> = [
   ['cl-psi',        callCLPsiBackend],
   ['openai-compat',         callOpenAIBackend],
@@ -291,13 +179,14 @@ export interface RouterResult {
 
 /**
  * Route inference request through the constitutional backend chain.
- * Returns first successful response. Throws only if ALL backends fail.
+ * With no explicit backend, try only local targets. An explicit target is never
+ * replaced or retried through a different provider on failure.
  */
 export async function routeInference(req: InferenceRequest): Promise<RouterResult> {
   const errors: string[] = []
   // An explicit backend selection may never execute a different provider.
   const chain = req.backend === undefined
-    ? BACKEND_CHAIN
+    ? BACKEND_CHAIN.filter(([id]) => id === 'cl-psi' || id === 'ollama')
     : BACKEND_CHAIN.filter(([id]) => id === req.backend)
   if (chain.length === 0) throw new Error(`Unknown inference backend: ${String(req.backend)}`)
   for (const [id, fn] of chain) {
@@ -320,7 +209,7 @@ export function configuredBackends(): BackendType[] {
   if (import.meta.env.VITE_ENABLE_NEBIUS === 'true') active.push('nebius-token-factory')
   if (import.meta.env.VITE_ENABLE_AZURE === 'true') active.push('azure-openai')
   if (import.meta.env.VITE_OLLAMA_BASE_URL) active.push('ollama')
-  if (import.meta.env.VITE_CLAUDE_API_KEY) active.push('claude')
-  if (import.meta.env.VITE_DASHSCOPE_API_KEY) active.push('dashscope')
+  if (import.meta.env.VITE_ENABLE_DASHSCOPE === 'true') active.push('dashscope')
   return active
 }
+

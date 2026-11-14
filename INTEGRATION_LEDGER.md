@@ -20,3 +20,9 @@ python3 scripts/integration_ledger.py \
 ```
 
 Do not hand-edit or promote classifications from an older artifact. Retrieve the workflow artifact for the exact commit being evaluated.
+
+Runtime hosting and account bindings are recorded separately in
+[the operational binding projection](docs/operations/PLATFORM_BINDINGS.md).
+That observation record does not replace these generated source classifications
+or establish production admission.
+
