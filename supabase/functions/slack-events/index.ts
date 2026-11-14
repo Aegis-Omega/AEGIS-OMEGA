@@ -21,20 +21,27 @@ const CORS = {
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
 }
 
-// Verify Slack request signature (HMAC-SHA256)
+// Verify Slack request signature (HMAC-SHA256). Never skip in production or dev.
 async function verifySlackSignature(body: string, timestamp: string, sig: string): Promise<boolean> {
-  if (!SLACK_SIGNING_SECRET) return true // skip in dev
+  if (!SLACK_SIGNING_SECRET.trim()) return false
+  if (!/^\d{10,12}$/.test(timestamp)) return false
   const age = Math.abs(Date.now() / 1000 - Number(timestamp))
-  if (age > 300) return false // replay attack
+  if (!Number.isFinite(age) || age > 300) return false
 
-  const baseString = `v0:${timestamp}:${body}`
-  const key = await crypto.subtle.importKey(
-    'raw', new TextEncoder().encode(SLACK_SIGNING_SECRET),
-    { name: 'HMAC', hash: 'SHA-256' }, false, ['sign'],
-  )
-  const raw = await crypto.subtle.sign('HMAC', key, new TextEncoder().encode(baseString))
-  const computed = 'v0=' + Array.from(new Uint8Array(raw)).map(b => b.toString(16).padStart(2, '0')).join('')
-  return computed === sig
+  const match = /^v0=([a-f0-9]{64})$/i.exec(sig)
+  if (!match) return false
+
+  try {
+    const key = await crypto.subtle.importKey(
+      'raw', new TextEncoder().encode(SLACK_SIGNING_SECRET),
+      { name: 'HMAC', hash: 'SHA-256' }, false, ['verify'],
+    )
+    const signature = Uint8Array.from(match[1]!.match(/.{2}/g)!, byte => Number.parseInt(byte, 16))
+    const signed = new TextEncoder().encode(`v0:${timestamp}:${body}`)
+    return await crypto.subtle.verify('HMAC', key, signature, signed)
+  } catch {
+    return false
+  }
 }
 
 // Post a message back to Slack
