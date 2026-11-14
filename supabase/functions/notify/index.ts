@@ -52,9 +52,10 @@ Deno.serve(async (req) => {
     return new Response(JSON.stringify({ error: 'Method not allowed' }), { status: 405, headers: CORS })
   }
 
-  // Internal auth check
+  // Fail closed: absent/blank credentials must never allow email or Slack sends.
+  // Verify before parsing the body or performing external actions.
   const secret = req.headers.get('x-notify-secret') ?? ''
-  if (NOTIFY_SECRET && secret !== NOTIFY_SECRET) {
+  if (!NOTIFY_SECRET.trim() || secret !== NOTIFY_SECRET) {
     return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401, headers: CORS })
   }
 
