@@ -27,6 +27,8 @@ on:
       - supabase/functions/_shared/nebius-budget.ts
       - supabase/functions/_shared/nebius-endpoint.ts
       - supabase/functions/chat/index.ts
+      - supabase/functions/_shared/http.ts
+      - scripts/chat-authorization.test.mjs
       - supabase/functions/agent/index.ts
       - supabase/functions/_shared/nebius-auth.ts
       - packages/shared/lib/inference-router.ts
@@ -47,6 +49,24 @@ permissions:
   contents: read
 
 jobs:
+  chat-authorization:
+    name: Chat handler authorization (isolated, no provider calls)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout exact candidate without credentials
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - name: Set up Node for TypeScript stripping
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Execute real chat handler with synthetic Auth and provider dependencies
+        run: node --test scripts/chat-authorization.test.mjs
+
   contracts-v1:
     name: V1 vectors and type safety
     runs-on: ubuntu-latest
