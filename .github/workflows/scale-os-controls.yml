@@ -62,3 +62,14 @@ jobs:
           test "$(git -C uwp09-candidate rev-parse HEAD)" = "$CANDIDATE_SHA"
           python3 -m unittest discover -s uwp09-candidate/scripts -p 'test_uwp09_crescendo_adapter.py' -v
           python3 -m unittest discover -s uwp09-candidate/scripts -p 'test_uwp_benchmark_manifest.py' -v
+
+      - name: Run exact-head evolution evidence negative tests
+        if: ${{ hashFiles('agents/tests/test_evolution_evidence_admission.py') != '' && hashFiles('scripts/uwp09_crescendo_adapter.py') != '' }}
+        env:
+          CANDIDATE_SHA: ${{ github.event.pull_request.head.sha || github.event.merge_group.head_sha || github.sha }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git -C uwp09-candidate rev-parse HEAD)" = "$CANDIDATE_SHA"
+          python3 -m unittest discover -s uwp09-candidate/agents/tests -p 'test_evolution_evidence_admission.py' -v
+          (cd uwp09-candidate && python3 -m agents.evolution selftest)
