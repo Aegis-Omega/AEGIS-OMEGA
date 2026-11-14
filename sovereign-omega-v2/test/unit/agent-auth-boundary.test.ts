@@ -1,4 +1,5 @@
-import { readFileSync } from 'node:fs'
+import { existsSync, readFileSync } from 'node:fs'
+import { resolve } from 'node:path'
 import { describe, expect, it, vi } from 'vitest'
 import * as ts from 'typescript'
 import {
@@ -7,7 +8,15 @@ import {
 } from '../../../supabase/functions/_shared/nebius-auth.ts'
 
 const jwt = 'Bearer header.payload.signature'
-const agentSource = readFileSync(new URL('../../../supabase/functions/agent/index.ts', import.meta.url), 'utf8')
+// Vitest may rewrite import.meta.url to a non-file scheme. Locate the exact
+// checked-out source relative to the two supported invocation roots instead.
+const candidateSourcePaths = [
+  resolve(process.cwd(), '../supabase/functions/agent/index.ts'),
+  resolve(process.cwd(), 'supabase/functions/agent/index.ts'),
+]
+const sourcePath = candidateSourcePaths.find((path) => existsSync(path))
+if (!sourcePath) throw Error('AEGIS agent source missing from checked-out repository')
+const agentSource = readFileSync(sourcePath, 'utf8')
 
 describe('AEGIS paid agent endpoint source-bound auth boundary', () => {
   it('runs the existing JWT+explicit operator allowlist before inference or purchase access', () => {
