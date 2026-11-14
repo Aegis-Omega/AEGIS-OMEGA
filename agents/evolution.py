@@ -35,12 +35,20 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import math
 import os
 import sys
 import time
 from dataclasses import dataclass, field, asdict
 from pathlib import Path
-from typing import Any
+from typing import Any, Mapping
+
+from harness.sdk.skill_authority import (
+    EvidenceVerifier,
+    compute_registry_root,
+    evaluate_registry,
+    observation_receipt_violations,
+)
 
 _ROOT = os.path.dirname(os.path.abspath(__file__))
 _REPO_ROOT = os.path.dirname(_ROOT)
@@ -184,9 +192,17 @@ class EvolutionEngine:
         invalidated → demote one tier (new evidence invalidates the prior basis).
     """
 
-    def __init__(self, tree_path: str = SKILL_TREE_PATH, lineage: AdaptiveLineage | None = None):
+    def __init__(
+        self,
+        tree_path: str = SKILL_TREE_PATH,
+        lineage: AdaptiveLineage | None = None,
+        evidence_verifier: EvidenceVerifier | None = None,
+    ):
         self.tree_path = tree_path
         self.lineage = lineage if lineage is not None else AdaptiveLineage.load()
+        # Must be installed by an authenticated host, never taken from agent
+        # input, a model result or an untrusted memory/document.
+        self.evidence_verifier = evidence_verifier
         self._tree: dict | None = None
 
     def _load_tree(self) -> dict:
@@ -197,8 +213,16 @@ class EvolutionEngine:
 
     def _save_tree(self) -> None:
         if self._tree is not None:
-            with open(self.tree_path, "w") as f:
-                json.dump(self._tree, f, indent=2)
+            root = compute_registry_root(self._tree)
+            self._tree["registry_root"] = root
+            self._tree["genesis_seal"] = root
+            tree_path = Path(self.tree_path)
+            temporary = tree_path.with_suffix(tree_path.suffix + ".tmp")
+            temporary.write_text(
+                json.dumps(self._tree, ensure_ascii=False, indent=2) + "\n",
+                encoding="utf-8",
+            )
+            os.replace(temporary, tree_path)
 
     @staticmethod
     def _lower_tier(tier: str) -> str:
@@ -210,12 +234,79 @@ class EvolutionEngine:
         idx = TIER_ORDER.index(tier) if tier in TIER_ORDER else 0
         return TIER_ORDER[max(idx - 1, 0)]
 
+    def _promotion_admission_error(self, skill: Mapping[str, Any]) -> str | None:
+        """Require a separately authenticated held-out improvement admission.
+
+        The evaluator is a *trusted host* dependency, not a model-asserted field.
+        A registry hash or local run grade never authenticates the evaluator.
+        """
+        admission = skill.get("promotion_admission")
+        if not isinstance(admission, Mapping):
+            return "PROMOTION_ADMISSION_MISSING"
+        mandatory = (
+            "admission_sha256", "candidate_sha256", "baseline_sha256",
+            "heldout_evaluation_receipt_sha256", "rollback_sha256",
+        )
+        if any(
+            not isinstance(admission.get(k), str)
+            or len(admission[k]) != 64
+            or any(c not in "0123456789abcdef" for c in admission[k])
+            for k in mandatory
+        ):
+            return "PROMOTION_ADMISSION_DIGEST_INVALID"
+        if admission.get("kind") != "AEGIS_SKILL_PROMOTION_ADMISSION_V1":
+            return "PROMOTION_ADMISSION_KIND_INVALID"
+        if admission.get("skill_id") != skill.get("skill_id"):
+            return "PROMOTION_ADMISSION_SKILL_MISMATCH"
+        if admission.get("approval_scope") != "T2_TO_T1_ONLY":
+            return "PROMOTION_SCOPE_INVALID"
+        if admission.get("review_status") != "PASSED" or admission.get("status") != "ADMITTED":
+            return "PROMOTION_INDEPENDENT_REVIEW_NOT_ADMITTED"
+        if type(admission.get("heldout_pair_count")) is not int or admission["heldout_pair_count"] < 30:
+            return "INSUFFICIENT_PAIRED_HOLDOUT_EVIDENCE"
+        if admission.get("improvement_status") != "IMPROVED":
+            return "MEASURED_IMPROVEMENT_NOT_ESTABLISHED"
+        if type(admission.get("safety_regressions")) is not int or admission["safety_regressions"] != 0:
+            return "SAFETY_REGRESSION_NOT_CLEARED"
+        reviewer = admission.get("reviewer_id")
+        actor = admission.get("agent_id")
+        if not isinstance(reviewer, str) or not reviewer or not isinstance(actor, str) or not actor or reviewer == actor:
+            return "PROMOTION_REVIEWER_NOT_INDEPENDENT"
+        verifier = getattr(self, "evidence_verifier", None)
+        if verifier is None:
+            return "INDEPENDENT_VERIFIER_UNAVAILABLE"
+        try:
+            admitted_digest = verifier(admission)
+        except Exception:
+            admitted_digest = None
+        if admitted_digest != admission["admission_sha256"]:
+            return "PROMOTION_ADMISSION_NOT_AUTHENTICATED"
+        return None
+
     def evaluate_skill(self, skill: dict) -> PromotionVerdict:
         sid = skill["skill_id"]
         tier = skill.get("tier", "T2")
         runs = skill.get("validated_runs", 0)
         fail = skill.get("failure_rate", 0.0)
         conf = skill.get("confidence", 0.5)
+        if (
+            type(runs) is not int or runs < 0
+            or type(fail) not in (float, int)
+            or type(conf) not in (float, int)
+            or not math.isfinite(fail) or not math.isfinite(conf)
+            or not (0 <= fail <= 1 and 0 <= conf <= 1)
+        ):
+            return PromotionVerdict(sid, tier, None, False, "HOLD_MALFORMED_METRICS")
+        # A typed claim and populated run counters are never independent proof.
+        # The host must authenticate each exact-source evaluation receipt.
+        if runs > 0:
+            violations = observation_receipt_violations(
+                skill, evidence_verifier=getattr(self, "evidence_verifier", None)
+            )
+            if violations:
+                return PromotionVerdict(
+                    sid, tier, None, False, "HOLD_UNVERIFIED_EVIDENCE: " + "; ".join(violations)
+                )
 
         # Demotion check first — new failing evidence invalidates the prior basis.
         if runs >= PROMOTION_MIN_RUNS and fail >= 0.5:
@@ -238,9 +329,14 @@ class EvolutionEngine:
         if tier == "T2":
             if (runs >= PROMOTION_MIN_RUNS and fail < PROMOTION_MAX_FAILURE_RATE
                     and conf >= PROMOTION_MIN_CONFIDENCE):
+                admission_error = self._promotion_admission_error(skill)
+                if admission_error:
+                    return PromotionVerdict(
+                        sid, tier, None, False, f"HOLD_{admission_error}"
+                    )
                 return PromotionVerdict(
                     sid, tier, "T1", True,
-                    f"T2→T1: {runs} validations, failure_rate={fail:.2f}, confidence={conf:.2f}",
+                    f"T2→T1 independent admission: {runs} verified runs; heldout pair gate satisfied",
                 )
             return PromotionVerdict(
                 sid, tier, None, False,
@@ -253,6 +349,14 @@ class EvolutionEngine:
     def tick(self, apply_changes: bool = True) -> list[PromotionVerdict]:
         """Run one evolution tick across all skills. Records lineage events."""
         tree = self._load_tree()
+        receipt = evaluate_registry(
+            tree, evidence_verifier=getattr(self, "evidence_verifier", None)
+        )
+        if receipt.outcome != "ADMITTED":
+            raise ValueError("Evolution HOLD: registry evidence invalid: " + "; ".join(receipt.violations))
+        valid_lineage, bad_index = self.lineage.verify_chain()
+        if not valid_lineage:
+            raise ValueError(f"Evolution HOLD: adaptive lineage invalid at {bad_index}")
         verdicts: list[PromotionVerdict] = []
 
         for skill in tree.get("skills", []):
@@ -277,7 +381,9 @@ class EvolutionEngine:
                     f"T0-eligible, guardian gate not yet satisfied: {v.reason}",
                 )
 
-        if apply_changes:
+        if apply_changes and any(
+            v.promoted or self._is_demotion(v) or v.requires_guardian for v in verdicts
+        ):
             self.lineage.save()
             self._save_tree()
         return verdicts
@@ -394,7 +500,7 @@ def _cmd_selftest() -> int:
     v = engine.evaluate_skill(
         {"skill_id": "x", "tier": "T2", "validated_runs": 5, "failure_rate": 0.0, "confidence": 0.92}
     )
-    check("T2 with 5 clean runs is promotion-eligible", v.promoted and v.eligible_tier == "T1")
+    check("unverified T2 with 5 claimed runs is HOLD", not v.promoted and "HOLD_" in v.reason)
 
     # 7 — T2 with insufficient runs does not promote
     v = engine.evaluate_skill(
@@ -406,13 +512,13 @@ def _cmd_selftest() -> int:
     v = engine.evaluate_skill(
         {"skill_id": "z", "tier": "T1", "validated_runs": 9, "failure_rate": 0.0, "confidence": 0.99}
     )
-    check("T1→T0 requires guardian, not auto-promoted", v.requires_guardian and not v.promoted)
+    check("unverified T1→T0 is HOLD", not v.requires_guardian and not v.promoted)
 
     # 9 — high failure rate demotes
     v = engine.evaluate_skill(
         {"skill_id": "w", "tier": "T1", "validated_runs": 4, "failure_rate": 0.6, "confidence": 0.8}
     )
-    check("high failure_rate triggers demotion", engine._is_demotion(v) and v.eligible_tier == "T2")
+    check("unverified failure_rate cannot mutate tier", not engine._is_demotion(v) and not v.promoted)
 
     print(f"\n  {'ALL PASS' if failures == 0 else f'{failures} FAILED'}")
     return 1 if failures else 0

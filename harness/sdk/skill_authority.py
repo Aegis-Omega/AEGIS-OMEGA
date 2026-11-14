@@ -11,7 +11,7 @@ import hashlib
 import json
 from dataclasses import asdict, dataclass
 from pathlib import Path
-from typing import Any, Mapping
+from typing import Any, Callable, Mapping
 
 SCHEMA_VERSION = "2.0.0"
 RECEIPT_KIND = "AEGIS_SKILL_AUTHORITY_RECEIPT_V2"
@@ -71,10 +71,126 @@ def observation_state(skill: Mapping[str, Any]) -> str:
     return OBSERVED if runs > 0 else UNOBSERVED
 
 
+EvidenceVerifier = Callable[[Mapping[str, Any]], str | None]
+OBSERVATION_RECEIPT_KIND = "AEGIS_SKILL_OBSERVATION_RECEIPT_V1"
+
+
+def _is_sha256_hex(value: Any) -> bool:
+    return isinstance(value, str) and len(value) == 64 and all(
+        character in "0123456789abcdef" for character in value
+    )
+
+
+def observation_receipt_violations(
+    skill: Mapping[str, Any],
+    *,
+    evidence_verifier: EvidenceVerifier | None = None,
+) -> tuple[str, ...]:
+    """Require one independently admitted receipt for every claimed observation.
+
+    The verifier is a trusted host integration that must authenticate the
+    evaluator signature, exact source/task/result digests, reviewer independence,
+    and held-out experiment admission. A plain JSON field or registry hash is
+    never accepted as proof. With no verifier, observed skills fail closed.
+    """
+    skill_id = skill.get("skill_id", "unknown")
+    runs = skill.get("validated_runs", 0)
+    receipts = skill.get("observation_receipts", [])
+    if not isinstance(runs, int) or isinstance(runs, bool) or runs < 0:
+        return (f"{skill_id}: invalid validated_runs for observation receipts",)
+    if runs == 0:
+        if receipts not in (None, []):
+            return (f"{skill_id}: zero-run skill cannot carry observation receipts",)
+        return ()
+    if not isinstance(receipts, list) or len(receipts) != runs:
+        return (f"{skill_id}: observation receipt count must equal validated_runs",)
+    if evidence_verifier is None:
+        return (f"{skill_id}: independent evidence verifier unavailable",)
+
+    violations: list[str] = []
+    seen_receipts: set[str] = set()
+    seen_runs: set[str] = set()
+    failed_runs = 0
+    last_confidence: float | None = None
+    last_observed_at: str | None = None
+    for index, receipt in enumerate(receipts):
+        prefix = f"{skill_id}: observation_receipts[{index}]"
+        if not isinstance(receipt, Mapping):
+            violations.append(f"{prefix} must be an object")
+            continue
+        required_strings = (
+            "receipt_id", "run_id", "skill_id", "outcome", "source_commit",
+            "task_sha256", "result_sha256", "evaluator_receipt_sha256",
+            "agent_id", "reviewer_id", "reviewer_signature_ref", "observed_at",
+        )
+        missing = [field for field in required_strings
+                   if not isinstance(receipt.get(field), str) or not receipt.get(field).strip()]
+        if missing:
+            violations.append(f"{prefix} missing required fields: {','.join(missing)}")
+            continue
+        if receipt.get("receipt_kind") != OBSERVATION_RECEIPT_KIND:
+            violations.append(f"{prefix} has invalid receipt_kind")
+        if receipt.get("schema_version") != "1.0.0":
+            violations.append(f"{prefix} has unsupported schema_version")
+        if receipt.get("skill_id") != skill_id:
+            violations.append(f"{prefix} skill_id mismatch")
+        if receipt.get("outcome") not in {"SUCCEEDED", "FAILED"}:
+            violations.append(f"{prefix} outcome invalid")
+        if receipt.get("outcome") == "FAILED":
+            failed_runs += 1
+        confidence = _bounded_float(receipt.get("adjudicated_confidence"))
+        if confidence is None:
+            violations.append(f"{prefix} missing independently adjudicated confidence")
+        else:
+            last_confidence = confidence
+        timestamp = receipt.get("observed_at")
+        if last_observed_at is not None and timestamp <= last_observed_at:
+            violations.append(f"{prefix} non-monotonic observed_at")
+        last_observed_at = timestamp
+        if receipt.get("review_status") != "PASSED":
+            violations.append(f"{prefix} independent review not PASSED")
+        if receipt.get("reviewer_id") == receipt.get("agent_id"):
+            violations.append(f"{prefix} reviewer must be independent of the agent")
+        source_commit = receipt.get("source_commit")
+        if not (isinstance(source_commit, str) and
+                ((len(source_commit) == 40 or len(source_commit) == 64) and
+                 all(c in "0123456789abcdef" for c in source_commit))):
+            violations.append(f"{prefix} source_commit must be a Git SHA")
+        for field in ("task_sha256", "result_sha256", "evaluator_receipt_sha256"):
+            if not _is_sha256_hex(receipt.get(field)):
+                violations.append(f"{prefix} {field} must be SHA-256")
+        receipt_id = receipt.get("receipt_id")
+        run_id = receipt.get("run_id")
+        if receipt_id in seen_receipts or run_id in seen_runs:
+            violations.append(f"{prefix} duplicate receipt_id/run_id")
+        seen_receipts.add(receipt_id)
+        seen_runs.add(run_id)
+        try:
+            admitted_digest = evidence_verifier(receipt)
+        except Exception:
+            admitted_digest = None
+        if admitted_digest != receipt.get("evaluator_receipt_sha256"):
+            violations.append(f"{prefix} independent verifier digest mismatch or unavailable")
+    claimed_failure_rate = _bounded_float(skill.get("failure_rate"))
+    observed_failure_rate = skill.get("failure_rate_observed")
+    if claimed_failure_rate is None or abs(claimed_failure_rate - failed_runs / runs) > 1e-9:
+        violations.append(f"{skill_id}: failure_rate differs from admitted receipt outcomes")
+    if (observed_failure_rate is not None and
+            (_bounded_float(observed_failure_rate) is None or
+             abs(float(observed_failure_rate) - failed_runs / runs) > 1e-9)):
+        violations.append(f"{skill_id}: observed failure_rate differs from admitted receipts")
+    if _bounded_float(skill.get("confidence")) != last_confidence:
+        violations.append(f"{skill_id}: confidence differs from independently adjudicated last receipt")
+    if skill.get("last_validated") != last_observed_at:
+        violations.append(f"{skill_id}: last_validated does not match latest admitted receipt")
+    return tuple(sorted(set(violations)))
+
+
 def safe_competency_score(
     skill: Mapping[str, Any] | None,
     *,
     minimum_runs: int = MIN_VALIDATED_RUNS,
+    evidence_verifier: EvidenceVerifier | None = None,
 ) -> float:
     """Return an authority-safe score.
 
@@ -88,6 +204,8 @@ def safe_competency_score(
         if not isinstance(runs, int) or isinstance(runs, bool) or runs < minimum_runs:
             return 0.0
         if observation_state(skill) != OBSERVED:
+            return 0.0
+        if observation_receipt_violations(skill, evidence_verifier=evidence_verifier):
             return 0.0
         confidence = _bounded_float(skill.get("confidence"))
         recency = _bounded_float(skill.get("recency_score"))
@@ -145,6 +263,7 @@ def sanitize_legacy_tree(
             skill["failure_rate_observed"] = None
             skill["recency_score"] = 0.0
             skill["last_validated"] = None
+            skill["observation_receipts"] = []
         else:
             skill["observation_state"] = OBSERVED
             skill["failure_rate_observed"] = skill.get("failure_rate")
@@ -185,6 +304,7 @@ def evaluate_registry(
     tree: Mapping[str, Any],
     *,
     repo_root: str | Path | None = None,
+    evidence_verifier: EvidenceVerifier | None = None,
 ) -> SkillAuthorityReceipt:
     violations: list[str] = []
     skills = tree.get("skills")
@@ -220,6 +340,9 @@ def evaluate_registry(
                     violations.append(f"{sid}: observed {field} must be in [0,1]")
             if not raw.get("last_validated"):
                 violations.append(f"{sid}: observed skill requires last_validated")
+            violations.extend(observation_receipt_violations(
+                raw, evidence_verifier=evidence_verifier
+            ))
         else:
             if runs != 0:
                 violations.append(f"{sid}: UNOBSERVED requires validated_runs == 0")
@@ -229,6 +352,8 @@ def evaluate_registry(
                 violations.append(f"{sid}: unobserved recency_score must be 0.0")
             if raw.get("last_validated") not in (None, ""):
                 violations.append(f"{sid}: unobserved last_validated must be null")
+            if raw.get("observation_receipts") not in (None, []):
+                violations.append(f"{sid}: unobserved skill cannot carry observation receipts")
 
         refs = raw.get("evidence_refs")
         if not isinstance(refs, list) or not refs:

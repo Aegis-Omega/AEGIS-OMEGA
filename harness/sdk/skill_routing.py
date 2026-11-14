@@ -12,6 +12,7 @@ from pathlib import Path
 from typing import Any, Mapping
 
 from harness.sdk.skill_authority import (
+    EvidenceVerifier,
     MIN_VALIDATED_RUNS,
     OBSERVED,
     UNOBSERVED,
@@ -93,6 +94,7 @@ def decide_skill_routing(
     repo_root: str | Path,
     load_reason_codes: tuple[str, ...] = (),
     minimum_runs: int = MIN_VALIDATED_RUNS,
+    evidence_verifier: EvidenceVerifier | None = None,
 ) -> SkillRoutingReceipt:
     """Return a deterministic authority decision for one capability.
 
@@ -108,7 +110,7 @@ def decide_skill_routing(
     else:
         registry_root_value = registry.get("registry_root")
         registry_root = registry_root_value if isinstance(registry_root_value, str) else None
-        registry_receipt = evaluate_registry(registry)
+        registry_receipt = evaluate_registry(registry, evidence_verifier=evidence_verifier)
         registry_receipt_hash = registry_receipt.receipt_hash
         if registry_receipt.outcome != ADMITTED:
             reasons.append("REGISTRY_INVALID")
@@ -134,7 +136,9 @@ def decide_skill_routing(
         if runs < minimum_runs:
             reasons.append("INSUFFICIENT_VALIDATED_RUNS")
 
-    score = safe_competency_score(skill, minimum_runs=minimum_runs)
+    score = safe_competency_score(
+        skill, minimum_runs=minimum_runs, evidence_verifier=evidence_verifier
+    )
     if score <= 0.0:
         reasons.append("ZERO_AUTHORITY")
 
@@ -170,15 +174,30 @@ def record_skill_observation(
     success: bool,
     observed_at: str,
     repo_root: str | Path,
+    independent_receipt: Mapping[str, Any] | None = None,
+    evidence_verifier: EvidenceVerifier | None = None,
 ) -> dict[str, Any]:
-    """Return a root-consistent registry with one empirical observation added.
+    """Update telemetry only with a host-admitted, source-bound independent receipt.
 
-    `OBSERVED` means at least one recorded run; it does not grant authority.
-    `safe_competency_score` continues to deny until the minimum run threshold.
+    A local success bool is not proof and cannot mint an observation. Both a
+    receipt and trusted host verification are mandatory, including for failures.
     """
-    current_receipt = evaluate_registry(registry)
+    if not isinstance(success, bool):
+        raise ValueError("success must be boolean")
+    if not isinstance(independent_receipt, Mapping) or evidence_verifier is None:
+        raise ValueError("independently authenticated observation required")
+    if independent_receipt.get("skill_id") != skill_id:
+        raise ValueError("receipt skill does not match requested skill")
+    if independent_receipt.get("observed_at") != observed_at:
+        raise ValueError("receipt observation timestamp mismatch")
+    expected_outcome = "SUCCEEDED" if success else "FAILED"
+    if independent_receipt.get("outcome") != expected_outcome:
+        raise ValueError("receipt outcome does not match observed result")
+    current_receipt = evaluate_registry(
+        registry, evidence_verifier=evidence_verifier
+    )
     if current_receipt.outcome != ADMITTED:
-        raise ValueError("cannot mutate an invalid skill registry")
+        raise ValueError("cannot mutate an invalid or unverified skill registry")
 
     updated = copy.deepcopy(dict(registry))
     skills = updated.get("skills")
@@ -207,32 +226,39 @@ def record_skill_observation(
     failures = previous_failures + (0 if success else 1)
     failure_rate = failures / total
 
-    previous_confidence = target.get("confidence", 0.0)
-    if isinstance(previous_confidence, bool) or not isinstance(previous_confidence, (int, float)):
-        previous_confidence = 0.0
     previous_recency = target.get("recency_score", 0.0)
     if isinstance(previous_recency, bool) or not isinstance(previous_recency, (int, float)):
         previous_recency = 0.0
 
+    target.setdefault("observation_receipts", [])
+    if not isinstance(target["observation_receipts"], list):
+        raise ValueError("observation receipts must be a list")
+    target["observation_receipts"].append(copy.deepcopy(dict(independent_receipt)))
     target["observation_state"] = OBSERVED
     target["validated_runs"] = total
     target["failure_rate"] = failure_rate
     target["failure_rate_observed"] = failure_rate
     target["last_validated"] = observed_at
 
+    # The agent's success flag cannot self-assign confidence. Confidence
+    # originates in the independently admitted evaluation receipt.
+    target["confidence"] = independent_receipt.get("adjudicated_confidence")
     if success:
         target["recency_score"] = min(1.0, float(previous_recency) * 0.95 + 0.05)
-        if total >= MIN_VALIDATED_RUNS and failure_rate < 0.1:
-            target["confidence"] = min(0.95, float(previous_confidence) + 0.02)
     else:
         target["recency_score"] = max(0.0, float(previous_recency) * 0.9)
-        target["confidence"] = max(0.0, float(previous_confidence) - 0.05)
 
     updated.pop("registry_root", None)
     updated.pop("genesis_seal", None)
     root = compute_registry_root(updated)
     updated["registry_root"] = root
     updated["genesis_seal"] = root
+    admitted = evaluate_registry(
+        updated, repo_root=repo_root, evidence_verifier=evidence_verifier
+    )
+    if admitted.outcome != ADMITTED:
+        raise ValueError("new observation not independently admitted: "
+                         + ",".join(admitted.violations))
     return updated
 
 
