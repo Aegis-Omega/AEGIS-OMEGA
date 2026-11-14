@@ -226,9 +226,6 @@ def record_skill_observation(
     failures = previous_failures + (0 if success else 1)
     failure_rate = failures / total
 
-    previous_confidence = target.get("confidence", 0.0)
-    if isinstance(previous_confidence, bool) or not isinstance(previous_confidence, (int, float)):
-        previous_confidence = 0.0
     previous_recency = target.get("recency_score", 0.0)
     if isinstance(previous_recency, bool) or not isinstance(previous_recency, (int, float)):
         previous_recency = 0.0
@@ -243,13 +240,13 @@ def record_skill_observation(
     target["failure_rate_observed"] = failure_rate
     target["last_validated"] = observed_at
 
+    # The agent's success flag cannot self-assign confidence. Confidence
+    # originates in the independently admitted evaluation receipt.
+    target["confidence"] = independent_receipt.get("adjudicated_confidence")
     if success:
         target["recency_score"] = min(1.0, float(previous_recency) * 0.95 + 0.05)
-        if total >= MIN_VALIDATED_RUNS and failure_rate < 0.1:
-            target["confidence"] = min(0.95, float(previous_confidence) + 0.02)
     else:
         target["recency_score"] = max(0.0, float(previous_recency) * 0.9)
-        target["confidence"] = max(0.0, float(previous_confidence) - 0.05)
 
     updated.pop("registry_root", None)
     updated.pop("genesis_seal", None)
