@@ -108,7 +108,11 @@ def observation_receipt_violations(
         return (f"{skill_id}: independent evidence verifier unavailable",)
 
     violations: list[str] = []
-    seen_ids: set[str] = set()
+    seen_receipts: set[str] = set()
+    seen_runs: set[str] = set()
+    failed_runs = 0
+    last_confidence: float | None = None
+    last_observed_at: str | None = None
     for index, receipt in enumerate(receipts):
         prefix = f"{skill_id}: observation_receipts[{index}]"
         if not isinstance(receipt, Mapping):
@@ -132,6 +136,17 @@ def observation_receipt_violations(
             violations.append(f"{prefix} skill_id mismatch")
         if receipt.get("outcome") not in {"SUCCEEDED", "FAILED"}:
             violations.append(f"{prefix} outcome invalid")
+        if receipt.get("outcome") == "FAILED":
+            failed_runs += 1
+        confidence = _bounded_float(receipt.get("adjudicated_confidence"))
+        if confidence is None:
+            violations.append(f"{prefix} missing independently adjudicated confidence")
+        else:
+            last_confidence = confidence
+        timestamp = receipt.get("observed_at")
+        if last_observed_at is not None and timestamp <= last_observed_at:
+            violations.append(f"{prefix} non-monotonic observed_at")
+        last_observed_at = timestamp
         if receipt.get("review_status") != "PASSED":
             violations.append(f"{prefix} independent review not PASSED")
         if receipt.get("reviewer_id") == receipt.get("agent_id"):
@@ -146,16 +161,28 @@ def observation_receipt_violations(
                 violations.append(f"{prefix} {field} must be SHA-256")
         receipt_id = receipt.get("receipt_id")
         run_id = receipt.get("run_id")
-        if receipt_id in seen_ids or run_id in seen_ids:
+        if receipt_id in seen_receipts or run_id in seen_runs:
             violations.append(f"{prefix} duplicate receipt_id/run_id")
-        seen_ids.add(receipt_id)
-        seen_ids.add(run_id)
+        seen_receipts.add(receipt_id)
+        seen_runs.add(run_id)
         try:
             admitted_digest = evidence_verifier(receipt)
         except Exception:
             admitted_digest = None
-        if not _is_sha256_hex(admitted_digest):
-            violations.append(f"{prefix} was not independently authenticated")
+        if admitted_digest != receipt.get("evaluator_receipt_sha256"):
+            violations.append(f"{prefix} independent verifier digest mismatch or unavailable")
+    claimed_failure_rate = _bounded_float(skill.get("failure_rate"))
+    observed_failure_rate = skill.get("failure_rate_observed")
+    if claimed_failure_rate is None or abs(claimed_failure_rate - failed_runs / runs) > 1e-9:
+        violations.append(f"{skill_id}: failure_rate differs from admitted receipt outcomes")
+    if (observed_failure_rate is not None and
+            (_bounded_float(observed_failure_rate) is None or
+             abs(float(observed_failure_rate) - failed_runs / runs) > 1e-9)):
+        violations.append(f"{skill_id}: observed failure_rate differs from admitted receipts")
+    if _bounded_float(skill.get("confidence")) != last_confidence:
+        violations.append(f"{skill_id}: confidence differs from independently adjudicated last receipt")
+    if skill.get("last_validated") != last_observed_at:
+        violations.append(f"{skill_id}: last_validated does not match latest admitted receipt")
     return tuple(sorted(set(violations)))
 
 
