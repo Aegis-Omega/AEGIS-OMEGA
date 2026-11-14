@@ -1,5 +1,6 @@
 import { createClient } from 'jsr:@supabase/supabase-js@2'
 import { CORS } from '../_shared/cors.ts'
+import { fetchWithTimeout } from '../_shared/http.ts'
 import { authorizeNebiusCaller, isNebiusRequestBounded, logNebiusUpstreamFailure } from '../_shared/nebius-auth.ts'
 import { reserveNebiusAttempt } from '../_shared/nebius-budget.ts'
 import { getNebiusChatUrl } from '../_shared/nebius-endpoint.ts'
@@ -28,6 +29,15 @@ const AZURE_OPENAI_API_KEY = Deno.env.get('AZURE_OPENAI_API_KEY') ?? ''
 const AZURE_OPENAI_DEPLOYMENT = Deno.env.get('AZURE_OPENAI_DEPLOYMENT') ?? ''
 const AZURE_OPENAI_API_VERSION = Deno.env.get('AZURE_OPENAI_API_VERSION') ?? '2024-10-21'
 const DEFAULT_SYSTEM = `You are the AEGIS Omega AI assistant helping content creators. Be concise, direct, and practical.`
+
+function readPositiveIntEnv(name: string, fallback: number): number {
+  const raw = Deno.env.get(name)
+  if (!raw) return fallback
+  const parsed = Number(raw)
+  return Number.isFinite(parsed) && parsed > 0 ? Math.floor(parsed) : fallback
+}
+// Preserve deployed v7 transport timeout; never retry inference POSTs.
+const CHAT_UPSTREAM_TIMEOUT_MS = readPositiveIntEnv('CHAT_UPSTREAM_TIMEOUT_MS', 60_000)
 
 let dashScopeKeyCache: string | null | undefined
 
@@ -70,7 +80,7 @@ Deno.serve(async (req) => {
       provider?: unknown
     }
 
-    if (!message?.trim()) {
+    if (typeof message !== 'string' || !message.trim()) {
       return new Response(JSON.stringify({ error: 'message required' }), { status: 400, headers: { ...CORS, 'Content-Type': 'application/json' } })
     }
 
@@ -98,9 +108,9 @@ Deno.serve(async (req) => {
     }
 
     // Validate the complete caller-controlled structure BEFORE history.filter:
-    // malformed/oversized Nebius history must not throw before the auth gate.
-    if (provider === 'nebius' && !isNebiusRequestBounded(message, system, history)) {
-      return new Response(JSON.stringify({ error: 'Nebius request exceeds server input limits' }), {
+    // malformed/oversized history must not throw before the auth gate.
+    if (!isNebiusRequestBounded(message, system, history)) {
+      return new Response(JSON.stringify({ error: 'Chat request exceeds server input limits' }), {
         status: 413, headers: { ...CORS, 'Content-Type': 'application/json' },
       })
     }
@@ -130,7 +140,27 @@ Deno.serve(async (req) => {
       })
     }
 
+    // Reuse the existing verified-user/explicit-allowlist predicate for every
+    // inference provider. Missing policy or Auth failure denies before mesh/Vault.
+    const authorizedChat = await authorizeNebiusCaller(
+      req.headers.get('Authorization'),
+      Deno.env.get('CHAT_ALLOWED_USER_IDS') ?? '',
+      async (jwt) => {
+        const authClient = createClient(supabaseUrl, serviceRoleKey, {
+          auth: { persistSession: false },
+        })
+        const { data, error } = await authClient.auth.getUser(jwt)
+        return error ? null : data.user?.id ?? null
+      },
+    )
+    if (!authorizedChat) {
+      return new Response(JSON.stringify({ error: 'Chat requires an approved authenticated user' }), {
+        status: 401, headers: { ...CORS, 'Content-Type': 'application/json' },
+      })
+    }
+
     if (useNebius) {
+      // Keep the existing additional Nebius-specific restriction.
       // The deployed function currently allows unauthenticated gateway entry.
       // Never call a paid provider based on the public anon key alone.
       const authorized = await authorizeNebiusCaller(
@@ -188,9 +218,9 @@ Deno.serve(async (req) => {
     }
 
     // OpenAI and Nebius require explicit models — never send guessed model ids.
-    if (useOpenAI && !OPENAI_MODEL) {
-      console.error('OpenAI error: OPENAI_MODEL must be set (no hardcoded default)')
-      return new Response(JSON.stringify({ error: 'AI unavailable', reply: "I'm having trouble connecting right now. Try again in a moment." }), {
+    if (useOpenAI && (!OPENAI_MODEL.trim() || !OPENAI_API_KEY.trim())) {
+      console.error('OpenAI provider requires an explicit model and credential')
+      return new Response(JSON.stringify({ error: 'AI unavailable', provider_status: 'unconfigured', reply: "I'm having trouble connecting right now. Try again in a moment." }), {
         status: 200, headers: { ...CORS, 'Content-Type': 'application/json' },
       })
     }
@@ -253,10 +283,10 @@ Deno.serve(async (req) => {
       }
     }
 
-    const resp = await fetch(url, {
+    const resp = await fetchWithTimeout(url, {
       method: 'POST',
-      // Block all HTTP redirect hops for credential-bearing Nebius requests.
-      redirect: useNebius ? 'error' : 'follow',
+      // Block redirect hops for every credential-bearing provider request.
+      redirect: 'error',
       headers: {
         'Content-Type': 'application/json',
         ...(useAzure
@@ -288,7 +318,7 @@ Deno.serve(async (req) => {
         max_tokens: 512,
         temperature: 0.7,
       }),
-    })
+    }, CHAT_UPSTREAM_TIMEOUT_MS)
 
     if (!resp.ok) {
       if (useNebius) {
@@ -296,16 +326,9 @@ Deno.serve(async (req) => {
         // metadata in upstream errors. Never read the body into logs.
         logNebiusUpstreamFailure(resp, (label, status) => console.error(label, status))
       } else {
-        const err = await resp.text()
-        console.error(
-          useAzure
-            ? 'Azure OpenAI error:'
-            : useOpenAI
-              ? 'OpenAI error:'
-              : 'DashScope error:',
-          resp.status,
-          err,
-        )
+        // Preserve a bounded failure path without logging provider response
+        // bodies, which may contain prompts or credential fragments.
+        console.error('Chat upstream HTTP failure', resp.status)
       }
       return new Response(JSON.stringify({ error: 'AI unavailable', reply: "I'm having trouble connecting right now. Try again in a moment." }), {
         status: 200, headers: { ...CORS, 'Content-Type': 'application/json' },
