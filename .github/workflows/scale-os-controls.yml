@@ -41,3 +41,24 @@ jobs:
           path: ${{ runner.temp }}/OSV_STARTUP_RECEIPT.json
           if-no-files-found: error
           retention-days: 90
+
+      # Offline evaluation code is tested only if the candidate actually carries
+      # both UWP-09 files. No model API, secrets, or private holdout access.
+      - name: Checkout exact UWP-09 candidate when present
+        if: ${{ hashFiles('scripts/uwp09_crescendo_adapter.py') != '' && hashFiles('scripts/test_uwp09_crescendo_adapter.py') != '' }}
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.event.merge_group.head_sha || github.sha }}
+          path: uwp09-candidate
+          persist-credentials: false
+
+      - name: Run exact-head UWP-09 Crescendo synthetic negative tests
+        if: ${{ hashFiles('scripts/uwp09_crescendo_adapter.py') != '' && hashFiles('scripts/test_uwp09_crescendo_adapter.py') != '' }}
+        env:
+          CANDIDATE_SHA: ${{ github.event.pull_request.head.sha || github.event.merge_group.head_sha || github.sha }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git -C uwp09-candidate rev-parse HEAD)" = "$CANDIDATE_SHA"
+          python3 -m unittest discover -s uwp09-candidate/scripts -p 'test_uwp09_crescendo_adapter.py' -v
+          python3 -m unittest discover -s uwp09-candidate/scripts -p 'test_uwp_benchmark_manifest.py' -v
