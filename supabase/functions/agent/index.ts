@@ -1,10 +1,11 @@
 // AEGIS-Ω autonomous agent endpoint — Claude API with tools
-// Deploy: supabase functions deploy agent --no-verify-jwt
+// Runtime: explicit Supabase JWT and approved-user allowlist required before paid actions
 // Env vars: ANTHROPIC_API_KEY, NOTIFY_SECRET, SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY
 // Accepts: { task: string, context?: string, notify?: boolean }
 // Returns: { result: string, actions: string[] }
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { CORS } from '../_shared/cors.ts'
+import { authorizeNebiusCaller, isNebiusRequestBounded } from '../_shared/nebius-auth.ts'
 
 const ANTHROPIC_API_KEY = Deno.env.get('ANTHROPIC_API_KEY') ?? ''
 const NOTIFY_SECRET     = Deno.env.get('NOTIFY_SECRET') ?? ''
@@ -135,17 +136,53 @@ Deno.serve(async (req) => {
     return new Response(JSON.stringify({ error: 'Method not allowed' }), { status: 405, headers: CORS })
   }
 
+  // A public client may never spend Anthropic credits or access service-role tools.
+  // Reuse the existing pinned JWT+allowlist gate; missing runtime settings DENY.
+  const permitted = await authorizeNebiusCaller(
+    req.headers.get('Authorization'),
+    Deno.env.get('AEGIS_AGENT_ALLOWED_USER_IDS') ?? '',
+    async (jwt) => {
+      if (!SUPABASE_URL || !SERVICE_KEY) return null
+      const authClient = createClient(SUPABASE_URL, SERVICE_KEY, { auth: { persistSession: false } })
+      const { data, error } = await authClient.auth.getUser(jwt)
+      return error ? null : data.user?.id ?? null
+    },
+  )
+  if (!permitted) {
+    return new Response(JSON.stringify({ error: 'Authenticated operator required' }), {
+      status: 401, headers: { ...CORS, 'Content-Type': 'application/json' },
+    })
+  }
+
   if (!ANTHROPIC_API_KEY) {
     return new Response(JSON.stringify({ error: 'ANTHROPIC_API_KEY not configured' }), { status: 503, headers: CORS })
   }
 
-  const { task, context, notify } = await req.json() as { task?: string; context?: string; notify?: boolean }
-  if (!task) {
-    return new Response(JSON.stringify({ error: 'task is required' }), { status: 400, headers: CORS })
+  let body: unknown
+  try {
+    body = await req.json()
+  } catch {
+    return new Response(JSON.stringify({ error: 'invalid JSON body' }), { status: 400, headers: CORS })
+  }
+  if (body === null || typeof body !== 'object' || Array.isArray(body)) {
+    return new Response(JSON.stringify({ error: 'invalid request body' }), { status: 400, headers: CORS })
+  }
+
+  const { task, context, notify } = body as Record<string, unknown>
+  if (typeof task !== 'string'
+    || (context !== undefined && typeof context !== 'string')
+    || (notify !== undefined && typeof notify !== 'boolean')) {
+    return new Response(JSON.stringify({ error: 'invalid request fields' }), { status: 400, headers: CORS })
+  }
+  const boundedContext = context === undefined ? undefined : context
+  if (!isNebiusRequestBounded(task, boundedContext ?? '', [])) {
+    return new Response(JSON.stringify({ error: 'task or context exceeds request bounds' }), {
+      status: 400, headers: CORS,
+    })
   }
 
   try {
-    const { result, actions } = await runAgent(task, context)
+    const { result, actions } = await runAgent(task, boundedContext)
 
     // Optionally notify owner with the result
     if (notify) {
