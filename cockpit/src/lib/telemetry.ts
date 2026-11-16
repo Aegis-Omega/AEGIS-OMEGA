@@ -65,17 +65,39 @@ async function fetchOnce(): Promise<void> {
 // SSE streaming path — used when bridge supports /telemetry/stream
 function connectSSE(signal: AbortSignal): void {
   const es = new EventSource(`${BRIDGE}/telemetry/stream`)
+  // The Python bridge sends one bounded SSE frame and closes the HTTP request.
+  // EventSource reconnects natively (retry: 5000). Closing it from onerror
+  // would permanently disconnect the Cockpit after the first valid frame.
+  let lastFrameAt = 0
+  const staleAfterMs = 4 * POLL_MS
+  const checkStale = () => {
+    if (signal.aborted) return
+    if (lastFrameAt === 0 || Date.now() - lastFrameAt > staleAfterMs) {
+      if (currentState.status !== 'offline') notify({ status: 'offline' })
+    }
+  }
+  const watchdog = setInterval(() => {
+    // Do not label the still-connecting EventSource offline prematurely.
+    if (lastFrameAt !== 0) checkStale()
+  }, POLL_MS)
   es.onmessage = (ev) => {
+    if (signal.aborted) return
     try {
       const data = JSON.parse(ev.data as string) as TelemetrySnapshot
+      lastFrameAt = Date.now()
       notify({ status: 'online', data, streaming: true })
-    } catch { /* ignore malformed frames */ }
+    } catch { /* ignore malformed frames; do not refresh liveness */ }
   }
   es.onerror = () => {
-    es.close()
-    notify({ status: 'offline' })
+    // A normal one-frame server close fires onerror before native reconnection.
+    // Preserve fresh data and permit browser-managed retry. Stale telemetry is
+    // marked offline after repeated failed reconnects.
+    checkStale()
   }
-  signal.addEventListener('abort', () => es.close(), { once: true })
+  signal.addEventListener('abort', () => {
+    clearInterval(watchdog)
+    es.close()
+  }, { once: true })
 }
 
 async function loop(signal: AbortSignal): Promise<void> {
