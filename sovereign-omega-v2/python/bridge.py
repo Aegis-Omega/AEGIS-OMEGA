@@ -493,7 +493,16 @@ class BridgeHandler(BaseHTTPRequestHandler):
                 return
 
         length = int(self.headers.get('Content-Length', 0))
-        data = json.loads(self.rfile.read(length)) if length else {}
+        try:
+            data = json.loads(self.rfile.read(length)) if length else {}
+        except (ValueError, UnicodeError):
+            if self.path in ('/gate_signal', '/event'):
+                self._respond(400, {'status': 'REJECTED', 'reason': 'INVALID_CONTROL_JSON'})
+                return
+            raise
+        if self.path in ('/gate_signal', '/event') and not isinstance(data, dict):
+            self._respond(400, {'status': 'REJECTED', 'reason': 'INVALID_CONTROL_OBJECT'})
+            return
 
         if self.path == '/gate_signal':
             # A positive TypeScript E4 signal is only an input to the frozen
