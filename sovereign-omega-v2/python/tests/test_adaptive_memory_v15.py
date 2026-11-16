@@ -4,9 +4,12 @@ No 4 GiB, 8 GiB, RX 570, or specific computer is a runtime requirement.
 """
 import mmap
 import os
+import sys
 import unittest
+from pathlib import Path
 from unittest.mock import patch
 
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 import adaptive_memory as mem
 
 
