@@ -7,6 +7,7 @@ with a real production arena or changes the runtime gate semantics.
 """
 import ast
 import hashlib
+import mmap
 import os
 import sys
 import threading
@@ -82,7 +83,7 @@ def run_core_class():
     env = {
         "__name__": "aegis_test_source_bound_core",
         "Optional": Optional, "Callable": Callable, "Dict": Dict,
-        "os": os, "threading": threading, "EpochState": FakeEpoch,
+        "os": os, "mmap": mmap, "threading": threading, "EpochState": FakeEpoch,
         "RAM_TOTAL_BYTES": 65536, "ARRAY_TOTAL_BYTES": 65536,
         "M1_OFFSET": 0, "M1_SIZE": 32768, "M2_OFFSET": 32768, "M2_SIZE": 16384,
         "M3_OFFSET": 49152, "M3_SIZE": 16384,
