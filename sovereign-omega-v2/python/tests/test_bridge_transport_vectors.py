@@ -43,6 +43,10 @@ class NativeNodeToPythonTransportTests(unittest.TestCase):
                 self.assertIs(signal["accepted"], True)
                 self.assertIs(type(signal["sequence"]), int)
                 self.assertGreater(signal["lcb"], 0)
+                self.assertEqual(signal["method"], "anytime_valid_bernstein")
+                self.assertGreater(signal["sample_size"], 0)
+                self.assertGreater(signal["risk_spent"], 0)
+                self.assertGreaterEqual(signal["e_value"], 1 / signal["risk_spent"])
                 self.assertEqual(signal["proposal_id"], event["proposal_id"])
                 self.assertNotIn(signal["proposal_id"], seen)
                 seen.add(signal["proposal_id"])
@@ -70,6 +74,8 @@ class NativeNodeToPythonTransportTests(unittest.TestCase):
                 ok, reason = ledger.record(
                     signal["proposal_id"], signal["sequence"],
                     signal["accepted"], signal["lcb"], signal["event_sha256"],
+                    e_value=signal["e_value"], risk_spent=signal["risk_spent"],
+                    sample_size=signal["sample_size"], e4_method=signal["method"],
                 )
                 self.assertEqual((ok, reason), (True, "ACCEPTED"))
                 p, v, c = (
