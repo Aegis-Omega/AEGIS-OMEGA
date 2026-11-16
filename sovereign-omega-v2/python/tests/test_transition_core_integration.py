@@ -151,5 +151,55 @@ class ObserverCoreIntegration(TestCase):
         self.assertEqual(engine.transition_analytics_snapshot()["sample_count"], 0)
 
 
+    def test_independent_instances_remeasure_budget_and_checkpoint_geometry(self):
+        # The Python module was imported with an independent 4 MiB fixture.
+        # Two subsequent CoreMatrix instances must independently reconfigure.
+        import adaptive_memory
+        self.assertEqual(self.core.ARRAY_TOTAL_BYTES, 4194304)
+        instances = []
+        try:
+            for selected in (4194304, 8388608, 16777216):
+                with mock.patch.object(adaptive_memory, "effective_available_bytes",
+                                       return_value=512 * 1024**2):
+                    with mock.patch.dict(os.environ,
+                                         {"AEGIS_ARRAY_BYTES": str(selected)}):
+                        matrix = self.core.CoreMatrix()
+                instances.append(matrix)
+                expected = adaptive_memory.plan_layout(selected)
+                self.assertEqual(matrix._layout, expected)
+                self.assertEqual(len(matrix._array), selected)
+                self.assertEqual(len(matrix._m1_region), expected.m1_size)
+                self.assertEqual(len(matrix._m2_region), expected.m2_size)
+                self.assertEqual(len(matrix._m3_region), expected.m3_size)
+                self.assertEqual(matrix._m1_era_capacity, expected.m1_size // 40)
+                self.assertEqual(matrix.process_event(b"x", b"\x01", b"abc")["sequence"], 1)
+                self.assertEqual(matrix.get_epoch_snapshot()[-12:-4], (1).to_bytes(8, "little"))
+            self.assertEqual([len(x._array) for x in instances],
+                             [4194304, 8388608, 16777216])
+            self.assertEqual(self.core.ARRAY_TOTAL_BYTES, 4194304)
+        finally:
+            for matrix in instances:
+                matrix.close()
+                self.assertTrue(matrix._array.closed)
+
+    def test_insufficient_headroom_denies_new_instance_without_mutating_existing(self):
+        import adaptive_memory
+        with mock.patch.object(adaptive_memory, "effective_available_bytes",
+                               return_value=512 * 1024**2):
+            with mock.patch.dict(os.environ, {"AEGIS_ARRAY_BYTES": "4194304"}):
+                active = self.core.CoreMatrix()
+        try:
+            self.assertEqual(active.process_event(b"ok", b"\x01", b"c")["sequence"], 1)
+            with mock.patch.object(adaptive_memory, "effective_available_bytes",
+                                   return_value=6 * 1024**2):
+                with mock.patch.dict(os.environ, {"AEGIS_ARRAY_BYTES": "4194304"}):
+                    with self.assertRaises(adaptive_memory.MemoryBudgetError):
+                        self.core.CoreMatrix()
+            self.assertFalse(active._array.closed)
+            self.assertEqual(active.process_event(b"ok", b"\x01", b"c")["sequence"], 2)
+        finally:
+            active.close()
+
+
 if __name__ == "__main__":
     main()
