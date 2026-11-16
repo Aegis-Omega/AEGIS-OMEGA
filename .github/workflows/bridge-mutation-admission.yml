@@ -1,0 +1,43 @@
+name: Bridge Mutation Admission V1
+
+on:
+  push:
+    branches:
+      - fix/bridge-mutation-admission-20261116
+    paths:
+      - sovereign-omega-v2/python/mutation_admission.py
+      - sovereign-omega-v2/python/bridge.py
+      - sovereign-omega-v2/python/tests/test_mutation_admission.py
+      - .github/workflows/bridge-mutation-admission.yml
+  pull_request:
+    branches:
+      - main
+    paths:
+      - sovereign-omega-v2/python/mutation_admission.py
+      - sovereign-omega-v2/python/bridge.py
+      - sovereign-omega-v2/python/tests/test_mutation_admission.py
+      - .github/workflows/bridge-mutation-admission.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  bridge-mutation-admission:
+    name: Authenticated, single-use, event-bound mutation admission
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - name: Checkout exact candidate
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - name: Ensure compatible Python
+        run: python3 -c "import sys; assert sys.version_info >= (3, 11), sys.version"
+      - name: Compile bridge and security module
+        run: |
+          python3 -m py_compile sovereign-omega-v2/python/mutation_admission.py
+          python3 -m py_compile sovereign-omega-v2/python/bridge.py
+          python3 -m py_compile sovereign-omega-v2/python/tests/test_mutation_admission.py
+      - name: Run native admission and AST-bound bridge regressions
+        run: |
+          cd sovereign-omega-v2
+          python3 -m unittest discover -s python/tests -p test_mutation_admission.py -v
