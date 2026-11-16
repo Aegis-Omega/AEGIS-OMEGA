@@ -17,7 +17,7 @@ from core_matrix import CoreMatrix
 from dna import EventClass, GateSignal
 from gate import gate
 from router import router
-from mutation_admission import MutationAdmissionLedger, control_authenticated
+from mutation_admission import MutationAdmissionLedger, control_authenticated, control_secrets_distinct
 from hardware_config import detect_hardware
 from constitutional_identity import CONSTITUTIONAL_SYSTEM_FULL, CONSTITUTIONAL_SYSTEM_COMPACT
 from tgcs_afse import TGCSController, AFSEController
@@ -468,13 +468,18 @@ class BridgeHandler(BaseHTTPRequestHandler):
 
     def do_POST(self):
         global last_ack_sequence
-        # Control-plane endpoints fail closed when the shared server-only
-        # credential is absent, even in development. All other API routes
-        # retain their existing, separately scoped authentication policies.
+        # Separate issuer and consumer credentials: an event client must
+        # never be able to mint a gate approval using its own credential.
+        # Both secrets are mandatory and must be distinct; no dev bypass.
         if self.path in ('/gate_signal', '/event'):
+            gate_secret = os.environ.get('AEGIS_BRIDGE_GATE_SECRET')
+            event_secret = os.environ.get('AEGIS_BRIDGE_EVENT_SECRET')
+            if not control_secrets_distinct(gate_secret, event_secret):
+                self._respond(503, {'status': 'REJECTED', 'reason': 'BRIDGE_CONTROL_UNCONFIGURED'})
+                return
+            required_secret = gate_secret if self.path == '/gate_signal' else event_secret
             if not control_authenticated(
-                self.headers.get('X-Aegis-Bridge-Secret'),
-                os.environ.get('AEGIS_BRIDGE_CONTROL_SECRET'),
+                self.headers.get('X-Aegis-Bridge-Secret'), required_secret
             ):
                 self._respond(403, {'status': 'REJECTED', 'reason': 'BRIDGE_CONTROL_UNAUTHORIZED'})
                 return
