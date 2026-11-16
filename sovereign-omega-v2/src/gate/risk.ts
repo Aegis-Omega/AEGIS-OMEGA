@@ -74,6 +74,24 @@ export class RiskBudgetManager {
     const harmonicNumber = harmonicSum(this.budget.max_rounds)
     const deltaAlpha = this.currentBudget(currentMs) / (k * harmonicNumber)
 
+    // Invalid measurements or alpha cannot create valid statistical evidence.
+    // Fail closed *before* normalizing, so Infinity is never clamped to +1.
+    if (
+      samples.length === 0 ||
+      samples.some(s => !Number.isFinite(s))
+    ) {
+      return this.makeDecision(
+        proposalId, componentId, false, 0, 0, samples.length, 0,
+        'VERIFIER_INTEGRITY', currentMs
+      )
+    }
+    if (!Number.isFinite(deltaAlpha) || deltaAlpha <= 0 || deltaAlpha >= 1) {
+      return this.makeDecision(
+        proposalId, componentId, false, 0, 0, samples.length, 0,
+        'BUDGET_EXHAUSTED', currentMs
+      )
+    }
+
     // Compute Bernstein LCB and e-value
     const seq = new ConfidenceSequence(deltaAlpha)
     for (const s of samples) {
@@ -109,7 +127,9 @@ export class RiskBudgetManager {
     }
 
     return this.makeDecision(
-      proposalId, componentId, accepted, lcb, eValue,
+      proposalId, componentId, accepted,
+      Number.isFinite(lcb) ? lcb : 0,
+      Number.isFinite(eValue) ? eValue : 0,
       samples.length, accepted ? deltaAlpha : 0,
       accepted ? undefined : (!lcbPass ? 'LCB_FAIL' : 'E_VALUE_FAIL'), currentMs
     )
