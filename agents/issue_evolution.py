@@ -343,11 +343,16 @@ def evaluate_trial(trial: Mapping[str, Any]) -> dict[str, Any]:
             "holdout_digest", "paired_results", "rollback_ref"}
     if not isinstance(trial, Mapping) or set(trial) != keys or trial["schema"] != EVAL_SCHEMA:
         raise ValueError("TRIAL_SCHEMA_INVALID")
-    if not isinstance(trial["issue"], str) or not re.fullmatch(
-        r"(?:Aegis-Omega/(?:AEGIS-OMEGA|AegisOmega)|tarikskalic33/(?:formal-conjectures|sovereign-guard))#[1-9][0-9]{0,6}",
-        trial["issue"],
-    ):
+    issue_match = (re.fullmatch(r"([A-Za-z0-9._-]+/[A-Za-z0-9._-]+)#([1-9][0-9]{0,6})",
+                               trial["issue"])
+                   if isinstance(trial["issue"], str) else None)
+    if issue_match is None:
         raise ValueError("TRIAL_ISSUE_INVALID")
+    try:
+        issue_repo = _valid_repo(issue_match.group(1))
+    except ValueError as exc:
+        raise ValueError("TRIAL_ISSUE_INVALID") from exc
+    canonical_issue_key = f"{issue_repo}#{issue_match.group(2)}"
     if not isinstance(trial["baseline"], str) or not isinstance(trial["candidate"], str) or (
         trial["baseline"] == trial["candidate"] or not HEAD_RE.fullmatch(trial["baseline"])
         or not HEAD_RE.fullmatch(trial["candidate"])
@@ -388,7 +393,7 @@ def evaluate_trial(trial: Mapping[str, Any]) -> dict[str, Any]:
     p_value = sum(math.comb(n,k) for k in range(wins,n+1)) / (2**n) if n else 1.0
     passed = wins > losses and n >= 30 and p_value <= 0.01 and not safety_regressions
     body = {"schema": "AEGIS_ISSUE_EVOLUTION_SCREEN_V1",
-            "issue": trial["issue"], "trial_hash": digest(trial),
+            "issue": canonical_issue_key, "trial_hash": digest(trial),
             "wins": wins, "losses": losses, "ties": ties,
             "paired_count": len(rows), "safety_regressions": safety_regressions,
             "sign_test_one_sided_p": p_value,

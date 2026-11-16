@@ -116,6 +116,22 @@ class IssueEvolutionTests(unittest.TestCase):
                 self.assertEqual(graph["authority_effect"], "NONE")
                 self.assertEqual(graph["execution_effect"], "NONE")
 
+    def test_relocated_formal_trial_canonical_key(self):
+        for repo in ("Aegis-Omega/formal-conjectures",
+                     "tarikskalic33/formal-conjectures"):
+            with self.subTest(repo=repo):
+                result = evaluate_trial(trial(issue=f"{repo}#92"))
+                self.assertEqual(result["issue"], "Aegis-Omega/formal-conjectures#92")
+                self.assertEqual(result["authority_effect"], "NONE")
+
+    def test_relocated_alias_not_double_counted(self):
+        graph = compile_graph(snapshot([issue(92, "Weil fixed-packet work")],
+                                       repository="Aegis-Omega/formal-conjectures"))
+        a = trial(issue="tarikskalic33/formal-conjectures#92")
+        b = trial(issue="Aegis-Omega/formal-conjectures#92")
+        with self.assertRaisesRegex(ValueError, "EVOLUTION_DUPLICATE_CANDIDATE"):
+            evolve_issues(graph, [a, b])
+
     def test_snapshot_format_denied(self):
         with self.assertRaisesRegex(ValueError, "ISSUE_SNAPSHOT_SCHEMA_INVALID"):
             compile_graph({"issues": []})
