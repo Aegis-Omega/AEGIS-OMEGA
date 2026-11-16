@@ -111,7 +111,7 @@ def make_bridge_post_handler(gate, matrix, router, ledger):
         "_mutation_admission": ledger, "gate": gate, "matrix": matrix,
         "router": router, "GateSignal": GateSignal,
         "EventClass": EventClass, "SCHEMAS": SCHEMAS,
-        "save_checkpoint": record_checkpoint,
+        "_save_checkpoint_serialized": record_checkpoint,
         "control_authenticated": control_authenticated,
         "control_secrets_distinct": control_secrets_distinct,
     }
