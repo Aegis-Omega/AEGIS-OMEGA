@@ -79,3 +79,4 @@ def sin_iv(x):
     for j in range(1, 2 * (P // 3) + 40, 2):
         s = s + (t / f if (j // 2) % 2 == 0 else -(t / f)); t = t * y2; f *= (j + 1) * (j + 2)
     e = I(0, max(abs(t.lo), abs(t.hi)) // f + 1); return s.pm(e)
+
