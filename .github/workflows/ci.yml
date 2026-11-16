@@ -184,6 +184,12 @@ jobs:
       - name: Run hardware_config fixed-point tests
         run: python python/tests/test_hardware_config.py
 
+      - name: Install Ed25519 verification backend (test-only)
+        run: pip install 'cryptography>=43,<48'
+
+      - name: Run signed promotion-evidence preflight tests
+        run: python ../agents/tests/test_promotion_evidence.py
+
       - name: Run constitutional identity tests
         run: python python/tests/test_constitutional_identity.py
 
