@@ -223,6 +223,14 @@ class CoreMatrix:
         self._lock = threading.RLock()
         self._ready = threading.Event()
 
+        # Optional V14 process-local analytics. Off by default. This never
+        # supplies a gate verdict, persists raw input, or changes M1/M2/M3.
+        self._transition_observer = None
+        self._transition_observer_errors = 0
+        if os.environ.get('AEGIS_TRANSITION_OBSERVER') == '1':
+            from transition_observer import TransitionObserver
+            self._transition_observer = TransitionObserver()
+
         # Capacity at which M1 write head wraps (events per era)
         self._m1_era_capacity: int = M1_SIZE // 40
 
@@ -315,6 +323,13 @@ class CoreMatrix:
             # Gate decision: LCB > 0 means accept
             gate_accepted = gate_lcb_fixed > 0
 
+            # Do not let informational analytics alter the governance result.
+            if self._transition_observer is not None:
+                try:
+                    self._transition_observer.observe_verifier(verifier_result)
+                except Exception:
+                    self._transition_observer_errors += 1
+
             return {
                 'status': 'OK',
                 'sequence': self._sequence,
@@ -355,9 +370,20 @@ class CoreMatrix:
             failsafe_state = self._failsafe.state.value
             corruption_count = self._failsafe.corruption_count
             calibrator_ok = self._calibrator.passes_criterion(100_000)
+            transition_snapshot = None
+            if self._transition_observer is not None:
+                try:
+                    transition_snapshot = self._transition_observer.snapshot()
+                    transition_snapshot['observation_errors'] = self._transition_observer_errors
+                except Exception:
+                    transition_snapshot = {
+                        'schema': 'AEGIS_VERIFIER_TRANSITIONS_V14_1',
+                        'status': 'UNAVAILABLE',
+                        'observation_errors': self._transition_observer_errors + 1,
+                    }
         # pgcs.snapshot() reads psutil/disk — safe outside the lock
         pgcs_snap = self._pgcs.snapshot(seq)
-        return {
+        result = {
             'sequence': seq,
             'epoch': epoch,
             'avg_vcg_error': avg_vcg_error,
@@ -367,6 +393,9 @@ class CoreMatrix:
             'corruption_count': corruption_count,
             'calibrator_passes_100k': calibrator_ok,
         }
+        if transition_snapshot is not None:
+            result['transition_observer_v14'] = transition_snapshot
+        return result
 
     def get_epoch_snapshot(self) -> Optional[bytes]:
         """
