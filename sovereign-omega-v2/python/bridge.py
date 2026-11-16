@@ -1942,6 +1942,10 @@ def run_bridge(port=None):
     matrix.start()
     if not matrix.wait_ready(timeout=5.0):
         print(json.dumps({'event_type': 'BRIDGE_START_TIMEOUT', 'port': port}), flush=True)
+        # Do not expose HTTP control routes when the matrix was not initialized.
+        # No autosave or shutdown save is allowed for unready startup state.
+        matrix.stop()
+        raise RuntimeError('BRIDGE_START_NOT_READY')
 
     # Existing persisted state is an authority boundary. A failed restore
     # must abort *before* binding any HTTP socket, starting autosave, or
