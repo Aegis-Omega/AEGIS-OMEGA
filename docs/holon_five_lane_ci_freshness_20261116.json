@@ -1,0 +1,45 @@
+{
+  "schema": "AEGIS.HOLON.ExactBaseCIFreshnessReceipt.V1",
+  "observed_date": "2026-11-16",
+  "scope": "integration evidence only, no changed math, CI policy, credentials or main",
+  "repository": "Aegis-Omega/AEGIS-OMEGA",
+  "candidate_pr": 813,
+  "observed_candidate_sha": "4d1f391c5054c9ad3fa2d018fd3ba9fe1f486aa1",
+  "observed_parent_pr": 810,
+  "observed_parent_sha": "d54284fa502b310961a475c807a7d2e51ed9990e",
+  "observed_base_name": "research/holon-m123-contracts-v2-20261116",
+  "parent_manifest_state_hash": "7c73c0f4b9ba6aa6d80c3c66c8c1973f5af51828b268c5c1f2b308ebf3453162",
+  "candidate_manifest_state_hash": "e70d47ad23af244a8893a296d26554f13e428100757026dfc7531214187d414c",
+  "candidate_manifest_blob": "f13b60ab506b059112601f9f05c8e2a24e66f05b",
+  "source_v3_receipt_blob": "36d1a045be526d3cf14f0f929e42d974548a90a8",
+  "source_v3_receipt_path": "docs/holon_five_lane_integration_v3.json",
+  "checkpoint_schema": "2.3.0",
+  "observation": {
+    "GitHub check-runs on original 4d1f SHA": "39 success, 6 failure, 3 skipped, 1 cancelled, 1 neutral, 1 in progress, 51 total at initial read",
+    "Python Bridge": "success",
+    "M123 actual-module": "success",
+    "TypeScript Gate 8": "success",
+    "CL-PSI inference gates": "success",
+    "Automaton-3": "success",
+    "trusted-cognitive-admission": "failure; expected parent 9d18ee4a9fcc765ba590df3ba655a3e0c85569e017d199b18eaeb83a952fa486 (old main), while current branch base manifest is 7c73c0f4b9ba6aa6d80c3c66c8c1973f5af51828b268c5c1f2b308ebf3453162",
+    "automaton-2": "failure; stale parent 9d18ee4a vs actual parent 7c73c0f4",
+    "overlap guard": "failure due to changing unrelated PR #509 head during census, not clean overlap verdict",
+    "Appwrite": "failure also present on baseline main, cause unknown"
+  },
+  "direct_evidence": {
+    "trusted_admission": "https://github.com/Aegis-Omega/AEGIS-OMEGA/actions/runs/43884643176/job/133359363859",
+    "automaton2": "https://github.com/Aegis-Omega/AEGIS-OMEGA/actions/runs/43884643385/job/133359363099",
+    "python_bridge": "https://github.com/Aegis-Omega/AEGIS-OMEGA/actions/runs/43884643474/job/133361580479",
+    "m123": "https://github.com/Aegis-Omega/AEGIS-OMEGA/actions/runs/43884643231/job/133359363315",
+    "overlap": "https://github.com/Aegis-Omega/AEGIS-OMEGA/actions/runs/43884642734/job/133359362390"
+  },
+  "required_new_action": "A fresh pull_request synchronize event with current stacked base PR810 is needed for admission checks to evaluate proper parent. This receipt commit is that non-policy event.",
+  "claim_limits": {
+    "previous_failed_workflows_not_discarded": true,
+    "base_ancestry_verified": true,
+    "fresh_event_result": "UNKNOWN_PENDING",
+    "full_history_replay": "NOT_ESTABLISHED",
+    "production_admission": "NOT_GRANTED",
+    "security_gate_bypass": false
+  }
+}
