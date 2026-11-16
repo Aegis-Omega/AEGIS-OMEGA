@@ -76,9 +76,11 @@ def make_case(expressions=None, variables=("p",)):
     claimsets.put(source_claimset)
     proofs = ProofStore()
     readings = []
+    # Allow additional independently named context fibers without changing
+    # the existing left/right test fixtures or their exact byte identities.
     contexts = {
-        "left": artifacts.put(b"independent-formal-context:left"),
-        "right": artifacts.put(b"independent-formal-context:right"),
+        side: artifacts.put(f"independent-formal-context:{side}".encode("utf-8"))
+        for side in sorted({name.split("-", 1)[0] for name in expressions})
     }
     for name, expr in sorted(expressions.items()):
         side = name.split("-", 1)[0]
