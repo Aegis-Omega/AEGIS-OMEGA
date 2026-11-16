@@ -75,7 +75,7 @@ export function governanceEventDigest(
 export function encodeAdmittedGovernanceMutation(
   source: AdmittedGovernanceMutation
 ): MutationTransportFrames {
-  if (!PROPOSAL_ID_RE.test(source.proposalId)) {
+  if (typeof source.proposalId !== 'string' || !PROPOSAL_ID_RE.test(source.proposalId)) {
     throw new RangeError('proposalId is not a canonical proposal identifier')
   }
   if (!Number.isSafeInteger(source.sequence) || source.sequence < 0) {
