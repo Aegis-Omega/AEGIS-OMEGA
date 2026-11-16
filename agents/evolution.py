@@ -61,6 +61,29 @@ PROMOTION_MAX_FAILURE_RATE = 0.1
 PROMOTION_MIN_CONFIDENCE = 0.9  # T1 candidates must have earned high confidence
 
 
+def _demotion_evidence_fingerprint(skill: dict) -> str:
+    """Stable observation identity, independent of the mutable current tier.
+
+    Equal evidence on repeated ticks must never trigger successive demotions.
+    This hash only detects replay; it does NOT authenticate the observations.
+    """
+    fields = {
+        "domain": "AEGIS_DEMOTION_OBSERVATION_V1",
+        "skill_id": skill.get("skill_id"),
+        "observation_state": skill.get("observation_state"),
+        "validated_runs": skill.get("validated_runs"),
+        "failure_rate": skill.get("failure_rate"),
+        "failure_rate_observed": skill.get("failure_rate_observed"),
+        "confidence": skill.get("confidence"),
+        "recency_score": skill.get("recency_score"),
+        "last_validated": skill.get("last_validated"),
+        "evidence_refs": skill.get("evidence_refs"),
+    }
+    return hashlib.sha256(
+        json.dumps(fields, sort_keys=True, separators=(",", ":"), allow_nan=False).encode("utf-8")
+    ).hexdigest()
+
+
 def _coherent_observation(skill: dict) -> bool:
     """Metadata coherence check, NOT independent attestation.
 
@@ -334,8 +357,18 @@ class EvolutionEngine:
                 # Defense-in-depth: evaluate_skill must not self-grant T2 -> T1.
                 raise ValueError("unexpected unauthenticated automatic promotion")
             if v.eligible_tier and self._is_demotion(v):
+                fingerprint = _demotion_evidence_fingerprint(skill)
+                witness = "obs=" + fingerprint
+                if any(
+                    ev.event_type == "TIER_DEMOTION" and ev.skill_id == v.skill_id
+                    and ev.evidence.endswith(witness)
+                    for ev in self.lineage.events
+                ):
+                    # Identical observation evidence cannot repeatedly demote.
+                    continue
                 self.lineage.append(
-                    "TIER_DEMOTION", v.skill_id, v.current_tier, v.eligible_tier, v.reason,
+                    "TIER_DEMOTION", v.skill_id, v.current_tier, v.eligible_tier,
+                    v.reason + "; " + witness,
                 )
                 skill["tier"] = v.eligible_tier
                 changed = True
