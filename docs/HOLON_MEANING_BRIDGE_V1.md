@@ -95,7 +95,18 @@ The new `harness/sdk/holon_finite_global_model.py` checks the **entire declared 
 - A nonempty global intersection proves existence of a shared valuation and yields a deterministic selection of one reading in each context. An empty intersection proves finite-model `UNSAT` after exhausting all at most 256 valuations. Both claims require each separately verified pair table to match the exact MHP-derived Boolean formulas.
 - The code deliberately **does not** claim a category-theoretic global section, a universal semantic equivalence, an empirical truth, an unambiguous human intention, completeness of the AEGIS corpus or permission to execute a decision.
 
-**Evidence checkpoints:** [GitHub native run 43891208251](https://github.com/Aegis-Omega/AEGIS-OMEGA/actions/runs/43891208251) on commit `95eb0fa828b17f486d62ab2fee2a55f718c44d90`: 224/224 Python tests and 57/57 cross-runtime hash vectors PASS, including an independent exhaustive oracle across 80 deterministic three-context trials. [GitHub native run 43893352632](https://github.com/Aegis-Omega/AEGIS-OMEGA/actions/runs/43893352632) on commit `87cf4f035edd36fd9c931b5087be21b037e196f0`: 228/228 Python tests and 57/57 parity vectors PASS, with new multi-reading and bit-mask falsifiers. Subsequent multi-reading oracle expansion and maximum-variable tests require a **new exact-head CI receipt** before promotion.
+**Evidence checkpoints:** [GitHub native run 43891208251](https://github.com/Aegis-Omega/AEGIS-OMEGA/actions/runs/43891208251) on commit `95eb0fa828b17f486d62ab2fee2a55f718c44d90`: 224/224 Python tests and 57/57 cross-runtime hash vectors PASS, including an independent exhaustive oracle across 80 deterministic three-context trials. [GitHub native run 43893352632](https://github.com/Aegis-Omega/AEGIS-OMEGA/actions/runs/43893352632) on commit `87cf4f035edd36fd9c931b5087be21b037e196f0`: 228/228 Python tests and 57/57 parity vectors PASS, with new multi-reading and bit-mask falsifiers. The follow-up [GitHub native run 43895466876](https://github.com/Aegis-Omega/AEGIS-OMEGA/actions/runs/43895466876) on `54e57a89f71c7022b817d6a67f416947ee0b135a` passed **237/237 Python tests** and **57/57 Python–TypeScript parity vectors**, now covering the 64-case independent multi-reading oracle, all 256 valuations and 7 fail-closed historical-receipt replay tests. Future commits require fresh exact-head evidence.
+
+
+
+### Finite global receipt replay and evidence retention
+
+`FiniteGlobalReceiptReplayVerifierV1` extends the existing verifier with independently retrieved `FiniteGlobalModelReceiptV1` readback. Before accepting a previously issued SAT or UNSAT receipt, it verifies the receipt's content-addressed root, then **re-runs the full original MHP, contextual relation, indexed graph and exact-byte Boolean model verification** against the currently trusted stores. The reissued result must be byte-for-byte equal to the stored receipt, including the context truth masks, total global valuation mask, exact witness and provenance roots.
+
+- SAT and UNSAT replay are independently tested as stable under unchanged evidence.
+- Removing the stored receipt, original heritage receipt, or a formerly verified relation denies admission. Altering the stored truth mask without a matching root also denies admission. Invalid roots cannot produce a false `OPEN` or `UNSAT`.
+- This is an **evidence custody and repeatability check**, not an independent mathematical implementation of the truth-table algorithm. The separate exhaustive-oracle tests are what support the finite semantic calculation; replay merely guards against stale or missing evidence.
+- All receipts remain `authority_class=NONE`, and no production trust-store adapter or external provenance service is asserted deployed.
 
 ## Open work
 
