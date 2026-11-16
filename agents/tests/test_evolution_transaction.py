@@ -181,6 +181,49 @@ class EvolutionTransactionTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "UNJOURNALED_REGISTRY_SAVE_DENIED"):
             engine._save_tree()
 
+    def test_duplicate_target_skill_id_rejected_before_any_journal(self):
+        # Reproducer: old IDs [candidate, beta], new IDs [candidate, candidate].
+        # Both entries have plausible metrics and recalculated matching roots.
+        beta = copy.deepcopy(self.old_tree["skills"][0])
+        beta["skill_id"] = "beta"
+        self.old_tree["skills"].append(beta)
+        self.old_tree["registry_root"] = self.old_tree["genesis_seal"] = compute_registry_root(self.old_tree)
+        self.tree.write_text(json.dumps(self.old_tree, indent=2) + "\n", encoding="utf-8")
+        self.next_tree["skills"].append(copy.deepcopy(self.next_tree["skills"][0]))
+        self.next_tree["registry_root"] = self.next_tree["genesis_seal"] = compute_registry_root(self.next_tree)
+        original_bytes = self.tree.read_bytes()
+
+        with self.assertRaisesRegex(EvolutionTransactionError, "DUPLICATE_TARGET_SKILL"):
+            self.commit()
+        self.assertFalse(journal_path(self.tree).exists())
+        self.assertFalse(self.lineage.exists())
+        self.assertEqual(self.tree.read_bytes(), original_bytes)
+
+    def test_replacement_skill_id_rejected_before_any_journal(self):
+        # Count and uniqueness alone do not protect identity preservation.
+        beta = copy.deepcopy(self.old_tree["skills"][0])
+        beta["skill_id"] = "beta"
+        self.old_tree["skills"].append(beta)
+        self.old_tree["registry_root"] = self.old_tree["genesis_seal"] = compute_registry_root(self.old_tree)
+        self.tree.write_text(json.dumps(self.old_tree, indent=2) + "\n", encoding="utf-8")
+        renamed = copy.deepcopy(beta)
+        renamed["skill_id"] = "gamma"
+        self.next_tree["skills"].append(renamed)
+        self.next_tree["registry_root"] = self.next_tree["genesis_seal"] = compute_registry_root(self.next_tree)
+
+        with self.assertRaisesRegex(EvolutionTransactionError, "SKILL_ID_SET_CHANGED"):
+            self.commit()
+        self.assertFalse(journal_path(self.tree).exists())
+        self.assertFalse(self.lineage.exists())
+
+    def test_missing_target_skill_id_rejected_before_any_journal(self):
+        self.next_tree["skills"][0]["skill_id"] = ""
+        self.next_tree["registry_root"] = self.next_tree["genesis_seal"] = compute_registry_root(self.next_tree)
+        with self.assertRaisesRegex(EvolutionTransactionError, "INVALID_TARGET_SKILL_ID"):
+            self.commit()
+        self.assertFalse(journal_path(self.tree).exists())
+        self.assertFalse(self.lineage.exists())
+
     def test_promotions_are_never_allowed_by_transaction_helper(self):
         self.next_tree["skills"][0]["tier"] = "T0"
         self.next_tree["registry_root"] = self.next_tree["genesis_seal"] = compute_registry_root(self.next_tree)
