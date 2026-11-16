@@ -9,6 +9,7 @@ on:
       - sovereign-omega-v2/python/bridge.py
       - sovereign-omega-v2/python/checkpoint_autosave.py
       - sovereign-omega-v2/python/tests/test_checkpoint_autosave.py
+      - sovereign-omega-v2/python/tests/test_bridge_startup_checkpoint.py
       - sovereign-omega-v2/python/tests/test_mutation_admission.py
       - sovereign-omega-v2/python/tests/test_mutation_bridge_http.py
       - sovereign-omega-v2/python/tests/test_bridge_transport_vectors.py
@@ -30,6 +31,7 @@ on:
       - sovereign-omega-v2/python/bridge.py
       - sovereign-omega-v2/python/checkpoint_autosave.py
       - sovereign-omega-v2/python/tests/test_checkpoint_autosave.py
+      - sovereign-omega-v2/python/tests/test_bridge_startup_checkpoint.py
       - sovereign-omega-v2/python/tests/test_mutation_admission.py
       - sovereign-omega-v2/python/tests/test_mutation_bridge_http.py
       - sovereign-omega-v2/python/tests/test_bridge_transport_vectors.py
@@ -64,6 +66,7 @@ jobs:
           python3 -m py_compile sovereign-omega-v2/python/bridge.py
           python3 -m py_compile sovereign-omega-v2/python/checkpoint_autosave.py
           python3 -m py_compile sovereign-omega-v2/python/tests/test_checkpoint_autosave.py
+          python3 -m py_compile sovereign-omega-v2/python/tests/test_bridge_startup_checkpoint.py
           python3 -m py_compile sovereign-omega-v2/python/tests/test_mutation_admission.py
           python3 -m py_compile sovereign-omega-v2/python/tests/test_mutation_bridge_http.py
       - name: Run native admission and AST-bound bridge regressions
@@ -78,6 +81,14 @@ jobs:
         run: |
           cd sovereign-omega-v2
           python3 -m unittest discover -s python/tests -p test_checkpoint_autosave.py -v
+      - name: Verify exact run_bridge startup fails closed on broken persisted state
+        run: |
+          cd sovereign-omega-v2
+          python3 -m unittest discover -s python/tests -p test_bridge_startup_checkpoint.py -v
+      - name: Reuse existing atomic on-disk persistence and restore regressions
+        run: |
+          cd sovereign-omega-v2
+          python3 python/tests/test_ledger_persist_v2.py
 
   cockpit-telemetry:
     name: Browser telemetry separated from the governance plane
