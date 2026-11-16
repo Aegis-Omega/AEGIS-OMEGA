@@ -19,6 +19,8 @@ on:
       - 'harness/tests/test_holon_finite_semantics.py'
       - 'harness/sdk/holon_finite_global_model.py'
       - 'harness/tests/test_holon_finite_global_model.py'
+      - 'harness/sdk/holon_finite_certificate_checker.py'
+      - 'harness/tests/test_holon_finite_certificate_checker.py'
       - 'harness/tests/emit_holon_parity_vectors.py'
       - 'harness/tests/verify_holon_parity.mjs'
       - 'docs/HOLON_MEANING_BRIDGE_V1.md'
@@ -42,6 +44,8 @@ on:
       - 'harness/tests/test_holon_finite_semantics.py'
       - 'harness/sdk/holon_finite_global_model.py'
       - 'harness/tests/test_holon_finite_global_model.py'
+      - 'harness/sdk/holon_finite_certificate_checker.py'
+      - 'harness/tests/test_holon_finite_certificate_checker.py'
       - 'harness/tests/emit_holon_parity_vectors.py'
       - 'harness/tests/verify_holon_parity.mjs'
       - '.github/workflows/holon-meaning-bridge-v1.yml'
@@ -92,6 +96,7 @@ jobs:
             harness/sdk/holon_context_morphism_proof.py \
             harness/sdk/holon_finite_semantics.py \
             harness/sdk/holon_finite_global_model.py \
+            harness/sdk/holon_finite_certificate_checker.py \
             harness/tests/test_holon_meaning_bridge.py \
             harness/tests/test_holon_graph_verifier.py \
             harness/tests/test_holon_parity_vectors.py \
@@ -101,6 +106,7 @@ jobs:
             harness/tests/test_holon_context_morphism_proof.py \
             harness/tests/test_holon_finite_semantics.py \
             harness/tests/test_holon_finite_global_model.py \
+            harness/tests/test_holon_finite_certificate_checker.py \
             harness/tests/emit_holon_parity_vectors.py
       - name: Run bridge and inherited MHP falsifiers
         run: |
@@ -114,6 +120,7 @@ jobs:
             harness/tests/test_holon_context_morphism_proof.py \
             harness/tests/test_holon_finite_semantics.py \
             harness/tests/test_holon_finite_global_model.py \
+            harness/tests/test_holon_finite_certificate_checker.py \
             harness/tests/test_meaning_heritage_morphisms.py \
             harness/tests/test_heritage_fingerprint_hardening.py \
             harness/tests/test_heritage_transitive_composition.py
