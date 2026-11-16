@@ -208,3 +208,95 @@ class HolonOntologyBindingVerifierV1:
             anchor_root, anchor.content_sha256, terms, holon_roots, verification_root
         )
         return OntologyBindingVerificationV1(PASS, (), verification_root), receipt
+
+
+# A receipt admitted by one lane cannot be spliced into a different graph.
+# The join is deliberately limited to two independently trusted proof stores;
+# it does not reissue their trust or authorize an operational decision.
+DOM_GRAPH_ONTOLOGY_JOIN = "AEGIS_HOLON_GRAPH_ONTOLOGY_JOIN_V1"
+DOM_GRAPH_ONTOLOGY_JOIN_CHECK = "AEGIS_HOLON_GRAPH_ONTOLOGY_JOIN_CHECK_V1"
+JOIN_PASS = "PASS_GRAPH_ONTOLOGY_JOIN_ONLY"
+JOIN_DENIED = "FAIL_GRAPH_ONTOLOGY_JOIN_DENIED"
+
+
+class TrustedHolonGraphReceiptStore(Protocol):
+    def fetch_verified(self, root: str) -> object | None: ...
+
+
+class TrustedOntologyBindingReceiptStore(Protocol):
+    def fetch_verified(self, root: str) -> OntologyBindingReceiptV1 | None: ...
+
+
+@dataclass(frozen=True)
+class HolonGraphOntologyJoinReceiptV1:
+    graph_receipt_root: str
+    ontology_receipt_root: str
+    holon_snapshot_roots: tuple[str, ...]
+    verification_root: str
+    authority_class: str = field(default=NO_AUTHORITY, init=False)
+    schema_version: str = field(default="aegis.holon-graph-ontology-join.v1", init=False)
+
+    @property
+    def root(self) -> str:
+        return canonical_hash(DOM_GRAPH_ONTOLOGY_JOIN, asdict(self))
+
+
+class HolonGraphOntologyJoinVerifierV1:
+    """Read-only structural binding of a *previously issued* graph proof and ontology proof.
+
+    Both must be independently read back from trusted stores; this has no power
+    to create source trust, prove source-review competence, or admit a decision.
+    """
+
+    def __init__(
+        self,
+        *,
+        graphs: TrustedHolonGraphReceiptStore,
+        ontologies: TrustedOntologyBindingReceiptStore,
+    ) -> None:
+        self.graphs = graphs
+        self.ontologies = ontologies
+
+    def verify(
+        self, graph_receipt_root: str, ontology_receipt_root: str
+    ) -> tuple[OntologyBindingVerificationV1, HolonGraphOntologyJoinReceiptV1 | None]:
+        def deny(code: str):
+            return OntologyBindingVerificationV1(JOIN_DENIED, (code,), None), None
+
+        if (not isinstance(graph_receipt_root, str)
+                or not HEX64.fullmatch(graph_receipt_root)
+                or not isinstance(ontology_receipt_root, str)
+                or not HEX64.fullmatch(ontology_receipt_root)):
+            return deny("GRAPH_ONTOLOGY_RECEIPT_ROOT_INVALID")
+
+        # Import inside verifier to avoid a circular dependency between ontology
+        # binding and the graph structural verifier.
+        from harness.sdk.holon_graph_verifier import HolonGraphReceiptV1
+
+        graph = self.graphs.fetch_verified(graph_receipt_root)
+        if (not isinstance(graph, HolonGraphReceiptV1)
+                or graph.root != graph_receipt_root
+                or graph.authority_class != NO_AUTHORITY):
+            return deny("GRAPH_RECEIPT_UNTRUSTED")
+        ontology = self.ontologies.fetch_verified(ontology_receipt_root)
+        if (not isinstance(ontology, OntologyBindingReceiptV1)
+                or ontology.root != ontology_receipt_root
+                or ontology.authority_class != NO_AUTHORITY):
+            return deny("ONTOLOGY_RECEIPT_UNTRUSTED")
+        if (graph.verified_snapshot_roots != ontology.holon_snapshot_roots
+                or graph.node_count != len(graph.verified_snapshot_roots)
+                or len(set(graph.verified_snapshot_roots)) != graph.node_count):
+            return deny("GRAPH_ONTOLOGY_SNAPSHOT_SET_MISMATCH")
+        verification_root = canonical_hash(DOM_GRAPH_ONTOLOGY_JOIN_CHECK, {
+            "graph_receipt_root": graph_receipt_root,
+            "ontology_receipt_root": ontology_receipt_root,
+            "holon_snapshot_roots": graph.verified_snapshot_roots,
+            "status": JOIN_PASS,
+        })
+        receipt = HolonGraphOntologyJoinReceiptV1(
+            graph_receipt_root,
+            ontology_receipt_root,
+            graph.verified_snapshot_roots,
+            verification_root,
+        )
+        return OntologyBindingVerificationV1(JOIN_PASS, (), verification_root), receipt
