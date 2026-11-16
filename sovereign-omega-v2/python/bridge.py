@@ -1101,28 +1101,25 @@ class BridgeHandler(BaseHTTPRequestHandler):
             return
 
         elif self.path == '/telemetry/stream':
-            # Cycles 31–35: Server-Sent Events stream for cockpit real-time dashboard.
-            # Emits a telemetry snapshot every 5 seconds. Compatible with EventSource API.
+            # One SSE frame per HTTP request. HTTPServer serves one request at
+            # a time: an unbounded streaming loop monopolizes /event and every
+            # other route. EventSource reconnects at the declared 5s interval;
+            # neither a browser read nor a disconnected SSE client writes state.
             snap = matrix.emit_vcg_telemetry()
-            data = json.dumps(snap)
+            gate_t = gate.telemetry()
+            payload = {**snap, 'gate': gate_t}
+            body = f'retry: 5000\ndata: {json.dumps(payload)}\n\n'.encode()
             self.send_response(200)
             self._cors_headers()
             self.send_header('Content-Type', 'text/event-stream')
             self.send_header('Cache-Control', 'no-cache')
-            self.send_header('X-Accel-Buffering', 'no')
+            self.send_header('Connection', 'close')
+            self.send_header('Content-Length', str(len(body)))
             self.end_headers()
+            self.close_connection = True
             try:
-                import time as _time
-                while True:
-                    snap = matrix.emit_vcg_telemetry()
-                    gate_t = gate.telemetry()
-                    payload = {**snap, 'gate': gate_t}
-                    line = f'data: {json.dumps(payload)}\n\n'.encode()
-                    self.wfile.write(line)
-                    self.wfile.flush()
-                    # Reading SSE telemetry never triggers checkpoint writes.
-                    # An internal service-owned worker performs epoch autosave.
-                    _time.sleep(5)
+                self.wfile.write(body)
+                self.wfile.flush()
             except (BrokenPipeError, ConnectionResetError):
                 pass
             return
