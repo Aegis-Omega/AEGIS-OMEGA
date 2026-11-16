@@ -74,15 +74,14 @@ jobs:
             harness/tests/test_holon_graph_verifier.py \
             harness/tests/test_holon_parity_vectors.py \
             harness/tests/test_holon_ontology_binding.py \
-            harness/tests/test_holon_parity_vectors.py \
-            harness/tests/emit_holon_parity_vectors.py \
-            harness/tests/test_holon_ontology_binding.py
+            harness/tests/emit_holon_parity_vectors.py
       - name: Run bridge and inherited MHP falsifiers
         run: |
           python -m pytest -q \
             harness/tests/test_holon_meaning_bridge.py \
             harness/tests/test_holon_graph_verifier.py \
             harness/tests/test_holon_parity_vectors.py \
+            harness/tests/test_holon_ontology_binding.py \
             harness/tests/test_meaning_heritage_morphisms.py \
             harness/tests/test_heritage_fingerprint_hardening.py \
             harness/tests/test_heritage_transitive_composition.py
