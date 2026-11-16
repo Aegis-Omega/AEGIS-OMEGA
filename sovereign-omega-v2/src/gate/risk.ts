@@ -39,7 +39,8 @@ export class RiskBudgetManager {
 
   /**
    * Evaluate whether a proposed modification should be accepted.
-   * The gate accepts when LCB > 0 AND budget permits AND K is within bounds.
+   * The gate accepts when LCB > 0, an independently anytime-valid e-process
+   * crosses its per-round 1/deltaAlpha threshold, and budget/K permit.
    *
    * Returns the full gate decision payload for event logging.
    * All decisions are logged — audit trail is complete.
@@ -81,7 +82,17 @@ export class RiskBudgetManager {
     const lcb = seq.lcb()
     const eValue = seq.eValue()
 
-    const accepted = lcb > 0
+    // The pointwise empirical-Bernstein half-width in ConfidenceSequence.lcb()
+    // is not itself an anytime-valid confidence sequence. Keep the legacy
+    // LCB > 0 requirement, but it cannot alone authorize sequential mutation.
+    // Under bounded, conditionally mean-nonpositive deltas, the predictable
+    // nonnegative betting process provides Ville's anytime-valid test.
+    const lcbPass = Number.isFinite(lcb) && lcb > 0
+    const eThreshold = 1 / deltaAlpha
+    const evidencePass = Number.isFinite(eValue)
+      && Number.isFinite(eThreshold)
+      && eValue >= eThreshold
+    const accepted = lcbPass && evidencePass
 
     if (accepted) {
       const riskSpent = deltaAlpha
@@ -99,7 +110,8 @@ export class RiskBudgetManager {
 
     return this.makeDecision(
       proposalId, componentId, accepted, lcb, eValue,
-      samples.length, deltaAlpha, accepted ? undefined : 'LCB_FAIL', currentMs
+      samples.length, accepted ? deltaAlpha : 0,
+      accepted ? undefined : (!lcbPass ? 'LCB_FAIL' : 'E_VALUE_FAIL'), currentMs
     )
   }
 
