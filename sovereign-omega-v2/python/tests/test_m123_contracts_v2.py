@@ -18,7 +18,7 @@ os.environ.setdefault('AEGIS_ARRAY_BYTES', '65536')
 sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 
 from core_matrix import CoreMatrix, M1, M2, M3
-from epoch_failsafe import EpochState
+from epoch_failsafe import EpochState, EpochFailsafeController
 from gradient_anchor import GradientAnchorCalibrator, DEFAULT_ANCHOR_TOKENS, AnchorToken
 from hardware_config import INT_SCALE
 from ledger_persist import CheckpointError, load_checkpoint, save_checkpoint, _integrity_hash
@@ -53,7 +53,7 @@ def matrix_fixture(slots=3):
     m._last_gate_signal_sequence = -1
     m._last_gate_signal_accepted = None
     m._event_cb = None
-    m._failsafe = SimpleNamespace(state=EpochState.ACTIVE)
+    m._failsafe = EpochFailsafeController()
     m._calibrator = GradientAnchorCalibrator(DEFAULT_ANCHOR_TOKENS)
     return m
 
@@ -274,7 +274,7 @@ class CheckpointV2(unittest.TestCase):
             self.assertFalse(meta['is_replay_reconstructable'])
             with open(path, encoding='utf-8') as f:
                 cp = json.load(f)
-            self.assertEqual(cp['checkpoint_version'], '2.2.0')
+            self.assertEqual(cp['checkpoint_version'], '2.3.0')
             self.assertTrue(cp['is_calibration_continuation_supported'])
             restored = matrix_fixture(3)
             load_checkpoint(restored, path)
@@ -385,7 +385,7 @@ class CalibrationContinuationV22(unittest.TestCase):
             save_checkpoint(live, path)
             with open(path, encoding='utf-8') as h:
                 cp = json.load(h)
-            self.assertEqual(cp['checkpoint_version'], '2.2.0')
+            self.assertEqual(cp['checkpoint_version'], '2.3.0')
             self.assertTrue(cp['is_calibration_continuation_supported'])
             self.assertEqual(cp['calibration_snapshot']['epoch'], 2)
             load_checkpoint(restarted, path)
@@ -490,6 +490,184 @@ class CalibrationContinuationV22(unittest.TestCase):
         source._state.w_scales['GATE_ACCEPT_THRESHOLD'] = INT_SCALE + 1
         with self.assertRaises(CalibrationCheckpointError):
             snapshot_calibration(source)
+
+
+class FailsafeContinuationV23(unittest.TestCase):
+    def test_frozen_restart_stays_frozen_and_denies_ingestion(self):
+        source = matrix_fixture(3)
+        source.process_event(b'first', b'', b'')
+        for i in range(3):
+            source._failsafe.report_agent_failure('En', 'cascade', i + 1)
+        self.assertEqual(source._failsafe.state, EpochState.FROZEN)
+        self.assertEqual(source._failsafe.corruption_count, 1)
+        with tempfile.TemporaryDirectory() as temp:
+            path = os.path.join(temp, 'cp.json')
+            meta = save_checkpoint(source, path)
+            self.assertTrue(meta['is_failsafe_continuation_supported'])
+            dest = matrix_fixture(3)
+            loaded = load_checkpoint(dest, path)
+            self.assertTrue(loaded['is_failsafe_continuation_supported'])
+            self.assertEqual(dest._failsafe.state, EpochState.FROZEN)
+            self.assertEqual(dest._failsafe.corruption_count, 1)
+            self.assertEqual(dest._failsafe.failsafe_log,
+                             source._failsafe.failsafe_log)
+            m1_before = bytes(dest._m1_region)
+            state = dest.process_event(b'blocked', b'\x01', b'')
+            self.assertEqual(state['status'], 'FROZEN')
+            self.assertEqual(dest._sequence, 1)
+            self.assertEqual(bytes(dest._m1_region), m1_before)
+            self.assertEqual(dest._total_processed, 1)
+
+    def test_quarantine_is_never_misclassified_as_active(self):
+        source = matrix_fixture()
+        source._failsafe._state = EpochState.QUARANTINE
+        source._failsafe._consecutive_failures = 2
+        with tempfile.TemporaryDirectory() as temp:
+            path = os.path.join(temp, 'cp.json')
+            save_checkpoint(source, path)
+            dest = matrix_fixture()
+            load_checkpoint(dest, path)
+            self.assertEqual(dest._failsafe.state, EpochState.QUARANTINE)
+            self.assertEqual(dest._failsafe._consecutive_failures, 2)
+            self.assertEqual(dest.process_event(b'ignored', b'', b'')['status'],
+                             'QUARANTINE')
+            self.assertEqual(dest._sequence, 0)
+
+    def test_recovering_restart_remains_blocked(self):
+        source = matrix_fixture()
+        source._failsafe._state = EpochState.RECOVERING
+        with tempfile.TemporaryDirectory() as temp:
+            path = os.path.join(temp, 'cp.json')
+            save_checkpoint(source, path)
+            dest = matrix_fixture()
+            load_checkpoint(dest, path)
+            self.assertEqual(dest.process_event(b'ignored', b'', b'')['status'],
+                             'RECOVERING')
+
+    def test_partial_failure_counter_survives_restart(self):
+        source = matrix_fixture()
+        source._failsafe.report_agent_failure('En', 'cascade', 1)
+        with tempfile.TemporaryDirectory() as temp:
+            path = os.path.join(temp, 'cp.json')
+            save_checkpoint(source, path)
+            dest = matrix_fixture()
+            load_checkpoint(dest, path)
+            self.assertEqual(dest._failsafe._consecutive_failures, 1)
+            dest._failsafe.report_agent_failure('En', 'cascade', 2)
+            self.assertEqual(dest._failsafe.state, EpochState.ACTIVE)
+            dest._failsafe.report_agent_failure('En', 'cascade', 3)
+            self.assertEqual(dest._failsafe.state, EpochState.FROZEN)
+
+    def test_snapshot_hash_tamper_denied_with_recomputed_outer_checksum(self):
+        source = matrix_fixture()
+        source.process_event(b'abc', b'', b'')
+        source._failsafe.set_epoch_snapshot(
+            epoch_id=1, state=b'known-state', event_count=1,
+            last_sequence=1, timestamp_sequence=1,
+        )
+        with tempfile.TemporaryDirectory() as temp:
+            path = os.path.join(temp, 'cp.json')
+            save_checkpoint(source, path)
+            with open(path, encoding='utf-8') as stream:
+                body = json.load(stream)
+            body['failsafe_snapshot']['epoch_n']['state_bytes_hex'] = b'forged'.hex()
+            body['integrity_hash'] = _integrity_hash({
+                k: v for k, v in body.items() if k != 'integrity_hash'
+            })
+            with open(path, 'w', encoding='utf-8') as stream:
+                json.dump(body, stream)
+            dest = matrix_fixture()
+            with self.assertRaisesRegex(CheckpointError, 'failsafe'):
+                load_checkpoint(dest, path)
+            self.assertEqual(dest._sequence, 0)
+            self.assertEqual(dest._failsafe.state, EpochState.ACTIVE)
+
+    def test_snapshot_roundtrip_preserves_both_buffers(self):
+        source = matrix_fixture()
+        source._failsafe.set_epoch_snapshot(
+            epoch_id=1, state=b'alpha', event_count=1,
+            last_sequence=1, timestamp_sequence=1,
+        )
+        source._failsafe.set_epoch_snapshot(
+            epoch_id=2, state=b'beta', event_count=2,
+            last_sequence=2, timestamp_sequence=2,
+        )
+        with tempfile.TemporaryDirectory() as temp:
+            path = os.path.join(temp, 'cp.json')
+            save_checkpoint(source, path)
+            dest = matrix_fixture()
+            load_checkpoint(dest, path)
+            self.assertEqual(dest._failsafe.export_checkpoint(),
+                             source._failsafe.export_checkpoint())
+
+    def test_checkpoint_v22_is_rejected_without_state_mutation(self):
+        source = matrix_fixture()
+        source.process_event(b'x', b'', b'')
+        with tempfile.TemporaryDirectory() as temp:
+            path = os.path.join(temp, 'cp.json')
+            save_checkpoint(source, path)
+            with open(path, encoding='utf-8') as stream:
+                body = json.load(stream)
+            body['checkpoint_version'] = '2.2.0'
+            body['integrity_hash'] = _integrity_hash({
+                k: v for k, v in body.items() if k != 'integrity_hash'
+            })
+            with open(path, 'w', encoding='utf-8') as stream:
+                json.dump(body, stream)
+            dest = matrix_fixture()
+            with self.assertRaisesRegex(CheckpointError, 'Version mismatch'):
+                load_checkpoint(dest, path)
+            self.assertEqual(dest._sequence, 0)
+            self.assertEqual(dest._failsafe.state, EpochState.ACTIVE)
+
+    def test_real_matrix_rejects_missing_failsafe_snapshot(self):
+        from types import SimpleNamespace
+        source = matrix_fixture()
+        source._failsafe = None
+        with tempfile.TemporaryDirectory() as temp:
+            path = os.path.join(temp, 'cp.json')
+            save_checkpoint(source, path)
+            dest = matrix_fixture()
+            with self.assertRaisesRegex(CheckpointError, 'failsafe'):
+                load_checkpoint(dest, path)
+            self.assertEqual(dest._sequence, 0)
+
+    def test_nonfresh_failsafe_target_is_refused_without_m1_mutation(self):
+        source = matrix_fixture()
+        source.process_event(b'x', b'', b'')
+        with tempfile.TemporaryDirectory() as temp:
+            path = os.path.join(temp, 'cp.json')
+            save_checkpoint(source, path)
+            dest = matrix_fixture()
+            dest._failsafe.report_agent_failure('En', 'cascade', 1)
+            before = dest._failsafe.export_checkpoint()
+            with self.assertRaisesRegex(CheckpointError, 'failsafe target'):
+                load_checkpoint(dest, path)
+            self.assertEqual(dest._failsafe.export_checkpoint(), before)
+            self.assertEqual(dest._sequence, 0)
+
+    def test_snapshot_u64_overflow_is_rejected(self):
+        source = matrix_fixture()
+        source._failsafe.set_epoch_snapshot(
+            epoch_id=1, state=b'one', event_count=1,
+            last_sequence=1, timestamp_sequence=1,
+        )
+        with tempfile.TemporaryDirectory() as temp:
+            path = os.path.join(temp, 'cp.json')
+            save_checkpoint(source, path)
+            with open(path, encoding='utf-8') as stream:
+                body = json.load(stream)
+            body['failsafe_snapshot']['epoch_n']['last_event_sequence'] = 1 << 80
+            body['integrity_hash'] = _integrity_hash({
+                k: v for k, v in body.items() if k != 'integrity_hash'
+            })
+            with open(path, 'w', encoding='utf-8') as stream:
+                json.dump(body, stream)
+            dest = matrix_fixture()
+            with self.assertRaisesRegex(CheckpointError, 'failsafe'):
+                load_checkpoint(dest, path)
+            self.assertEqual(dest._sequence, 0)
+
 
 
 if __name__ == '__main__':
