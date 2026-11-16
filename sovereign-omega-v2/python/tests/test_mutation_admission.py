@@ -34,7 +34,9 @@ class MutationAdmissionTests(unittest.TestCase):
     def record_grant(self, ledger, proposal="p1", sequence=1, digest=None):
         if digest is None:
             digest = event_digest(b"payload", b"\x00", b"context")
-        return ledger.record(proposal, sequence, True, 0.25, digest)
+        return ledger.record(proposal, sequence, True, 0.25, digest,
+                             e_value=32.0, risk_spent=0.05,
+                             sample_size=20, e4_method="anytime_valid_bernstein")
 
     def test_control_auth_is_fail_closed(self):
         self.assertTrue(control_authenticated(self.SECRET, self.SECRET))
@@ -114,7 +116,7 @@ class MutationAdmissionTests(unittest.TestCase):
         ))
         self.assertEqual(ledger.last_sequence, 1)
         self.assertEqual(ledger.pending_count, 1)
-        self.assertEqual(ledger.record("p1", 2, False, -0.1, digest), (
+        self.assertEqual(ledger.record("p1", 2, False, -0.1, digest, e_value=32.0, risk_spent=0.0, sample_size=20, e4_method="anytime_valid_bernstein"), (
             True, "ACCEPTED"
         ))
         self.assertEqual(ledger.pending_count, 0)
@@ -131,12 +133,12 @@ class MutationAdmissionTests(unittest.TestCase):
         ):
             with self.subTest(accepted=accepted, lcb=lcb):
                 ledger = self.make_ledger()
-                allowed, _ = ledger.record("p", 1, accepted, lcb, valid_digest)
+                allowed, _ = ledger.record("p", 1, accepted, lcb, valid_digest, e_value=32.0, risk_spent=0.05, sample_size=20, e4_method="anytime_valid_bernstein")
                 self.assertFalse(allowed)
                 self.assertEqual(ledger.pending_count, 0)
                 self.assertEqual(ledger.last_sequence, -1)
         ledger = self.make_ledger()
-        self.assertEqual(ledger.record("p", 1, False, -0.25, valid_digest), (
+        self.assertEqual(ledger.record("p", 1, False, -0.25, valid_digest, e_value=32.0, risk_spent=0.0, sample_size=20, e4_method="anytime_valid_bernstein"), (
             True, "ACCEPTED"
         ))
         self.assertFalse(ledger.authorize_event(
@@ -148,15 +150,15 @@ class MutationAdmissionTests(unittest.TestCase):
         for proposal in ("", "with space", "../path", "a" * 129, None):
             with self.subTest(proposal=proposal):
                 ledger = self.make_ledger()
-                self.assertFalse(ledger.record(proposal, 1, True, 0.25, digest)[0])
+                self.assertFalse(ledger.record(proposal, 1, True, 0.25, digest)[0], e_value=32.0, risk_spent=0.05, sample_size=20, e4_method="anytime_valid_bernstein")
         for seq in (-1, True, False, 1.0, 2**64, None):
             with self.subTest(seq=seq):
                 ledger = self.make_ledger()
-                self.assertFalse(ledger.record("p", seq, True, 0.25, digest)[0])
+                self.assertFalse(ledger.record("p", seq, True, 0.25, digest)[0], e_value=32.0, risk_spent=0.05, sample_size=20, e4_method="anytime_valid_bernstein")
         for malformed in ("", "0" * 63, "Z" * 64, "0" * 65, None):
             with self.subTest(malformed=malformed):
                 ledger = self.make_ledger()
-                self.assertFalse(ledger.record("p", 1, True, 0.25, malformed)[0])
+                self.assertFalse(ledger.record("p", 1, True, 0.25, malformed)[0], e_value=32.0, risk_spent=0.05, sample_size=20, e4_method="anytime_valid_bernstein")
 
     def test_bounded_pending_and_revocation(self):
         ledger = MutationAdmissionLedger(max_pending=2)
