@@ -219,7 +219,7 @@ class TestAutosave(unittest.TestCase):
                     )
         self.assertEqual(saver.attempts, 0)
 
-    def test_sse_get_never_invokes_checkpoint_write(self):
+    def test_sse_get_returns_bounded_frame_without_checkpoint_or_wait(self):
         matrix = TinyMatrix(epoch=17)
 
         class FakeGate:
@@ -236,16 +236,73 @@ class TestAutosave(unittest.TestCase):
         handler._cors_headers = lambda: None
         handler.send_header = lambda key, value: headers.append((key, value))
         handler.end_headers = lambda: None
-        with patch.object(time, "sleep", return_value=None):
+        # Any attempt to hold the single-threaded HTTP server's request
+        # open to sleep for 5s is a regression.
+        with patch.object(time, "sleep", side_effect=AssertionError("GET_BLOCKED_SERVER")):
             handler.do_GET()
         self.assertEqual(responses, [200])
+        self.assertTrue(handler.close_connection)
         self.assertIn(("Content-Type", "text/event-stream"), headers)
-        self.assertEqual(len(handler.wfile.messages), 7)
-        for item in handler.wfile.messages:
-            self.assertEqual(json.loads(item[6:]), {
-                "epoch": 17, "sequence": 7,
-                "gate": {"gate_sealed": False},
-            })
+        self.assertIn(("Connection", "close"), headers)
+        self.assertEqual(len(handler.wfile.messages), 1)
+        body = handler.wfile.messages[0]
+        self.assertEqual(int(dict(headers)["Content-Length"]), len(body))
+        self.assertTrue(body.startswith(b"retry: 5000\\ndata: "))
+        self.assertTrue(body.endswith(b"\\n\\n"))
+        self.assertEqual(json.loads(body.split(b"\\n")[1][6:]), {
+            "epoch": 17, "sequence": 7,
+            "gate": {"gate_sealed": False},
+        })
+
+    def test_second_sse_get_reads_fresh_epoch_without_replaying_state(self):
+        matrix = TinyMatrix(epoch=17)
+
+        class FakeGate:
+            @staticmethod
+            def telemetry():
+                return {"gate_sealed": False}
+
+        cls = extract_actual_get(FakeGate(), matrix)
+        payloads = []
+        for epoch in (17, 18):
+            matrix._epoch = epoch
+            handler = cls()
+            handler.path = "/telemetry/stream"
+            handler.wfile = StreamWriter(limit=2)
+            handler.send_response = lambda _code: None
+            handler._cors_headers = lambda: None
+            handler.send_header = lambda *_args: None
+            handler.end_headers = lambda: None
+            with patch.object(time, "sleep", side_effect=AssertionError("GET_BLOCKED_SERVER")):
+                handler.do_GET()
+            self.assertEqual(len(handler.wfile.messages), 1)
+            payload = json.loads(handler.wfile.messages[0].split(b"\\n")[1][6:])
+            payloads.append(payload["epoch"])
+            self.assertTrue(handler.close_connection)
+        self.assertEqual(payloads, [17, 18])
+
+    def test_sse_broken_pipe_does_not_prolong_request(self):
+        matrix = TinyMatrix(epoch=17)
+
+        class FakeGate:
+            @staticmethod
+            def telemetry():
+                return {"gate_sealed": False}
+
+        cls = extract_actual_get(FakeGate(), matrix)
+        handler = cls()
+        handler.path = "/telemetry/stream"
+        handler.wfile = StreamWriter(limit=0)
+        replies = []
+        handler.send_response = replies.append
+        handler._cors_headers = lambda: None
+        handler.send_header = lambda *_args: None
+        handler.end_headers = lambda: None
+        with patch.object(time, "sleep", side_effect=AssertionError("GET_BLOCKED_SERVER")):
+            handler.do_GET()
+        self.assertEqual(replies, [200])
+        self.assertTrue(handler.close_connection)
+        self.assertEqual(handler.wfile.messages, [])
 
 
 if __name__ == "__main__":
