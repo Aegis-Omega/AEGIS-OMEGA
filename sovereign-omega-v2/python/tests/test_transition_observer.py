@@ -87,6 +87,11 @@ def run_core_class():
         "RAM_TOTAL_BYTES": 65536, "ARRAY_TOTAL_BYTES": 65536,
         "M1_OFFSET": 0, "M1_SIZE": 32768, "M2_OFFSET": 32768, "M2_SIZE": 16384,
         "M3_OFFSET": 49152, "M3_SIZE": 16384,
+        # AST source test deliberately supplies a tiny fake arena. Production
+        # constructs the actual adaptive layout and validates its geometry.
+        "configured_arena_layout": lambda: SimpleNamespace(
+            total=65536, m1_size=32768, m2_offset=32768, m3_offset=49152
+        ),
         "PGCSController": FakePGCS, "EpochFailsafeController": FakeFailsafe,
         "GradientAnchorCalibrator": FakeCalibrator, "DEFAULT_ANCHOR_TOKENS": [],
         "detect_hardware": lambda: SimpleNamespace(platform="test", is_target_hardware=False),
