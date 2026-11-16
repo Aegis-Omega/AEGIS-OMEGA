@@ -63,6 +63,11 @@ impl AuditLogger {
         let genesis = "0000000000000000000000000000000000000000000000000000000000000000";
         let mut prev = genesis.to_string();
         for entry in &self.entries {
+            // The stored predecessor is part of the public audit record. A valid
+            // digest alone must not conceal tampering with this linkage field.
+            if entry.previous_hash != prev {
+                return (false, Some(entry.step));
+            }
             let expected_input = format!("{}|{}", prev, entry.payload_json);
             let expected = Self::sha256_hex(&expected_input);
             if expected != entry.entry_hash {
@@ -154,25 +159,30 @@ mod tests {
         assert!(broken.is_none());
     }
 
-    // 8. Tampering the previous_hash field is detected
+    // 8. Tampering only the stored predecessor must fail, without needing to
+    // corrupt any digest or payload. The first broken index is unambiguous.
     #[test]
     fn tamper_previous_hash_detected() {
         let mut logger = AuditLogger::new();
         logger.log("A", &json!(1));
         logger.log("B", &json!(2));
+        let expected_predecessor = logger.entries[1].previous_hash.clone();
         logger.entries[1].previous_hash = "ff".repeat(32);
-        // entry_hash was computed with the real prev; chain still breaks at step 1
         let (valid, broken) = logger.verify_chain();
-        // The entry_hash itself may still recompute fine if entry_hash matches
-        // the recomputed hash from *original* prev, but previous_hash field change
-        // doesn't affect recomputation — verify that at minimum step 1 is inconsistent
-        // OR still valid (since verify_chain uses entry.payload_json, not previous_hash).
-        // The real invariant: entry_hash depends on actual prev, not stored previous_hash.
-        // Tamper entry_hash of entry 0 to break the chain at step 1's link.
-        logger.entries[0].entry_hash = "00".repeat(32);
-        let (valid2, _) = logger.verify_chain();
-        assert!(!valid2);
-        let _ = (valid, broken); // suppress unused warning
+        assert!(!valid);
+        assert_eq!(broken, Some(1));
+
+        // Restoring the only modified field restores the valid chain.
+        logger.entries[1].previous_hash = expected_predecessor;
+        assert_eq!(logger.verify_chain(), (true, None));
+    }
+
+    #[test]
+    fn tamper_genesis_previous_hash_detected() {
+        let mut logger = AuditLogger::new();
+        logger.log("A", &json!({"k": 1}));
+        logger.entries[0].previous_hash = "ff".repeat(32);
+        assert_eq!(logger.verify_chain(), (false, Some(0)));
     }
 
     // 9. Different payloads produce different hashes
