@@ -22,6 +22,7 @@ from hardware_config import detect_hardware
 from constitutional_identity import CONSTITUTIONAL_SYSTEM_FULL, CONSTITUTIONAL_SYSTEM_COMPACT
 from tgcs_afse import TGCSController, AFSEController
 from ledger_persist import save_checkpoint, load_checkpoint, checkpoint_exists, CheckpointError
+from checkpoint_autosave import checkpoint_autosave_worker
 from source_attribution import SourceAttributor, TelemetrySample
 import canonical_envelope as _canon_env  # Provenance Phase 1 — float-free hash-chained envelope (ADR 0001)
 
@@ -33,7 +34,20 @@ _attributor = SourceAttributor()
 last_ack_sequence = -1
 _lock = threading.Lock()
 _mutation_admission = MutationAdmissionLedger()
-_last_autosave_epoch = -1
+_checkpoint_write_lock = threading.Lock()
+
+
+def _save_checkpoint_serialized(candidate_matrix):
+    """Serialize all operator, background and shutdown checkpoint writes."""
+    with _checkpoint_write_lock:
+        return save_checkpoint(candidate_matrix)
+
+
+def _log_checkpoint_autosave_error(exc):
+    print(json.dumps({
+        'event_type': 'CHECKPOINT_AUTOSAVE_FAILED',
+        'reason': str(exc),
+    }), flush=True)
 
 # ─── /platform/* contract constants ──────────────────────────────────────────
 import queue as _queue_mod
@@ -620,7 +634,7 @@ class BridgeHandler(BaseHTTPRequestHandler):
 
         elif self.path == '/checkpoint':
             try:
-                meta = save_checkpoint(matrix)
+                meta = _save_checkpoint_serialized(matrix)
                 self._respond(200, {'status': 'SAVED', **meta})
             except Exception as e:
                 self._respond(500, {'status': 'ERROR', 'reason': str(e)})
@@ -1099,8 +1113,6 @@ class BridgeHandler(BaseHTTPRequestHandler):
             self.end_headers()
             try:
                 import time as _time
-                global _last_autosave_epoch
-                _sse_cycle = 0
                 while True:
                     snap = matrix.emit_vcg_telemetry()
                     gate_t = gate.telemetry()
@@ -1108,16 +1120,8 @@ class BridgeHandler(BaseHTTPRequestHandler):
                     line = f'data: {json.dumps(payload)}\n\n'.encode()
                     self.wfile.write(line)
                     self.wfile.flush()
-                    # Auto-save checkpoint every 5 SSE cycles (25s) if epoch advanced
-                    _sse_cycle += 1
-                    if _sse_cycle % 5 == 0:
-                        current_epoch = int(snap.get('epoch', 0))
-                        if current_epoch > _last_autosave_epoch:
-                            try:
-                                save_checkpoint(matrix)
-                                _last_autosave_epoch = current_epoch
-                            except Exception:
-                                pass
+                    # Reading SSE telemetry never triggers checkpoint writes.
+                    # An internal service-owned worker performs epoch autosave.
                     _time.sleep(5)
             except (BrokenPipeError, ConnectionResetError):
                 pass
@@ -1955,18 +1959,39 @@ def run_bridge(port=None):
         except CheckpointError as e:
             print(json.dumps({'event_type': 'CHECKPOINT_RESTORE_FAILED', 'reason': str(e)}), flush=True)
 
+    # Autosave starts from the restored/current epoch, not a hard-coded zero.
+    # SSE clients have no role in scheduling or authorizing these writes.
+    with matrix._lock:
+        restored_epoch = matrix._epoch
+    autosave_stop = threading.Event()
+    autosave_thread = threading.Thread(
+        target=checkpoint_autosave_worker,
+        name='aegis-checkpoint-autosave',
+        args=(autosave_stop, matrix, _save_checkpoint_serialized),
+        kwargs={
+            'initial_epoch': restored_epoch,
+            'on_error': _log_checkpoint_autosave_error,
+        },
+        daemon=True,
+    )
     server = HTTPServer(('0.0.0.0', port), BridgeHandler)
+    autosave_thread.start()
     print(json.dumps({'event_type': 'BRIDGE_READY', 'port': port}), flush=True)
     try:
         server.serve_forever()
     except KeyboardInterrupt:
+        pass
+    finally:
         gate.seal()
+        autosave_stop.set()
+        autosave_thread.join()  # Never race a worker checkpoint on shutdown.
         try:
-            save_checkpoint(matrix)
+            _save_checkpoint_serialized(matrix)
             print(json.dumps({'event_type': 'CHECKPOINT_SAVED_ON_SHUTDOWN'}), flush=True)
         except Exception as e:
             print(json.dumps({'event_type': 'CHECKPOINT_SAVE_FAILED', 'reason': str(e)}), flush=True)
         matrix.stop()
+        server.server_close()
 
 
 if __name__ == '__main__':
