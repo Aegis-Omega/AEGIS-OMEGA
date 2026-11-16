@@ -17,6 +17,7 @@ from core_matrix import CoreMatrix
 from dna import EventClass, GateSignal
 from gate import gate
 from router import router
+from mutation_admission import MutationAdmissionLedger, control_authenticated
 from hardware_config import detect_hardware
 from constitutional_identity import CONSTITUTIONAL_SYSTEM_FULL, CONSTITUTIONAL_SYSTEM_COMPACT
 from tgcs_afse import TGCSController, AFSEController
@@ -31,6 +32,7 @@ _afse = AFSEController()
 _attributor = SourceAttributor()
 last_ack_sequence = -1
 _lock = threading.Lock()
+_mutation_admission = MutationAdmissionLedger()
 _last_autosave_epoch = -1
 
 # ─── /platform/* contract constants ──────────────────────────────────────────
@@ -466,35 +468,88 @@ class BridgeHandler(BaseHTTPRequestHandler):
 
     def do_POST(self):
         global last_ack_sequence
+        # Control-plane endpoints fail closed when the shared server-only
+        # credential is absent, even in development. All other API routes
+        # retain their existing, separately scoped authentication policies.
+        if self.path in ('/gate_signal', '/event'):
+            if not control_authenticated(
+                self.headers.get('X-Aegis-Bridge-Secret'),
+                os.environ.get('AEGIS_BRIDGE_CONTROL_SECRET'),
+            ):
+                self._respond(403, {'status': 'REJECTED', 'reason': 'BRIDGE_CONTROL_UNAUTHORIZED'})
+                return
+            try:
+                control_length = int(self.headers.get('Content-Length', '0'))
+            except ValueError:
+                self._respond(400, {'status': 'REJECTED', 'reason': 'INVALID_CONTENT_LENGTH'})
+                return
+            if control_length <= 0 or control_length > 131072:
+                self._respond(413, {'status': 'REJECTED', 'reason': 'CONTROL_BODY_SIZE'})
+                return
+
         length = int(self.headers.get('Content-Length', 0))
         data = json.loads(self.rfile.read(length)) if length else {}
 
         if self.path == '/gate_signal':
-            seq = data.get('sequence', -1)
-            accepted = data.get('accepted', False)
-            proposal_id = data.get('proposal_id', '')
-            lcb = float(data.get('lcb', 0.0))
+            # A positive TypeScript E4 signal is only an input to the frozen
+            # constitutional gate. It is not authority over an arbitrary
+            # later event: bind it to exact bytes and enforce single use.
+            seq = data.get('sequence')
+            accepted = data.get('accepted')
+            proposal_id = data.get('proposal_id')
+            lcb = data.get('lcb')
+            event_sha256 = data.get('event_sha256')
 
-            with _lock:
-                if seq <= last_ack_sequence:
-                    self._respond(400, {'status': 'REJECTED', 'reason': 'SEQUENCE_DESYNC'})
-                    return
-                last_ack_sequence = seq
+            try:
+                # Serialize the three writers by sequence. A later signal
+                # must never reach gate.py before an earlier accepted one.
+                with _lock:
+                    allowed, reason = _mutation_admission.record(
+                        proposal_id, seq, accepted, lcb, event_sha256
+                    )
+                    if allowed:
+                        last_ack_sequence = seq
+                        gate.record_signal(GateSignal(
+                            proposal_id=proposal_id,
+                            sequence=seq,
+                            accepted=accepted,
+                            lcb=float(lcb),
+                        ))
+                        matrix.receive_gate_signal(proposal_id, accepted, seq)
+                        if accepted and not gate.is_approved(proposal_id):
+                            _mutation_admission.revoke(proposal_id)
+                            allowed, reason = False, 'CONSTITUTIONAL_GATE_DENIED'
+            except Exception:
+                # Partial control-plane writes are not assumed reversible.
+                # Revoke authorization, consume the sequence, and fail closed.
+                if isinstance(proposal_id, str):
+                    _mutation_admission.revoke(proposal_id)
+                self._respond(503, {'status': 'REJECTED', 'reason': 'GATE_SIGNAL_PROCESSING_FAILED'})
+                return
 
-            # Record signal in both gate (mutation authority) and matrix
-            gate.record_signal(GateSignal(
-                proposal_id=proposal_id,
-                sequence=seq,
-                accepted=accepted,
-                lcb=lcb,
-            ))
-            matrix.receive_gate_signal(proposal_id, accepted, seq)
+            if not allowed:
+                self._respond(403, {'status': 'REJECTED', 'reason': reason})
+                return
             self._respond(200, {'status': 'ACK', 'sequence': seq})
 
         elif self.path == '/event':
-            payload  = bytes.fromhex(data.get('payload_hex', ''))
-            verifier = bytes.fromhex(data.get('verifier_hex', '01'))
-            context  = bytes.fromhex(data.get('context_hex', ''))
+            # The event sender is authenticated separately from the proposal
+            # grant. Even authenticated callers cannot route an ungranted,
+            # mismatched or replayed mutation.
+            proposal_id = data.get('proposal_id')
+            try:
+                payload = bytes.fromhex(data['payload_hex'])
+                verifier = bytes.fromhex(data['verifier_hex'])
+                context = bytes.fromhex(data.get('context_hex', ''))
+            except (KeyError, ValueError, TypeError):
+                self._respond(400, {'status': 'REJECTED', 'reason': 'INVALID_EVENT_ENCODING'})
+                return
+            if not _mutation_admission.authorize_event(
+                proposal_id, payload, verifier, context,
+                gate.is_approved(proposal_id) if isinstance(proposal_id, str) else False,
+            ):
+                self._respond(403, {'status': 'REJECTED', 'reason': 'MUTATION_NOT_ADMITTED'})
+                return
             result = router.route(payload, verifier, context)
             self._respond(200, result)
 
