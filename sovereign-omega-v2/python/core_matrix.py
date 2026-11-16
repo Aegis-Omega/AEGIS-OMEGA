@@ -49,6 +49,8 @@ from gradient_anchor import GradientAnchorCalibrator, DEFAULT_ANCHOR_TOKENS
 # V15 deliberately removes the old 4 GiB/RX 570 *runtime default*. Operator
 # override AEGIS_ARRAY_BYTES must fit measured headroom; no silent truncation.
 # M1 is aligned to both 64 KiB and 40-byte records (LCM=327680).
+# Module constants below are legacy import-time snapshots for old consumers;
+# only the instance's self._layout is authoritative for live storage/telemetry.
 from adaptive_memory import configured_arena_layout
 
 _ARENA_LAYOUT = configured_arena_layout()
@@ -193,16 +195,19 @@ class CoreMatrix:
         self._hw = detect_hardware()
         self._event_cb = event_callback
 
-        # Back a contiguous buffer with a lazy virtual map: no 4 GiB eager
-        # bytearray reservation or zero-fill; touched pages are committed as
-        # actual M1/M2/M3 events arrive. No persistent mapping/IO.
-        self._array = mmap.mmap(-1, ARRAY_TOTAL_BYTES)
+        # Re-measure at *instance construction*, not only module import.
+        # This does not resize a live arena or alter its checkpoint geometry.
+        self._layout = configured_arena_layout()
+        # Anonymous pages are committed only when touched.
+        self._array = mmap.mmap(-1, self._layout.total)
         self._mem = memoryview(self._array)
 
-        # Region views (zero-copy slices into the single array)
-        self._m1_region = self._mem[M1_OFFSET:M1_OFFSET + M1_SIZE]
-        self._m2_region = self._mem[M2_OFFSET:M2_OFFSET + M2_SIZE]
-        self._m3_region = self._mem[M3_OFFSET:M3_OFFSET + M3_SIZE]
+        # Per-instance contiguous M1/M2/M3 views; no stale module geometry.
+        self._m1_region = self._mem[:self._layout.m1_size]
+        self._m2_region = self._mem[
+            self._layout.m2_offset:self._layout.m3_offset]
+        self._m3_region = self._mem[
+            self._layout.m3_offset:self._layout.total]
 
         # Subsystems
         self._pgcs = PGCSController(event_callback=event_callback)
@@ -229,7 +234,7 @@ class CoreMatrix:
             self._transition_observer = TransitionObserver()
 
         # Capacity at which M1 write head wraps (events per era)
-        self._m1_era_capacity: int = M1_SIZE // 40
+        self._m1_era_capacity: int = len(self._m1_region) // 40
 
         # Performance metrics (fixed-point for determinism)
         self._total_vcg_error_fixed: int = 0
@@ -249,7 +254,7 @@ class CoreMatrix:
             self._event_cb('CORE_MATRIX_STARTED', {
                 'hardware': self._hw.platform,
                 'is_target_hardware': self._hw.is_target_hardware,
-                'array_bytes': ARRAY_TOTAL_BYTES,
+                'array_bytes': self._layout.total,
             })
 
     def wait_ready(self, timeout: float = 5.0) -> bool:
