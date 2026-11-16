@@ -14,6 +14,7 @@ from harness.sdk.holon_ontology_binding import (
     HolonGraphOntologyJoinVerifierV1,
     OntologyBindingReceiptV1,
 )
+from harness.tests.test_holon_meaning_bridge import example as existing_lens_example
 from harness.tests.test_holon_graph_verifier import case as graph_case
 from harness.tests.test_holon_ontology_binding import case as ontology_case
 
