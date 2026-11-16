@@ -586,7 +586,7 @@ class BridgeHandler(BaseHTTPRequestHandler):
                 self._respond(500, {'status': 'ERROR', 'reason': str(e)})
 
         elif self.path == '/inference':
-            import subprocess, os
+            import subprocess
             binary = os.path.join(
                 os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))),
                 'aegis-cl-psi', 'target', 'release', 'aegis_cl_psi'
