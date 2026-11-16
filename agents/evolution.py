@@ -243,6 +243,9 @@ class EvolutionEngine:
             root = compute_registry_root(self._tree)
             self._tree["registry_root"] = root
             self._tree["genesis_seal"] = root
+            receipt = evaluate_registry(self._tree, repo_root=self.repo_root)
+            if receipt.outcome != "ADMITTED":
+                raise ValueError("refusing to write invalid evolved skill registry")
             tree_path = Path(self.tree_path)
             temporary = tree_path.with_suffix(tree_path.suffix + ".tmp")
             temporary.write_text(json.dumps(self._tree, indent=2) + "\n", encoding="utf-8")
@@ -340,8 +343,11 @@ class EvolutionEngine:
             # must not invent validation receipts or multiply lineage events.
 
         if apply_changes and changed:
-            self._save_tree()
+            # Persist the evidence chain before the authority-bearing registry.
+            # Cross-file crash consistency still needs a future transaction
+            # journal; never promote without independent admission.
             self.lineage.save()
+            self._save_tree()
         return verdicts
 
     @staticmethod
