@@ -13,6 +13,9 @@ on:
       - sovereign-omega-v2/python/tests/test_mutation_admission.py
       - sovereign-omega-v2/python/tests/test_mutation_bridge_http.py
       - sovereign-omega-v2/python/tests/test_bridge_transport_vectors.py
+      - sovereign-omega-v2/python/tests/test_native_e4_bridge_parity.py
+      - sovereign-omega-v2/ci/native_e4_bridge_v1.template.ts
+      - cockpit/server/test/emitNativeE4Transport.mjs
       - cockpit/server/src/bridgeControl.ts
       - cockpit/server/test/bridgeControl.test.mjs
       - cockpit/server/test/emitBridgeControlFixtures.mjs
@@ -35,6 +38,9 @@ on:
       - sovereign-omega-v2/python/tests/test_mutation_admission.py
       - sovereign-omega-v2/python/tests/test_mutation_bridge_http.py
       - sovereign-omega-v2/python/tests/test_bridge_transport_vectors.py
+      - sovereign-omega-v2/python/tests/test_native_e4_bridge_parity.py
+      - sovereign-omega-v2/ci/native_e4_bridge_v1.template.ts
+      - cockpit/server/test/emitNativeE4Transport.mjs
       - cockpit/server/src/bridgeControl.ts
       - cockpit/server/test/bridgeControl.test.mjs
       - cockpit/server/test/emitBridgeControlFixtures.mjs
@@ -124,3 +130,54 @@ jobs:
       - name: Verify native-transpiled browser SSE retry, freshness and teardown
         working-directory: cockpit
         run: node --test test/telemetry-reconnect.test.mjs
+
+  native-e4-source-to-python:
+    name: Pinned PR817 E4 runtime -> existing Node encoder -> Python bridge
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      AEGIS_NATIVE_E4_SOURCE_SHA: 0dc07a16e1010f77615036cbc0bc87fd613d8512
+      AEGIS_NATIVE_E4_DECISION_PATH: ${{ runner.temp }}/native-pr817-decision.json
+    steps:
+      - name: Checkout exact PR811 candidate source
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - name: Checkout actual PR817 E4 runtime by immutable SHA
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          repository: Aegis-Omega/AEGIS-OMEGA
+          ref: 0dc07a16e1010f77615036cbc0bc87fd613d8512
+          path: native-e4-pr817
+          persist-credentials: false
+      - name: Verify PR817 source and blob are byte-identical to reviewed code
+        run: |
+          set -eu
+          actual="$(git -C native-e4-pr817 rev-parse HEAD)"
+          test "$actual" = "$AEGIS_NATIVE_E4_SOURCE_SHA"
+          risk_blob="$(git -C native-e4-pr817 hash-object sovereign-omega-v2/src/gate/risk.ts)"
+          test "$risk_blob" = "a0595e05a02c52d66f5a1dcd50b428d41aff3ec0"
+      - name: Set up Node 22
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: '22'
+      - name: Install and execute actual E4 RiskBudgetManager with synthetic inputs
+        run: |
+          set -eu
+          cp sovereign-omega-v2/ci/native_e4_bridge_v1.template.ts native-e4-pr817/sovereign-omega-v2/test/integration/native_e4_bridge.test.ts
+          cd native-e4-pr817/sovereign-omega-v2
+          npm ci --no-audit --no-fund
+          npm run test -- test/integration/native_e4_bridge.test.ts
+          test -s "$AEGIS_NATIVE_E4_DECISION_PATH"
+      - name: Build existing PR811 Node transport codec
+        working-directory: cockpit/server
+        run: |
+          npm ci --no-audit --no-fund
+          npm run build
+      - name: Feed actual E4 decision into existing bridge codec
+        run: |
+          node cockpit/server/test/emitNativeE4Transport.mjs "$AEGIS_NATIVE_E4_DECISION_PATH" > "$RUNNER_TEMP/native-e4-bridge-parity.json"
+      - name: Replay actual E4 decision and forged negative in real Python bridge handler
+        run: |
+          python3 sovereign-omega-v2/python/tests/test_native_e4_bridge_parity.py "$RUNNER_TEMP/native-e4-bridge-parity.json"
