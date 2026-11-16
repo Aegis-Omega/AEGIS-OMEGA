@@ -9,8 +9,8 @@
   "provenance": {
     "generator": "scripts/build-cognitive-manifest.py",
     "repository": "Aegis-Omega/AEGIS-OMEGA",
-    "source_ref": "derive/epistemic-audit-amendment-v1-1",
-    "parent_state_hash": "a6f46a994b27b06d0a3bc96a96aa821a41580b36e354e3a012a53b2656e801bd",
+    "source_ref": "control/canonical-manifest-compat-20261110",
+    "parent_state_hash": "87358ab92a89efa36281fa14939ef9d0abc024153e2f2ffe4455366b8d68a2b8",
     "signature_mode": "GITHUB_OIDC_ATTESTATION"
   },
   "hashing": {
@@ -488,5 +488,5 @@
       "on_success": "broadcast-attested-verified-event-stream"
     }
   },
-  "state_hash": "3f4b9a75f36bc41e7841ae187afd912f2b8d16ba324c6a2f70996e112b355ce2"
+  "state_hash": "9d18ee4a9fcc765ba590df3ba655a3e0c85569e017d199b18eaeb83a952fa486"
 }
