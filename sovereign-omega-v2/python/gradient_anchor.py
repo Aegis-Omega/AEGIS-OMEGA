@@ -19,6 +19,7 @@ RFC 8785 test vectors, frozen constitutional file hashes, gate invariants.
 """
 
 import hashlib
+import threading
 from dataclasses import dataclass, field
 from typing import Dict, List, Optional, Tuple
 
@@ -118,6 +119,9 @@ class GradientAnchorCalibrator:
         anchor_tokens: Optional[List[AnchorToken]] = None,
         learning_rate: float = 0.01,  # small enough to be corrective, not adaptive
     ):
+        # Separate from CoreMatrix._lock: standalone calibration callers must
+        # participate in the same plan/commit exclusion as process_event().
+        self._lock = threading.RLock()
         self._anchors = {t.token_id: t for t in (anchor_tokens or DEFAULT_ANCHOR_TOKENS)}
         self._lr_fixed = to_fixed(learning_rate)
         self._momentum_beta = to_fixed(0.9)  # EMA momentum coefficient
@@ -129,11 +133,12 @@ class GradientAnchorCalibrator:
             self._velocities[token_id] = 0  # zero initial velocity
 
     def prepare_epoch(self, epoch: int):
-        """Plan an entire calibration epoch without mutating live state.
+        """Create a canonical epoch plan under the calibration lock."""
+        with self._lock:
+            return self._prepare_epoch_locked(epoch)
 
-        A zero-tolerance violation or invalid epoch rejects the WHOLE batch.
-        Caller must ensure exclusive access to the calibrator during plan/commit.
-        """
+    def _prepare_epoch_locked(self, epoch: int):
+        """Plan without live mutation; caller holds the calibration lock."""
         if type(epoch) is not int or epoch != self._state.epoch + 1:
             raise ValueError('Calibration epoch must be exactly the next integer')
         scales = dict(self._state.w_scales)
@@ -188,12 +193,22 @@ class GradientAnchorCalibrator:
         }
 
     def commit_epoch(self, planned):
-        """Install a prevalidated batch only if the original state is unchanged."""
+        """Commit only the original, unmodified canonical epoch plan."""
+        with self._lock:
+            return self._commit_epoch_locked(planned)
+
+    def _commit_epoch_locked(self, planned):
+        """Verify source version and exact derived plan before any mutation."""
         if (planned['source_epoch'] != self._state.epoch or
                 planned['epoch'] != self._state.epoch + 1 or
                 planned['source_scales'] != self._state.w_scales or
                 planned['source_velocities'] != self._velocities):
             raise RuntimeError('Calibration changed after epoch was prepared')
+        # prepare_epoch returns a mutable dict. A caller can otherwise change
+        # scales (including zero-tolerance anchors), momentum or observations
+        # between prepare and commit while source_* checks still pass.
+        if planned != self._prepare_epoch_locked(planned['epoch']):
+            raise RuntimeError('Calibration plan modified after preparation')
         # Only append actual observations after the complete batch is valid.
         self._state.measurements.extend(planned['measurements'])
         self._state.w_scales = planned['scales']
@@ -204,8 +219,9 @@ class GradientAnchorCalibrator:
         return planned['measurements']
 
     def calibrate_epoch(self, epoch: int) -> List[DriftMeasurement]:
-        """Plan and commit one complete, ordered calibration epoch."""
-        return self.commit_epoch(self.prepare_epoch(epoch))
+        """Atomically plan and commit an epoch relative to standalone callers."""
+        with self._lock:
+            return self._commit_epoch_locked(self._prepare_epoch_locked(epoch))
 
     def compute_drift_index(self) -> float:
         """
@@ -229,7 +245,8 @@ class GradientAnchorCalibrator:
 
     def get_w_scale(self, token_id: str) -> int:
         """Get current W_scale for a token in Q16.16 fixed-point."""
-        return self._state.w_scales.get(token_id, INT_SCALE)
+        with self._lock:
+            return self._state.w_scales.get(token_id, INT_SCALE)
 
     def inject_anchor_token(self, token: AnchorToken) -> None:
         """
@@ -237,13 +254,14 @@ class GradientAnchorCalibrator:
         INVARIANT: Only permitted before the first calibration epoch.
         After epoch 0, the anchor set is frozen.
         """
-        if self._state.epoch > 0:
-            raise RuntimeError(
-                "Anchor token registry is sealed after epoch 0. "
-                "New anchors cannot be injected at runtime."
-            )
-        self._anchors[token.token_id] = token
-        self._state.w_scales[token.token_id] = INT_SCALE
+        with self._lock:
+            if self._state.epoch > 0:
+                raise RuntimeError(
+                    "Anchor token registry is sealed after epoch 0. "
+                    "New anchors cannot be injected at runtime."
+                )
+            self._anchors[token.token_id] = token
+            self._state.w_scales[token.token_id] = INT_SCALE
 
     def convergence_epochs(self) -> int:
         """Number of consecutive epochs with D=0 (convergence depth)."""

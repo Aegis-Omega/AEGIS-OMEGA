@@ -11,6 +11,8 @@ on:
       - 'sovereign-omega-v2/python/gradient_anchor.py'
       - 'sovereign-omega-v2/python/bridge.py'
       - 'sovereign-omega-v2/python/tests/test_m123_contracts_v2.py'
+      - 'sovereign-omega-v2/python/gradient_anchor.py'
+      - 'sovereign-omega-v2/python/tests/test_calibration_plan_integrity_v1.py'
       - 'sovereign-omega-v2/python/tests/test_failsafe_reset_guard_v1.py'
       - 'sovereign-omega-v2/python/tests/test_ledger_persist_v2.py'
       - '.github/workflows/m123-v2-contracts.yml'
@@ -44,3 +46,5 @@ jobs:
         run: python -m unittest discover -s sovereign-omega-v2/python/tests -p 'test_m123_contracts_v2.py' -v
       - name: Verify recovery reset cannot release quarantine without proof
         run: python -m unittest discover -s sovereign-omega-v2/python/tests -p 'test_failsafe_reset_guard_v1.py' -v
+      - name: Verify calibration plan authenticity and plan/commit exclusion
+        run: python -m unittest discover -s sovereign-omega-v2/python/tests -p 'test_calibration_plan_integrity_v1.py' -v
