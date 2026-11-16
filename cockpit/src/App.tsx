@@ -13,17 +13,20 @@ type AppTab = 'chat' | 'skills'
 
 const DEFAULT_SYSTEM = CONSTITUTIONAL_SYSTEM
 
-const BRIDGE_URL = (import.meta.env.VITE_BRIDGE_URL as string | undefined) ?? 'http://localhost:7890'
-
-async function postBridgeEvent(type: string, payload: Record<string, unknown>): Promise<void> {
+// An observation from a browser is not an E4 authorization or an E3 event.
+// Send no control-plane secrets and never post to the privileged Python /event.
+async function postBrowserObservation(contentLength: number): Promise<void> {
   try {
-    await fetch(`${BRIDGE_URL}/event`, {
+    await fetch('/api/observations', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ type, payload, timestamp_ms: Date.now() }),
+      body: JSON.stringify({
+        type: 'RESPONSE_GENERATED',
+        content_length: contentLength,
+      }),
       signal: AbortSignal.timeout(2000),
     })
-  } catch { /* bridge offline — silent */ }
+  } catch { /* observational endpoint unavailable; no governance fallback */ }
 }
 
 export default function App() {
@@ -55,7 +58,7 @@ export default function App() {
     if (prevStreamingRef.current && !streaming) {
       const last = messages.at(-1)
       if (last?.role === 'assistant') {
-        void postBridgeEvent('RESPONSE_GENERATED', { content_length: last.content.length })
+        void postBrowserObservation(last.content.length)
       }
     }
     prevStreamingRef.current = streaming

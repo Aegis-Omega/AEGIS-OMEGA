@@ -3,6 +3,7 @@ import path from 'path'
 import { fileURLToPath } from 'url'
 import Anthropic from '@anthropic-ai/sdk'
 import { AnthropicVertex } from '@anthropic-ai/vertex-sdk'
+import { BrowserObservationCounter } from './observations.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const PORT = parseInt(process.env.PORT ?? '8080')
@@ -39,19 +40,44 @@ interface ChatMessage { role: 'user' | 'assistant'; content: string }
 interface StreamRequest { messages: ChatMessage[]; max_tokens?: number }
 
 const app = express()
+const browserObservations = new BrowserObservationCounter()
 app.use(express.json({ limit: '256kb' }))
 
 app.get('/health', (_, res) => {
   res.json({ ok: true, model: MODEL, vertex: Boolean(GCP_PROJECT) })
 })
 
-// Bridge telemetry compat — sovereign-omega polling
+// Explicitly untrusted, non-durable browser observations. They must never
+// enter the E3 mutation pipeline or count as E4 gate acceptance evidence.
 app.get('/telemetry', (_, res) => {
-  res.json({ status: 'cloud-run', bridge: false, model: MODEL, vertex: Boolean(GCP_PROJECT) })
+  res.json({
+    status: 'cloud-run', bridge: false, model: MODEL,
+    vertex: Boolean(GCP_PROJECT),
+    browser_observations: browserObservations.snapshot(),
+  })
 })
 
-// Bridge event compat — cockpit posts governance events here
-app.post('/event', (_, res) => res.json({ ok: true }))
+app.post('/api/observations', (req, res) => {
+  if (!browserObservations.record(req.body)) {
+    res.status(400).json({ accepted: false, reason: 'INVALID_BROWSER_OBSERVATION' })
+    return
+  }
+  res.status(202).json({
+    accepted: true,
+    trust_class: 'UNVERIFIED_BROWSER_OBSERVATION',
+    durable: false,
+    mutation_authority: false,
+  })
+})
+
+// The previous /event route silently acknowledged events without storing
+// them. Do not imply that this surface admits or records governance events.
+app.post('/event', (_, res) => {
+  res.status(410).json({
+    ok: false, reason: 'LEGACY_EVENT_ENDPOINT_RETIRED',
+    replacement: '/api/observations',
+  })
+})
 
 // Main inference endpoint — consumed by cockpit's streamClaude()
 app.post('/claude/stream', async (req, res) => {

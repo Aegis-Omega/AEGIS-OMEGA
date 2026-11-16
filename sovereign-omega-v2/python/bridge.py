@@ -14,13 +14,15 @@ import threading
 from http.server import HTTPServer, BaseHTTPRequestHandler
 
 from core_matrix import CoreMatrix
-from dna import EventClass, GateSignal
+from dna import EventClass, GateSignal, SCHEMAS
 from gate import gate
 from router import router
+from mutation_admission import MutationAdmissionLedger, control_authenticated, control_secrets_distinct, control_binding_authorized
 from hardware_config import detect_hardware
 from constitutional_identity import CONSTITUTIONAL_SYSTEM_FULL, CONSTITUTIONAL_SYSTEM_COMPACT
 from tgcs_afse import TGCSController, AFSEController
 from ledger_persist import save_checkpoint, load_checkpoint, checkpoint_exists, CheckpointError
+from checkpoint_autosave import checkpoint_autosave_worker
 from source_attribution import SourceAttributor, TelemetrySample
 import canonical_envelope as _canon_env  # Provenance Phase 1 — float-free hash-chained envelope (ADR 0001)
 
@@ -31,7 +33,21 @@ _afse = AFSEController()
 _attributor = SourceAttributor()
 last_ack_sequence = -1
 _lock = threading.Lock()
-_last_autosave_epoch = -1
+_mutation_admission = MutationAdmissionLedger()
+_checkpoint_write_lock = threading.Lock()
+
+
+def _save_checkpoint_serialized(candidate_matrix):
+    """Serialize all operator, background and shutdown checkpoint writes."""
+    with _checkpoint_write_lock:
+        return save_checkpoint(candidate_matrix)
+
+
+def _log_checkpoint_autosave_error(exc):
+    print(json.dumps({
+        'event_type': 'CHECKPOINT_AUTOSAVE_FAILED',
+        'reason': str(exc),
+    }), flush=True)
 
 # ─── /platform/* contract constants ──────────────────────────────────────────
 import queue as _queue_mod
@@ -466,47 +482,200 @@ class BridgeHandler(BaseHTTPRequestHandler):
 
     def do_POST(self):
         global last_ack_sequence
+        # Separate issuer and consumer credentials: an event client must
+        # never be able to mint a gate approval using its own credential.
+        # Both secrets are mandatory and must be distinct; no dev bypass.
+        if self.path in ('/gate_signal', '/event'):
+            gate_secret = os.environ.get('AEGIS_BRIDGE_GATE_SECRET')
+            event_secret = os.environ.get('AEGIS_BRIDGE_EVENT_SECRET')
+            if not control_secrets_distinct(gate_secret, event_secret):
+                self._respond(503, {'status': 'REJECTED', 'reason': 'BRIDGE_CONTROL_UNCONFIGURED'})
+                return
+            required_secret = gate_secret if self.path == '/gate_signal' else event_secret
+            if not control_authenticated(
+                self.headers.get('X-Aegis-Bridge-Secret'), required_secret
+            ):
+                self._respond(403, {'status': 'REJECTED', 'reason': 'BRIDGE_CONTROL_UNAUTHORIZED'})
+                return
+            try:
+                control_length = int(self.headers.get('Content-Length', '0'))
+            except ValueError:
+                self._respond(400, {'status': 'REJECTED', 'reason': 'INVALID_CONTENT_LENGTH'})
+                return
+            if control_length <= 0 or control_length > 160000:
+                self._respond(413, {'status': 'REJECTED', 'reason': 'CONTROL_BODY_SIZE'})
+                return
+
+        # Checkpoints persist mutable state on disk. They are an operator
+        # operation, not an E4 proposal or a browser observation. Granting
+        # checkpoint access to the gate or event credential would collapse
+        # the role boundary. Require a third, independent server-only secret.
+        if self.path == '/checkpoint':
+            checkpoint_secret = os.environ.get('AEGIS_BRIDGE_CHECKPOINT_SECRET')
+            gate_secret = os.environ.get('AEGIS_BRIDGE_GATE_SECRET')
+            event_secret = os.environ.get('AEGIS_BRIDGE_EVENT_SECRET')
+            if (not control_secrets_distinct(checkpoint_secret, gate_secret)
+                    or not control_secrets_distinct(checkpoint_secret, event_secret)):
+                self._respond(503, {'status': 'REJECTED', 'reason': 'CHECKPOINT_CONTROL_UNCONFIGURED'})
+                return
+            if not control_authenticated(
+                self.headers.get('X-Aegis-Bridge-Secret'), checkpoint_secret
+            ):
+                self._respond(403, {'status': 'REJECTED', 'reason': 'CHECKPOINT_UNAUTHORIZED'})
+                return
+
         length = int(self.headers.get('Content-Length', 0))
-        data = json.loads(self.rfile.read(length)) if length else {}
+        try:
+            data = json.loads(self.rfile.read(length)) if length else {}
+        except (ValueError, UnicodeError):
+            if self.path in ('/gate_signal', '/event'):
+                self._respond(400, {'status': 'REJECTED', 'reason': 'INVALID_CONTROL_JSON'})
+                return
+            raise
+        if self.path in ('/gate_signal', '/event') and not isinstance(data, dict):
+            self._respond(400, {'status': 'REJECTED', 'reason': 'INVALID_CONTROL_OBJECT'})
+            return
 
         if self.path == '/gate_signal':
-            seq = data.get('sequence', -1)
-            accepted = data.get('accepted', False)
-            proposal_id = data.get('proposal_id', '')
-            lcb = float(data.get('lcb', 0.0))
+            # A positive TypeScript E4 signal is only an input to the frozen
+            # constitutional gate. It is not authority over an arbitrary
+            # later event: bind it to exact bytes and enforce single use.
+            seq = data.get('sequence')
+            accepted = data.get('accepted')
+            proposal_id = data.get('proposal_id')
+            lcb = data.get('lcb')
+            event_sha256 = data.get('event_sha256')
+            # E4 PR #817 transmits both decision criteria, not an LCB-only
+            # proxy. These fields are untrusted until admission validates them.
+            e_value = data.get('e_value')
+            risk_spent = data.get('risk_spent')
+            sample_size = data.get('sample_size')
+            e4_method = data.get('method')
+            bridge_epoch_id = data.get('bridge_epoch_id')
+            component_id = data.get('component_id')
+            operator_id = data.get('operator_id')
+            capability_class = data.get('capability_class')
+            # Environment-owned allowlist is separate from issuer declarations.
+            # A self-declared E4 method/component/operator cannot grant rights.
+            if not control_binding_authorized(
+                component_id, operator_id, capability_class,
+                os.environ.get('AEGIS_BRIDGE_COMPONENT_OPERATORS'),
+            ):
+                self._respond(403, {'status': 'REJECTED', 'reason': 'MUTATION_BINDING_UNAUTHORIZED'})
+                return
 
-            with _lock:
-                if seq <= last_ack_sequence:
-                    self._respond(400, {'status': 'REJECTED', 'reason': 'SEQUENCE_DESYNC'})
-                    return
-                last_ack_sequence = seq
+            try:
+                # Serialize the three writers by sequence. A later signal
+                # must never reach gate.py before an earlier accepted one.
+                with _lock:
+                    # Frozen MutationGate silently discards signals after
+                    # seal() or when sequence is stale. Never turn a retained
+                    # APPROVED verdict from an older signal into a new grant.
+                    if gate.is_sealed:
+                        allowed, reason = False, 'CONSTITUTIONAL_GATE_SEALED'
+                    else:
+                        allowed, reason = _mutation_admission.record(
+                            proposal_id, seq, accepted, lcb, event_sha256,
+                            e_value=e_value, risk_spent=risk_spent,
+                            sample_size=sample_size, e4_method=e4_method,
+                            component_id=component_id, operator_id=operator_id,
+                            capability_class=capability_class,
+                            bridge_epoch_id=bridge_epoch_id,
+                        )
+                    if allowed:
+                        last_ack_sequence = seq
+                        gate.record_signal(GateSignal(
+                            proposal_id=proposal_id,
+                            sequence=seq,
+                            accepted=accepted,
+                            lcb=float(lcb),
+                        ))
+                        if gate.is_sealed or gate.last_sequence() != seq:
+                            _mutation_admission.revoke(proposal_id)
+                            allowed, reason = False, 'CONSTITUTIONAL_SIGNAL_NOT_RECORDED'
+                        elif accepted and not gate.is_approved(proposal_id):
+                            _mutation_admission.revoke(proposal_id)
+                            allowed, reason = False, 'CONSTITUTIONAL_GATE_DENIED'
+                        elif accepted:
+                            # Mutate M2 only after the constitutional gate's
+                            # proposal-specific verdict and the positive LCB
+                            # signal have both been verified.
+                            matrix.receive_gate_signal(proposal_id, True, seq)
+            except Exception:
+                # Partial control-plane writes are not assumed reversible.
+                # Revoke authorization, consume the sequence, and fail closed.
+                if isinstance(proposal_id, str):
+                    _mutation_admission.revoke(proposal_id)
+                self._respond(503, {'status': 'REJECTED', 'reason': 'GATE_SIGNAL_PROCESSING_FAILED'})
+                return
 
-            # Record signal in both gate (mutation authority) and matrix
-            gate.record_signal(GateSignal(
-                proposal_id=proposal_id,
-                sequence=seq,
-                accepted=accepted,
-                lcb=lcb,
-            ))
-            matrix.receive_gate_signal(proposal_id, accepted, seq)
+            if not allowed:
+                self._respond(403, {'status': 'REJECTED', 'reason': reason})
+                return
             self._respond(200, {'status': 'ACK', 'sequence': seq})
 
         elif self.path == '/event':
-            payload  = bytes.fromhex(data.get('payload_hex', ''))
-            verifier = bytes.fromhex(data.get('verifier_hex', '01'))
-            context  = bytes.fromhex(data.get('context_hex', ''))
-            result = router.route(payload, verifier, context)
+            # The event sender is authenticated separately from the proposal
+            # grant. Even authenticated callers cannot route an ungranted,
+            # mismatched or replayed mutation.
+            proposal_id = data.get('proposal_id')
+            bridge_epoch_id = data.get('bridge_epoch_id')
+            component_id = data.get('component_id')
+            operator_id = data.get('operator_id')
+            capability_class = data.get('capability_class')
+            if not control_binding_authorized(
+                component_id, operator_id, capability_class,
+                os.environ.get('AEGIS_BRIDGE_COMPONENT_OPERATORS'),
+            ):
+                self._respond(403, {'status': 'REJECTED', 'reason': 'MUTATION_BINDING_UNAUTHORIZED'})
+                return
+            try:
+                payload = bytes.fromhex(data['payload_hex'])
+                verifier = bytes.fromhex(data['verifier_hex'])
+                context = bytes.fromhex(data.get('context_hex', ''))
+            except (KeyError, ValueError, TypeError):
+                self._respond(400, {'status': 'REJECTED', 'reason': 'INVALID_EVENT_ENCODING'})
+                return
+            # Only governance events may consume an E4 mutation grant.
+            # The constitutionally frozen router distinguishes other classes
+            # by the first verifier byte; never grant them mutation authority.
+            schema = SCHEMAS[EventClass.GOVERNANCE]
+            if not verifier or verifier[0] != 0x00:
+                self._respond(403, {'status': 'REJECTED', 'reason': 'NOT_GOVERNANCE_EVENT'})
+                return
+            if (len(payload) > schema.payload_size_max
+                    or len(verifier) > schema.verifier_size_max
+                    or len(context) > schema.context_size_max):
+                self._respond(413, {'status': 'REJECTED', 'reason': 'GOVERNANCE_EVENT_SIZE'})
+                return
+            # Serialize gate verdict, consumption and mutation dispatch with
+            # gate-signal processing, preventing a gate transition between the
+            # approval check and use of its one-shot capability.
+            with _lock:
+                if not _mutation_admission.authorize_event(
+                    proposal_id, payload, verifier, context,
+                    (not gate.is_sealed and gate.is_approved(proposal_id))
+                    if isinstance(proposal_id, str) else False,
+                    component_id=component_id, operator_id=operator_id,
+                    bridge_epoch_id=bridge_epoch_id,
+                ):
+                    result = None
+                else:
+                    result = router.route(payload, verifier, context)
+            if result is None:
+                self._respond(403, {'status': 'REJECTED', 'reason': 'MUTATION_NOT_ADMITTED'})
+                return
             self._respond(200, result)
 
         elif self.path == '/checkpoint':
             try:
-                meta = save_checkpoint(matrix)
+                meta = _save_checkpoint_serialized(matrix)
                 self._respond(200, {'status': 'SAVED', **meta})
             except Exception as e:
                 self._respond(500, {'status': 'ERROR', 'reason': str(e)})
 
         elif self.path == '/inference':
-            import subprocess, os
+            import subprocess
             binary = os.path.join(
                 os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))),
                 'aegis-cl-psi', 'target', 'release', 'aegis_cl_psi'
@@ -800,6 +969,23 @@ class BridgeHandler(BaseHTTPRequestHandler):
             self._respond(404, {'error': 'NOT_FOUND'})
 
     def do_GET(self):
+        if self.path == '/bridge/incarnation':
+            # Authenticated preflight only; the incarnation is a freshness
+            # fence, NOT a bearer credential or an E4 mutation approval.
+            gate_secret = os.environ.get('AEGIS_BRIDGE_GATE_SECRET')
+            event_secret = os.environ.get('AEGIS_BRIDGE_EVENT_SECRET')
+            if not control_secrets_distinct(gate_secret, event_secret):
+                self._respond(503, {'status': 'REJECTED', 'reason': 'BRIDGE_CONTROL_UNCONFIGURED'})
+                return
+            supplied = self.headers.get('X-Aegis-Bridge-Secret')
+            if (not control_authenticated(supplied, gate_secret)
+                    and not control_authenticated(supplied, event_secret)):
+                self._respond(403, {'status': 'REJECTED', 'reason': 'BRIDGE_CONTROL_UNAUTHORIZED'})
+                return
+            self._respond(200, {
+                'status': 'OK', 'bridge_epoch_id': _mutation_admission.bridge_epoch_id,
+            })
+            return
         if self.path == '/telemetry':
             telemetry = matrix.emit_vcg_telemetry()
             telemetry.update(gate.telemetry())
@@ -967,38 +1153,25 @@ class BridgeHandler(BaseHTTPRequestHandler):
             return
 
         elif self.path == '/telemetry/stream':
-            # Cycles 31–35: Server-Sent Events stream for cockpit real-time dashboard.
-            # Emits a telemetry snapshot every 5 seconds. Compatible with EventSource API.
+            # One SSE frame per HTTP request. HTTPServer serves one request at
+            # a time: an unbounded streaming loop monopolizes /event and every
+            # other route. EventSource reconnects at the declared 5s interval;
+            # neither a browser read nor a disconnected SSE client writes state.
             snap = matrix.emit_vcg_telemetry()
-            data = json.dumps(snap)
+            gate_t = gate.telemetry()
+            payload = {**snap, 'gate': gate_t}
+            body = f'retry: 5000\ndata: {json.dumps(payload)}\n\n'.encode()
             self.send_response(200)
             self._cors_headers()
             self.send_header('Content-Type', 'text/event-stream')
             self.send_header('Cache-Control', 'no-cache')
-            self.send_header('X-Accel-Buffering', 'no')
+            self.send_header('Connection', 'close')
+            self.send_header('Content-Length', str(len(body)))
             self.end_headers()
+            self.close_connection = True
             try:
-                import time as _time
-                global _last_autosave_epoch
-                _sse_cycle = 0
-                while True:
-                    snap = matrix.emit_vcg_telemetry()
-                    gate_t = gate.telemetry()
-                    payload = {**snap, 'gate': gate_t}
-                    line = f'data: {json.dumps(payload)}\n\n'.encode()
-                    self.wfile.write(line)
-                    self.wfile.flush()
-                    # Auto-save checkpoint every 5 SSE cycles (25s) if epoch advanced
-                    _sse_cycle += 1
-                    if _sse_cycle % 5 == 0:
-                        current_epoch = int(snap.get('epoch', 0))
-                        if current_epoch > _last_autosave_epoch:
-                            try:
-                                save_checkpoint(matrix)
-                                _last_autosave_epoch = current_epoch
-                            except Exception:
-                                pass
-                    _time.sleep(5)
+                self.wfile.write(body)
+                self.wfile.flush()
             except (BrokenPipeError, ConnectionResetError):
                 pass
             return
@@ -1821,10 +1994,16 @@ def run_bridge(port=None):
     matrix.start()
     if not matrix.wait_ready(timeout=5.0):
         print(json.dumps({'event_type': 'BRIDGE_START_TIMEOUT', 'port': port}), flush=True)
+        # Do not expose HTTP control routes when the matrix was not initialized.
+        # No autosave or shutdown save is allowed for unready startup state.
+        matrix.stop()
+        raise RuntimeError('BRIDGE_START_NOT_READY')
 
-    # Restore from checkpoint if one exists — crash-safe resume
-    if checkpoint_exists():
-        try:
+    # Existing persisted state is an authority boundary. A failed restore
+    # must abort *before* binding any HTTP socket, starting autosave, or
+    # overwriting potentially recoverable checkpoint bytes with empty state.
+    try:
+        if checkpoint_exists():
             meta = load_checkpoint(matrix)
             print(json.dumps({
                 'event_type': 'CHECKPOINT_RESTORED',
@@ -1832,21 +2011,47 @@ def run_bridge(port=None):
                 'epoch': meta['epoch'],
                 'era': meta['era'],
             }), flush=True)
-        except CheckpointError as e:
-            print(json.dumps({'event_type': 'CHECKPOINT_RESTORE_FAILED', 'reason': str(e)}), flush=True)
+    except Exception as exc:
+        print(json.dumps({
+            'event_type': 'CHECKPOINT_RESTORE_FAILED',
+            'reason': str(exc),
+        }), flush=True)
+        matrix.stop()
+        raise CheckpointError('CHECKPOINT_RESTORE_ABORTED') from exc
 
+    # Autosave starts from the restored/current epoch, not a hard-coded zero.
+    # SSE clients have no role in scheduling or authorizing these writes.
+    with matrix._lock:
+        restored_epoch = matrix._epoch
+    autosave_stop = threading.Event()
+    autosave_thread = threading.Thread(
+        target=checkpoint_autosave_worker,
+        name='aegis-checkpoint-autosave',
+        args=(autosave_stop, matrix, _save_checkpoint_serialized),
+        kwargs={
+            'initial_epoch': restored_epoch,
+            'on_error': _log_checkpoint_autosave_error,
+        },
+        daemon=True,
+    )
     server = HTTPServer(('0.0.0.0', port), BridgeHandler)
+    autosave_thread.start()
     print(json.dumps({'event_type': 'BRIDGE_READY', 'port': port}), flush=True)
     try:
         server.serve_forever()
     except KeyboardInterrupt:
+        pass
+    finally:
         gate.seal()
+        autosave_stop.set()
+        autosave_thread.join()  # Never race a worker checkpoint on shutdown.
         try:
-            save_checkpoint(matrix)
+            _save_checkpoint_serialized(matrix)
             print(json.dumps({'event_type': 'CHECKPOINT_SAVED_ON_SHUTDOWN'}), flush=True)
         except Exception as e:
             print(json.dumps({'event_type': 'CHECKPOINT_SAVE_FAILED', 'reason': str(e)}), flush=True)
         matrix.stop()
+        server.server_close()
 
 
 if __name__ == '__main__':

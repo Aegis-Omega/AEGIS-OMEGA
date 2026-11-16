@@ -1,0 +1,183 @@
+name: Bridge Mutation Admission V1
+
+on:
+  push:
+    branches:
+      - fix/bridge-mutation-admission-20261116
+    paths:
+      - sovereign-omega-v2/python/mutation_admission.py
+      - sovereign-omega-v2/python/bridge.py
+      - sovereign-omega-v2/python/checkpoint_autosave.py
+      - sovereign-omega-v2/python/tests/test_checkpoint_autosave.py
+      - sovereign-omega-v2/python/tests/test_bridge_startup_checkpoint.py
+      - sovereign-omega-v2/python/tests/test_mutation_admission.py
+      - sovereign-omega-v2/python/tests/test_mutation_bridge_http.py
+      - sovereign-omega-v2/python/tests/test_bridge_transport_vectors.py
+      - sovereign-omega-v2/python/tests/test_native_e4_bridge_parity.py
+      - sovereign-omega-v2/ci/native_e4_bridge_v1.template.ts
+      - cockpit/server/test/emitNativeE4Transport.mjs
+      - cockpit/server/src/bridgeControl.ts
+      - cockpit/server/test/bridgeControl.test.mjs
+      - cockpit/server/test/emitBridgeControlFixtures.mjs
+      - cockpit/server/src/index.ts
+      - cockpit/server/src/observations.ts
+      - cockpit/server/test/observations.test.mjs
+      - cockpit/src/App.tsx
+      - cockpit/src/lib/telemetry.ts
+      - cockpit/test/telemetry-reconnect.test.mjs
+      - .github/workflows/bridge-mutation-admission.yml
+  pull_request:
+    branches:
+      - main
+    paths:
+      - sovereign-omega-v2/python/mutation_admission.py
+      - sovereign-omega-v2/python/bridge.py
+      - sovereign-omega-v2/python/checkpoint_autosave.py
+      - sovereign-omega-v2/python/tests/test_checkpoint_autosave.py
+      - sovereign-omega-v2/python/tests/test_bridge_startup_checkpoint.py
+      - sovereign-omega-v2/python/tests/test_mutation_admission.py
+      - sovereign-omega-v2/python/tests/test_mutation_bridge_http.py
+      - sovereign-omega-v2/python/tests/test_bridge_transport_vectors.py
+      - sovereign-omega-v2/python/tests/test_native_e4_bridge_parity.py
+      - sovereign-omega-v2/ci/native_e4_bridge_v1.template.ts
+      - cockpit/server/test/emitNativeE4Transport.mjs
+      - cockpit/server/src/bridgeControl.ts
+      - cockpit/server/test/bridgeControl.test.mjs
+      - cockpit/server/test/emitBridgeControlFixtures.mjs
+      - cockpit/server/src/index.ts
+      - cockpit/server/src/observations.ts
+      - cockpit/server/test/observations.test.mjs
+      - cockpit/src/App.tsx
+      - cockpit/src/lib/telemetry.ts
+      - cockpit/test/telemetry-reconnect.test.mjs
+      - .github/workflows/bridge-mutation-admission.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  bridge-mutation-admission:
+    name: Authenticated, single-use, event-bound mutation admission
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - name: Checkout exact candidate
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - name: Ensure compatible Python
+        run: python3 -c "import sys; assert sys.version_info >= (3, 11), sys.version"
+      - name: Compile bridge and security module
+        run: |
+          python3 -m py_compile sovereign-omega-v2/python/mutation_admission.py
+          python3 -m py_compile sovereign-omega-v2/python/bridge.py
+          python3 -m py_compile sovereign-omega-v2/python/checkpoint_autosave.py
+          python3 -m py_compile sovereign-omega-v2/python/tests/test_checkpoint_autosave.py
+          python3 -m py_compile sovereign-omega-v2/python/tests/test_bridge_startup_checkpoint.py
+          python3 -m py_compile sovereign-omega-v2/python/tests/test_mutation_admission.py
+          python3 -m py_compile sovereign-omega-v2/python/tests/test_mutation_bridge_http.py
+      - name: Run native admission and AST-bound bridge regressions
+        run: |
+          cd sovereign-omega-v2
+          python3 -m unittest discover -s python/tests -p test_mutation_admission.py -v
+      - name: Execute source-extracted HTTP POST handler with stubbed dependencies
+        run: |
+          cd sovereign-omega-v2
+          python3 -m unittest discover -s python/tests -p test_mutation_bridge_http.py -v
+      - name: Verify service-owned checkpoint autosave and read-only SSE
+        run: |
+          cd sovereign-omega-v2
+          python3 -m unittest discover -s python/tests -p test_checkpoint_autosave.py -v
+      - name: Verify exact run_bridge startup fails closed on broken persisted state
+        run: |
+          cd sovereign-omega-v2
+          python3 -m unittest discover -s python/tests -p test_bridge_startup_checkpoint.py -v
+      - name: Reuse existing atomic on-disk persistence and restore regressions
+        run: |
+          cd sovereign-omega-v2
+          python3 python/tests/test_ledger_persist_v2.py
+
+  cockpit-telemetry:
+    name: Browser telemetry separated from the governance plane
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - name: Checkout exact candidate
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - name: Setup Node 22
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: '22'
+      - name: Build cockpit server
+        working-directory: cockpit/server
+        run: |
+          npm ci --no-audit --no-fund
+          npm run build
+      - name: Verify browser observations have no E4 authority
+        working-directory: cockpit/server
+        run: node --test test/observations.test.mjs
+      - name: Verify exact server-only E4 frame encoding
+        working-directory: cockpit/server
+        run: node --test test/bridgeControl.test.mjs
+      - name: Produce Node transport frames and independently verify Python interpretation
+        run: |
+          node cockpit/server/test/emitBridgeControlFixtures.mjs > "$RUNNER_TEMP/bridge-native-node-fixtures.json"
+          python3 sovereign-omega-v2/python/tests/test_bridge_transport_vectors.py "$RUNNER_TEMP/bridge-native-node-fixtures.json"
+      - name: Build browser frontend without secrets
+        working-directory: cockpit
+        run: |
+          npm ci --no-audit --no-fund
+          npm run build
+      - name: Verify native-transpiled browser SSE retry, freshness and teardown
+        working-directory: cockpit
+        run: node --test test/telemetry-reconnect.test.mjs
+
+  native-e4-source-to-python:
+    name: Pinned PR817 E4 runtime -> existing Node encoder -> Python bridge
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      AEGIS_NATIVE_E4_SOURCE_SHA: 0dc07a16e1010f77615036cbc0bc87fd613d8512
+      AEGIS_NATIVE_E4_DECISION_PATH: ${{ github.workspace }}/native-pr817-decision.json
+    steps:
+      - name: Checkout exact PR811 candidate source
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - name: Checkout actual PR817 E4 runtime by immutable SHA
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          repository: Aegis-Omega/AEGIS-OMEGA
+          ref: 0dc07a16e1010f77615036cbc0bc87fd613d8512
+          path: native-e4-pr817
+          persist-credentials: false
+      - name: Verify PR817 source and blob are byte-identical to reviewed code
+        run: |
+          set -eu
+          actual="$(git -C native-e4-pr817 rev-parse HEAD)"
+          test "$actual" = "$AEGIS_NATIVE_E4_SOURCE_SHA"
+          risk_blob="$(git -C native-e4-pr817 hash-object sovereign-omega-v2/src/gate/risk.ts)"
+          test "$risk_blob" = "a0595e05a02c52d66f5a1dcd50b428d41aff3ec0"
+      - name: Set up Node 22
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: '22'
+      - name: Install and execute actual E4 RiskBudgetManager with synthetic inputs
+        run: |
+          set -eu
+          cp sovereign-omega-v2/ci/native_e4_bridge_v1.template.ts native-e4-pr817/sovereign-omega-v2/test/integration/native_e4_bridge.test.ts
+          cd native-e4-pr817/sovereign-omega-v2
+          npm ci --no-audit --no-fund
+          npm run test -- test/integration/native_e4_bridge.test.ts
+          test -s "$AEGIS_NATIVE_E4_DECISION_PATH"
+      - name: Build existing PR811 Node transport codec
+        working-directory: cockpit/server
+        run: |
+          npm ci --no-audit --no-fund
+          npm run build
+      - name: Feed actual E4 decision into existing bridge codec
+        run: |
+          node cockpit/server/test/emitNativeE4Transport.mjs "$AEGIS_NATIVE_E4_DECISION_PATH" > "$RUNNER_TEMP/native-e4-bridge-parity.json"
+      - name: Replay actual E4 decision and forged negative in real Python bridge handler
+        run: |
+          python3 sovereign-omega-v2/python/tests/test_native_e4_bridge_parity.py "$RUNNER_TEMP/native-e4-bridge-parity.json"
