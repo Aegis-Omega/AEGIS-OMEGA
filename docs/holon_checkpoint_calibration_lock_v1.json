@@ -1,0 +1,27 @@
+{
+  "schema": "AEGIS.HOLON.CheckpointCalibrationLockV1",
+  "source_parent_sha": "17d9e0fc74f4b16318988d37a5e0d563ae309f73",
+  "source_checkpoint_blob": "a7e1e1f9eb0e485f96084887287bbb6ea9f24646",
+  "date": "2026-11-16",
+  "target_pr": 813,
+  "status": "DRAFT_PENDING_EXACT_CI",
+  "finding": "save_checkpoint and load_checkpoint did not exclude independent calibrate_epoch while reading/installing calibration state; potentially torn matrix epoch + calibrator epoch, or concurrent modification between validation and installation",
+  "correction": "Consistent lock order CoreMatrix._lock then calibrator._lock around snapshot/validation and installation, preserving checkpoint schema 2.3.0",
+  "test_methods": 3,
+  "unchanged": [
+    "M1 digest",
+    "checkpoint version 2.3.0",
+    "all previous fail-closed and math gates"
+  ],
+  "open": [
+    "Concurrent external calibration after checkpoint lock release can still cause logical epoch divergence unless call authority is restricted",
+    "Authenticated recovery not implemented",
+    "Untrusted file is not authenticated by unkeyed checksum",
+    "Full cross-thread + callback deadlock proof not established"
+  ],
+  "governance": {
+    "main_modified": false,
+    "merged": false,
+    "production_modified": false
+  }
+}

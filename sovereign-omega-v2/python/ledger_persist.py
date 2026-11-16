@@ -6,6 +6,7 @@ The unkeyed integrity hash detects corruption, NOT authenticated provenance.
 Legacy V1 checkpoints stored payload hashes and MUST NOT be interpreted as V2.
 """
 import hashlib
+from contextlib import nullcontext
 import json
 import os
 import tempfile
@@ -70,9 +71,13 @@ def _integrity_hash(obj):
 
 
 def save_checkpoint(matrix, path: str = DEFAULT_CHECKPOINT_PATH) -> dict:
-    """Persist a chain-continuation anchor atomically; not the event history."""
-    with matrix._lock:
-        calibrator = getattr(matrix, '_calibrator', None)
+    """Snapshot M1 and calibration as one consistent continuation state."""
+    calibrator = getattr(matrix, '_calibrator', None)
+    # Lock order matches CoreMatrix.process_event(): matrix -> calibrator.
+    # Chain-only fixtures have no calibrator and require no extra lock.
+    calibration_lock = (calibrator._lock if calibrator is not None
+                        else nullcontext())
+    with matrix._lock, calibration_lock:
         if calibrator is not None:
             try:
                 calibration = snapshot_calibration(calibrator)
@@ -154,7 +159,24 @@ def save_checkpoint(matrix, path: str = DEFAULT_CHECKPOINT_PATH) -> dict:
 
 
 def load_checkpoint(matrix, path: str = DEFAULT_CHECKPOINT_PATH) -> dict:
-    """Validate all fields before modifying the destination matrix."""
+    """Lock destination through full validation and atomic state installation.
+
+    In particular, independent calibrate_epoch callers must not alter the
+    destination between prepare_calibration_restore and install_calibration.
+    Lock order is always CoreMatrix -> calibrator (both are RLocks).
+    """
+    calibrator = getattr(matrix, '_calibrator', None)
+    calibration_lock = (calibrator._lock if calibrator is not None
+                        else nullcontext())
+    with matrix._lock, calibration_lock:
+        return _load_checkpoint_locked(matrix, path)
+
+
+def _load_checkpoint_locked(matrix, path: str) -> dict:
+    """Validate all fields before modifying the destination matrix.
+
+    Caller holds the matrix lock and the calibrator lock if attached.
+    """
     if not os.path.exists(path):
         raise CheckpointError(f'Checkpoint not found: {path}')
     with open(path, encoding='utf-8') as handle:
