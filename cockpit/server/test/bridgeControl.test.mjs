@@ -8,10 +8,12 @@ import {
 function candidate(overrides = {}) {
   return {
     decision: {
-      proposal_id: 'E4:test:0001', accepted: true,
+      proposal_id: 'E4:test:0001', component_id: 'bridge-test-component', accepted: true,
       lcb_value: 0.125, e_value: 32, risk_spent: 0.05,
       sample_size: 20, method: 'anytime_valid_bernstein',
     },
+    capabilityClass: 'SELF_MODIFYING',
+    operatorId: 'bridge-test-operator',
     sequence: 17,
     payload: Buffer.from('hello', 'utf8'),
     verifier: Uint8Array.of(0x00),
@@ -26,6 +28,9 @@ test('two deterministic frames bind the same exact bytes', () => {
   const second = encodeAdmittedGovernanceMutation(source)
   assert.deepEqual(first, second)
   assert.equal(first.gate_signal.proposal_id, source.decision.proposal_id)
+  assert.equal(first.gate_signal.component_id, 'bridge-test-component')
+  assert.equal(first.gate_signal.operator_id, 'bridge-test-operator')
+  assert.equal(first.gate_signal.capability_class, 'SELF_MODIFYING')
   assert.equal(first.gate_signal.sequence, 17)
   assert.equal(first.gate_signal.accepted, true)
   assert.equal(first.gate_signal.lcb, 0.125)
@@ -37,6 +42,9 @@ test('two deterministic frames bind the same exact bytes', () => {
     governanceEventDigest(source.payload, source.verifier, source.context))
   assert.deepEqual(first.event, {
     proposal_id: 'E4:test:0001',
+    component_id: 'bridge-test-component',
+    capability_class: 'SELF_MODIFYING',
+    operator_id: 'bridge-test-operator',
     payload_hex: '68656c6c6f',
     verifier_hex: '00',
     context_hex: '007fff',
@@ -68,6 +76,17 @@ test('rejects invalid E4 identifiers, sequence and untrusted decisions', () => {
     assert.throws(() => encodeAdmittedGovernanceMutation(candidate({
       decision: { ...candidate().decision, proposal_id },
     })))
+  }
+  for (const component_id of ['', 'bad/id', null]) {
+    assert.throws(() => encodeAdmittedGovernanceMutation(candidate({
+      decision: { ...candidate().decision, component_id },
+    })))
+  }
+  for (const operatorId of ['', 'bad/id', null]) {
+    assert.throws(() => encodeAdmittedGovernanceMutation(candidate({ operatorId })))
+  }
+  for (const capabilityClass of ['INFERENCE_ONLY', '', null]) {
+    assert.throws(() => encodeAdmittedGovernanceMutation(candidate({ capabilityClass })))
   }
   for (const sequence of [-1, 1.1, NaN, Infinity, Number.MAX_SAFE_INTEGER + 1, '1', null]) {
     assert.throws(() => encodeAdmittedGovernanceMutation(candidate({ sequence })))
