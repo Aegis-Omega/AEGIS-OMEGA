@@ -2,13 +2,13 @@
 SOVEREIGN OMEGA — Core Matrix (core_matrix.py)
 EPISTEMIC TIER: T0
 
-The hardware inference layer for AMD RX 570 / 8GB RAM.
+The hardware inference layer with a host/cgroup-aware bounded arena.
 All system components are represented as abstract functional definitions
 M1, M2, M3 operating over a single pre-allocated contiguous byte array.
 
 CONSTRAINTS:
   - Single file: eliminates module complexity and external dependencies
-  - Memory: single pre-allocated contiguous byte array, 8GB ceiling
+  - Memory: adaptive, virtually mapped arena; no machine-specific GB cap
   - Execution: unprivileged user-space only, no kernel calls
   - Determinism: bit-shifted integer arithmetic throughout
   - Self-regulation: via internal math only, no OS intervention
@@ -27,6 +27,7 @@ import array
 import ctypes
 import hashlib
 import os
+import mmap
 import time
 import threading
 from dataclasses import dataclass
@@ -44,28 +45,11 @@ from gradient_anchor import GradientAnchorCalibrator, DEFAULT_ANCHOR_TOKENS
 
 
 # ── Memory Layout ────────────────────────────────────────────────────────────
-# The byte array is partitioned into three regions for M1, M2, M3.
-# All region boundaries are aligned to INT_SCALE (65536 bytes) for
-# deterministic memory access patterns.
-
-# Default 4GB (AMD RX 570 / 8GB RAM profile). Overridable via AEGIS_ARRAY_BYTES
-# for memory-constrained deployments (e.g. Cloud Run, where the bridge serves
-# /platform/* + telemetry and does not need the full inference arena). Must be a
-# multiple of INT_SCALE (65536) so region boundaries stay aligned. Unset = 4GB,
-# so all tests and local runs are byte-identical to the original layout.
-_INT_SCALE_ALIGN      = 65536
-ARRAY_TOTAL_BYTES     = int(os.environ.get('AEGIS_ARRAY_BYTES', str(4 * 1024 ** 3)))
-ARRAY_TOTAL_BYTES    -= ARRAY_TOTAL_BYTES % _INT_SCALE_ALIGN  # force alignment
-M1_REGION_FRACTION    = 0.50            # 2GB — state management (E3 substrate)
-M2_REGION_FRACTION    = 0.30            # 1.2GB — calibration and gate data
-M3_REGION_FRACTION    = 0.20            # 0.8GB — inference context and projections
-
-M1_OFFSET = 0
-M1_SIZE   = int(ARRAY_TOTAL_BYTES * M1_REGION_FRACTION)
-M2_OFFSET = M1_SIZE
-M2_SIZE   = int(ARRAY_TOTAL_BYTES * M2_REGION_FRACTION)
-M3_OFFSET = M2_OFFSET + M2_SIZE
-M3_SIZE   = int(ARRAY_TOTAL_BYTES * M3_REGION_FRACTION)
+# Geometry is derived from available host/cgroup memory at each instance's
+# construction. No import-time resource detection or global arena snapshot.
+# Protocol alignment is enforced by adaptive_memory.plan_layout().
+# M1 / M2 / M3 storage limits are properties of the individual CoreMatrix.
+from adaptive_memory import configured_arena_layout
 
 
 # ── Functional Definitions ────────────────────────────────────────────────────
@@ -200,15 +184,19 @@ class CoreMatrix:
         self._hw = detect_hardware()
         self._event_cb = event_callback
 
-        # Pre-allocate the contiguous byte array
-        # Using bytearray for mutability; memoryview for zero-copy slicing
-        self._array = bytearray(ARRAY_TOTAL_BYTES)
+        # Re-measure at *instance construction*, not only module import.
+        # This does not resize a live arena or alter its checkpoint geometry.
+        self._layout = configured_arena_layout()
+        # Anonymous pages are committed only when touched.
+        self._array = mmap.mmap(-1, self._layout.total)
         self._mem = memoryview(self._array)
 
-        # Region views (zero-copy slices into the single array)
-        self._m1_region = self._mem[M1_OFFSET:M1_OFFSET + M1_SIZE]
-        self._m2_region = self._mem[M2_OFFSET:M2_OFFSET + M2_SIZE]
-        self._m3_region = self._mem[M3_OFFSET:M3_OFFSET + M3_SIZE]
+        # Per-instance contiguous M1/M2/M3 views; no stale module geometry.
+        self._m1_region = self._mem[:self._layout.m1_size]
+        self._m2_region = self._mem[
+            self._layout.m2_offset:self._layout.m3_offset]
+        self._m3_region = self._mem[
+            self._layout.m3_offset:self._layout.total]
 
         # Subsystems
         self._pgcs = PGCSController(event_callback=event_callback)
@@ -220,6 +208,9 @@ class CoreMatrix:
         self._epoch: int = 0
         self._era: int = 0          # increments each time M1 wraps (circular log)
         self._running = False
+        self._closed = False
+        self._stopped = False
+        self._views_released = False
         self._lock = threading.RLock()
         self._ready = threading.Event()
 
@@ -232,22 +223,27 @@ class CoreMatrix:
             self._transition_observer = TransitionObserver()
 
         # Capacity at which M1 write head wraps (events per era)
-        self._m1_era_capacity: int = M1_SIZE // 40
+        self._m1_era_capacity: int = len(self._m1_region) // 40
 
         # Performance metrics (fixed-point for determinism)
         self._total_vcg_error_fixed: int = 0
         self._total_processed: int = 0
 
     def start(self) -> None:
-        """Start the core matrix and all subsystems."""
-        self._pgcs.start()
-        self._running = True
-        self._ready.set()
+        """Start only before the terminal PGCS stop / arena close."""
+        with self._lock:
+            if self._closed or self._views_released or self._stopped:
+                raise RuntimeError('CORE_MATRIX_CLOSED')
+            if self._running:
+                return
+            self._pgcs.start()
+            self._running = True
+            self._ready.set()
         if self._event_cb:
             self._event_cb('CORE_MATRIX_STARTED', {
                 'hardware': self._hw.platform,
                 'is_target_hardware': self._hw.is_target_hardware,
-                'array_bytes': ARRAY_TOTAL_BYTES,
+                'array_bytes': self._layout.total,
             })
 
     def wait_ready(self, timeout: float = 5.0) -> bool:
@@ -255,14 +251,49 @@ class CoreMatrix:
         return self._ready.wait(timeout)
 
     def stop(self) -> None:
-        """Stop the core matrix and all subsystems."""
-        self._running = False
-        self._pgcs.stop()
-        if self._event_cb:
-            self._event_cb('CORE_MATRIX_STOPPED', {
-                'total_processed': self._total_processed,
-                'final_epoch': self._epoch,
-            })
+        """Stop once, preserving read-only postmortem telemetry until close()."""
+        with self._lock:
+            if self._closed or self._stopped:
+                return
+            self._running = False
+            self._ready.clear()
+            self._pgcs.stop()
+            self._stopped = True
+            if self._event_cb:
+                self._event_cb('CORE_MATRIX_STOPPED', {
+                    'total_processed': self._total_processed,
+                    'final_epoch': self._epoch,
+                })
+
+    def close(self) -> None:
+        """Explicitly release the V15 anonymous arena after stop().
+
+        stop() retains the original postmortem telemetry contract. This
+        separate terminal operation releases all owned memoryviews and closes
+        the mmap. It is idempotent. Exported caller views may delay closing;
+        retrying close() is safe after those external views are released.
+        """
+        with self._lock:
+            if self._running:
+                raise RuntimeError('CORE_MATRIX_STOP_REQUIRED')
+            if self._closed:
+                return
+            if not self._stopped:
+                # Even a never-started CoreMatrix owns a PGCS mmap.
+                self._pgcs.stop()
+                self._stopped = True
+                self._ready.clear()
+            if not self._views_released:
+                self._m1_region.release()
+                self._m2_region.release()
+                self._m3_region.release()
+                self._mem.release()
+                self._views_released = True
+            try:
+                self._array.close()
+            except BufferError as exc:
+                raise RuntimeError('CORE_MATRIX_EXPORTED_VIEW') from exc
+            self._closed = True
 
     def process_event(
         self,
@@ -278,6 +309,8 @@ class CoreMatrix:
         INVARIANT: All temporal values derive from sequence, never wall clock.
         """
         with self._lock:
+            if self._closed or self._views_released or self._stopped:
+                raise RuntimeError('CORE_MATRIX_CLOSED')
             # Check failsafe state before processing — FROZEN and RECOVERING both gate events
             failsafe_state = self._failsafe.state
             if failsafe_state in (EpochState.FROZEN, EpochState.RECOVERING):
@@ -350,6 +383,8 @@ class CoreMatrix:
         sequence MUST come from the TypeScript event substrate.
         """
         with self._lock:
+            if self._closed or self._views_released or self._stopped:
+                raise RuntimeError('CORE_MATRIX_CLOSED')
             signal_byte = b'\x01' if accepted else b'\x00'
             M2(self._m2_region, signal_byte, INT_SCALE if accepted else 0, sequence)
 
@@ -361,6 +396,8 @@ class CoreMatrix:
         and not a torn view mid-process_event() execution (H-02).
         """
         with self._lock:
+            if self._closed or self._views_released:
+                raise RuntimeError('CORE_MATRIX_CLOSED')
             seq = self._sequence
             epoch = self._epoch
             avg_vcg_error = from_fixed(
@@ -390,6 +427,8 @@ class CoreMatrix:
         Callers must independently enforce their own authorization policies.
         """
         with self._lock:
+            if self._closed or self._views_released:
+                raise RuntimeError('CORE_MATRIX_CLOSED')
             observer = self._transition_observer
             if observer is None:
                 return None
@@ -414,6 +453,8 @@ class CoreMatrix:
         sequence/era counters — no torn read mid-process_event() (H-02).
         """
         with self._lock:
+            if self._closed or self._views_released:
+                raise RuntimeError('CORE_MATRIX_CLOSED')
             region_len = len(self._m1_region)
             chunk = 256
             positions = [0, region_len // 4, region_len // 2, (3 * region_len) // 4]

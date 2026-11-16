@@ -1,0 +1,74 @@
+name: OPTIMUS V15 Adaptive Memory Contracts
+
+on:
+  push:
+    branches:
+      - research/optimus-adaptive-memory-v15-20261116
+    paths:
+      - sovereign-omega-v2/python/adaptive_memory.py
+      - sovereign-omega-v2/python/hardware_config.py
+      - sovereign-omega-v2/python/core_matrix.py
+      - sovereign-omega-v2/python/ledger_persist.py
+      - sovereign-omega-v2/python/m1_checkpoint_portability.py
+      - sovereign-omega-v2/python/tests/test_m1_checkpoint_portability_v15.py
+      - sovereign-omega-v2/python/tests/test_adaptive_memory_v15.py
+      - sovereign-omega-v2/python/tests/test_hardware_config.py
+      - sovereign-omega-v2/python/tests/test_transition_core_integration.py
+      - .github/workflows/optimus-adaptive-memory-v15.yml
+  pull_request:
+    branches:
+      - research/optimus-streaming-info-v14-20261116
+    paths:
+      - sovereign-omega-v2/python/adaptive_memory.py
+      - sovereign-omega-v2/python/hardware_config.py
+      - sovereign-omega-v2/python/core_matrix.py
+      - sovereign-omega-v2/python/ledger_persist.py
+      - sovereign-omega-v2/python/m1_checkpoint_portability.py
+      - sovereign-omega-v2/python/tests/test_m1_checkpoint_portability_v15.py
+      - sovereign-omega-v2/python/tests/test_adaptive_memory_v15.py
+      - sovereign-omega-v2/python/tests/test_hardware_config.py
+      - sovereign-omega-v2/python/tests/test_transition_core_integration.py
+      - .github/workflows/optimus-adaptive-memory-v15.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  adaptive-memory-contracts:
+    name: Source-bound adaptive arena and checkpoint regressions
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout immutable candidate
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - name: Test runtime, format, headroom and alignment
+        run: |
+          set -euo pipefail
+          cd sovereign-omega-v2
+          python3 -m unittest discover -s python/tests -p 'test_adaptive_memory_v15.py' -v
+      - name: Existing hardware config regressions
+        run: |
+          set -euo pipefail
+          cd sovereign-omega-v2
+          python3 python/tests/test_hardware_config.py
+      - name: Existing ledger V1 contract, geometry compatibility
+        run: |
+          set -euo pipefail
+          cd sovereign-omega-v2
+          python3 python/tests/test_ledger_persist_v2.py
+      - name: V2 M1 checkpoint relocation remains read-only and capacity-independent
+        run: |
+          set -euo pipefail
+          cd sovereign-omega-v2
+          python3 -m unittest discover -s python/tests -p 'test_m1_checkpoint_portability_v15.py' -v
+      - name: Native CoreMatrix integration with lazy mmap
+        run: |
+          set -euo pipefail
+          cd sovereign-omega-v2
+          python3 -m unittest discover -s python/tests -p 'test_transition_core_integration.py' -v
+      - name: V14 source-bound observer noninterference
+        run: |
+          set -euo pipefail
+          cd sovereign-omega-v2
+          python3 -m unittest discover -s python/tests -p 'test_transition_observer.py' -v

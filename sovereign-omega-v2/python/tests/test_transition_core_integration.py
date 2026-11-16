@@ -75,12 +75,13 @@ def load_real_core():
     anchor.DEFAULT_ANCHOR_TOKENS = []
     modules = {"pgcs": pgcs, "epoch_failsafe": failsafe, "gradient_anchor": anchor}
     with mock.patch.dict(sys.modules, modules):
-        with mock.patch.dict(os.environ, {"AEGIS_ARRAY_BYTES": "131072"}):
+        # Resource measurement must NOT happen at import time.
+        with mock.patch.dict(os.environ, {"AEGIS_ARRAY_BYTES": "invalid-at-import"}):
             spec = importlib.util.spec_from_file_location("aegis_core_under_test", ROOT / "core_matrix.py")
             core = importlib.util.module_from_spec(spec)
             spec.loader.exec_module(core)
-    if core.ARRAY_TOTAL_BYTES != 131072:
-        raise AssertionError("REAL_CORE_ALLOCATION_GUARD_FAILED")
+    if hasattr(core, "ARRAY_TOTAL_BYTES"):
+        raise AssertionError("IMPORT_TIME_ARENA_LAYOUT_STILL_PRESENT")
     core.detect_hardware = lambda: SimpleNamespace(platform="mock")
     return core
 
@@ -91,7 +92,7 @@ class ObserverCoreIntegration(TestCase):
         cls.core = load_real_core()
 
     def make_core(self, setting=None):
-        with mock.patch.dict(os.environ, {}, clear=False):
+        with mock.patch.dict(os.environ, {"AEGIS_ARRAY_BYTES": "4194304"}):
             os.environ.pop("AEGIS_TRANSITION_OBSERVER", None)
             if setting is not None:
                 os.environ["AEGIS_TRANSITION_OBSERVER"] = setting
@@ -102,7 +103,7 @@ class ObserverCoreIntegration(TestCase):
         self.assertIsNone(engine._transition_observer)
         before = engine.emit_vcg_telemetry()
         self.assertNotIn("transition_observer_v14", before)
-        engine.process_event(b"alpha", b"\\x01", b"\\x01\\x02")
+        engine.process_event(b"alpha", b"\x01", b"\x01\x02")
         after = engine.emit_vcg_telemetry()
         self.assertNotIn("transition_observer_v14", after)
 
@@ -114,13 +115,14 @@ class ObserverCoreIntegration(TestCase):
     def test_gate_result_and_all_existing_metrics_identical(self):
         control = self.make_core()
         observed = self.make_core("1")
-        results = [b"", b"\\x00", b"\\x01", b"\\xff", b"\\x00", b""]
+        results = [b"", b"\x00", b"\x01", b"\xff", b"\x00", b""]
         for i, result in enumerate(results):
             data = (b"payload-" + bytes([i]), result, bytes([i, i + 1]))
             self.assertEqual(control.process_event(*data), observed.process_event(*data))
             before = control.emit_vcg_telemetry()
             after = observed.emit_vcg_telemetry()
-            extra = after.pop("transition_observer_v14")
+            self.assertNotIn("transition_observer_v14", after)
+            extra = observed.transition_analytics_snapshot()
             self.assertEqual(before, after)
             self.assertEqual(extra["sample_count"], i + 1)
             self.assertEqual(extra["transition_count"], i)
@@ -132,13 +134,13 @@ class ObserverCoreIntegration(TestCase):
         control = self.make_core()
         observed = self.make_core("1")
         observed._transition_observer.observe_verifier = mock.Mock(side_effect=RuntimeError("analytics broken"))
-        self.assertEqual(control.process_event(b"x", b"\\x01", b"y"),
-                         observed.process_event(b"x", b"\\x01", b"y"))
-        view = observed.emit_vcg_telemetry()["transition_observer_v14"]
+        self.assertEqual(control.process_event(b"x", b"\x01", b"y"),
+                         observed.process_event(b"x", b"\x01", b"y"))
+        view = observed.transition_analytics_snapshot()
         self.assertEqual(view["sample_count"], 0)
         self.assertEqual(view["observation_errors"], 1)
         observed._transition_observer.snapshot = mock.Mock(side_effect=RuntimeError("unavailable"))
-        out = observed.emit_vcg_telemetry()["transition_observer_v14"]
+        out = observed.transition_analytics_snapshot()
         self.assertEqual(out["status"], "UNAVAILABLE")
         self.assertEqual(out["observation_errors"], 2)
 
@@ -146,8 +148,58 @@ class ObserverCoreIntegration(TestCase):
         engine = self.make_core("1")
         for status in (DummyEpochState.FROZEN, DummyEpochState.RECOVERING):
             engine._failsafe.state = status
-            self.assertEqual(engine.process_event(b"x", b"\\x01", b"y")["status"], status.name)
-        self.assertEqual(engine.emit_vcg_telemetry()["transition_observer_v14"]["sample_count"], 0)
+            self.assertEqual(engine.process_event(b"x", b"\x01", b"y")["status"], status.name)
+        self.assertEqual(engine.transition_analytics_snapshot()["sample_count"], 0)
+
+
+    def test_independent_instances_remeasure_budget_and_checkpoint_geometry(self):
+        # The module is importable without a memory budget; instances must
+        # independently resolve their own sizes at construction time.
+        import adaptive_memory
+        self.assertFalse(hasattr(self.core, "ARRAY_TOTAL_BYTES"))
+        instances = []
+        try:
+            for selected in (4194304, 8388608, 16777216):
+                with mock.patch.object(adaptive_memory, "effective_available_bytes",
+                                       return_value=512 * 1024**2):
+                    with mock.patch.dict(os.environ,
+                                         {"AEGIS_ARRAY_BYTES": str(selected)}):
+                        matrix = self.core.CoreMatrix()
+                instances.append(matrix)
+                expected = adaptive_memory.plan_layout(selected)
+                self.assertEqual(matrix._layout, expected)
+                self.assertEqual(len(matrix._array), selected)
+                self.assertEqual(len(matrix._m1_region), expected.m1_size)
+                self.assertEqual(len(matrix._m2_region), expected.m2_size)
+                self.assertEqual(len(matrix._m3_region), expected.m3_size)
+                self.assertEqual(matrix._m1_era_capacity, expected.m1_size // 40)
+                self.assertEqual(matrix.process_event(b"x", b"\x01", b"abc")["sequence"], 1)
+                self.assertEqual(matrix.get_epoch_snapshot()[-12:-4], (1).to_bytes(8, "little"))
+            self.assertEqual([len(x._array) for x in instances],
+                             [4194304, 8388608, 16777216])
+            self.assertFalse(hasattr(self.core, "ARRAY_TOTAL_BYTES"))
+        finally:
+            for matrix in instances:
+                matrix.close()
+                self.assertTrue(matrix._array.closed)
+
+    def test_insufficient_headroom_denies_new_instance_without_mutating_existing(self):
+        import adaptive_memory
+        with mock.patch.object(adaptive_memory, "effective_available_bytes",
+                               return_value=512 * 1024**2):
+            with mock.patch.dict(os.environ, {"AEGIS_ARRAY_BYTES": "4194304"}):
+                active = self.core.CoreMatrix()
+        try:
+            self.assertEqual(active.process_event(b"ok", b"\x01", b"c")["sequence"], 1)
+            with mock.patch.object(adaptive_memory, "effective_available_bytes",
+                                   return_value=6 * 1024**2):
+                with mock.patch.dict(os.environ, {"AEGIS_ARRAY_BYTES": "4194304"}):
+                    with self.assertRaises(adaptive_memory.MemoryBudgetError):
+                        self.core.CoreMatrix()
+            self.assertFalse(active._array.closed)
+            self.assertEqual(active.process_event(b"ok", b"\x01", b"c")["sequence"], 2)
+        finally:
+            active.close()
 
 
 if __name__ == "__main__":

@@ -3,11 +3,14 @@ SOVEREIGN OMEGA — Ledger Persistence
 EPISTEMIC TIER: T1
 Gate 170: Crash-safe checkpoint for CoreMatrix state.
 
-Persistence strategy: the full 4GB CoreMatrix array need not be saved.
-M1 is a hash-chain log — only the most recent 40-byte entry (sequence
-counter + chain hash) is required to resume the chain correctly after
-restart. M2/M3 regions are calibration state that re-warms within one
-epoch (100 events).
+Persistence strategy: the complete CoreMatrix memory mapping is not saved.
+The checkpoint contains counters and the final 40-byte M1 slot, NOT the
+full source history. Because M1's transitive chain semantics are separately
+under audit, this is NOT proof of a complete event replay.
+
+V15 binds new checkpoints to the *actual M1 region geometry*, avoiding the
+old 4 GiB hardcoded modulo. Legacy checkpoints may load only when the last
+record position cannot have wrapped in either layout.
 
 Checkpoint is written atomically: temp file → fsync → rename. A torn
 write therefore leaves the previous checkpoint intact.
@@ -27,11 +30,17 @@ DEFAULT_CHECKPOINT_PATH = os.environ.get(
     os.path.join(os.path.dirname(__file__), 'aegis_checkpoint.json'),
 )
 
-# M1 layout constants (mirror core_matrix.py — not imported to avoid circular deps)
-_M1_ENTRY_BYTES = 40   # 8 seq (little-endian) + 32 chain_hash
-_M1_REGION_FRACTION = 0.50
-_ARRAY_TOTAL_BYTES = 4 * 1024 ** 3
-_M1_SIZE = int(_ARRAY_TOTAL_BYTES * _M1_REGION_FRACTION)
+# Persistence geometry is determined solely from the matrix instance;
+# importing this module does not inspect or allocate process memory.
+_M1_ENTRY_BYTES = 40
+
+
+def _region_size(matrix) -> int:
+    size = len(matrix._m1_region)
+    if size < _M1_ENTRY_BYTES or size % _M1_ENTRY_BYTES:
+        raise CheckpointError('M1_REGION_ALIGNMENT_INVALID')
+    return size
+
 
 
 class CheckpointError(Exception):
@@ -44,7 +53,7 @@ def _last_m1_entry(matrix) -> bytes:
     if seq == 0:
         return b'\x00' * _M1_ENTRY_BYTES
     prev_seq = seq - 1
-    write_head = (prev_seq * _M1_ENTRY_BYTES) % _M1_SIZE
+    write_head = (prev_seq * _M1_ENTRY_BYTES) % _region_size(matrix)
     return bytes(matrix._m1_region[write_head: write_head + _M1_ENTRY_BYTES])
 
 
@@ -58,6 +67,7 @@ def save_checkpoint(matrix, path: str = DEFAULT_CHECKPOINT_PATH) -> dict:
         sequence = matrix._sequence
         epoch = matrix._epoch
         era = matrix._era
+        region_bytes = _region_size(matrix)
         entry_bytes = _last_m1_entry(matrix)
 
     entry_hex = entry_bytes.hex()
@@ -72,7 +82,11 @@ def save_checkpoint(matrix, path: str = DEFAULT_CHECKPOINT_PATH) -> dict:
         'era': era,
         'last_m1_entry_hex': entry_hex,
         'integrity_hash': integrity_hash,
-        'is_replay_reconstructable': True,
+        'is_replay_reconstructable': True,  # legacy flag; does not certify raw event history
+        'm1_region_bytes': region_bytes,
+        'layout_integrity_hash': hashlib.sha256(
+            f'{integrity_hash}:{region_bytes}'.encode('ascii')
+        ).hexdigest(),
     }
 
     dir_ = os.path.dirname(os.path.abspath(path)) or '.'
@@ -141,11 +155,26 @@ def load_checkpoint(matrix, path: str = DEFAULT_CHECKPOINT_PATH) -> dict:
             f'got {len(entry_bytes)}'
         )
 
-    # Restore: write last M1 entry back to correct position, set counters
+    # Geometry validation precedes all state mutations. Existing legacy v1
+    # snapshots have no length binding: only permit an initial non-wrap
+    # region where offsets coincide across all compatible arena sizes.
     with matrix._lock:
+        region_bytes = _region_size(matrix)
+        stored_size = cp.get('m1_region_bytes')
+        if stored_size is None:
+            if sequence * _M1_ENTRY_BYTES > region_bytes:
+                raise CheckpointError('LEGACY_CHECKPOINT_GEOMETRY_UNKNOWN')
+        else:
+            if type(stored_size) is not int or stored_size != region_bytes:
+                raise CheckpointError('M1_REGION_SIZE_MISMATCH')
+            layout_hash = hashlib.sha256(
+                f'{expected}:{stored_size}'.encode('ascii')
+            ).hexdigest()
+            if cp.get('layout_integrity_hash') != layout_hash:
+                raise CheckpointError('M1_LAYOUT_HASH_MISMATCH')
         if sequence > 0:
             prev_seq = sequence - 1
-            write_head = (prev_seq * _M1_ENTRY_BYTES) % _M1_SIZE
+            write_head = (prev_seq * _M1_ENTRY_BYTES) % region_bytes
             matrix._m1_region[write_head: write_head + _M1_ENTRY_BYTES] = entry_bytes
         matrix._sequence = sequence
         matrix._epoch = epoch
