@@ -110,6 +110,9 @@ def save_checkpoint(matrix, path: str = DEFAULT_CHECKPOINT_PATH) -> dict:
     return {
         'sequence': body['sequence'], 'epoch': body['epoch'],
         'era': body['era'], 'integrity_hash': body['integrity_hash'], 'path': path,
+        'checkpoint_version': CHECKPOINT_VERSION,
+        'is_replay_reconstructable': False,
+        'is_chain_continuation_supported': True,
     }
 
 
