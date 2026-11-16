@@ -110,6 +110,9 @@ def test_each_pair_satisfiable_but_three_contexts_no_common_model(triangle):
     assert certificate.selected_readings == ()
     assert certificate.variables == ("p", "q")
     assert certificate.valuation_count == 4
+    assert certificate.shared_valuation_count == 0
+    assert certificate.global_truth_mask_hex == "0" * 64
+    assert len(certificate.context_truth_union_masks_hex) == 3
     assert len(certificate.verified_relation_receipt_roots) == 3
     assert len(certificate.verified_formal_relation_proof_roots) == 3
     assert len(certificate.verified_formal_artifact_roots) == 3
@@ -127,6 +130,8 @@ def test_three_contexts_with_common_model_admit_exact_valuation():
     assert result.status == SAT
     assert certificate is not None and certificate.authority_class == "NONE"
     assert certificate.model_kind == SAT and certificate.valuation_index == 3
+    assert certificate.shared_valuation_count == 1
+    assert certificate.global_truth_mask_hex == f"{8:064x}"
     assert len(certificate.selected_readings) == 3
     assert certificate.variables == ("p", "q")
 
@@ -282,7 +287,100 @@ def test_independent_exhaustive_valuations_match_global_verifier_on_80_triangles
         result, receipt = graph["global"].verify(graph["problem"].root)
         assert result.status == (SAT if expected else UNSAT), f"trial {trial}"
         assert receipt is not None and receipt.authority_class == "NONE"
+        oracle_mask = sum(
+            1 << i for i in range(4)
+            if all(
+                eval_independent(tree, {"p": bool(i & 1), "q": bool(i & 2)})
+                for tree in (a, b, c)
+            )
+        )
+        assert receipt.global_truth_mask_hex == f"{oracle_mask:064x}", f"trial {trial}"
+        assert receipt.shared_valuation_count == oracle_mask.bit_count(), f"trial {trial}"
+        assert len(receipt.context_truth_union_masks_hex) == 3
         if expected:
-            assert receipt.valuation_index is not None
+            assert receipt.valuation_index == (oracle_mask & -oracle_mask).bit_length() - 1
         else:
             assert receipt.valuation_index is None
+
+
+
+def test_multireading_context_yields_witness_without_semantic_collapse():
+    # Latin-origin interpretations in one holon/context remain alternatives.
+    # Truth of p OR not-p spans every valuation, but neither alternative is
+    # promoted to a universal interpretation of the original occurrence.
+    graph = create_graph({
+        "left-p": var("p"),
+        "left-not-p": neg(var("p")),
+        "right-q": var("q"),
+        "third-notboth": neg({"op": "and", "args": [var("p"), var("q")]}),
+    })
+    index, _ = graph["indexed"].verify(graph["problem"].root)
+    assert index.status == INDEX_PASS
+    result, receipt = graph["global"].verify(graph["problem"].root)
+    assert result.status == SAT and receipt is not None
+    assert receipt.valuation_index == 2
+    assert receipt.shared_valuation_count == 1
+    assert receipt.global_truth_mask_hex == f"{4:064x}"
+    chosen = dict(receipt.selected_readings)
+    assert chosen[graph["case"]["context"]["left"]] == "left-not-p"
+    assert chosen[graph["case"]["context"]["right"]] == "right-q"
+    assert chosen[graph["case"]["context"]["third"]] == "third-notboth"
+    local_masks = dict(receipt.context_truth_union_masks_hex)
+    assert local_masks[graph["case"]["context"]["left"]] == f"{15:064x}"
+    assert local_masks[graph["case"]["context"]["right"]] == f"{12:064x}"
+    assert local_masks[graph["case"]["context"]["third"]] == f"{7:064x}"
+    assert receipt.root and receipt.authority_class == "NONE"
+
+
+def test_multiple_readings_can_leave_pairwise_solution_but_no_common_valuation():
+    # Per-context alternatives do not rescue a globally impossible triple.
+    # p and q can each overlap not(p and q), and p overlaps q; the three
+    # formulas cannot all be true under a single valuation.
+    graph = create_graph({
+        "left-p": var("p"),
+        "left-both": {"op": "and", "args": [var("p"), var("q")]},
+        "right-q": var("q"),
+        "third-notboth": neg({"op": "and", "args": [var("p"), var("q")]}),
+    })
+    index, witness = graph["indexed"].verify(graph["problem"].root)
+    assert index.status == INDEX_PASS and witness is not None
+    assert all(link.allowed_reading_id_pairs for link in graph["links"])
+    result, receipt = graph["global"].verify(graph["problem"].root)
+    assert result.status == UNSAT and receipt is not None
+    assert receipt.shared_valuation_count == 0
+    assert receipt.global_truth_mask_hex == "0" * 64
+    assert receipt.valuation_index is None and receipt.selected_readings == ()
+    assert len(receipt.context_truth_union_masks_hex) == 3
+
+
+def test_every_global_valuer_is_bound_into_receipt_not_just_first_witness():
+    # All 4 assignments satisfy the complete constant-true system; this
+    # must be visible in the receipt instead of hidden behind witness 0.
+    graph = create_graph({
+        "left-true": constant(True),
+        "right-true": constant(True),
+        "third-true": constant(True),
+    })
+    result, receipt = graph["global"].verify(graph["problem"].root)
+    assert result.status == SAT and receipt is not None
+    assert receipt.shared_valuation_count == 4
+    assert receipt.global_truth_mask_hex == f"{15:064x}"
+    assert receipt.valuation_index == 0
+    assert len(receipt.selected_readings) == 3
+    assert all(v == f"{15:064x}" for _, v in receipt.context_truth_union_masks_hex)
+
+
+def test_distinct_context_union_roots_cannot_be_confused():
+    # Hash-bound receipts encode contexts, not just an anonymous multiset of
+    # truth masks; provenance stays attached to the indexed context identity.
+    graph = create_graph({
+        "left-p": var("p"),
+        "right-q": var("q"),
+        "third-true": constant(True),
+    })
+    result, receipt = graph["global"].verify(graph["problem"].root)
+    assert result.status == SAT and receipt is not None
+    identities = tuple(ctx for ctx, _ in receipt.context_truth_union_masks_hex)
+    assert identities == tuple(sorted(identities))
+    assert set(identities) == set(graph["case"]["context"].values())
+    assert len(set(identities)) == 3
