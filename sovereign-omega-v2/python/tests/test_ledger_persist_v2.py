@@ -24,7 +24,6 @@ from ledger_persist import (
     load_checkpoint,
     save_checkpoint,
     _M1_ENTRY_BYTES,
-    _M1_SIZE,
 )
 
 PASS = 0
@@ -68,7 +67,7 @@ class MockMatrix:
     save_checkpoint and load_checkpoint need.
 
     For sequence=N, the write_head for the last M1 entry is:
-        (N-1) * _M1_ENTRY_BYTES % _M1_SIZE
+        (N-1) * _M1_ENTRY_BYTES % len(_m1_region)
 
     We pre-size _m1_region so that up to seq=50 is accessible (write_head < 2000).
     """
@@ -78,7 +77,7 @@ class MockMatrix:
         self._era = era
         self._lock = threading.Lock()
         # 2000 bytes covers write_head for seq up to ~50
-        # For seq=42: write_head = (41 * 40) % _M1_SIZE = 1640; 1640+40=1680 < 2000
+        # For seq=42: write_head = (41 * 40) % len(_m1_region) = 1640; slot fits.
         self._m1_region = bytearray(2000)
 
 
@@ -175,7 +174,7 @@ def test_save_sequence_42():
 
     mx = MockMatrix(sequence=42, epoch=7, era=2)
     # Put some non-zero bytes at the write_head position
-    write_head = (41 * _M1_ENTRY_BYTES) % _M1_SIZE
+    write_head = (41 * _M1_ENTRY_BYTES) % len(mx._m1_region)
     for i in range(_M1_ENTRY_BYTES):
         mx._m1_region[write_head + i] = (i + 1) % 256
 
