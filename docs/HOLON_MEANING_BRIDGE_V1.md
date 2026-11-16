@@ -84,6 +84,19 @@ The finite indexed-context solver previously accepted an explicitly supplied `Co
 
 **Exact-head verification checkpoint:** [Holon Meaning Bridge V1 run 43858309838](https://github.com/Aegis-Omega/AEGIS-OMEGA/actions/runs/43858309838) at `3d1e59e8ff6784571ec9b43f34287dbaa1853f58`: **179/179 Python tests PASS**, **57/57 Python/TypeScript hash vectors PASS**. Future commits need fresh evidence.
 
+## Finite Boolean global model V1: genuine local-to-global obstruction
+
+The executable `harness/sdk/holon_finite_semantics.py` proves complete pairwise compatibility tables by evaluating canonical, exact-byte, MHP-1-derived Boolean formulas. It accepts a bounded AST of variable, constant, NOT, AND, OR with at most 8 sorted ASCII-named variables and at most 256 valuations. Unknown operators, duplicate JSON keys, noncanonical payload bytes, malformed variable names and mismatched variable universes are rejected. The source occurrence and each contextual interpretation remain provenance-bound through the existing MHP verifier. A formal Boolean encoding's fidelity to a speaker's meaning **is not established**.
+
+The new `harness/sdk/holon_finite_global_model.py` checks the **entire declared contextual graph** under a single variable universe. It replays the indexed-context verifier, MHP receipt, complete truth-table proof for every indexed pair, exact derived source bytes and authenticated context bindings before issuing any conclusion. Pairwise satisfaction does **not** imply one shared valuation:
+
+- Example: contexts with formal readings `p`, `q`, `NOT(p AND q)` each have pairwise shared satisfying valuations. Yet no valuation satisfies all three simultaneously, and the global checker issues `PROVEN_NO_SHARED_FINITE_BOOLEAN_MODEL`, explicitly **relative to the exact formal encoding**.
+- Contexts may carry **multiple distinct readings**. The verifier ORs each context's reading truth masks and then ANDs these masks across contexts to calculate all shared valuations. It stores canonical 64-digit hexadecimal bit masks per context, their global intersection, the number of shared valuations and the least satisfying valuation (if any). The resulting receipt remains `authority_class=NONE` and is bound by an independent domain-separated SHA-256 root.
+- A nonempty global intersection proves existence of a shared valuation and yields a deterministic selection of one reading in each context. An empty intersection proves finite-model `UNSAT` after exhausting all at most 256 valuations. Both claims require each separately verified pair table to match the exact MHP-derived Boolean formulas.
+- The code deliberately **does not** claim a category-theoretic global section, a universal semantic equivalence, an empirical truth, an unambiguous human intention, completeness of the AEGIS corpus or permission to execute a decision.
+
+**Evidence checkpoints:** [GitHub native run 43891208251](https://github.com/Aegis-Omega/AEGIS-OMEGA/actions/runs/43891208251) on commit `95eb0fa828b17f486d62ab2fee2a55f718c44d90`: 224/224 Python tests and 57/57 cross-runtime hash vectors PASS, including an independent exhaustive oracle across 80 deterministic three-context trials. [GitHub native run 43893352632](https://github.com/Aegis-Omega/AEGIS-OMEGA/actions/runs/43893352632) on commit `87cf4f035edd36fd9c931b5087be21b037e196f0`: 228/228 Python tests and 57/57 parity vectors PASS, with new multi-reading and bit-mask falsifiers. Subsequent multi-reading oracle expansion and maximum-variable tests require a **new exact-head CI receipt** before promotion.
+
 ## Open work
 
 1. **Actual Drive research bytes and authenticated origin:** independently fetch exact source bytes (not derived text), bind their digest, revision/identity and permissions to a review receipt, preserve access controls and revocation. Google Drive metadata/readable text by itself is not equivalent to a trusted raw-byte attestation. This PR does not contain the private Drive corpus.
