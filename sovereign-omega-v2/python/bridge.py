@@ -551,6 +551,7 @@ class BridgeHandler(BaseHTTPRequestHandler):
             risk_spent = data.get('risk_spent')
             sample_size = data.get('sample_size')
             e4_method = data.get('method')
+            bridge_epoch_id = data.get('bridge_epoch_id')
             component_id = data.get('component_id')
             operator_id = data.get('operator_id')
             capability_class = data.get('capability_class')
@@ -579,6 +580,7 @@ class BridgeHandler(BaseHTTPRequestHandler):
                             sample_size=sample_size, e4_method=e4_method,
                             component_id=component_id, operator_id=operator_id,
                             capability_class=capability_class,
+                            bridge_epoch_id=bridge_epoch_id,
                         )
                     if allowed:
                         last_ack_sequence = seq
@@ -617,6 +619,7 @@ class BridgeHandler(BaseHTTPRequestHandler):
             # grant. Even authenticated callers cannot route an ungranted,
             # mismatched or replayed mutation.
             proposal_id = data.get('proposal_id')
+            bridge_epoch_id = data.get('bridge_epoch_id')
             component_id = data.get('component_id')
             operator_id = data.get('operator_id')
             capability_class = data.get('capability_class')
@@ -654,6 +657,7 @@ class BridgeHandler(BaseHTTPRequestHandler):
                     (not gate.is_sealed and gate.is_approved(proposal_id))
                     if isinstance(proposal_id, str) else False,
                     component_id=component_id, operator_id=operator_id,
+                    bridge_epoch_id=bridge_epoch_id,
                 ):
                     result = None
                 else:
@@ -965,6 +969,23 @@ class BridgeHandler(BaseHTTPRequestHandler):
             self._respond(404, {'error': 'NOT_FOUND'})
 
     def do_GET(self):
+        if self.path == '/bridge/incarnation':
+            # Authenticated preflight only; the incarnation is a freshness
+            # fence, NOT a bearer credential or an E4 mutation approval.
+            gate_secret = os.environ.get('AEGIS_BRIDGE_GATE_SECRET')
+            event_secret = os.environ.get('AEGIS_BRIDGE_EVENT_SECRET')
+            if not control_secrets_distinct(gate_secret, event_secret):
+                self._respond(503, {'status': 'REJECTED', 'reason': 'BRIDGE_CONTROL_UNCONFIGURED'})
+                return
+            supplied = self.headers.get('X-Aegis-Bridge-Secret')
+            if (not control_authenticated(supplied, gate_secret)
+                    and not control_authenticated(supplied, event_secret)):
+                self._respond(403, {'status': 'REJECTED', 'reason': 'BRIDGE_CONTROL_UNAUTHORIZED'})
+                return
+            self._respond(200, {
+                'status': 'OK', 'bridge_epoch_id': _mutation_admission.bridge_epoch_id,
+            })
+            return
         if self.path == '/telemetry':
             telemetry = matrix.emit_vcg_telemetry()
             telemetry.update(gate.telemetry())
