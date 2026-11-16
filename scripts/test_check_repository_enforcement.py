@@ -224,5 +224,33 @@ class RepositoryEnforcementTests(unittest.TestCase):
         self.assertEqual(set(result.publisher_mismatch_contexts), set(CONTEXTS))
 
 
+
+class MandatoryOverlapGateTests(unittest.TestCase):
+    """Required merge control must execute trusted main guard over exact PR data."""
+
+    def test_required_context_binds_to_exact_base_and_untrusted_candidate(self) -> None:
+        from pathlib import Path
+        src = (Path(__file__).resolve().parents[1] / ".github/workflows/repository-enforcement.yml").read_text(encoding="utf-8")
+        self.assertIn("name: Main branch enforcement", src)
+        self.assertIn("ref: ${{ github.event.pull_request.base.sha || github.sha }}", src)
+        self.assertIn("ref: ${{ github.event.pull_request.head.sha }}", src)
+        self.assertIn("path: candidate-data", src)
+        self.assertIn("GITHUB_HEAD_SHA: ${{ github.event.pull_request.head.sha }}", src)
+        self.assertIn("GITHUB_BASE_SHA: ${{ github.event.pull_request.base.sha }}", src)
+        self.assertIn("python3 scripts/pr_overlap_guard.py", src)
+        self.assertIn("--root candidate-data", src)
+        self.assertIn("pull-requests: read", src)
+        self.assertIn("persist-credentials: false", src)
+        self.assertNotIn("pull-requests: write", src)
+        self.assertNotIn("contents: write", src)
+
+    def test_missing_api_token_denies_overlap_census(self) -> None:
+        from pathlib import Path
+        src = (Path(__file__).resolve().parents[1] / "scripts/pr_overlap_guard.py").read_text(encoding="utf-8")
+        self.assertIn('if not token or not args.repo:', src)
+        self.assertIn("return 2", src)
+        self.assertIn("return 1 if collisions else 0", src)
+
+
 if __name__ == "__main__":
     unittest.main()

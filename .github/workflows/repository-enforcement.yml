@@ -12,6 +12,7 @@ on:
 
 permissions:
   contents: read
+  pull-requests: read
 
 concurrency:
   group: repository-enforcement-${{ github.event.pull_request.number || github.ref }}
@@ -21,12 +22,28 @@ jobs:
   enforcement:
     name: Main branch enforcement
     runs-on: ubuntu-24.04
-    timeout-minutes: 5
+    timeout-minutes: 15
     steps:
-      - name: Checkout exact candidate
-        uses: actions/checkout@v4
+      - name: Checkout exact protected base as trusted policy
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
         with:
-          fetch-depth: 1
+          ref: ${{ github.event.pull_request.base.sha || github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+          submodules: false
+          lfs: false
+
+      - name: Checkout PR head as untrusted data
+        if: github.event_name == 'pull_request'
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          repository: ${{ github.event.pull_request.head.repo.full_name }}
+          ref: ${{ github.event.pull_request.head.sha }}
+          path: candidate-data
+          fetch-depth: 0
+          persist-credentials: false
+          submodules: false
+          lfs: false
 
       - name: Run enforcement verifier regressions
         working-directory: scripts
@@ -42,6 +59,21 @@ jobs:
             --repo "$GITHUB_REPOSITORY" \
             --branch main \
             --json-output "$RUNNER_TEMP/repository-enforcement/result.json"
+
+      - name: Reject unresolved overlapping pull requests
+        if: github.event_name == 'pull_request'
+        shell: bash
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          GITHUB_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          GITHUB_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: |
+          set -euo pipefail
+          python3 scripts/pr_overlap_guard.py \
+            --repo "$GITHUB_REPOSITORY" \
+            --pr "${{ github.event.pull_request.number }}" \
+            --root candidate-data \
+            | tee "$RUNNER_TEMP/repository-enforcement/overlap.txt"
 
       - name: Upload enforcement evidence
         if: always()
