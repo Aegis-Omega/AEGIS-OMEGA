@@ -107,6 +107,15 @@ class IssueEvolutionTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "REPOSITORY_NOT_ALLOWLISTED"):
             compile_graph(snapshot(repository="untrusted/repository"))
 
+    def test_relocated_formal_repo_has_one_canonical_issue_namespace(self):
+        for repo in ("Aegis-Omega/formal-conjectures", "tarikskalic33/formal-conjectures"):
+            with self.subTest(repo=repo):
+                graph = compile_graph(snapshot([issue(92, "Weil fixed-packet work")], repository=repo))
+                self.assertEqual(graph["repository"], "Aegis-Omega/formal-conjectures")
+                self.assertEqual(graph["nodes"][0]["key"], "Aegis-Omega/formal-conjectures#92")
+                self.assertEqual(graph["authority_effect"], "NONE")
+                self.assertEqual(graph["execution_effect"], "NONE")
+
     def test_snapshot_format_denied(self):
         with self.assertRaisesRegex(ValueError, "ISSUE_SNAPSHOT_SCHEMA_INVALID"):
             compile_graph({"issues": []})

@@ -23,7 +23,7 @@ SCHEMA = "AEGIS_ISSUE_EVOLUTION_GRAPH_V1"
 EVAL_SCHEMA = "AEGIS_ISSUE_EVOLUTION_TRIAL_V1"
 REPOS = frozenset({
     "Aegis-Omega/AEGIS-OMEGA", "Aegis-Omega/AegisOmega",
-    "tarikskalic33/formal-conjectures", "tarikskalic33/sovereign-guard",
+    "Aegis-Omega/formal-conjectures", "tarikskalic33/sovereign-guard",
 })
 ISSUE_REF = re.compile(r"(?<![A-Za-z0-9/])#([1-9][0-9]{0,6})(?![0-9])")
 DEP_WORD = re.compile(r"\b(?:depends on|dependencies|dependency|blocked by|requires|prerequisite)\b", re.I)
@@ -38,15 +38,20 @@ MAX_BODY = 60_000
 HEX64 = re.compile(r"[0-9a-f]{64}\Z")
 
 
-def _valid_repo(repo: str) -> None:
-    if repo not in REPOS:
+REPO_ALIASES = {"tarikskalic33/formal-conjectures": "Aegis-Omega/formal-conjectures"}
+
+
+def _valid_repo(repo: str) -> str:
+    canonical = REPO_ALIASES.get(repo, repo)
+    if canonical not in REPOS:
         raise ValueError("REPOSITORY_NOT_ALLOWLISTED")
+    return canonical
 
 
 def fetch_open_issues(repo: str, *, token: str | None = None,
                       max_pages: int = 20) -> dict[str, Any]:
     """Explicit read-only online inventory. No mutation or inferred permission."""
-    _valid_repo(repo)
+    repo = _valid_repo(repo)
     if not 1 <= max_pages <= 20:
         raise ValueError("INVALID_PAGE_BOUND")
     results: list[dict[str, Any]] = []
@@ -219,8 +224,7 @@ def compile_graph(snapshot: Mapping[str, Any]) -> dict[str, Any]:
         "repository", "issues", "complete_pages", "acquisition", "pages"
     }:
         raise ValueError("ISSUE_SNAPSHOT_SCHEMA_INVALID")
-    repo = snapshot["repository"]
-    _valid_repo(repo)
+    repo = _valid_repo(snapshot["repository"])
     if snapshot["complete_pages"] is not True or snapshot["acquisition"] not in {
         "GITHUB_READ_ONLY_API", "EXPLICIT_OFFLINE_FIXTURE"
     } or type(snapshot["pages"]) is not int or not 1 <= snapshot["pages"] <= 20:
@@ -479,7 +483,7 @@ def main() -> None:
     sub=p.add_subparsers(dest="command",required=True)
     graph=sub.add_parser("graph")
     graph.add_argument("--snapshot",type=Path)
-    graph.add_argument("--live-repo",choices=sorted(REPOS))
+    graph.add_argument("--live-repo",choices=sorted(REPOS | REPO_ALIASES.keys()))
     graph.add_argument("--source-head")
     graph.add_argument("--start",type=int,default=0)
     graph.add_argument("--limit",type=int,default=32)
