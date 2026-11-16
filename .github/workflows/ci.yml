@@ -199,6 +199,9 @@ jobs:
       - name: Run ledger persistence tests (mock CoreMatrix)
         run: python python/tests/test_ledger_persist_v2.py
 
+      - name: Verify exact ECCF negacyclic NTT algebra (104 checks)
+        run: python python/tests/test_exact_negacyclic_ntt.py
+
       # test_ledger_persist.py (v1) allocates 4 GB (real CoreMatrix bytearray) —
       # requires AMD RX 570 hardware-spec RAM; run locally only, not in CI.
 
