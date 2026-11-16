@@ -34,7 +34,7 @@ def reference_append(ring: bytearray, sequence: int, payload: bytes):
         assert int.from_bytes(previous[:8], "little") == sequence - 1
         digest = previous[8:]
     else:
-        digest = b"\\x00" * 32
+        digest = b"\x00" * 32
     candidate = hashlib.sha256(digest + hashlib.sha256(payload).digest()).digest()
     pos = (sequence % slots) * HEADER_BYTES
     ring[pos:pos + HEADER_BYTES] = sequence.to_bytes(8, "little") + candidate
