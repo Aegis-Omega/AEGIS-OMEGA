@@ -9,7 +9,10 @@ from __future__ import annotations
 
 from dataclasses import asdict
 import copy
-import fcntl
+try:
+    import fcntl  # POSIX advisory lock for cooperating writers
+except ImportError:
+    fcntl = None  # Read-only operations stay usable; mutations fail closed.
 import hashlib
 import json
 import os
@@ -117,6 +120,7 @@ def commit_demotions(*, tree_path: str | Path, lineage_path: str | Path,
     of the registry without inspect_pending() are not yet protected. No
     automated recovery/rollback, which requires a separately authorized tool.
     """
+    require(fcntl is not None, "ADVISORY_LOCK_BACKEND_UNAVAILABLE")
     tree = Path(os.path.abspath(os.fspath(tree_path)))
     lineage = Path(os.path.abspath(os.fspath(lineage_path)))
     root = Path(repo_root).resolve()
