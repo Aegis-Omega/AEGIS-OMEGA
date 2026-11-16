@@ -492,6 +492,24 @@ class BridgeHandler(BaseHTTPRequestHandler):
                 self._respond(413, {'status': 'REJECTED', 'reason': 'CONTROL_BODY_SIZE'})
                 return
 
+        # Checkpoints persist mutable state on disk. They are an operator
+        # operation, not an E4 proposal or a browser observation. Granting
+        # checkpoint access to the gate or event credential would collapse
+        # the role boundary. Require a third, independent server-only secret.
+        if self.path == '/checkpoint':
+            checkpoint_secret = os.environ.get('AEGIS_BRIDGE_CHECKPOINT_SECRET')
+            gate_secret = os.environ.get('AEGIS_BRIDGE_GATE_SECRET')
+            event_secret = os.environ.get('AEGIS_BRIDGE_EVENT_SECRET')
+            if (not control_secrets_distinct(checkpoint_secret, gate_secret)
+                    or not control_secrets_distinct(checkpoint_secret, event_secret)):
+                self._respond(503, {'status': 'REJECTED', 'reason': 'CHECKPOINT_CONTROL_UNCONFIGURED'})
+                return
+            if not control_authenticated(
+                self.headers.get('X-Aegis-Bridge-Secret'), checkpoint_secret
+            ):
+                self._respond(403, {'status': 'REJECTED', 'reason': 'CHECKPOINT_UNAUTHORIZED'})
+                return
+
         length = int(self.headers.get('Content-Length', 0))
         try:
             data = json.loads(self.rfile.read(length)) if length else {}
