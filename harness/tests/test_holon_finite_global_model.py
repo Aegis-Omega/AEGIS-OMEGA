@@ -478,3 +478,117 @@ def test_maximum_eight_variable_space_hashes_all_256_truth_values():
     assert proof.global_truth_mask_hex == "f" * 64
     assert proof.valuation_index == 0
     assert proof.authority_class == "NONE"
+
+
+def test_global_unsat_receipt_replay_preserves_original_evidence(triangle):
+    from harness.sdk.holon_finite_global_model import FiniteGlobalReceiptReplayVerifierV1
+    graph = triangle
+    outcome, original = graph["global"].verify(graph["problem"].root)
+    assert outcome.status == UNSAT and original is not None
+    receipts = Store()
+    receipts.put(original)
+    replay = FiniteGlobalReceiptReplayVerifierV1(
+        receipts=receipts, verifier=graph["global"]
+    )
+    assert replay.verify(original.root) == (outcome, original)
+    assert original.shared_valuation_count == 0
+    assert original.authority_class == "NONE"
+
+
+def test_global_sat_receipt_replay_preserves_exact_witness():
+    from harness.sdk.holon_finite_global_model import FiniteGlobalReceiptReplayVerifierV1
+    graph = create_graph({
+        "left-p": var("p"),
+        "right-q": var("q"),
+        "third-true": constant(True),
+    })
+    outcome, original = graph["global"].verify(graph["problem"].root)
+    assert outcome.status == SAT and original is not None
+    receipts = Store()
+    receipts.put(original)
+    verifier = FiniteGlobalReceiptReplayVerifierV1(
+        receipts=receipts, verifier=graph["global"]
+    )
+    assert verifier.verify(original.root) == (outcome, original)
+    assert original.valuation_index == 3
+
+
+def test_global_replay_rejects_removed_prior_receipt(triangle):
+    from harness.sdk.holon_finite_global_model import FiniteGlobalReceiptReplayVerifierV1
+    graph = triangle
+    _, original = graph["global"].verify(graph["problem"].root)
+    assert original is not None
+    store = Store()
+    store.put(original)
+    verifier = FiniteGlobalReceiptReplayVerifierV1(
+        receipts=store, verifier=graph["global"]
+    )
+    del store.items[original.root]
+    denied, result = verifier.verify(original.root)
+    assert denied.status == DENIED
+    assert denied.error_codes == ("GLOBAL_REPLAY_RECEIPT_UNTRUSTED",)
+    assert result is None
+
+
+def test_global_replay_rejects_swapped_proof_content(triangle):
+    from harness.sdk.holon_finite_global_model import FiniteGlobalReceiptReplayVerifierV1
+    graph = triangle
+    _, original = graph["global"].verify(graph["problem"].root)
+    assert original is not None
+    store = Store()
+    store.put(original)
+    forged = replace(original, global_truth_mask_hex="f" * 64)
+    store.items[original.root] = forged
+    verifier = FiniteGlobalReceiptReplayVerifierV1(
+        receipts=store, verifier=graph["global"]
+    )
+    denied, result = verifier.verify(original.root)
+    assert denied.status == DENIED
+    assert denied.error_codes == ("GLOBAL_REPLAY_RECEIPT_UNTRUSTED",)
+    assert result is None
+
+
+def test_global_replay_fails_closed_if_source_lineage_disappears(triangle):
+    from harness.sdk.holon_finite_global_model import FiniteGlobalReceiptReplayVerifierV1
+    graph = triangle
+    _, original = graph["global"].verify(graph["problem"].root)
+    assert original is not None
+    store = Store()
+    store.put(original)
+    verifier = FiniteGlobalReceiptReplayVerifierV1(
+        receipts=store, verifier=graph["global"]
+    )
+    graph["case"]["verifier"].meaning_verifier.heritage.data.clear()
+    denied, result = verifier.verify(original.root)
+    assert denied.status == DENIED
+    assert denied.error_codes == ("GLOBAL_REPLAY_EVIDENCE_NO_LONGER_VALID",)
+    assert result is None
+
+
+def test_global_replay_fails_closed_when_formal_pair_evidence_is_removed(triangle):
+    from harness.sdk.holon_finite_global_model import FiniteGlobalReceiptReplayVerifierV1
+    graph = triangle
+    _, original = graph["global"].verify(graph["problem"].root)
+    assert original is not None
+    store = Store()
+    store.put(original)
+    verifier = FiniteGlobalReceiptReplayVerifierV1(
+        receipts=store, verifier=graph["global"]
+    )
+    del graph["case"]["relations"].data[graph["links"][1].root]
+    denied, result = verifier.verify(original.root)
+    assert denied.status == DENIED
+    assert denied.error_codes == ("GLOBAL_REPLAY_EVIDENCE_NO_LONGER_VALID",)
+    assert result is None
+
+
+def test_global_replay_bad_root_does_not_turn_into_open_or_unsat(triangle):
+    from harness.sdk.holon_finite_global_model import FiniteGlobalReceiptReplayVerifierV1
+    graph = triangle
+    verifier = FiniteGlobalReceiptReplayVerifierV1(
+        receipts=Store(), verifier=graph["global"]
+    )
+    denied, result = verifier.verify("this-is-not-a-digest")
+    assert denied.status == DENIED
+    assert denied.error_codes == ("GLOBAL_REPLAY_ROOT_INVALID",)
+    assert result is None
