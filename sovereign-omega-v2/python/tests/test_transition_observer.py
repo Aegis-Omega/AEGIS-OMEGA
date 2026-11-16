@@ -189,5 +189,68 @@ class CoreObserverIntegrationTests(unittest.TestCase):
         self.assertEqual(core._total_processed, 2500)
 
 
+    def test_explicit_close_releases_actual_anonymous_map(self):
+        core = self.Core()
+        self.assertFalse(core._array.closed)
+        core.close()
+        self.assertTrue(core._array.closed)
+        core.close()  # fully idempotent
+        self.assertFalse(core.wait_ready(timeout=0))
+        for action in (
+            lambda: core.start(),
+            lambda: core.process_event(b"x", b"\x01", b"ctx"),
+            lambda: core.receive_gate_signal("candidate", True, 1),
+            lambda: core.emit_vcg_telemetry(),
+            lambda: core.transition_analytics_snapshot(),
+            lambda: core.get_epoch_snapshot(),
+        ):
+            with self.assertRaisesRegex(RuntimeError, "CORE_MATRIX_CLOSED"):
+                action()
+        core.stop()  # also idempotent after terminal close
+
+    def test_stopped_core_preserves_postmortem_telemetry_and_can_close(self):
+        core = self.Core()
+        core.start()
+        core.start()  # no duplicate PGCS start
+        self.assertTrue(core.wait_ready(timeout=0))
+        core.process_event(b"x", b"\x01", b"ctx")
+        core.stop()
+        core.stop()
+        self.assertFalse(core.wait_ready(timeout=0))
+        self.assertEqual(core.emit_vcg_telemetry()["sequence"], 1)
+        self.assertEqual(core.get_epoch_snapshot()[-12:-4], (1).to_bytes(8, "little"))
+        with self.assertRaisesRegex(RuntimeError, "CORE_MATRIX_CLOSED"):
+            core.start()
+        with self.assertRaisesRegex(RuntimeError, "CORE_MATRIX_CLOSED"):
+            core.process_event(b"x", b"\x01", b"ctx")
+        core.close()
+        self.assertTrue(core._array.closed)
+
+    def test_close_active_core_refused_and_data_remains_valid(self):
+        core = self.Core()
+        core.start()
+        with self.assertRaisesRegex(RuntimeError, "CORE_MATRIX_STOP_REQUIRED"):
+            core.close()
+        self.assertFalse(core._array.closed)
+        self.assertEqual(core.process_event(b"x", b"\x01", b"ctx")["status"], "OK")
+        core.stop()
+        core.close()
+
+    def test_external_memoryview_requires_release_then_close_retry(self):
+        core = self.Core()
+        external = memoryview(core._array)
+        try:
+            with self.assertRaisesRegex(RuntimeError, "CORE_MATRIX_EXPORTED_VIEW"):
+                core.close()
+            self.assertFalse(core._array.closed)
+            with self.assertRaisesRegex(RuntimeError, "CORE_MATRIX_CLOSED"):
+                core.process_event(b"x", b"\x01", b"ctx")
+        finally:
+            external.release()
+        core.close()
+        core.close()
+        self.assertTrue(core._array.closed)
+
+
 if __name__ == "__main__":
     unittest.main()
