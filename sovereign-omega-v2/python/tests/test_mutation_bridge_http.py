@@ -166,6 +166,7 @@ class BridgeHttpMutationTests(unittest.TestCase):
             "operator_id": "bridge-test-operator",
             "capability_class": "SELF_MODIFYING",
             "sequence": sequence,
+            "bridge_epoch_id": self.ledger.bridge_epoch_id,
             "accepted": accepted, "lcb": lcb,
             "e_value": 32.0, "risk_spent": 0.05 if accepted else 0.0,
             "sample_size": 20, "method": "anytime_valid_bernstein",
@@ -178,9 +179,33 @@ class BridgeHttpMutationTests(unittest.TestCase):
             "component_id": "bridge-test-component",
             "operator_id": "bridge-test-operator",
             "capability_class": "SELF_MODIFYING",
+            "bridge_epoch_id": self.ledger.bridge_epoch_id,
             "payload_hex": b"hello".hex(),
             "verifier_hex": b"\x00".hex(), "context_hex": context.hex(),
         }
+
+    def test_restarted_bridge_rejects_previous_incarnation_even_with_issuer_secret(self):
+        previous = self.signal()
+        previous_epoch = previous["bridge_epoch_id"]
+        self.ledger = MutationAdmissionLedger(max_pending=8)
+        self.handler_class = make_bridge_post_handler(
+            self.gate, self.matrix, self.router, self.ledger
+        )
+        self.assertNotEqual(previous_epoch, self.ledger.bridge_epoch_id)
+        status, response = self.send("/gate_signal", previous)
+        self.assertEqual(status, 403, response)
+        self.assertEqual(response["reason"], "BRIDGE_EPOCH_MISMATCH")
+        self.assertEqual(self.gate.signals, [])
+        self.assertEqual(self.matrix.signals, [])
+        self.assertEqual(self.ledger.pending_count, 0)
+        fresh = self.signal()
+        self.assertEqual(self.send("/gate_signal", fresh)[0], 200)
+        stale_event = self.event()
+        stale_event["bridge_epoch_id"] = previous_epoch
+        self.assertEqual(self.send("/event", stale_event)[0], 403)
+        self.assertEqual(self.router.events, [])
+        self.assertEqual(self.send("/event", self.event())[0], 200)
+        self.assertEqual(len(self.router.events), 1)
 
     def test_checkpoint_unconfigured_never_writes_state(self):
         for value in ("", "short", None):
@@ -405,6 +430,7 @@ class BridgeHttpMutationTests(unittest.TestCase):
                     "component_id": "bridge-test-component",
                     "operator_id": "bridge-test-operator",
                     "capability_class": "SELF_MODIFYING",
+                    "bridge_epoch_id": self.ledger.bridge_epoch_id,
                     "payload_hex": payload.hex(),
                     "verifier_hex": verifier.hex(),
                     "context_hex": context.hex(),
