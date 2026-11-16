@@ -109,6 +109,7 @@ class CoreObserverIntegrationTests(unittest.TestCase):
         self.assertFalse(core.process_event(b"payload", b"\x00", b"ctx")["gate_accepted"])
         self.assertFalse(core.process_event(b"payload", b"", b"ctx")["gate_accepted"])
         self.assertNotIn("transition_observer_v14", core.emit_vcg_telemetry())
+        self.assertIsNone(core.transition_analytics_snapshot())
         self.assertEqual(core._total_processed, 3)
 
     def test_on_observes_only_verifier_outcomes(self):
@@ -119,7 +120,8 @@ class CoreObserverIntegrationTests(unittest.TestCase):
         for candidate in choices:
             decisions.append(core.process_event(b"ignored", candidate, b"ctx")["gate_accepted"])
         self.assertEqual(decisions, [False, False, True, True, False, False, True])
-        summary = core.emit_vcg_telemetry()["transition_observer_v14"]
+        self.assertNotIn("transition_observer_v14", core.emit_vcg_telemetry())
+        summary = core.transition_analytics_snapshot()
         symbols = [TransitionObserver.symbol(v) for v in choices]
         expected = TransitionStats.from_iterable(symbols, 3)
         self.assertEqual(summary["sample_count"], len(choices))
@@ -128,6 +130,22 @@ class CoreObserverIntegrationTests(unittest.TestCase):
         self.assertEqual(summary["adjacent_mi_q16"], adjacent_mi_q16(expected))
         self.assertEqual(summary["observation_errors"], 0)
         self.assertNotIn("ignored", str(summary))
+
+    def test_public_telemetry_identical_with_or_without_observer(self):
+        # Bridge /telemetry and SSE use emit_vcg_telemetry(); test those
+        # data are invariant under enabling informational observation.
+        with patch.dict(os.environ, {"AEGIS_TRANSITION_OBSERVER": "0"}):
+            legacy = self.Core()
+        with patch.dict(os.environ, {"AEGIS_TRANSITION_OBSERVER": "1"}):
+            instrumented = self.Core()
+        for value in [b"", b"\x00", b"\x01", b"\x01", b"\x00"]:
+            self.assertEqual(
+                legacy.process_event(b"same", value, b"same"),
+                instrumented.process_event(b"same", value, b"same"),
+            )
+        self.assertEqual(legacy.emit_vcg_telemetry(), instrumented.emit_vcg_telemetry())
+        self.assertIsNone(legacy.transition_analytics_snapshot())
+        self.assertEqual(instrumented.transition_analytics_snapshot()["sample_count"], 5)
 
     def test_failed_observation_does_not_affect_gate(self):
         with patch.dict(os.environ, {"AEGIS_TRANSITION_OBSERVER": "1"}):
@@ -142,7 +160,8 @@ class CoreObserverIntegrationTests(unittest.TestCase):
         self.assertEqual(result["status"], "OK")
         self.assertTrue(result["gate_accepted"])
         self.assertEqual(core._transition_observer_errors, 1)
-        observed = core.emit_vcg_telemetry()["transition_observer_v14"]
+        self.assertNotIn("transition_observer_v14", core.emit_vcg_telemetry())
+        observed = core.transition_analytics_snapshot()
         self.assertEqual(observed["status"], "UNAVAILABLE")
         self.assertEqual(observed["observation_errors"], 2)
 
@@ -151,7 +170,8 @@ class CoreObserverIntegrationTests(unittest.TestCase):
             core = self.Core()
         core._failsafe.state = FakeEpoch.FROZEN
         self.assertEqual(core.process_event(b"x", b"\x01", b"z"), {"status": "FROZEN", "sequence": 0})
-        self.assertEqual(core.emit_vcg_telemetry()["transition_observer_v14"]["sample_count"], 0)
+        self.assertNotIn("transition_observer_v14", core.emit_vcg_telemetry())
+        self.assertEqual(core.transition_analytics_snapshot()["sample_count"], 0)
 
     def test_only_exact_flag_enables_and_no_raw_history(self):
         for flag in ("false", "TRUE", "", "2"):
@@ -161,7 +181,8 @@ class CoreObserverIntegrationTests(unittest.TestCase):
             core = self.Core()
         for n in range(2500):
             core.process_event(b"data", [b"", b"\x00", b"\x01"][n%3], b"context")
-        self.assertEqual(core.emit_vcg_telemetry()["transition_observer_v14"]["sample_count"], 2500)
+        self.assertNotIn("transition_observer_v14", core.emit_vcg_telemetry())
+        self.assertEqual(core.transition_analytics_snapshot()["sample_count"], 2500)
         self.assertLessEqual(len(core._transition_observer._stats.edges), 9)
         self.assertFalse(hasattr(core._transition_observer, "_history"))
         self.assertEqual(core._total_processed, 2500)
