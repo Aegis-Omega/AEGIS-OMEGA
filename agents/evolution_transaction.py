@@ -165,6 +165,11 @@ def commit_demotions(*, tree_path: str | Path, lineage_path: str | Path,
                 and len(before_skills) == len(after_skills), "SKILL_SET_CHANGED")
         before_by_id = {s["skill_id"]: s for s in before_skills}
         require(len(before_by_id) == len(before_skills), "DUPLICATE_BASE_SKILL")
+        target_ids = [skill.get("skill_id") for skill in after_skills]
+        require(all(isinstance(sid, str) and sid for sid in target_ids),
+                "INVALID_TARGET_SKILL_ID")
+        require(len(set(target_ids)) == len(target_ids), "DUPLICATE_TARGET_SKILL")
+        require(set(target_ids) == set(before_by_id), "SKILL_ID_SET_CHANGED")
         changed = {}
         for skill in after_skills:
             sid = skill.get("skill_id")
