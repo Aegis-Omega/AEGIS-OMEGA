@@ -9,6 +9,10 @@ on:
       - sovereign-omega-v2/python/bridge.py
       - sovereign-omega-v2/python/tests/test_mutation_admission.py
       - sovereign-omega-v2/python/tests/test_mutation_bridge_http.py
+      - sovereign-omega-v2/python/tests/test_bridge_transport_vectors.py
+      - cockpit/server/src/bridgeControl.ts
+      - cockpit/server/test/bridgeControl.test.mjs
+      - cockpit/server/test/emitBridgeControlFixtures.mjs
       - cockpit/server/src/index.ts
       - cockpit/server/src/observations.ts
       - cockpit/server/test/observations.test.mjs
@@ -22,6 +26,10 @@ on:
       - sovereign-omega-v2/python/bridge.py
       - sovereign-omega-v2/python/tests/test_mutation_admission.py
       - sovereign-omega-v2/python/tests/test_mutation_bridge_http.py
+      - sovereign-omega-v2/python/tests/test_bridge_transport_vectors.py
+      - cockpit/server/src/bridgeControl.ts
+      - cockpit/server/test/bridgeControl.test.mjs
+      - cockpit/server/test/emitBridgeControlFixtures.mjs
       - cockpit/server/src/index.ts
       - cockpit/server/src/observations.ts
       - cockpit/server/test/observations.test.mjs
@@ -76,6 +84,13 @@ jobs:
       - name: Verify browser observations have no E4 authority
         working-directory: cockpit/server
         run: node --test test/observations.test.mjs
+      - name: Verify exact server-only E4 frame encoding
+        working-directory: cockpit/server
+        run: node --test test/bridgeControl.test.mjs
+      - name: Produce Node transport frames and independently verify Python interpretation
+        run: |
+          node cockpit/server/test/emitBridgeControlFixtures.mjs > "$RUNNER_TEMP/bridge-native-node-fixtures.json"
+          python3 sovereign-omega-v2/python/tests/test_bridge_transport_vectors.py "$RUNNER_TEMP/bridge-native-node-fixtures.json"
       - name: Build browser frontend without secrets
         working-directory: cockpit
         run: |
