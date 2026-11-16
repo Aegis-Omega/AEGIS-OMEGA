@@ -45,22 +45,11 @@ from gradient_anchor import GradientAnchorCalibrator, DEFAULT_ANCHOR_TOKENS
 
 
 # ── Memory Layout ────────────────────────────────────────────────────────────
-# Proportional arena geometry, derived from actual available host/cgroup memory.
-# V15 deliberately removes the old 4 GiB/RX 570 *runtime default*. Operator
-# override AEGIS_ARRAY_BYTES must fit measured headroom; no silent truncation.
-# M1 is aligned to both 64 KiB and 40-byte records (LCM=327680).
-# Module constants below are legacy import-time snapshots for old consumers;
-# only the instance's self._layout is authoritative for live storage/telemetry.
+# Geometry is derived from available host/cgroup memory at each instance's
+# construction. No import-time resource detection or global arena snapshot.
+# Protocol alignment is enforced by adaptive_memory.plan_layout().
+# M1 / M2 / M3 storage limits are properties of the individual CoreMatrix.
 from adaptive_memory import configured_arena_layout
-
-_ARENA_LAYOUT = configured_arena_layout()
-ARRAY_TOTAL_BYTES = _ARENA_LAYOUT.total
-M1_OFFSET = 0
-M1_SIZE = _ARENA_LAYOUT.m1_size
-M2_OFFSET = _ARENA_LAYOUT.m2_offset
-M2_SIZE = _ARENA_LAYOUT.m2_size
-M3_OFFSET = _ARENA_LAYOUT.m3_offset
-M3_SIZE = _ARENA_LAYOUT.m3_size
 
 
 # ── Functional Definitions ────────────────────────────────────────────────────
