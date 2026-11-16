@@ -44,6 +44,11 @@ class NativeNodeToPythonTransportTests(unittest.TestCase):
                 self.assertIs(type(signal["sequence"]), int)
                 self.assertGreater(signal["lcb"], 0)
                 self.assertEqual(signal["method"], "anytime_valid_bernstein")
+                self.assertEqual(signal["component_id"], "bridge-test-component")
+                self.assertEqual(signal["operator_id"], "bridge-test-operator")
+                self.assertEqual(signal["capability_class"], "SELF_MODIFYING")
+                self.assertEqual(event["component_id"], signal["component_id"])
+                self.assertEqual(event["operator_id"], signal["operator_id"])
                 self.assertGreater(signal["sample_size"], 0)
                 self.assertGreater(signal["risk_spent"], 0)
                 self.assertGreaterEqual(signal["e_value"], 1 / signal["risk_spent"])
@@ -76,6 +81,9 @@ class NativeNodeToPythonTransportTests(unittest.TestCase):
                     signal["accepted"], signal["lcb"], signal["event_sha256"],
                     e_value=signal["e_value"], risk_spent=signal["risk_spent"],
                     sample_size=signal["sample_size"], e4_method=signal["method"],
+                    component_id=signal["component_id"],
+                    operator_id=signal["operator_id"],
+                    capability_class=signal["capability_class"],
                 )
                 self.assertEqual((ok, reason), (True, "ACCEPTED"))
                 p, v, c = (
@@ -84,15 +92,19 @@ class NativeNodeToPythonTransportTests(unittest.TestCase):
                 )
                 self.assertFalse(ledger.authorize_event(
                     signal["proposal_id"], p, v, c, constitutional_approved=False,
+                    component_id=signal["component_id"], operator_id=signal["operator_id"],
                 ))
                 self.assertFalse(ledger.authorize_event(
                     signal["proposal_id"], p, v, c + b"\x00", constitutional_approved=True,
+                    component_id=signal["component_id"], operator_id=signal["operator_id"],
                 ))
                 self.assertTrue(ledger.authorize_event(
                     signal["proposal_id"], p, v, c, constitutional_approved=True,
+                    component_id=signal["component_id"], operator_id=signal["operator_id"],
                 ))
                 self.assertFalse(ledger.authorize_event(
                     signal["proposal_id"], p, v, c, constitutional_approved=True,
+                    component_id=signal["component_id"], operator_id=signal["operator_id"],
                 ))
         self.assertEqual(ledger.pending_count, 0)
 
