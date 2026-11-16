@@ -9,6 +9,10 @@ on:
       - sovereign-omega-v2/python/bridge.py
       - sovereign-omega-v2/python/tests/test_mutation_admission.py
       - sovereign-omega-v2/python/tests/test_mutation_bridge_http.py
+      - cockpit/server/src/index.ts
+      - cockpit/server/src/observations.ts
+      - cockpit/server/test/observations.test.mjs
+      - cockpit/src/App.tsx
       - .github/workflows/bridge-mutation-admission.yml
   pull_request:
     branches:
@@ -18,6 +22,10 @@ on:
       - sovereign-omega-v2/python/bridge.py
       - sovereign-omega-v2/python/tests/test_mutation_admission.py
       - sovereign-omega-v2/python/tests/test_mutation_bridge_http.py
+      - cockpit/server/src/index.ts
+      - cockpit/server/src/observations.ts
+      - cockpit/server/test/observations.test.mjs
+      - cockpit/src/App.tsx
       - .github/workflows/bridge-mutation-admission.yml
   workflow_dispatch:
 
@@ -48,3 +56,28 @@ jobs:
         run: |
           cd sovereign-omega-v2
           python3 -m unittest discover -s python/tests -p test_mutation_bridge_http.py -v
+
+  cockpit-telemetry:
+    name: Browser telemetry separated from the governance plane
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - name: Checkout exact candidate
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - name: Setup Node 22
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: '22'
+      - name: Build cockpit server
+        working-directory: cockpit/server
+        run: |
+          npm ci --no-audit --no-fund
+          npm run build
+      - name: Verify browser observations have no E4 authority
+        working-directory: cockpit/server
+        run: node --test test/observations.test.mjs
+      - name: Build browser frontend without secrets
+        working-directory: cockpit
+        run: |
+          npm ci --no-audit --no-fund
+          npm run build
