@@ -32,26 +32,28 @@ def create_graph(expressions, variables=("p", "q")):
     c = make_case(expressions, variables)
     contexts = c["context"]
     assert set(contexts) == {"left", "right", "third"}
-    reading_by_side = {}
+    reading_by_side = {side: [] for side in contexts}
     masks = {}
     for reading in c["lens"].readings:
         side = reading.reading_id.split("-", 1)[0]
-        reading_by_side[side] = reading
+        reading_by_side[side].append(reading)
         binding = c["bindings"].fetch_verified(reading.context_binding_receipt_root)
         raw = c["artifacts"].fetch_verified(binding.derived_root)
         parsed = parse_formal_reading(raw)
         assert parsed.variables == variables
-        masks[side] = finite_truth_mask(parsed)
-    assert set(masks) == set(contexts)
+        masks[reading.reading_id] = finite_truth_mask(parsed)
+    assert all(reading_by_side.values())
     links = [c["relation"]]
     for left, right in (("left", "third"), ("right", "third")):
         relation = c["relations"].put(ContextRelationReceiptV1(
             source_context_root=contexts[left],
             target_context_root=contexts[right],
-            allowed_reading_id_pairs=(
-                ((reading_by_side[left].reading_id, reading_by_side[right].reading_id),)
-                if masks[left] & masks[right] else ()
-            ),
+            allowed_reading_id_pairs=tuple(sorted(
+                (a.reading_id, b.reading_id)
+                for a in reading_by_side[left]
+                for b in reading_by_side[right]
+                if masks[a.reading_id] & masks[b.reading_id]
+            )),
             verifier_root=h("GLOBAL_FIXTURE_RELATION_VERIFIER", (left, right)),
             policy_root=h("GLOBAL_FIXTURE_RELATION_POLICY", (left, right)),
         ))
