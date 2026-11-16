@@ -412,10 +412,13 @@ _mc_observe('SELF_MODEL', 'Bridge started: constitutional substrate online, meta
 
 def _register_handlers() -> None:
     """Register core_matrix handlers in the execution router, then seal."""
-    router.register(EventClass.GOVERNANCE,  lambda p, v, c, seq: matrix.process_event(p, v, c))
-    router.register(EventClass.CALIBRATION, lambda p, v, c, seq: matrix.process_event(p, v, c))
+    # The router's v byte is an EventClass discriminator (dna.py), not a
+    # verifier correctness outcome. No observed correctness evidence is carried
+    # by this endpoint, so route without a claim of 0/1 ground truth.
+    router.register(EventClass.GOVERNANCE,  lambda p, v, c, seq: matrix.process_event(p, b'', c))
+    router.register(EventClass.CALIBRATION, lambda p, v, c, seq: matrix.process_event(p, b'', c))
     router.register(EventClass.TELEMETRY,   lambda p, v, c, seq: matrix.emit_vcg_telemetry())
-    router.register(EventClass.EPOCH,       lambda p, v, c, seq: matrix.process_event(p, v, c))
+    router.register(EventClass.EPOCH,       lambda p, v, c, seq: matrix.process_event(p, b'', c))
     router.seal()
 
 
@@ -1834,6 +1837,10 @@ def run_bridge(port=None):
             }), flush=True)
         except CheckpointError as e:
             print(json.dumps({'event_type': 'CHECKPOINT_RESTORE_FAILED', 'reason': str(e)}), flush=True)
+            # A V1 checkpoint contains a payload hash, not the chain digest.
+            # Starting a fresh chain after failed restore silently destroys
+            # continuity. Abort before binding the event-serving socket.
+            raise SystemExit('AEGIS M1 checkpoint cannot be safely restored') from e
 
     server = HTTPServer(('0.0.0.0', port), BridgeHandler)
     print(json.dumps({'event_type': 'BRIDGE_READY', 'port': port}), flush=True)

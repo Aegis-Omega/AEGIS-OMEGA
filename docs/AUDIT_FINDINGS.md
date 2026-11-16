@@ -225,3 +225,77 @@ PR #16 adversarial audit (ChatGPT): all 3 review comments addressed and confirme
 
 **Commercial products are Gumroad-ready** — F-11 and F-12 fixed, all builds pass.
 Gumroad zips regenerated: platform-picker.zip (128 KB), hook-generator.zip (127 KB), content-calendar.zip (125 KB).
+
+---
+
+## 2026-11-16 M1/M2/M3 V2 mathematical contract review (draft / HOLD)
+
+This independent audit supersedes any blanket "Layer B Python is production-ready"
+conclusion in the historical summary **for the M1/M2/M3 interfaces**. The
+historical F-03 and F-07 fixes addressed narrower symptoms; they did not
+establish the stated stronger cryptographic/statistical invariants.
+
+- **M1 (confirmed on main):** prior payload hash was substituted for prior
+  chain digest; variable payload writes overlapped fixed-stride records; near
+  the end of a region a write could be skipped while acknowledging a sequence;
+  append-only claims were false for the mutable ring.
+- **M2 (confirmed on main):** `(2*error)>>1` equals nonnegative error; the
+  claimed Bernstein LCB had no variance, n or alpha. Byte-level modulo over
+  eight-byte slots allowed collisions and overlap. Router EventClass and
+  verifier correctness were incorrectly conflated.
+- **M3 (confirmed on main):** `expected=w_scale>>8` makes identity projection
+  have nonzero "divergence" and zero-scale information destruction score 0.
+- **Reconciled stacked candidate semantics:** M1 retains #806's transitive SHA-256(prev_digest || SHA-256(payload)) digest ring
+  (NOT event storage). M2 records pointwise error and reserves the legacy LCB
+  field at zero until a separately validated E4 confidence sequence exists.
+  M3 reports normalized mean absolute projection distortion. All functions
+  mutate caller memory under a caller-managed lock; they are not pure.
+- **Checkpoint 2.1.0:** contains the actual #806-format chain digest tail and persisted calibration counters, but no
+  event payloads. It states `is_replay_reconstructable=false`, and rejects
+  V1 and earlier V2.0 checkpoints. This deliberately requires an explicit migration plan before
+  any deployment with existing checkpoint files.
+- **Not established:** replay reconstruction, authenticated external ledger,
+  cryptographic checkpoint authenticity against writers, M1/M2/M3 cross-layer
+  CI at actual PR HEAD, full TypeScript/Python parity, statistical anytime-valid
+  coverage, safety of accepting actions in E4, or deployment readiness.
+- **Remaining integration risks:** CoreMatrix mutations are not fully
+  transactional across M1/M2/M3 and calibration callbacks; the projection
+  leaves stale bytes after a shorter window (only active length is valid);
+  the ring cannot detect substitution of all records by an attacker with
+  full memory-write access. An independent reviewer must inspect these before
+  any release or promotion.
+
+**Governance:** DRAFT / HOLD_NO_ADMISSION. No merge or deployment authorized.
+A passing regression test is not a formal security proof or a production receipt.
+
+### PR #806 → #810 stacked reconciliation (2026-11-16)
+
+- **Source of M1:** PR #806's standalone stdlib-only `m1_chain.py`, with unchanged SHA256(prev_digest || SHA256(payload)) digest format. This format binds earlier events transitively, but does not individually bind sequence or payload length to the digest. Event sequence remains in the 40-byte record header.
+- **Source of M2/M3:** PR #810 fail-closed statistical gate and byte projection corrections; actual CI MUST be checked on the stacked candidate HEAD.
+- **Checkpoint 2.1.0:** distinguishes newly persisted calibration counters from older 2.0.0 format, rejects all earlier versions for resume. Preservation of calibrator model state across epochs remains unproven.
+- **Authorization:** review admission is not equivalent to a merge; keep DRAFT/HOLD_NO_ADMISSION until the exact-head gates and independent review approve.
+
+### Calibration Continuation Checkpoint 2.2.0 (draft candidate, 2026-11-16)
+
+The 2.1.0 checkpoint preserved M1 SHA-256 chain continuity and calibration **counters**, but lost actual `GradientAnchorCalibrator` dynamic state. That state includes token-specific `w_scales`, momentum `_velocities`, `cumulative_drift`, per-epoch `DriftMeasurement` records, and historical convergence conditions. **`_epoch` alone is not evidence of uninterrupted measurement history.**
+
+The 2.2.0 draft introduces `calibration_checkpoint.py`, with lossless consecutive-identical-epoch RLE, exact token identity/tolerance validation, Q16.16 momentum replay and continuity checks from trusted genesis, exact reconstruction of all historical measurements, monotonic epoch bounds, and a configurable maximum decoded measurement count (default 1,000,000) to limit untrusted checkpoint expansion. Checkpoint save/load now rejects an incomplete calibration snapshot on a real `CoreMatrix`, validates before applying any M1 slot, and rejects 2.1.0 and earlier checkpoint formats. Chain-only test fixtures without a calibrator are explicitly marked as **not** preserving calibration.
+
+**These properties remain CLAIMED IN DRAFT pending the exact-head CI result.** Even after passing tests, this is an unkeyed local checkpoint, *not* proof of authenticated provenance, remote durability or immutable event replay. Full `CoreMatrix.process_event` transactionality, fail-safe state recovery, and M2/M3 arena restoration remain open. Keep **DRAFT / HOLD_NO_ADMISSION** and do not merge or deploy.
+
+
+### Calibration epoch preflight and committed-callback state (draft, 2026-11-16)
+
+**Observed issue:** the old `GradientAnchorCalibrator.calibrate_epoch` mutates individual anchor scales, velocities and measurements as it traverses the registry. A zero-tolerance anchor violation late in the registry raises after earlier anchors have already been mutated. `CoreMatrix.process_event` also previously incremented sequence and entered the M1 digest ring before calling calibration, which could expose a committed sequence with an incomplete epoch.
+
+**Draft corrective mechanism:** `prepare_epoch` computes an entire epoch in temporary maps and rejects hard-abort failures with zero mutation; `commit_epoch` checks the originating epoch/scales/velocities and installs the batch. `process_event` validates inputs and prepares the next epoch before M1 commits. It reports `COMMITTED_CALLBACK_ERROR` if an era-boundary event callback fails after a successful M1/M2/M3 commit, instead of incorrectly implying rollback. These are mechanical local guarantees subject to the direct exact-head CI tests; **not** a proof of fully atomic event processing, external delivery or authenticated execution.
+
+**OPEN:** M1/M2/M3, callback and external lifecycle cannot yet guarantee crash-atomic remote delivery; separately durable idempotent outbox plus explicit event-commit receipts would be needed for end-to-end exactly-once semantics. Calibrator access outside the matrix lock must be audited before concurrency claims.
+
+### Epoch Failsafe Continuity, checkpoint 2.3.0 (draft, 2026-11-16)
+
+**Source evidence:** `EpochFailsafeController` initializes to ACTIVE, while checkpoint 2.2.0 does not persist the controller's quarantine/frozen state, failure counter, snapshots or incident log. A restarted `CoreMatrix` can therefore silently leave a prior FROZEN/QUARANTINE state, and `process_event` formerly omitted QUARANTINE from its refusal states. This breaks the T0 fail-closed contract regardless of M1 digest continuity.
+
+**Draft candidate:** checkpoint 2.3.0 stores `failsafe_snapshot` and its explicit presence declaration, validates a versioned full-state import with strict counters, snapshot hashes, logs, resource ceilings and target freshness before installing. A real CoreMatrix may not load a chain-only mock checkpoint; versions 1.0 through 2.2 reject without fallback. `process_event` blocks QUARANTINE, RECOVERING and FROZEN. CI extends the actual-module regression suite with frozen recovery, quarantine, partial failure counts, snapshot tampering, both buffer snapshots and negative-freshness tests.
+
+**Critical limits:** existing exported snapshot hashes are unkeyed, so this does not authenticate a malicious writer. No full replay, immutable event archive, or production restore receipt is established. Concurrent `report_agent_failure` outside CoreMatrix's event lock and direct controller manipulation still need an independent lock-order/concurrency audit. **DRAFT / HOLD_NO_ADMISSION until exact-HEAD CI PASS.**
