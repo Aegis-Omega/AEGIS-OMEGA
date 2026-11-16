@@ -75,12 +75,13 @@ def load_real_core():
     anchor.DEFAULT_ANCHOR_TOKENS = []
     modules = {"pgcs": pgcs, "epoch_failsafe": failsafe, "gradient_anchor": anchor}
     with mock.patch.dict(sys.modules, modules):
-        with mock.patch.dict(os.environ, {"AEGIS_ARRAY_BYTES": "4194304"}):
+        # Resource measurement must NOT happen at import time.
+        with mock.patch.dict(os.environ, {"AEGIS_ARRAY_BYTES": "invalid-at-import"}):
             spec = importlib.util.spec_from_file_location("aegis_core_under_test", ROOT / "core_matrix.py")
             core = importlib.util.module_from_spec(spec)
             spec.loader.exec_module(core)
-    if core.ARRAY_TOTAL_BYTES != 4194304:
-        raise AssertionError("REAL_CORE_ALLOCATION_GUARD_FAILED")
+    if hasattr(core, "ARRAY_TOTAL_BYTES"):
+        raise AssertionError("IMPORT_TIME_ARENA_LAYOUT_STILL_PRESENT")
     core.detect_hardware = lambda: SimpleNamespace(platform="mock")
     return core
 
@@ -91,7 +92,7 @@ class ObserverCoreIntegration(TestCase):
         cls.core = load_real_core()
 
     def make_core(self, setting=None):
-        with mock.patch.dict(os.environ, {}, clear=False):
+        with mock.patch.dict(os.environ, {"AEGIS_ARRAY_BYTES": "4194304"}):
             os.environ.pop("AEGIS_TRANSITION_OBSERVER", None)
             if setting is not None:
                 os.environ["AEGIS_TRANSITION_OBSERVER"] = setting
@@ -152,10 +153,10 @@ class ObserverCoreIntegration(TestCase):
 
 
     def test_independent_instances_remeasure_budget_and_checkpoint_geometry(self):
-        # The Python module was imported with an independent 4 MiB fixture.
-        # Two subsequent CoreMatrix instances must independently reconfigure.
+        # The module is importable without a memory budget; instances must
+        # independently resolve their own sizes at construction time.
         import adaptive_memory
-        self.assertEqual(self.core.ARRAY_TOTAL_BYTES, 4194304)
+        self.assertFalse(hasattr(self.core, "ARRAY_TOTAL_BYTES"))
         instances = []
         try:
             for selected in (4194304, 8388608, 16777216):
@@ -176,7 +177,7 @@ class ObserverCoreIntegration(TestCase):
                 self.assertEqual(matrix.get_epoch_snapshot()[-12:-4], (1).to_bytes(8, "little"))
             self.assertEqual([len(x._array) for x in instances],
                              [4194304, 8388608, 16777216])
-            self.assertEqual(self.core.ARRAY_TOTAL_BYTES, 4194304)
+            self.assertFalse(hasattr(self.core, "ARRAY_TOTAL_BYTES"))
         finally:
             for matrix in instances:
                 matrix.close()
