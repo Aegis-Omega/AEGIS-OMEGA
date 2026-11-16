@@ -73,7 +73,6 @@ def atan_iv(x):                   # x interval, x > 0
     if x.lo >= 2 * ONE: return PI.half() - ser(x.recip())
     return PI.half().half() + ser((x - 1) / (x + 1))        # (x-1)/(x+1) in [-1/3, 1/3]
 def sin_iv(x):
-    k = (x.lo + x.hi) // (2 * ((PI.lo + PI.hi) // 2) * 2 // ONE) if False else None
     m = round(float(x.mid()) / (2 * float(PI.mid())))
     y = x - PI * (2 * m)                                   # |y| <= pi + tiny
     s = I(0, 0); t = y; y2 = y * y; f = 1

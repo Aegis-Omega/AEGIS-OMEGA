@@ -43,6 +43,15 @@ Needs python3, python-flint 0.9.0 and numpy. Each block set takes about 3 min an
 Blocks (130 MB each) are not committed; the manifests pin their sha256 and `reproduce.sh` rebuilds them byte-identically.
 `runs/*/` keeps the original logs.
 
+## Lean (`lean/`, kernel-checked with `--trust=0`)
+
+Lean v4.33.1, Mathlib `0df444a3` (the formal-conjectures toolchain). `#print axioms` lists only propext, Classical.choice and Quot.sound for every theorem; the logs are in `lean/*.trust0.log`.
+
+- `CvSTailRenormV1`: `schur_mono`, `renorm_eq`, `schur_renorm`, `schur_renorm_sum`. Renormalising tail weights p ↦ p/P (P ≤ 1) can only enlarge the Schur matrix, so a per-sector budget never loses against the joint one.
+- `CvSParitySplitV1`: `cross_zero` (Beᵀ S Bo = 0 when Pᵀ S = S P, P Be = Be, P Bo = −Bo), `blocks_posSemidef`, `congr_posSemidef` (Tᵀ S T ⪰ 0 for S ⪰ 0).
+
+These are the abstract linear-algebra steps. That the actual band matrix commutes with the reflection is checked in Arb by `v8p.py` (asserted entrywise), not in Lean.
+
 ## Not machine-checked
 
 - **From v2:**
@@ -51,5 +60,5 @@ Blocks (130 MB each) are not committed; the manifests pin their sha256 and `repr
   - Feshbach inequality;
   - order-8 weighted Cauchy–Schwarz bound for |n| > NP.
 - **New:**
-  - the parity reduction (`CvSParitySplitV1.lean` written, recompile pending);
+  - the reflection invariance of the actual matrices (Arb assertion, not Lean);
   - the sector tail split τ(v) = τ(v_e) + τ(v_o).

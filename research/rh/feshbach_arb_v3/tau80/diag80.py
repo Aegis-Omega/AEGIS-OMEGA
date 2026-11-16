@@ -72,6 +72,7 @@ if DO_ARB:
             worst = max(worst, float(abs(ref.mid() - (lo + hi) / 2).upper()))
     print(f'Arb (192 bits) vs integer intervals: non-overlapping {bad}/{2 * (N + 1)}; max |mid difference| {worst:.3e}')
 if os.environ.get('DIAG_OUT'):
-    json.dump({'P': P, 'L': '9/5', 'tail_bits': T, 'CC': [[str(CC[n].lo), str(CC[n].hi)] for n in range(N + 1)],
-               'XC': [[str(XC[n].lo), str(XC[n].hi)] for n in range(N + 1)]}, open(os.environ['DIAG_OUT'], 'w'))
+    with open(os.environ['DIAG_OUT'], 'w') as fo:
+        json.dump({'P': P, 'L': '9/5', 'tail_bits': T, 'CC': [[str(CC[n].lo), str(CC[n].hi)] for n in range(N + 1)],
+                   'XC': [[str(XC[n].lo), str(XC[n].hi)] for n in range(N + 1)]}, fo)
     print('wrote', os.environ['DIAG_OUT'])

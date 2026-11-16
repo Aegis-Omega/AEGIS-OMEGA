@@ -4,7 +4,7 @@ so f^(m)(a) = 2 Im[(-1)^m m! (a - i w)^(-m-1)] and the correction is sum_k 2 bet
 The Lean file claims it equals w a G10(a^2, w^2) / (3465 (a^2+w^2)^10).  usage: g10_check.py LEANFILE"""
 import re, sys, sympy as sp
 a, w, X, Y = sp.symbols('a w X Y', positive=True)
-src = open(sys.argv[1]).read()
+with open(sys.argv[1]) as f: src = f.read()
 body = re.search(r'def G10 \(X Y : ℝ\) : ℝ :=\n(.*?)\n\n', src, re.S).group(1)
 G10 = sp.sympify(body.replace('^', '**').replace('\n', ' '), locals={'X': X, 'Y': Y})
 beta = [sp.Rational(-1, 12), sp.Rational(7, 720), sp.Rational(-31, 30240), sp.Rational(127, 1209600), sp.Rational(-73, 6842880)]

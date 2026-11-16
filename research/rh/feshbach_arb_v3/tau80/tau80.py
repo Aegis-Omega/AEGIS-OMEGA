@@ -30,7 +30,6 @@ def S_of(n):
     for k in range(5):
         for _ in range(2): pr, pi_ = pr * ur - pi_ * ui, pr * ui + pi_ * ur
         corr = corr + pi_ * COEF[k]
-    tb = (at * TAILC) / ((w2 + cJ * cJ) ** 3 * (w2 + cJ * cJ) ** 3) if False else None
     d = w2 + cJ * cJ; d6 = d * d * d; d6 = d6 * d6
     err = (at * TAILC) / d6
     total = (head + at + corr).pm(I(0, err.hi))
@@ -68,6 +67,6 @@ if DO_ARB:
     print(f'Arb (192 bits) vs integer intervals: non-overlapping {bad}/{NP + 1}; max |mid difference| {worst:.3e}')
 import os, json
 if os.environ.get('ALPHA_OUT'):
-    json.dump({'P': P, 'L': '9/5', 'tail_bits': T, 'lo': [str(alpha[n].lo) for n in range(NP + 1)], 'hi': [str(alpha[n].hi) for n in range(NP + 1)]},
-              open(os.environ['ALPHA_OUT'], 'w'))
+    with open(os.environ['ALPHA_OUT'], 'w') as fo:
+        json.dump({'P': P, 'L': '9/5', 'tail_bits': T, 'lo': [str(alpha[n].lo) for n in range(NP + 1)], 'hi': [str(alpha[n].hi) for n in range(NP + 1)]}, fo)
     print('wrote', os.environ['ALPHA_OUT'])

@@ -28,6 +28,14 @@ def sha256(path):
     with open(path, 'rb') as f: return hashlib.sha256(f.read()).hexdigest()
 
 
+def load_json(path):
+    with open(path) as f: return json.load(f)
+
+
+def read_lines(path):
+    with open(path) as f: return f.read().splitlines()
+
+
 BALL = re.compile(r'^\[\s*(?:([-+0-9.eE]+)\s*)?\+/-\s*([0-9.eE+-]+)\s*\]$')
 def ball(s):   # printed Arb ball or exact decimal -> (mid, rad) as exact rationals
     s = s.strip(); m = BALL.match(s)
@@ -37,20 +45,20 @@ def ball(s):   # printed Arb ball or exact decimal -> (mid, rad) as exact ration
 
 if len(sys.argv) < 4 or sys.argv[1] != '--manifest': print(__doc__); sys.exit(2)
 mf = sys.argv[2]; base = os.path.dirname(os.path.abspath(mf)); mus = sys.argv[3:]
-Mn = json.load(open(mf)); src = Mn['c_inf_source']
+Mn = load_json(mf); src = Mn['c_inf_source']
 p = lambda k: os.path.join(base, Mn[k]); q = lambda k: os.path.join(base, src[k])
 if sha256(p('blocks')) != Mn['blocks_sha256']: blocked('blocks sha256 mismatch')
 if sha256(q('trace_arb')) != src['trace_arb_sha256']: blocked('trace_arb sha256 mismatch')
 if sha256(q('krein_log')) != src['krein_log_sha256']: blocked('krein_log sha256 mismatch')
-mlines = [l.split('m = ', 1)[1].strip() for l in open(q('krein_log')) if l.startswith('CERTIFIED: F(xi) >= 0 for all real xi, m = ')]
+mlines = [l.split('m = ', 1)[1].strip() for l in read_lines(q('krein_log')) if l.startswith('CERTIFIED: F(xi) >= 0 for all real xi, m = ')]
 if not mlines: blocked('krein log has no CERTIFIED line')
 mm, mr = ball(mlines[-1])
 if abs(mm - F(src['m'])) > mr: blocked('krein log does not certify m = ' + src['m'])
-tm, tr = ball(json.load(open(q('trace_arb')))['trPTP_upper'])
+tm, tr = ball(load_json(q('trace_arb'))['trPTP_upper'])
 cinf = F(Mn['c_inf']); bound = (mm - mr) - (tm + tr)
 if not cinf <= bound: blocked(f"c_inf {Mn['c_inf']} > m - trPTP_upper = {float(bound)!r}")
 
-P = json.load(open(p('blocks')))
+P = load_json(p('blocks'))
 def M(name):
     out = []
     for row in P[name]:

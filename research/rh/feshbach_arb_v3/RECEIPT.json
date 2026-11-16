@@ -17,11 +17,30 @@
  "drop_pole": true,
  "extends": "Aegis-Omega/AEGIS-OMEGA@0c1477fb research/rh/feshbach_arb_v2/L1.8",
  "generator": "src/v8p.py (joint mode without PARITY_*; reproduces the joint g0 and V9 blocks byte-identically)",
+ "lean_kernel_trust0": {
+  "CvSParitySplitV1": [
+   "cross_zero",
+   "blocks_posSemidef",
+   "congr_posSemidef"
+  ],
+  "CvSTailRenormV1": [
+   "schur_mono",
+   "renorm_eq",
+   "schur_renorm",
+   "schur_renorm_sum"
+  ],
+  "axioms": [
+   "propext",
+   "Classical.choice",
+   "Quot.sound"
+  ],
+  "toolchain": "Lean v4.33.1, Mathlib 0df444a360eaa60ab8c11dca51a86af692955474"
+ },
  "not_machine_checked": [
   "CvS matrix = restricted Weil form on trigonometric basis (arXiv:2607.02828)",
   "hat Krein pairing",
   "Feshbach inequality and order-8 weighted Cauchy-Schwarz |n|>NP tail bound",
-  "parity reduction (CvSParitySplitV1.lean pending recompile)",
+  "reflection invariance of the actual matrices (Arb assertion in v8p.py, not Lean)",
   "sector tail split tau(v) = tau(v_e) + tau(v_o)"
  ],
  "results": {
@@ -64,9 +83,13 @@
  "rh_proven": false,
  "schema": "AEGIS_KREIN_FESHBACH_ARB_RECEIPT_V3",
  "sha256": {
-  "README.md": "fa47d5fd4de0e7e5672232de347763b2ba4c7e54a9254ec5af61fa5e9e6b1508",
+  "README.md": "9179ddc2600aa45419246ab51045c8c6c49e02e14037b9c262d9059266d57d1e",
   "inputs_L18/krein_slack.log": "c08f223fa8363ba7dff29792140c9a9a5787fea86bd9198f698b05000e0251ff",
   "inputs_L18/trace_arb.json": "9c96828d8e7a35ef1b84e303ac3dd5db74bbd214462622dae3f551fb7ebab4b7",
+  "lean/CvSParitySplitV1.lean": "80740b1bdd7bbff2a4a44b7392406de50be4dedc47f9ac0bc9691b502f7bc1c7",
+  "lean/CvSParitySplitV1.trust0.log": "0ac44dc2261e23f5bf3ecf8aabbd0bbd4acb2204bbefe167fe13fd503ce5f831",
+  "lean/CvSTailRenormV1.lean": "c1188bc413b76f4aad592ebcdcebb3dd9adbed86d8a5fa3ca85f359947cafc8f",
+  "lean/CvSTailRenormV1.trust0.log": "a084fef6e86c2c67668ce608f96e882e38b856ae0a17f80c4289a606e1df621d",
   "manifests/L18_even_renorm_g0.json": "3a9d706a72e7a48bddae12f99a9a923470c46d944edd50a8e6820abe88f8684f",
   "manifests/L18_joint_g0.json": "b6523cf679924c148c9d54067c2c4ce1c535d12c79d54bc5b581d660a22bd83b",
   "manifests/L18_joint_v9.json": "9d1f9b72179c8ce165803dc11c7a1cbdc0fcc22be1fcc41db7cbbf47e58ce270",
@@ -84,14 +107,14 @@
   "runs/v8p_18par/blocks.log": "e5076d74e60f5fb7436f56f6bc6d3601e342242bf9cf9971ee1b7a34e4e0eb25",
   "runs/v8p_18par/schur_even.log": "91b89a3641892d68358efbba5986788009a40e9581c8d4bd7fd224cc2aade243",
   "runs/v8p_18par/schur_odd.log": "7541b60e53a6e6d1d03abfdae4d79a908ff2f58eee27c3ea60ce6096acdf5f1d",
-  "src/cert_congr.py": "90791819c11442c093761c77e4b574661a9ed00a39abcbb9477053e949dc0588",
+  "src/cert_congr.py": "2411e2db03af09a239162b640a53ba9cd2f1431338ac2aaff7791495599c09a6",
   "src/cvs_entries.py": "b9e2c3b9bd0fffb0250c74a6b19c51021036fc22ecb223bda11bbf2e2160eee1",
-  "src/schur_mid.py": "5e811cd0393ff7960c0b64f82366ed43f87ecea9af2021c385e0f6dd9225ea5c",
+  "src/schur_mid.py": "d95e730316242d7bddc3e78255219e90ad7319feebd19d8d2665b772144539a0",
   "src/v8p.py": "3b6bc0507ba739f61e88f3afaa792407df879ba127845a311079d16b78dbb9a2",
-  "tau80/diag80.py": "73c91e20a640166337d8433cb194f153f4f58b8d20f59010b55d075b99b1f46d",
-  "tau80/fx.py": "ee7866ee1aec5c4a3b7f1f7462b3c3f43b5f80486c9e1bb545c56d41bbf650e0",
-  "tau80/g10_check.py": "dd71685aa732916ffe9a62d3cf2bdb13fefcd47e06c7869055cd8e8aafc227aa",
-  "tau80/tau80.py": "e91685dfd1b2fad0866a26d9028627d0550944c38b78fe1f1b51f38cbc79d9bb",
+  "tau80/diag80.py": "6cf691d2503e056e1113e9b495a23d259b5bb70e5db076ce565b7ddb57e7d990",
+  "tau80/fx.py": "6cbea541ed5df67766b2dedc87bc16cf306fcf4062c49dde283804a771044cec",
+  "tau80/g10_check.py": "3fb594e3a3e828c706b8cdffee052a761fcc5d59b15a5c0a2aef3a93513e06e6",
+  "tau80/tau80.py": "b44968a33b3749ae8b24cb2c6af18c912ea209048dc80cab8422edae83d9300d",
   "tests/test_certifiers.py": "471d9857cadef71e56ac157ce8fe5187daf569ca8ddb980412d8302191a83f69",
   "weights/w_renorm_g0.env": "932805f9963ca14320a47d1ffc2a33fb853249a8000b2c102addb18c1ffad512",
   "weights/weights_L18_v9.json": "5b18b149ff7d652dea15544b6115fef2da0b4fbcdd2dce7499bc7c961d071572"
@@ -103,6 +126,7 @@
   "diag_L95_N400_P120.json": "efae4a0a5488521f19ed55603b6415a29cacb23d5a28fa1b40d157f36179f126"
  },
  "tools": {
+  "FLINT": "3.6.0",
   "python-flint": "0.9.0"
  }
 }

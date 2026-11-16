@@ -27,17 +27,25 @@ def sha256(path):
     with open(path, 'rb') as f: return hashlib.sha256(f.read()).hexdigest()
 
 
+def load_json(path):
+    with open(path) as f: return json.load(f)
+
+
+def read_lines(path):
+    with open(path) as f: return f.read().splitlines()
+
+
 if len(sys.argv) >= 3 and sys.argv[1] == '--manifest':
     mf = sys.argv[2]; base = os.path.dirname(os.path.abspath(mf)); mus = sys.argv[3:]
-    Mn = json.load(open(mf)); p = lambda k: os.path.join(base, Mn[k])
+    Mn = load_json(mf); p = lambda k: os.path.join(base, Mn[k])
     src = Mn['c_inf_source']; q = lambda k: os.path.join(base, src[k])
     if sha256(p('blocks')) != Mn['blocks_sha256']: blocked('blocks sha256 mismatch')
     if sha256(q('trace_arb')) != src['trace_arb_sha256']: blocked('trace_arb sha256 mismatch')
     if sha256(q('krein_log')) != src['krein_log_sha256']: blocked('krein_log sha256 mismatch')
     m = arb(src['m'])
     if not any(line.startswith('CERTIFIED: F(xi) >= 0 for all real xi, m = ') and arb(line.split('m = ', 1)[1].strip()).overlaps(m)
-               for line in open(q('krein_log'))): blocked('krein log does not certify m = ' + src['m'])
-    bound = m - arb(json.load(open(q('trace_arb')))['trPTP_upper'])
+               for line in read_lines(q('krein_log'))): blocked('krein log does not certify m = ' + src['m'])
+    bound = m - arb(load_json(q('trace_arb'))['trPTP_upper'])
     cinf = arb(Mn['c_inf'])
     if not cinf <= bound: blocked(f"c_inf {Mn['c_inf']} is not <= m - trPTP_upper = {bound.str(15)}")
     blocks, bound_mode = p('blocks'), True
@@ -46,7 +54,7 @@ elif len(sys.argv) >= 4:
 else:
     print(__doc__); sys.exit(2)
 if not mus: blocked('no mu')
-P = json.load(open(blocks))
+P = load_json(blocks)
 def M(name): return [[arb(re) for re, im in row] for row in P[name]]
 for name in ('A11', 'G11', 'CB'):
     if not all(arb(im) == 0 for row in P[name] for re, im in row): blocked(name + ': imaginary parts must be exactly 0')
