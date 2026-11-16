@@ -161,6 +161,8 @@ class BridgeHttpMutationTests(unittest.TestCase):
         return {
             "proposal_id": proposal, "sequence": sequence,
             "accepted": accepted, "lcb": lcb,
+            "e_value": 32.0, "risk_spent": 0.05 if accepted else 0.0,
+            "sample_size": 20, "method": "anytime_valid_bernstein",
             "event_sha256": event_digest(b"hello", b"\x00", b"ctx"),
         }
 
