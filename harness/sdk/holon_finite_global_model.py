@@ -267,3 +267,51 @@ class FiniteGlobalModelVerifierV1:
             result_kind, witness, selected, verification_root,
         )
         return FiniteGlobalVerificationV1(result_kind, (), verification_root), proof
+
+
+
+class TrustedFiniteGlobalReceiptStore(Protocol):
+    def fetch_verified(self, root: str) -> FiniteGlobalModelReceiptV1 | None: ...
+
+
+class FiniteGlobalReceiptReplayVerifierV1:
+    """Re-check an already issued SAT/UNSAT claim against current trusted evidence.
+
+    This checks custody and repeatability, not independent mathematical
+    correctness: the same finite verifier is rerun. Replaying an old receipt
+    cannot silently admit changed source bytes, contexts or proof tables.
+    """
+
+    def __init__(
+        self,
+        *,
+        receipts: TrustedFiniteGlobalReceiptStore,
+        verifier: FiniteGlobalModelVerifierV1,
+    ) -> None:
+        self.receipts = receipts
+        self.verifier = verifier
+
+    def verify(
+        self, receipt_root: str
+    ) -> tuple[FiniteGlobalVerificationV1, FiniteGlobalModelReceiptV1 | None]:
+        def deny(code: str):
+            return FiniteGlobalVerificationV1(DENIED, (code,), None), None
+
+        try:
+            _sha("global_receipt_root", receipt_root)
+        except FiniteGlobalError:
+            return deny("GLOBAL_REPLAY_ROOT_INVALID")
+        stored = self.receipts.fetch_verified(receipt_root)
+        if (not isinstance(stored, FiniteGlobalModelReceiptV1)
+                or stored.root != receipt_root
+                or stored.authority_class != NO_AUTHORITY):
+            return deny("GLOBAL_REPLAY_RECEIPT_UNTRUSTED")
+        check, recomputed = self.verifier.verify(stored.problem_root)
+        if (check.status not in (SAT, UNSAT)
+                or not isinstance(recomputed, FiniteGlobalModelReceiptV1)):
+            return deny("GLOBAL_REPLAY_EVIDENCE_NO_LONGER_VALID")
+        if (recomputed != stored
+                or recomputed.root != receipt_root
+                or recomputed.verification_root != check.verification_root):
+            return deny("GLOBAL_REPLAY_CONTENT_CHANGED")
+        return check, recomputed
