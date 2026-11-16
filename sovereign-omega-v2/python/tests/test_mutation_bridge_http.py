@@ -60,6 +60,7 @@ class FakeGate:
 class FakeMatrix:
     def __init__(self):
         self.signals = []
+        self.checkpoints = []
 
     def receive_gate_signal(self, proposal_id, accepted, sequence):
         self.signals.append((proposal_id, accepted, sequence))
@@ -98,12 +99,19 @@ def make_bridge_post_handler(gate, matrix, router, ledger):
         body=do_post, decorator_list=[],
     )
     ast.fix_missing_locations(cls)
+    def record_checkpoint(candidate_matrix):
+        if candidate_matrix is not matrix:
+            raise AssertionError("Checkpoint saved unrelated matrix")
+        candidate_matrix.checkpoints.append("saved")
+        return {"checkpoint_number": len(candidate_matrix.checkpoints)}
+
     namespace = {
         "os": os, "json": json, "threading": threading,
         "last_ack_sequence": -1, "_lock": threading.Lock(),
         "_mutation_admission": ledger, "gate": gate, "matrix": matrix,
         "router": router, "GateSignal": GateSignal,
         "EventClass": EventClass, "SCHEMAS": SCHEMAS,
+        "save_checkpoint": record_checkpoint,
         "control_authenticated": control_authenticated,
         "control_secrets_distinct": control_secrets_distinct,
     }
@@ -114,6 +122,7 @@ def make_bridge_post_handler(gate, matrix, router, ledger):
 class BridgeHttpMutationTests(unittest.TestCase):
     GATE_SECRET = "gate_issuer_" + "g" * 50
     EVENT_SECRET = "event_consumer_" + "e" * 50
+    CHECKPOINT_SECRET = "checkpoint_operator_" + "c" * 50
 
     def setUp(self):
         self.gate = FakeGate()
@@ -126,6 +135,7 @@ class BridgeHttpMutationTests(unittest.TestCase):
         self.secrets = {
             "AEGIS_BRIDGE_GATE_SECRET": self.GATE_SECRET,
             "AEGIS_BRIDGE_EVENT_SECRET": self.EVENT_SECRET,
+            "AEGIS_BRIDGE_CHECKPOINT_SECRET": self.CHECKPOINT_SECRET,
         }
 
     def send(self, path, obj, credential=None, secrets=None):
@@ -135,7 +145,9 @@ class BridgeHttpMutationTests(unittest.TestCase):
         handler.headers = {
             "Content-Length": str(len(body)),
             "X-Aegis-Bridge-Secret": credential if credential is not None
-                else (self.GATE_SECRET if path == "/gate_signal" else self.EVENT_SECRET),
+                else (self.GATE_SECRET if path == "/gate_signal"
+                      else self.CHECKPOINT_SECRET if path == "/checkpoint"
+                      else self.EVENT_SECRET),
         }
         handler.rfile = io.BytesIO(body)
         replies = []
@@ -157,6 +169,50 @@ class BridgeHttpMutationTests(unittest.TestCase):
             "proposal_id": proposal, "payload_hex": b"hello".hex(),
             "verifier_hex": b"\x00".hex(), "context_hex": context.hex(),
         }
+
+    def test_checkpoint_unconfigured_never_writes_state(self):
+        for value in ("", "short", None):
+            with self.subTest(config=value):
+                self.setUp()
+                config = dict(self.secrets)
+                if value is None:
+                    del config["AEGIS_BRIDGE_CHECKPOINT_SECRET"]
+                else:
+                    config["AEGIS_BRIDGE_CHECKPOINT_SECRET"] = value
+                status, reply = self.send("/checkpoint", {}, secrets=config)
+                self.assertEqual(status, 503, reply)
+                self.assertEqual(reply["reason"], "CHECKPOINT_CONTROL_UNCONFIGURED")
+                self.assertEqual(self.matrix.checkpoints, [])
+
+    def test_checkpoint_secret_must_differ_from_gate_and_event_roles(self):
+        for reused in (self.GATE_SECRET, self.EVENT_SECRET):
+            with self.subTest(reused=reused[:16]):
+                self.setUp()
+                config = {**self.secrets, "AEGIS_BRIDGE_CHECKPOINT_SECRET": reused}
+                status, reply = self.send("/checkpoint", {}, secrets=config)
+                self.assertEqual(status, 503, reply)
+                self.assertEqual(reply["reason"], "CHECKPOINT_CONTROL_UNCONFIGURED")
+                self.assertEqual(self.matrix.checkpoints, [])
+
+    def test_checkpoint_rejects_missing_wrong_and_other_role_credentials(self):
+        for credential in ("wrong" * 10, self.GATE_SECRET, self.EVENT_SECRET):
+            with self.subTest(credential=credential[:16]):
+                status, reply = self.send("/checkpoint", {}, credential=credential)
+                self.assertEqual(status, 403, reply)
+                self.assertEqual(reply["reason"], "CHECKPOINT_UNAUTHORIZED")
+                self.assertEqual(self.matrix.checkpoints, [])
+        self.assertEqual(self.send("/event", self.event(), credential=self.CHECKPOINT_SECRET)[0], 403)
+        self.assertEqual(self.send("/gate_signal", self.signal(), credential=self.CHECKPOINT_SECRET)[0], 403)
+        self.assertEqual(self.matrix.checkpoints, [])
+
+    def test_operator_checkpoint_writes_exactly_once_and_no_other_mutation(self):
+        status, reply = self.send("/checkpoint", {})
+        self.assertEqual(status, 200, reply)
+        self.assertEqual(reply, {"status": "SAVED", "checkpoint_number": 1})
+        self.assertEqual(self.matrix.checkpoints, ["saved"])
+        self.assertEqual(self.matrix.signals, [])
+        self.assertEqual(self.router.events, [])
+        self.assertEqual(self.ledger.pending_count, 0)
 
     def test_missing_secrets_reject_before_any_mutation(self):
         missing = {"AEGIS_BRIDGE_GATE_SECRET": "", "AEGIS_BRIDGE_EVENT_SECRET": ""}
