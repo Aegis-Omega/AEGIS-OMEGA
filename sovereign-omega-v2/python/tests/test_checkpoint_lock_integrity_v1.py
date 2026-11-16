@@ -124,5 +124,66 @@ class CalibrationCheckpointLockIntegrityV1(unittest.TestCase):
             self.assertEqual(dest._epoch, 0)
 
 
+    def test_plain_lock_restore_does_not_reenter_matrix_lock(self):
+        # Existing MockMatrix uses threading.Lock(), not RLock. A nested
+        # matrix._lock acquisition would deadlock even with valid checkpoint.
+        source = matrix_fixture(3)
+        source.process_event(b"alpha", b"", b"")
+        with tempfile.TemporaryDirectory() as directory:
+            path = os.path.join(directory, "checkpoint.json")
+            save_checkpoint(source, path)
+            dest = matrix_fixture(3)
+            dest._lock = threading.Lock()
+            finished = threading.Event()
+            exceptions = []
+
+            def restore():
+                try:
+                    load_checkpoint(dest, path)
+                except Exception as exc:
+                    exceptions.append(exc)
+                finally:
+                    finished.set()
+
+            worker = threading.Thread(target=restore, daemon=True)
+            worker.start()
+            self.assertTrue(finished.wait(2),
+                            "Nested nonreentrant matrix lock deadlocked")
+            worker.join(1)
+            self.assertEqual(exceptions, [])
+            self.assertEqual(dest._sequence, 1)
+            self.assertEqual(dest._calibrator._state.epoch, 0)
+
+    def test_chain_only_nonreentrant_lock_roundtrip(self):
+        source = matrix_fixture(3)
+        source.process_event(b"z", b"", b"")
+        source._calibrator = source._failsafe = None
+        with tempfile.TemporaryDirectory() as directory:
+            path = os.path.join(directory, "checkpoint.json")
+            save_checkpoint(source, path)
+            dest = matrix_fixture(3)
+            dest._calibrator = dest._failsafe = None
+            dest._lock = threading.Lock()
+            finished = threading.Event()
+            exceptions = []
+
+            def restore():
+                try:
+                    load_checkpoint(dest, path)
+                except Exception as exc:
+                    exceptions.append(exc)
+                finally:
+                    finished.set()
+
+            worker = threading.Thread(target=restore, daemon=True)
+            worker.start()
+            self.assertTrue(finished.wait(2),
+                            "Chain-only plain lock restore deadlocked")
+            worker.join(1)
+            self.assertEqual(exceptions, [])
+            self.assertEqual(dest._sequence, 1)
+
+
+
 if __name__ == "__main__":
     unittest.main()

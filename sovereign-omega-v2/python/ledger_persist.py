@@ -279,35 +279,35 @@ def _load_checkpoint_locked(matrix, path: str) -> dict:
             raise CheckpointError('Unsafe failsafe restore: ' + str(err)) from err
     else:
         prepared_failsafe = None
-    with matrix._lock:
-        if getattr(matrix, '_sequence', -1) != 0 or getattr(matrix, '_total_processed', 0) != 0:
-            raise CheckpointError('Resume requires an unprocessed matrix')
-        if prepared is not None:
-            try:
-                require_fresh_calibrator(calibrator)
-            except CalibrationCheckpointError as err:
-                raise CheckpointError('Unsafe calibration target: ' + str(err)) from err
-        if prepared_failsafe is not None:
-            try:
-                require_fresh_failsafe(failsafe)
-            except FailsafeCheckpointError as err:
-                raise CheckpointError('Unsafe failsafe target: ' + str(err)) from err
-        if sequence:
-            head = ((sequence - 1) % capacity) * _M1_ENTRY_BYTES
-            matrix._m1_region[head:head + _M1_ENTRY_BYTES] = record
-        matrix._sequence = sequence
-        matrix._epoch = epoch
-        matrix._era = era
-        matrix._total_processed = body['total_processed']
-        matrix._total_verified = body['total_verified']
-        matrix._total_vcg_error_fixed = body['total_vcg_error_fixed']
-        matrix._last_gate_signal_sequence = body['last_gate_signal_sequence']
-        matrix._last_gate_signal_accepted = body['last_gate_signal_accepted']
-        matrix._m3_active_length = 0  # context is ephemeral, not replayed
-        if prepared is not None:
-            install_calibration(calibrator, prepared)
-        if prepared_failsafe is not None:
-            install_failsafe(failsafe, prepared_failsafe)
+    # Matrix and calibrator locks are already held by load_checkpoint().
+    if getattr(matrix, '_sequence', -1) != 0 or getattr(matrix, '_total_processed', 0) != 0:
+        raise CheckpointError('Resume requires an unprocessed matrix')
+    if prepared is not None:
+        try:
+            require_fresh_calibrator(calibrator)
+        except CalibrationCheckpointError as err:
+            raise CheckpointError('Unsafe calibration target: ' + str(err)) from err
+    if prepared_failsafe is not None:
+        try:
+            require_fresh_failsafe(failsafe)
+        except FailsafeCheckpointError as err:
+            raise CheckpointError('Unsafe failsafe target: ' + str(err)) from err
+    if sequence:
+        head = ((sequence - 1) % capacity) * _M1_ENTRY_BYTES
+        matrix._m1_region[head:head + _M1_ENTRY_BYTES] = record
+    matrix._sequence = sequence
+    matrix._epoch = epoch
+    matrix._era = era
+    matrix._total_processed = body['total_processed']
+    matrix._total_verified = body['total_verified']
+    matrix._total_vcg_error_fixed = body['total_vcg_error_fixed']
+    matrix._last_gate_signal_sequence = body['last_gate_signal_sequence']
+    matrix._last_gate_signal_accepted = body['last_gate_signal_accepted']
+    matrix._m3_active_length = 0  # context is ephemeral, not replayed
+    if prepared is not None:
+        install_calibration(calibrator, prepared)
+    if prepared_failsafe is not None:
+        install_failsafe(failsafe, prepared_failsafe)
     return {
         'sequence': sequence, 'epoch': epoch, 'era': era,
         'integrity_hash': actual_digest, 'path': path,
