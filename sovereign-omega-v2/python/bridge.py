@@ -17,7 +17,7 @@ from core_matrix import CoreMatrix
 from dna import EventClass, GateSignal, SCHEMAS
 from gate import gate
 from router import router
-from mutation_admission import MutationAdmissionLedger, control_authenticated, control_secrets_distinct
+from mutation_admission import MutationAdmissionLedger, control_authenticated, control_secrets_distinct, control_binding_authorized
 from hardware_config import detect_hardware
 from constitutional_identity import CONSTITUTIONAL_SYSTEM_FULL, CONSTITUTIONAL_SYSTEM_COMPACT
 from tgcs_afse import TGCSController, AFSEController
@@ -551,6 +551,17 @@ class BridgeHandler(BaseHTTPRequestHandler):
             risk_spent = data.get('risk_spent')
             sample_size = data.get('sample_size')
             e4_method = data.get('method')
+            component_id = data.get('component_id')
+            operator_id = data.get('operator_id')
+            capability_class = data.get('capability_class')
+            # Environment-owned allowlist is separate from issuer declarations.
+            # A self-declared E4 method/component/operator cannot grant rights.
+            if not control_binding_authorized(
+                component_id, operator_id, capability_class,
+                os.environ.get('AEGIS_BRIDGE_COMPONENT_OPERATORS'),
+            ):
+                self._respond(403, {'status': 'REJECTED', 'reason': 'MUTATION_BINDING_UNAUTHORIZED'})
+                return
 
             try:
                 # Serialize the three writers by sequence. A later signal
@@ -566,6 +577,8 @@ class BridgeHandler(BaseHTTPRequestHandler):
                             proposal_id, seq, accepted, lcb, event_sha256,
                             e_value=e_value, risk_spent=risk_spent,
                             sample_size=sample_size, e4_method=e4_method,
+                            component_id=component_id, operator_id=operator_id,
+                            capability_class=capability_class,
                         )
                     if allowed:
                         last_ack_sequence = seq
@@ -604,6 +617,15 @@ class BridgeHandler(BaseHTTPRequestHandler):
             # grant. Even authenticated callers cannot route an ungranted,
             # mismatched or replayed mutation.
             proposal_id = data.get('proposal_id')
+            component_id = data.get('component_id')
+            operator_id = data.get('operator_id')
+            capability_class = data.get('capability_class')
+            if not control_binding_authorized(
+                component_id, operator_id, capability_class,
+                os.environ.get('AEGIS_BRIDGE_COMPONENT_OPERATORS'),
+            ):
+                self._respond(403, {'status': 'REJECTED', 'reason': 'MUTATION_BINDING_UNAUTHORIZED'})
+                return
             try:
                 payload = bytes.fromhex(data['payload_hex'])
                 verifier = bytes.fromhex(data['verifier_hex'])
@@ -631,6 +653,7 @@ class BridgeHandler(BaseHTTPRequestHandler):
                     proposal_id, payload, verifier, context,
                     (not gate.is_sealed and gate.is_approved(proposal_id))
                     if isinstance(proposal_id, str) else False,
+                    component_id=component_id, operator_id=operator_id,
                 ):
                     result = None
                 else:
