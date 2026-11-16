@@ -185,7 +185,7 @@ jobs:
         run: python python/tests/test_hardware_config.py
 
       - name: Install Ed25519 verification backend (test-only)
-        run: pip install 'cryptography>=43,<48'
+        run: pip install 'cryptography==46.0.4'
 
       - name: Run signed promotion-evidence preflight tests
         run: python ../agents/tests/test_promotion_evidence.py
