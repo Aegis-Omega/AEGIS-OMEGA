@@ -76,6 +76,11 @@ class MutationAdmissionLedger:
         accepted: bool,
         lcb: float,
         expected_event_sha256: str,
+        *,
+        e_value: float,
+        risk_spent: float,
+        sample_size: int,
+        e4_method: str,
     ) -> tuple[bool, str]:
         if not isinstance(proposal_id, str) or not _PROPOSAL_ID.fullmatch(proposal_id):
             return False, "INVALID_PROPOSAL"
@@ -85,8 +90,34 @@ class MutationAdmissionLedger:
             return False, "INVALID_DECISION"
         if type(lcb) not in (float, int) or not math.isfinite(lcb):
             return False, "INVALID_LCB"
-        if accepted != (lcb > 0):
-            return False, "DECISION_LCB_MISMATCH"
+        # Enforce PR #817's E4 admission criterion at the Python boundary.
+        # An issuer-authenticated positive LCB alone is NOT sequential evidence.
+        # risk_spent is deltaAlpha for an accepted RiskBudgetManager decision.
+        # These checks do not authenticate where the samples came from or prove
+        # that an issuer maintains one global budget across restarts.
+        if type(sample_size) is not int or sample_size < 0:
+            return False, "INVALID_E4_SAMPLE_SIZE"
+        if e4_method != "anytime_valid_bernstein":
+            return False, "INVALID_E4_METHOD"
+        if (type(e_value) not in (float, int)
+                or not math.isfinite(e_value) or e_value < 0):
+            return False, "INVALID_E_VALUE"
+        if (type(risk_spent) not in (float, int)
+                or not math.isfinite(risk_spent) or risk_spent < 0):
+            return False, "INVALID_E4_ALPHA"
+        if accepted:
+            if lcb <= 0:
+                return False, "DECISION_LCB_MISMATCH"
+            if sample_size < 1:
+                return False, "INVALID_E4_SAMPLE_SIZE"
+            if not 0 < risk_spent < 1:
+                return False, "INVALID_E4_ALPHA"
+            # Reciprocal threshold mirrors RiskBudgetManager's one-round
+            # e-process criterion; no bounded clipping of invalid evidence.
+            if e_value < (1 / risk_spent):
+                return False, "E_VALUE_FAIL"
+        elif risk_spent != 0:
+            return False, "REJECTED_WITH_RISK_SPEND"
         if (
             not isinstance(expected_event_sha256, str)
             or not _SHA256.fullmatch(expected_event_sha256)
