@@ -215,6 +215,7 @@ class CoreMatrix:
         self._era: int = 0          # increments each time M1 wraps (circular log)
         self._running = False
         self._closed = False
+        self._stopped = False
         self._views_released = False
         self._lock = threading.RLock()
         self._ready = threading.Event()
@@ -235,15 +236,15 @@ class CoreMatrix:
         self._total_processed: int = 0
 
     def start(self) -> None:
-        """Start the core matrix and all subsystems."""
+        """Start only before the terminal PGCS stop / arena close."""
         with self._lock:
-            if self._closed or self._views_released:
+            if self._closed or self._views_released or self._stopped:
                 raise RuntimeError('CORE_MATRIX_CLOSED')
             if self._running:
                 return
-        self._pgcs.start()
-        self._running = True
-        self._ready.set()
+            self._pgcs.start()
+            self._running = True
+            self._ready.set()
         if self._event_cb:
             self._event_cb('CORE_MATRIX_STARTED', {
                 'hardware': self._hw.platform,
@@ -256,14 +257,19 @@ class CoreMatrix:
         return self._ready.wait(timeout)
 
     def stop(self) -> None:
-        """Stop the core matrix and all subsystems."""
-        self._running = False
-        self._pgcs.stop()
-        if self._event_cb:
-            self._event_cb('CORE_MATRIX_STOPPED', {
-                'total_processed': self._total_processed,
-                'final_epoch': self._epoch,
-            })
+        """Stop once, preserving read-only postmortem telemetry until close()."""
+        with self._lock:
+            if self._closed or self._stopped:
+                return
+            self._running = False
+            self._ready.clear()
+            self._pgcs.stop()
+            self._stopped = True
+            if self._event_cb:
+                self._event_cb('CORE_MATRIX_STOPPED', {
+                    'total_processed': self._total_processed,
+                    'final_epoch': self._epoch,
+                })
 
     def close(self) -> None:
         """Explicitly release the V15 anonymous arena after stop().
@@ -278,6 +284,11 @@ class CoreMatrix:
                 raise RuntimeError('CORE_MATRIX_STOP_REQUIRED')
             if self._closed:
                 return
+            if not self._stopped:
+                # Even a never-started CoreMatrix owns a PGCS mmap.
+                self._pgcs.stop()
+                self._stopped = True
+                self._ready.clear()
             if not self._views_released:
                 self._m1_region.release()
                 self._m2_region.release()
@@ -304,7 +315,7 @@ class CoreMatrix:
         INVARIANT: All temporal values derive from sequence, never wall clock.
         """
         with self._lock:
-            if self._closed or self._views_released:
+            if self._closed or self._views_released or self._stopped:
                 raise RuntimeError('CORE_MATRIX_CLOSED')
             # Check failsafe state before processing — FROZEN and RECOVERING both gate events
             failsafe_state = self._failsafe.state
@@ -378,7 +389,7 @@ class CoreMatrix:
         sequence MUST come from the TypeScript event substrate.
         """
         with self._lock:
-            if self._closed or self._views_released:
+            if self._closed or self._views_released or self._stopped:
                 raise RuntimeError('CORE_MATRIX_CLOSED')
             signal_byte = b'\x01' if accepted else b'\x00'
             M2(self._m2_region, signal_byte, INT_SCALE if accepted else 0, sequence)
@@ -391,6 +402,8 @@ class CoreMatrix:
         and not a torn view mid-process_event() execution (H-02).
         """
         with self._lock:
+            if self._closed or self._views_released:
+                raise RuntimeError('CORE_MATRIX_CLOSED')
             seq = self._sequence
             epoch = self._epoch
             avg_vcg_error = from_fixed(
@@ -420,6 +433,8 @@ class CoreMatrix:
         Callers must independently enforce their own authorization policies.
         """
         with self._lock:
+            if self._closed or self._views_released:
+                raise RuntimeError('CORE_MATRIX_CLOSED')
             observer = self._transition_observer
             if observer is None:
                 return None
