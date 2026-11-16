@@ -9,8 +9,8 @@
   "provenance": {
     "generator": "scripts/build-cognitive-manifest.py",
     "repository": "Aegis-Omega/AEGIS-OMEGA",
-    "source_ref": "research/optimus-streaming-info-v14-20261116",
-    "parent_state_hash": "ef894120fca0c130a1dc3e1a891363d3ec6cde33463d3793bb6efd2db16412a9",
+    "source_ref": "research/optimus-adaptive-memory-v15-20261116",
+    "parent_state_hash": "1f4251ef1e409801980fe4cde59a4a1ba1be0a5ade2ca3b8cb59ca7d8b8bcb1f",
     "signature_mode": "GITHUB_OIDC_ATTESTATION"
   },
   "hashing": {
@@ -488,5 +488,5 @@
       "on_success": "broadcast-attested-verified-event-stream"
     }
   },
-  "state_hash": "1f4251ef1e409801980fe4cde59a4a1ba1be0a5ade2ca3b8cb59ca7d8b8bcb1f"
+  "state_hash": "c38e7d7b3543bc63d523f1b2a32d77012fe9998bf61635e97d6e5f39b6d1a0de"
 }
