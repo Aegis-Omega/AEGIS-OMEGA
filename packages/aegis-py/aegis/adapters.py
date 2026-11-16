@@ -119,18 +119,24 @@ def lean_axioms(output: str, *, theorem: str, claim: str, verifier: dict | None,
                         source_head=source_head, expected_digest=expected_digest, status=UNKNOWN,
                         reasons=["claim_must_be_conditional_or_unconditional"], scope=scope,
                         details=details)
-    m = _AXIOMS.search(output) or _NO_AXIOMS.search(output)
-    if m is None or m.group("name") != theorem:
+    # One isolated report for the requested theorem is required. A first clean
+    # line must not hide a second contradictory `sorryAx` line or a Lean error.
+    reports = list(_AXIOMS.finditer(output)) + list(_NO_AXIOMS.finditer(output))
+    lean_error = bool(re.search(r"(?im)^\s*(?:error:|[^\n]*:\d+:\d+:\s*error:)", output))
+    if lean_error or len(reports) != 1 or reports[0].group("name") != theorem:
+        reason = ("lean_output_error" if lean_error else
+                  "ambiguous_axiom_reports" if len(reports) > 1 else
+                  "axiom_report_missing_or_for_other_theorem")
         return _receipt("lean_axioms", output.encode(), verifier=verifier, environment=environment,
                         source_head=source_head, expected_digest=expected_digest, status=UNKNOWN,
-                        reasons=["axiom_report_missing_or_for_other_theorem"], scope=scope,
-                        details=details)
+                        reasons=[reason], scope=scope, details=details)
+    m = reports[0]
     axioms = [a.strip() for a in m.groupdict().get("axs", "").split(",") if a.strip()]
     details["axioms"] = axioms
     extra = [a for a in axioms if a not in STANDARD_AXIOMS]
     reasons: list[str] = []
     status = VERIFIED
-    if "sorryAx" in axioms:
+    if any("sorryAx" in ax for ax in axioms):
         status, reasons = REJECTED, ["sorryAx_present"]
     elif extra and claim == "unconditional":
         status, reasons = REJECTED, [f"nonstandard_axioms:{','.join(extra)}"]
@@ -186,11 +192,25 @@ def data_snapshot(data: bytes, contract: dict, *, verifier: dict | None,
     show the data is correct, unbiased or fit for any purpose.
     """
     scope = "pinned bytes, header and row count of one snapshot; not data quality"
+    # Validate every contract field before iterating columns or comparing row
+    # counts. `True == 1` is not a valid row-count attestation.
+    contract_ok = (isinstance(contract, dict)
+                   and isinstance(contract.get("sha256"), str)
+                   and bool(re.fullmatch(r"[0-9a-f]{64}", contract["sha256"]))
+                   and isinstance(contract.get("columns"), list)
+                   and bool(contract["columns"])
+                   and all(isinstance(x, str) and bool(x) for x in contract["columns"])
+                   and type(contract.get("rows")) is int
+                   and contract["rows"] >= 0)
+    if not isinstance(data, bytes) or not contract_ok:
+        return _receipt("data_snapshot", data if isinstance(data, bytes) else b"", verifier=verifier,
+                        environment=environment, source_head=source_head, expected_digest=None,
+                        status=UNKNOWN, reasons=["snapshot_or_contract_unreadable"], scope=scope,
+                        details={})
     try:
         rows = list(csv.reader(io.StringIO(data.decode("utf-8"))))
-        _ = (contract["sha256"], contract["columns"], contract["rows"])  # KeyError if incomplete
-    except (UnicodeDecodeError, KeyError, TypeError, csv.Error):
-        return _receipt("data_snapshot", data if isinstance(data, bytes) else b"", verifier=verifier,
+    except (UnicodeDecodeError, TypeError, csv.Error):
+        return _receipt("data_snapshot", data, verifier=verifier,
                         environment=environment, source_head=source_head, expected_digest=None,
                         status=UNKNOWN, reasons=["snapshot_or_contract_unreadable"], scope=scope,
                         details={})
