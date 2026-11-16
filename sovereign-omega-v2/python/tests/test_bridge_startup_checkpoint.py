@@ -19,7 +19,8 @@ from ledger_persist import CheckpointError
 
 
 class TinyStartupMatrix:
-    def __init__(self):
+    def __init__(self, *, ready=True):
+        self.ready = ready
         self.started = False
         self.stopped = False
         self._lock = threading.RLock()
@@ -31,13 +32,13 @@ class TinyStartupMatrix:
     def wait_ready(self, timeout):
         if timeout != 5.0:
             raise AssertionError("Unexpected readiness timeout")
-        return True
+        return self.ready
 
     def stop(self):
         self.stopped = True
 
 
-def make_actual_run_bridge(*, has_checkpoint, loader):
+def make_actual_run_bridge(*, has_checkpoint, loader, ready=True):
     tree = ast.parse((PY_ROOT / "bridge.py").read_text(encoding="utf-8"))
     functions = [
         n for n in tree.body
@@ -51,7 +52,7 @@ def make_actual_run_bridge(*, has_checkpoint, loader):
 
     calls = {"bound": 0, "saved": 0, "loaded": 0, "registered": 0, "thread_started": 0,
              "served": 0, "server_closed": 0, "thread_joined": 0}
-    matrix = TinyStartupMatrix()
+    matrix = TinyStartupMatrix(ready=ready)
 
     def maybe_load(target):
         calls["loaded"] += 1
@@ -127,6 +128,24 @@ def make_actual_run_bridge(*, has_checkpoint, loader):
 
 
 class TestBridgeStartupFailClosed(unittest.TestCase):
+    def test_unready_matrix_fails_before_restore_bind_or_checkpoint_write(self):
+        startup, calls, matrix, _gate = make_actual_run_bridge(
+            has_checkpoint=True,
+            ready=False,
+            loader=lambda _: (_ for _ in ()).throw(
+                AssertionError("not-ready matrix must not load checkpoint")
+            ),
+        )
+        with self.assertRaisesRegex(RuntimeError, "BRIDGE_START_NOT_READY"):
+            startup(port=7899)
+        self.assertTrue(matrix.started)
+        self.assertTrue(matrix.stopped)
+        self.assertEqual(calls["loaded"], 0)
+        self.assertEqual(calls["bound"], 0)
+        self.assertEqual(calls["thread_started"], 0)
+        self.assertEqual(calls["saved"], 0)
+        self.assertEqual(calls["served"], 0)
+
     def test_bad_checkpoint_never_starts_a_server_or_overwrites_disk(self):
         def corrupt(_):
             raise CheckpointError("INTEGRITY_MISMATCH")
