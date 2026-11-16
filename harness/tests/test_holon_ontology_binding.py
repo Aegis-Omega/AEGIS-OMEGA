@@ -208,7 +208,7 @@ def test_anchor_fields_fixed_to_git_repo_and_source_path():
         content_sha256=sha(b"synthetic"),
     )
     assert anchor.repository == REPOSITORY and anchor.path == ONTOLOGY_PATH
-    with pytest.raises(TypeError):
+    with pytest.raises(ValueError, match="init=False"):
         replace(anchor, repository="somewhere.else")
 
 
