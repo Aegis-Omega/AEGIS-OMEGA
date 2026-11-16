@@ -402,6 +402,9 @@ class BridgeHttpMutationTests(unittest.TestCase):
                 self.assertEqual(self.send("/gate_signal", signal)[0], 200)
                 event = {
                     "proposal_id": "p1",
+                    "component_id": "bridge-test-component",
+                    "operator_id": "bridge-test-operator",
+                    "capability_class": "SELF_MODIFYING",
                     "payload_hex": payload.hex(),
                     "verifier_hex": verifier.hex(),
                     "context_hex": context.hex(),
