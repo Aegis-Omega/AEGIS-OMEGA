@@ -7,9 +7,12 @@ import {
 
 function candidate(overrides = {}) {
   return {
-    proposalId: 'E4:test:0001',
+    decision: {
+      proposal_id: 'E4:test:0001', accepted: true,
+      lcb_value: 0.125, e_value: 32, risk_spent: 0.05,
+      sample_size: 20, method: 'anytime_valid_bernstein',
+    },
     sequence: 17,
-    lcb: 0.125,
     payload: Buffer.from('hello', 'utf8'),
     verifier: Uint8Array.of(0x00),
     context: Buffer.from([0x00, 0x7f, 0xff]),
@@ -26,6 +29,10 @@ test('two deterministic frames bind the same exact bytes', () => {
   assert.equal(first.gate_signal.sequence, 17)
   assert.equal(first.gate_signal.accepted, true)
   assert.equal(first.gate_signal.lcb, 0.125)
+  assert.equal(first.gate_signal.e_value, 32)
+  assert.equal(first.gate_signal.risk_spent, 0.05)
+  assert.equal(first.gate_signal.sample_size, 20)
+  assert.equal(first.gate_signal.method, 'anytime_valid_bernstein')
   assert.equal(first.gate_signal.event_sha256,
     governanceEventDigest(source.payload, source.verifier, source.context))
   assert.deepEqual(first.event, {
@@ -57,14 +64,18 @@ test('event digest is length framed and domain separated', () => {
 })
 
 test('rejects invalid E4 identifiers, sequence and untrusted decisions', () => {
-  for (const proposalId of ['', 'bad/id', '../x', 'x'.repeat(129), 1, null]) {
-    assert.throws(() => encodeAdmittedGovernanceMutation(candidate({ proposalId })))
+  for (const proposal_id of ['', 'bad/id', '../x', 'x'.repeat(129), 1, null]) {
+    assert.throws(() => encodeAdmittedGovernanceMutation(candidate({
+      decision: { ...candidate().decision, proposal_id },
+    })))
   }
   for (const sequence of [-1, 1.1, NaN, Infinity, Number.MAX_SAFE_INTEGER + 1, '1', null]) {
     assert.throws(() => encodeAdmittedGovernanceMutation(candidate({ sequence })))
   }
-  for (const lcb of [-0.1, 0, NaN, Infinity, -Infinity, '0.2', null]) {
-    assert.throws(() => encodeAdmittedGovernanceMutation(candidate({ lcb })))
+  for (const lcb_value of [-0.1, 0, NaN, Infinity, -Infinity, '0.2', null]) {
+    assert.throws(() => encodeAdmittedGovernanceMutation(candidate({
+      decision: { ...candidate().decision, lcb_value },
+    })))
   }
 })
 
@@ -88,7 +99,7 @@ test('rejects non-governance or malformed verifier inputs', () => {
 
 test('ASCII, UTF-8 and binary fields generate deterministic governance frames', () => {
   const multilingual = candidate({
-    proposalId: 'E4:holon:42',
+    decision: { ...candidate().decision, proposal_id: 'E4:holon:42' },
     sequence: 123456,
     payload: Buffer.from('AEGIS Ω | holon: značenje', 'utf8'),
     verifier: Uint8Array.of(0x00, 0xff),
