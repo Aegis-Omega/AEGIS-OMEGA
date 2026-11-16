@@ -137,7 +137,7 @@ jobs:
     timeout-minutes: 15
     env:
       AEGIS_NATIVE_E4_SOURCE_SHA: 0dc07a16e1010f77615036cbc0bc87fd613d8512
-      AEGIS_NATIVE_E4_DECISION_PATH: ${{ runner.temp }}/native-pr817-decision.json
+      AEGIS_NATIVE_E4_DECISION_PATH: ${{ github.workspace }}/native-pr817-decision.json
     steps:
       - name: Checkout exact PR811 candidate source
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
