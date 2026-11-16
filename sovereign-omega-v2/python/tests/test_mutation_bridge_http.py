@@ -21,7 +21,7 @@ PY_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(PY_ROOT))
 from mutation_admission import (
     MutationAdmissionLedger, control_authenticated,
-    control_secrets_distinct, event_digest,
+    control_secrets_distinct, control_binding_authorized, event_digest,
 )
 from dna import GateSignal, EventClass, SCHEMAS
 
@@ -114,6 +114,7 @@ def make_bridge_post_handler(gate, matrix, router, ledger):
         "_save_checkpoint_serialized": record_checkpoint,
         "control_authenticated": control_authenticated,
         "control_secrets_distinct": control_secrets_distinct,
+        "control_binding_authorized": control_binding_authorized,
     }
     exec(compile(ast.Module(body=[cls], type_ignores=[]), str(PY_ROOT / "bridge.py"), "exec"), namespace)
     return namespace["HttpBridgeUnderTest"]
@@ -136,6 +137,7 @@ class BridgeHttpMutationTests(unittest.TestCase):
             "AEGIS_BRIDGE_GATE_SECRET": self.GATE_SECRET,
             "AEGIS_BRIDGE_EVENT_SECRET": self.EVENT_SECRET,
             "AEGIS_BRIDGE_CHECKPOINT_SECRET": self.CHECKPOINT_SECRET,
+            "AEGIS_BRIDGE_COMPONENT_OPERATORS": '{"bridge-test-component":["bridge-test-operator"]}',
         }
 
     def send(self, path, obj, credential=None, secrets=None):
@@ -159,7 +161,11 @@ class BridgeHttpMutationTests(unittest.TestCase):
 
     def signal(self, accepted=True, lcb=0.4, proposal="p1", sequence=1):
         return {
-            "proposal_id": proposal, "sequence": sequence,
+            "proposal_id": proposal,
+            "component_id": "bridge-test-component",
+            "operator_id": "bridge-test-operator",
+            "capability_class": "SELF_MODIFYING",
+            "sequence": sequence,
             "accepted": accepted, "lcb": lcb,
             "e_value": 32.0, "risk_spent": 0.05 if accepted else 0.0,
             "sample_size": 20, "method": "anytime_valid_bernstein",
@@ -168,7 +174,11 @@ class BridgeHttpMutationTests(unittest.TestCase):
 
     def event(self, proposal="p1", context=b"ctx"):
         return {
-            "proposal_id": proposal, "payload_hex": b"hello".hex(),
+            "proposal_id": proposal,
+            "component_id": "bridge-test-component",
+            "operator_id": "bridge-test-operator",
+            "capability_class": "SELF_MODIFYING",
+            "payload_hex": b"hello".hex(),
             "verifier_hex": b"\x00".hex(), "context_hex": context.hex(),
         }
 
