@@ -518,9 +518,15 @@ class BridgeHandler(BaseHTTPRequestHandler):
                 # Serialize the three writers by sequence. A later signal
                 # must never reach gate.py before an earlier accepted one.
                 with _lock:
-                    allowed, reason = _mutation_admission.record(
-                        proposal_id, seq, accepted, lcb, event_sha256
-                    )
+                    # Frozen MutationGate silently discards signals after
+                    # seal() or when sequence is stale. Never turn a retained
+                    # APPROVED verdict from an older signal into a new grant.
+                    if gate.is_sealed:
+                        allowed, reason = False, 'CONSTITUTIONAL_GATE_SEALED'
+                    else:
+                        allowed, reason = _mutation_admission.record(
+                            proposal_id, seq, accepted, lcb, event_sha256
+                        )
                     if allowed:
                         last_ack_sequence = seq
                         gate.record_signal(GateSignal(
@@ -529,7 +535,10 @@ class BridgeHandler(BaseHTTPRequestHandler):
                             accepted=accepted,
                             lcb=float(lcb),
                         ))
-                        if accepted and not gate.is_approved(proposal_id):
+                        if gate.is_sealed or gate.last_sequence() != seq:
+                            _mutation_admission.revoke(proposal_id)
+                            allowed, reason = False, 'CONSTITUTIONAL_SIGNAL_NOT_RECORDED'
+                        elif accepted and not gate.is_approved(proposal_id):
                             _mutation_admission.revoke(proposal_id)
                             allowed, reason = False, 'CONSTITUTIONAL_GATE_DENIED'
                         elif accepted:
@@ -568,7 +577,8 @@ class BridgeHandler(BaseHTTPRequestHandler):
             with _lock:
                 if not _mutation_admission.authorize_event(
                     proposal_id, payload, verifier, context,
-                    gate.is_approved(proposal_id) if isinstance(proposal_id, str) else False,
+                    (not gate.is_sealed and gate.is_approved(proposal_id))
+                    if isinstance(proposal_id, str) else False,
                 ):
                     result = None
                 else:
