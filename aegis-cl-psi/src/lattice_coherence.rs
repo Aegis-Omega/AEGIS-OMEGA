@@ -124,8 +124,9 @@ pub fn check_coherence(snap: &TowerSnapshot<'_>) -> CoherenceReport {
     }
 }
 
-/// Build a coherence report from partial data when self-certification is unavailable.
-/// Uses a provisional certification verdict, yielding at most ProvisionallyGranted on L4.
+/// Build an observation-only report when self-certification is unavailable.
+/// L4 cannot be satisfied without an independent SelfCertificate, so this
+/// partial view MUST NOT claim a global section or full certification.
 pub fn check_partial_coherence(
     sequence_monotone: bool,
     mutation_authority_active: bool,
@@ -137,8 +138,9 @@ pub fn check_partial_coherence(
     let l1 = mutation_authority_active;
     let l2 = resonance.phi_convergent && resonance.ring_valid && resonance.sequence_monotone;
     let l3 = network_verdict == NetworkVerdict::Unified && all_below_phi;
-    // Partial: L4 treated as satisfied if L2+L3 both hold (ProvisionallyGranted equivalent)
-    let l4 = l2 && l3;
+    // L2/L3 observations cannot substitute for an independent L4 certificate.
+    // Report the missing certification as unsatisfied; full closure stays denied.
+    let l4 = false;
 
     let levels = ObstructionLevels {
         l0_ralph_frame: l0,
@@ -379,10 +381,32 @@ mod tests {
     fn partial_coherence_l0_l1_l2_l3_all_ok() {
         let res = good_resonance();
         let report = check_partial_coherence(true, true, &res, NetworkVerdict::Unified, true);
-        assert!(report.global_section_exists);
-        assert_eq!(report.satisfied_count, 5);
-        let delta = (report.coherence_score - 1.0).abs();
+        assert!(!report.global_section_exists);
+        assert!(!report.levels.l4_autopoietic);
+        assert_eq!(report.satisfied_count, 4);
+        assert_eq!(report.first_obstruction, Some(4));
+        let delta = (report.coherence_score - 7.0 / 12.0).abs();
         assert!(delta < 1e-9);
+    }
+
+    #[test]
+    fn partial_coherence_never_invents_l4_for_any_input_combination() {
+        let mut res = good_resonance();
+        for bits in 0u8..32 {
+            res.phi_convergent = bits & 4 != 0;
+            let network = if bits & 8 != 0 {
+                NetworkVerdict::Unified
+            } else {
+                NetworkVerdict::Split
+            };
+            let report = check_partial_coherence(
+                bits & 1 != 0, bits & 2 != 0, &res, network, bits & 16 != 0,
+            );
+            assert!(!report.global_section_exists, "case {}", bits);
+            assert!(!report.levels.l4_autopoietic, "case {}", bits);
+            assert!(report.first_obstruction.is_some(), "case {}", bits);
+            assert!(report.coherence_score <= 7.0 / 12.0 + 1e-12, "case {}", bits);
+        }
     }
 
     #[test]
