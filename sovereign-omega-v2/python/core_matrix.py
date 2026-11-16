@@ -370,20 +370,9 @@ class CoreMatrix:
             failsafe_state = self._failsafe.state.value
             corruption_count = self._failsafe.corruption_count
             calibrator_ok = self._calibrator.passes_criterion(100_000)
-            transition_snapshot = None
-            if self._transition_observer is not None:
-                try:
-                    transition_snapshot = self._transition_observer.snapshot()
-                    transition_snapshot['observation_errors'] = self._transition_observer_errors
-                except Exception:
-                    transition_snapshot = {
-                        'schema': 'AEGIS_VERIFIER_TRANSITIONS_V14_1',
-                        'status': 'UNAVAILABLE',
-                        'observation_errors': self._transition_observer_errors + 1,
-                    }
         # pgcs.snapshot() reads psutil/disk — safe outside the lock
         pgcs_snap = self._pgcs.snapshot(seq)
-        result = {
+        return {
             'sequence': seq,
             'epoch': epoch,
             'avg_vcg_error': avg_vcg_error,
@@ -393,9 +382,27 @@ class CoreMatrix:
             'corruption_count': corruption_count,
             'calibrator_passes_100k': calibrator_ok,
         }
-        if transition_snapshot is not None:
-            result['transition_observer_v14'] = transition_snapshot
-        return result
+
+    def transition_analytics_snapshot(self) -> Optional[Dict[str, object]]:
+        """Internal-only opt-in analyzer output; never part of public VCG telemetry.
+
+        No event history, identity assertions, or gate decisions are returned.
+        Callers must independently enforce their own authorization policies.
+        """
+        with self._lock:
+            observer = self._transition_observer
+            if observer is None:
+                return None
+            try:
+                result = observer.snapshot()
+                result['observation_errors'] = self._transition_observer_errors
+                return result
+            except Exception:
+                return {
+                    'schema': 'AEGIS_VERIFIER_TRANSITIONS_V14_1',
+                    'status': 'UNAVAILABLE',
+                    'observation_errors': self._transition_observer_errors + 1,
+                }
 
     def get_epoch_snapshot(self) -> Optional[bytes]:
         """
