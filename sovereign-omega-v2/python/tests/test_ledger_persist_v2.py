@@ -80,6 +80,11 @@ class MockMatrix:
         # 2000 bytes covers write_head for seq up to ~50
         # For seq=42: write_head = (41 * 40) % _M1_SIZE = 1640; 1640+40=1680 < 2000
         self._m1_region = bytearray(2000)
+        self._total_processed = sequence
+        self._total_verified = 0
+        self._total_vcg_error_fixed = 0
+        self._last_gate_signal_sequence = -1
+        self._last_gate_signal_accepted = None
         if sequence > 0:
             n = len(self._m1_region) // _M1_ENTRY_BYTES
             off = ((sequence - 1) % n) * _M1_ENTRY_BYTES
@@ -267,7 +272,7 @@ def test_load_seq0_roundtrip():
     path = _tmp_path()
     try:
         save_checkpoint(mx, path)
-        mx2 = MockMatrix(sequence=99, epoch=5, era=3)  # non-zero state
+        mx2 = MockMatrix()  # V2.1 restore requires an unprocessed target
         load_checkpoint(mx2, path)
         _chk('seq=0 restored correctly', mx2._sequence == 0)
         _chk('epoch=0 restored correctly', mx2._epoch == 0)

@@ -129,10 +129,13 @@ Epoch state snapshots are taken for the failsafe. The epoch failsafe criterion i
 corruption_count = 0 across all epochs.
 
 ### M1 / M2 / M3
-The three functional regions of the contiguous 4GB byte array in core_matrix.py:
-- **M1** (2GB): State management — append-only event log with hash chaining
-- **M2** (1.2GB): Calibration gate data — VCG errors and LCB values
-- **M3** (0.8GB): Inference context — context token projections with W_scale correction
+The three *mutable* functional regions of the preallocated CoreMatrix byte array:
+- **M1** (nominally 50%): in-place circular digest index. Each complete 40-byte slot stores a little-endian u64 sequence and an SHA-256 *chained* digest defined as SHA256(previous_chain_digest || SHA256(payload)). The sequence is stored alongside the digest but is NOT cryptographically bound into that digest; changing the digest format requires a separately versioned chain. The ring is NOT append-only, and it does NOT store event payloads. Full event replay and forensic nonrepudiation need an authenticated append-only ledger outside the ring.
+- **M2** (nominally 30%): aligned circular 8-byte records of Q16.16 pointwise verifier error plus a second compatibility field reserved at zero. **No statistical confidence bound is available** from an isolated outcome. A verifier_result is an explicitly validated binary outcome, never the router's EventClass byte. E4 authority remains separate.
+- **M3** (nominally 20%): context projection with Q16.16 W_scale and normalized mean absolute *projection distortion*. Only the returned number of bytes constitutes the active window; trailing arena bytes may be stale. This measure is not anchor drift, truthfulness, or semantic information conservation.
+- All three mutate their caller-provided writable memoryview. They are deterministic state transitions under a caller-managed lock, **not pure functions**. Q16.16 is the local Python format, not a proof of numerical exactness.
+
+Checkpoint schema **2.2.0** retains the PR #806 M1 chain tail, counters, gate observation metadata and **full versioned GradientAnchor calibration state**. The calibration snapshot records anchor identities/tolerances, Q16.16 scales, momentum velocities, epoch sequence and all historical drift measurements. Consecutive identical measurement batches are run-length encoded; restore expands, validates and replays the measurements before mutating CoreMatrix. This is a *lossless continuation snapshot*, not a live event ledger. M2/M3 arena bytes and event payloads are not persisted. Chain-only mock checkpoint consumers are explicitly tagged as NOT carrying calibration history; a real CoreMatrix refuses their restoration. Versions 1.0.0, 2.0.0 and 2.1.0 are incompatible and fail closed until explicit reviewed migration. All checkpoint checksums are unkeyed and do NOT authenticate the writer; external provenance is still required. The decoder's exact-history expansion requires memory proportional to the number of recorded measurements even when storage is compressed.
 
 ### W_scale
 A Q16.16 fixed-point correction factor computed by GradientAnchorCalibrator.

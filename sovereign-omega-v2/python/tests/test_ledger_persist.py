@@ -27,9 +27,13 @@ CONTEXT = b'\x00' * 8
 
 
 def _advance(matrix, n=10):
-    """Push n events through the matrix to advance sequence/epoch."""
+    """Return exact chain digests; no gate approval inferred from VCG error."""
+    hashes = []
     for i in range(n):
-        matrix.process_event(PAYLOAD, VERIFIER, CONTEXT)
+        result = matrix.process_event(PAYLOAD, VERIFIER, CONTEXT)
+        assert result['gate_accepted'] is False
+        hashes.append(result['state_hash'])
+    return hashes
 
 
 class TestCheckpointRoundTrip(unittest.TestCase):
@@ -112,8 +116,10 @@ class TestCheckpointRoundTrip(unittest.TestCase):
         try:
             load_checkpoint(matrix2, self.path)
             self.assertEqual(matrix2._sequence, seq_at_save)
-            # Should be able to process more events without crash
-            _advance(matrix2, 5)
+            # Verify cryptographic continuity, not just advancing sequence.
+            expected = _advance(self.matrix, 5)
+            observed = _advance(matrix2, 5)
+            self.assertEqual(observed, expected)
             self.assertEqual(matrix2._sequence, seq_at_save + 5)
         finally:
             matrix2.stop()

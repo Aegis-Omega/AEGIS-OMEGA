@@ -1,0 +1,41 @@
+name: M1 M2 M3 V2 contract regressions
+
+on:
+  pull_request:
+    paths:
+      - 'sovereign-omega-v2/python/core_matrix.py'
+      - 'sovereign-omega-v2/python/ledger_persist.py'
+      - 'sovereign-omega-v2/python/calibration_checkpoint.py'
+      - 'sovereign-omega-v2/python/gradient_anchor.py'
+      - 'sovereign-omega-v2/python/bridge.py'
+      - 'sovereign-omega-v2/python/tests/test_m123_contracts_v2.py'
+      - 'sovereign-omega-v2/python/tests/test_ledger_persist_v2.py'
+      - '.github/workflows/m123-v2-contracts.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    name: M123 V2 actual-module and checkpoint contracts
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    env:
+      AEGIS_ARRAY_BYTES: '65536'
+      PYTHONDONTWRITEBYTECODE: '1'
+    steps:
+      - name: Checkout exact PR candidate
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - name: Set up Python 3.11
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: '3.11'
+      - name: Install dependency needed by core_matrix import
+        run: python -m pip install psutil
+      - name: Run mock-ledger existing regression suite
+        run: python sovereign-omega-v2/python/tests/test_ledger_persist_v2.py
+      - name: Run M1/M2/M3 V2 actual module regression suite
+        run: python -m unittest discover -s sovereign-omega-v2/python/tests -p 'test_m123_contracts_v2.py' -v

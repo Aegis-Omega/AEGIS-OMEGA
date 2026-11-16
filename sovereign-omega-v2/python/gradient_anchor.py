@@ -128,75 +128,84 @@ class GradientAnchorCalibrator:
             self._state.w_scales[token_id] = INT_SCALE
             self._velocities[token_id] = 0  # zero initial velocity
 
-    def calibrate_epoch(self, epoch: int) -> List[DriftMeasurement]:
+    def prepare_epoch(self, epoch: int):
+        """Plan an entire calibration epoch without mutating live state.
+
+        A zero-tolerance violation or invalid epoch rejects the WHOLE batch.
+        Caller must ensure exclusive access to the calibrator during plan/commit.
         """
-        Run one calibration step for all anchor tokens.
-        Called by the background async process once per epoch.
-        epoch MUST be derived from the event substrate sequence counter.
-        """
-        self._state.epoch = epoch
+        if type(epoch) is not int or epoch != self._state.epoch + 1:
+            raise ValueError('Calibration epoch must be exactly the next integer')
+        scales = dict(self._state.w_scales)
+        velocities = dict(self._velocities)
         measurements = []
-
+        adjustments = 0
         for token_id, anchor in self._anchors.items():
-            measured = self._state.w_scales[token_id]
+            measured = scales[token_id]
             expected = anchor.expected_w_scale
-
-            # Compute drift
             drift_fixed = abs(measured - expected)
             drift_float = from_fixed(drift_fixed)
-
-            # D = drift / expected (normalised)
-            drift_index = drift_float / from_fixed(expected) if expected != 0 else 0.0
-
-            # Compute correction with momentum (Nesterov-style)
-            # velocity = β * velocity + (1 - β) * (-lr * error)
+            drift_index = (drift_float / from_fixed(expected)
+                           if expected != 0 else 0.0)
+            if anchor.tolerance_fixed == 0 and drift_fixed != 0:
+                raise RuntimeError(
+                    f"Hard abort: zero-tolerance anchor '{token_id}' has drifted "
+                    f"(measured={measured}, expected={expected}). "
+                    "This invariant permits no correction."
+                )
             error_fixed = measured - expected
             gradient_fixed = -fixed_mul(self._lr_fixed, error_fixed)
-            prev_velocity = self._velocities.get(token_id, 0)
-            new_velocity = fixed_mul(self._momentum_beta, prev_velocity) + \
-                           fixed_mul(INT_SCALE - self._momentum_beta, gradient_fixed)
-            self._velocities[token_id] = new_velocity
-            correction = new_velocity
-
-            # Apply correction — clamped to prevent overshoot
-            new_w_scale = measured + correction
-
-            # Hard clamp: cannot push beyond the expected ± tolerance
+            velocity = (fixed_mul(self._momentum_beta, velocities.get(token_id, 0)) +
+                        fixed_mul(INT_SCALE - self._momentum_beta, gradient_fixed))
+            corrected = measured + velocity
             lo = expected - anchor.tolerance_fixed
             hi = expected + anchor.tolerance_fixed
-            new_w_scale = max(lo, min(hi, new_w_scale))
-
-            # Zero-tolerance anchors: any deviation is a hard abort, never silent correction.
-            # Enforces CLAUDE.md invariant: "Version mismatch = hard abort, never fallback."
+            corrected = max(lo, min(hi, corrected))
             if anchor.tolerance_fixed == 0:
-                if drift_fixed > 0:
-                    raise RuntimeError(
-                        f"Hard abort: zero-tolerance anchor '{token_id}' has drifted "
-                        f"(measured={measured}, expected={expected}). "
-                        "This invariant permits no correction."
-                    )
-                new_w_scale = expected
-
-            self._state.w_scales[token_id] = new_w_scale
-            adjustment = new_w_scale - measured
-
-            m = DriftMeasurement(
-                epoch=epoch,
-                anchor_token_id=token_id,
-                measured_w_scale=measured,
-                expected_w_scale=expected,
-                drift_fixed=drift_fixed,
-                drift_index=drift_index,
+                corrected = expected
+            scales[token_id] = corrected
+            velocities[token_id] = velocity
+            adjustment = corrected - measured
+            measurements.append(DriftMeasurement(
+                epoch=epoch, anchor_token_id=token_id,
+                measured_w_scale=measured, expected_w_scale=expected,
+                drift_fixed=drift_fixed, drift_index=drift_index,
                 adjustment_applied=adjustment,
-                passes_criterion=drift_index == 0.0,
-            )
-            measurements.append(m)
-            self._state.measurements.append(m)
-            if adjustment != 0:
-                self._state.total_adjustments += 1
+                passes_criterion=(drift_index == 0.0),
+            ))
+            if adjustment:
+                adjustments += 1
+        return {
+            'epoch': epoch,
+            'source_epoch': self._state.epoch,
+            'source_scales': dict(self._state.w_scales),
+            'source_velocities': dict(self._velocities),
+            'scales': scales,
+            'velocities': velocities,
+            'measurements': measurements,
+            'adjustments': adjustments,
+            'drift_sum': sum(m.drift_index for m in measurements),
+        }
 
-        self._state.cumulative_drift += sum(m.drift_index for m in measurements)
-        return measurements
+    def commit_epoch(self, planned):
+        """Install a prevalidated batch only if the original state is unchanged."""
+        if (planned['source_epoch'] != self._state.epoch or
+                planned['epoch'] != self._state.epoch + 1 or
+                planned['source_scales'] != self._state.w_scales or
+                planned['source_velocities'] != self._velocities):
+            raise RuntimeError('Calibration changed after epoch was prepared')
+        # Only append actual observations after the complete batch is valid.
+        self._state.measurements.extend(planned['measurements'])
+        self._state.w_scales = planned['scales']
+        self._velocities = planned['velocities']
+        self._state.total_adjustments += planned['adjustments']
+        self._state.cumulative_drift += planned['drift_sum']
+        self._state.epoch = planned['epoch']
+        return planned['measurements']
+
+    def calibrate_epoch(self, epoch: int) -> List[DriftMeasurement]:
+        """Plan and commit one complete, ordered calibration epoch."""
+        return self.commit_epoch(self.prepare_epoch(epoch))
 
     def compute_drift_index(self) -> float:
         """
