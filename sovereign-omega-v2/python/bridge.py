@@ -14,7 +14,7 @@ import threading
 from http.server import HTTPServer, BaseHTTPRequestHandler
 
 from core_matrix import CoreMatrix
-from dna import EventClass, GateSignal
+from dna import EventClass, GateSignal, SCHEMAS
 from gate import gate
 from router import router
 from mutation_admission import MutationAdmissionLedger, control_authenticated, control_secrets_distinct
@@ -570,6 +570,18 @@ class BridgeHandler(BaseHTTPRequestHandler):
                 context = bytes.fromhex(data.get('context_hex', ''))
             except (KeyError, ValueError, TypeError):
                 self._respond(400, {'status': 'REJECTED', 'reason': 'INVALID_EVENT_ENCODING'})
+                return
+            # Only governance events may consume an E4 mutation grant.
+            # The constitutionally frozen router distinguishes other classes
+            # by the first verifier byte; never grant them mutation authority.
+            schema = SCHEMAS[EventClass.GOVERNANCE]
+            if not verifier or verifier[0] != 0x00:
+                self._respond(403, {'status': 'REJECTED', 'reason': 'NOT_GOVERNANCE_EVENT'})
+                return
+            if (len(payload) > schema.payload_size_max
+                    or len(verifier) > schema.verifier_size_max
+                    or len(context) > schema.context_size_max):
+                self._respond(413, {'status': 'REJECTED', 'reason': 'GOVERNANCE_EVENT_SIZE'})
                 return
             # Serialize gate verdict, consumption and mutation dispatch with
             # gate-signal processing, preventing a gate transition between the
