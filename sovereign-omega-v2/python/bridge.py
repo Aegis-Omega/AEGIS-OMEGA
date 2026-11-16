@@ -1943,9 +1943,11 @@ def run_bridge(port=None):
     if not matrix.wait_ready(timeout=5.0):
         print(json.dumps({'event_type': 'BRIDGE_START_TIMEOUT', 'port': port}), flush=True)
 
-    # Restore from checkpoint if one exists — crash-safe resume
-    if checkpoint_exists():
-        try:
+    # Existing persisted state is an authority boundary. A failed restore
+    # must abort *before* binding any HTTP socket, starting autosave, or
+    # overwriting potentially recoverable checkpoint bytes with empty state.
+    try:
+        if checkpoint_exists():
             meta = load_checkpoint(matrix)
             print(json.dumps({
                 'event_type': 'CHECKPOINT_RESTORED',
@@ -1953,8 +1955,13 @@ def run_bridge(port=None):
                 'epoch': meta['epoch'],
                 'era': meta['era'],
             }), flush=True)
-        except CheckpointError as e:
-            print(json.dumps({'event_type': 'CHECKPOINT_RESTORE_FAILED', 'reason': str(e)}), flush=True)
+    except Exception as exc:
+        print(json.dumps({
+            'event_type': 'CHECKPOINT_RESTORE_FAILED',
+            'reason': str(exc),
+        }), flush=True)
+        matrix.stop()
+        raise CheckpointError('CHECKPOINT_RESTORE_ABORTED') from exc
 
     # Autosave starts from the restored/current epoch, not a hard-coded zero.
     # SSE clients have no role in scheduling or authorizing these writes.
