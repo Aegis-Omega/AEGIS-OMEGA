@@ -252,6 +252,47 @@ class BridgeHttpMutationTests(unittest.TestCase):
         self.assertEqual(self.send("/event", self.event())[0], 403)
         self.assertEqual(len(self.router.events), 1)
 
+    def test_e4_positive_lcb_without_sequential_evidence_never_grants(self):
+        # PR #817 counterexample: LCB can be positive before e-process
+        # reaches the allocated alpha threshold.
+        signal = self.signal()
+        signal["lcb"] = 0.04896985063
+        signal["e_value"] = 2.44140625
+        signal["risk_spent"] = 0.1335921305
+        status, reply = self.send("/gate_signal", signal)
+        self.assertEqual(status, 403, reply)
+        self.assertEqual(reply["reason"], "E_VALUE_FAIL")
+        self.assertEqual(self.ledger.pending_count, 0)
+        self.assertEqual(self.matrix.signals, [])
+        self.assertEqual(self.gate.signals, [])
+        self.assertEqual(self.router.events, [])
+        self.assertEqual(self.send("/event", self.event())[0], 403)
+
+    def test_missing_or_forged_e4_evidence_cannot_mint_grant(self):
+        cases = [
+            ("missing-e-value", "e_value", None),
+            ("missing-method", "method", None),
+            ("wrong-method", "method", "fixed-sample-only"),
+            ("zero-alpha", "risk_spent", 0),
+            ("nonfinite-e", "e_value", float("inf")),
+            ("zero-samples", "sample_size", 0),
+            ("forged-accepted", "accepted", False),
+        ]
+        for name, field, value in cases:
+            with self.subTest(name=name):
+                self.setUp()
+                signal = self.signal()
+                if value is None:
+                    del signal[field]
+                else:
+                    signal[field] = value
+                status, _ = self.send("/gate_signal", signal)
+                self.assertEqual(status, 403)
+                self.assertEqual(self.ledger.pending_count, 0)
+                self.assertEqual(self.matrix.signals, [])
+                self.assertEqual(self.gate.signals, [])
+                self.assertEqual(self.router.events, [])
+
     def test_negative_e4_signal_never_writes_m2_or_routes(self):
         self.assertEqual(self.send("/gate_signal", self.signal(accepted=False, lcb=-0.2))[0], 200)
         self.assertEqual(self.matrix.signals, [])
