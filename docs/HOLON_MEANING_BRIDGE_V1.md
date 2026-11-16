@@ -108,6 +108,17 @@ The new `harness/sdk/holon_finite_global_model.py` checks the **entire declared 
 - This is an **evidence custody and repeatability check**, not an independent mathematical implementation of the truth-table algorithm. The separate exhaustive-oracle tests are what support the finite semantic calculation; replay merely guards against stale or missing evidence.
 - All receipts remain `authority_class=NONE`, and no production trust-store adapter or external provenance service is asserted deployed.
 
+## Independent finite certificate checking and dual evidence
+
+The original finite-global verifier and its receipt replay use the **same producer implementation**. A shared logical bug could therefore pass both the initial run and replay. To test this causal weakness, the draft PR now contains an independent finite semantics verification path:
+
+- `harness/sdk/holon_finite_certificate_checker.py` independently enumerates every allowed Boolean valuation and interprets the canonical AST using a separate evaluator. It **does not call** the producer's `finite_truth_mask`, global-model verification or formal pair-relation verifier. It independently recomputes every complete relation table, source-derived formula roots, per-context masks, shared mask, first witness and hash-bound proof.
+- `harness/sdk/holon_finite_dual_evidence.py` requires both the **original producer receipt replay** and the **independent semantic certificate checker** to accept the **same content-addressed receipt** and exact verification root before issuing a separate evidence-only receipt. Either failure denies the dual-evidence result.
+- Adversarial tests include a fully rehashed but semantically forged certificate and a deliberately corrupted producer that emits a false UNSAT result. Its *own replay still agrees with the false result*, while the independent checker rejects it. A separate fault injection makes the independent evaluator wrong and verifies that the dual gate refuses it as well.
+- **Scope and assumptions:** this is independently implemented Boolean evaluation only. The parser, MHP provenance/receipt trust stores, SHA-256 canonicalization and exact source bytes remain shared dependencies. Neither check independently proves natural-language fidelity, completeness of the research corpus, an actual category-theoretic global section, production deployment, or authorization.
+
+**Exact-head native CI checkpoint:** [run 43900146771](https://github.com/Aegis-Omega/AEGIS-OMEGA/actions/runs/43900146771) on `ec1660aedf54794c087e979159945fad5337935e` returned **269/269 Python tests PASS** and **57/57 Python–TypeScript canonical-hash vectors PASS**. The independent checker and dual-evidence adversarial suites were in the actual workflow. As always, later changes need their own exact-head verification.
+
 ## Open work
 
 1. **Actual Drive research bytes and authenticated origin:** independently fetch exact source bytes (not derived text), bind their digest, revision/identity and permissions to a review receipt, preserve access controls and revocation. Google Drive metadata/readable text by itself is not equivalent to a trusted raw-byte attestation. This PR does not contain the private Drive corpus.
