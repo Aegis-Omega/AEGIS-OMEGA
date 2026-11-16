@@ -30,11 +30,9 @@ DEFAULT_CHECKPOINT_PATH = os.environ.get(
     os.path.join(os.path.dirname(__file__), 'aegis_checkpoint.json'),
 )
 
-# Preserve a backwards-compatible inspection constant, but never use
-# process-global region size to locate per-instance checkpoint records.
-from adaptive_memory import configured_arena_layout
+# Persistence geometry is determined solely from the matrix instance;
+# importing this module does not inspect or allocate process memory.
 _M1_ENTRY_BYTES = 40
-_M1_SIZE = configured_arena_layout().m1_size
 
 
 def _region_size(matrix) -> int:
