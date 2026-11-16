@@ -126,7 +126,42 @@ describe('Risk Budget Manager — Integration', () => {
     expect(decision.accepted).toBe(false)
     expect(decision.rejection_reason).toBe('E_VALUE_FAIL')
     expect(decision.risk_spent).toBe(0)
-    expect(manager.getBudgetSnapshot()).toEqual(before)
+    expect(manager.getBudgetSnapshot().spent).toBe(before.spent)
+    // Rejected statistical tests must still consume an alpha slot, otherwise
+    // repeated failed proposals can reuse alpha_1 indefinitely.
+    expect(manager.getBudgetSnapshot().round_number).toBe(before.round_number + 1)
+  })
+
+  it('counts rejected evidence tests toward the finite harmonic horizon', () => {
+    const manager = new RiskBudgetManager(EPOCH_MS, 0.2, 3)
+    const initialBudget = manager.currentBudget(EPOCH_MS)
+    for (let k = 1; k <= 3; k++) {
+      const decision = manager.evaluate(
+        `proposal-rejected-${k}`, 'pipeline-main', [0.1], 1, EPOCH_MS,
+      )
+      expect(decision.accepted).toBe(false)
+      expect(decision.risk_spent).toBe(0)
+      expect(manager.getBudgetSnapshot().round_number).toBe(k)
+      expect(manager.getBudgetSnapshot().spent).toBe(0)
+      expect(manager.currentBudget(EPOCH_MS)).toBe(initialBudget)
+    }
+    expect(manager.isSuspended()).toBe(true)
+    const denied = manager.evaluate('proposal-fourth', 'pipeline-main', Array(50).fill(0.9), 1, EPOCH_MS)
+    expect(denied.accepted).toBe(false)
+    expect(denied.rejection_reason).toBe('BUDGET_EXHAUSTED')
+    expect(manager.getBudgetSnapshot().round_number).toBe(3)
+  })
+
+  it('rejects a fourth candidate even if the first three were all beneficial', () => {
+    const manager = new RiskBudgetManager(EPOCH_MS, 0.2, 3)
+    for (let k = 0; k < 3; k++) {
+      manager.evaluate(`beneficial-${k}`, 'pipeline-main', Array(100).fill(0.9), 1, EPOCH_MS)
+    }
+    expect(manager.getBudgetSnapshot().round_number).toBe(3)
+    expect(manager.isSuspended()).toBe(true)
+    const extra = manager.evaluate('overflow-round', 'pipeline-main', Array(100).fill(0.9), 1, EPOCH_MS)
+    expect(extra.accepted).toBe(false)
+    expect(extra.rejection_reason).toBe('BUDGET_EXHAUSTED')
   })
 
   it('accepts only after both the LCB and anytime evidence thresholds hold', () => {
