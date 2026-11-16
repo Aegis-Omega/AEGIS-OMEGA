@@ -9,6 +9,7 @@
 import { createHash } from 'node:crypto'
 
 const PROPOSAL_ID_RE = /^[A-Za-z0-9._:-]{1,128}$/
+const BRIDGE_EPOCH_RE = /^[0-9a-f]{64}$/
 const DIGEST_DOMAIN = Buffer.from('AEGIS_MUTATION_EVENT_V1\x00', 'utf8')
 const MAX_GOVERNANCE_PAYLOAD = 65536
 const MAX_GOVERNANCE_VERIFIER = 256
@@ -34,6 +35,8 @@ export interface AdmittedGovernanceMutation {
   readonly decision: E4DecisionEvidence
   readonly capabilityClass: 'SELF_MODIFYING'
   readonly operatorId: string
+  /** Read once from authenticated GET /bridge/incarnation during this boot. */
+  readonly bridgeEpochId: string
   readonly sequence: number
   readonly payload: Uint8Array
   readonly verifier: Uint8Array
@@ -46,6 +49,7 @@ export interface MutationTransportFrames {
     component_id: string
     capability_class: 'SELF_MODIFYING'
     operator_id: string
+    bridge_epoch_id: string
     sequence: number
     accepted: true
     lcb: number
@@ -60,6 +64,7 @@ export interface MutationTransportFrames {
     component_id: string
     capability_class: 'SELF_MODIFYING'
     operator_id: string
+    bridge_epoch_id: string
     payload_hex: string
     verifier_hex: string
     context_hex: string
@@ -123,6 +128,9 @@ export function encodeAdmittedGovernanceMutation(
   if (typeof source.operatorId !== 'string' || !PROPOSAL_ID_RE.test(source.operatorId)) {
     throw new RangeError('E4 mutation requires a registered operator identifier')
   }
+  if (typeof source.bridgeEpochId !== 'string' || !BRIDGE_EPOCH_RE.test(source.bridgeEpochId)) {
+    throw new RangeError('missing or invalid bridge incarnation; refresh authenticated preflight')
+  }
   if (!Number.isSafeInteger(source.sequence) || source.sequence < 0) {
     throw new RangeError('sequence must be a nonnegative safe integer')
   }
@@ -155,6 +163,7 @@ export function encodeAdmittedGovernanceMutation(
       component_id: decision.component_id,
       capability_class: 'SELF_MODIFYING' as const,
       operator_id: source.operatorId,
+      bridge_epoch_id: source.bridgeEpochId,
       sequence: source.sequence,
       accepted: true as const, lcb: decision.lcb_value,
       e_value: decision.e_value, risk_spent: decision.risk_spent,
@@ -166,6 +175,7 @@ export function encodeAdmittedGovernanceMutation(
       component_id: decision.component_id,
       capability_class: 'SELF_MODIFYING' as const,
       operator_id: source.operatorId,
+      bridge_epoch_id: source.bridgeEpochId,
       payload_hex: Buffer.from(source.payload).toString('hex'),
       verifier_hex: Buffer.from(source.verifier).toString('hex'),
       context_hex: Buffer.from(source.context).toString('hex'),
