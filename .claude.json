@@ -9,7 +9,7 @@
   "provenance": {
     "generator": "scripts/build-cognitive-manifest.py",
     "repository": "Aegis-Omega/AEGIS-OMEGA",
-    "source_ref": "research/holon-evolution-evidence-gate-v1-20261116",
+    "source_ref": "research/holon-evolution-transaction-v1-20261116",
     "parent_state_hash": "9d18ee4a9fcc765ba590df3ba655a3e0c85569e017d199b18eaeb83a952fa486",
     "signature_mode": "GITHUB_OIDC_ATTESTATION"
   },
@@ -488,5 +488,5 @@
       "on_success": "broadcast-attested-verified-event-stream"
     }
   },
-  "state_hash": "d7bb7525da67f06f7a6cebf483fcaf8584d55603010fe3cd6e068605eaaf8755"
+  "state_hash": "d4195fa5c83ec1f62938a806e63783d8e24c1e78f48fea2eee0610b9d92646bd"
 }
