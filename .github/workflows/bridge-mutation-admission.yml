@@ -8,6 +8,7 @@ on:
       - sovereign-omega-v2/python/mutation_admission.py
       - sovereign-omega-v2/python/bridge.py
       - sovereign-omega-v2/python/tests/test_mutation_admission.py
+      - sovereign-omega-v2/python/tests/test_mutation_bridge_http.py
       - .github/workflows/bridge-mutation-admission.yml
   pull_request:
     branches:
@@ -16,6 +17,7 @@ on:
       - sovereign-omega-v2/python/mutation_admission.py
       - sovereign-omega-v2/python/bridge.py
       - sovereign-omega-v2/python/tests/test_mutation_admission.py
+      - sovereign-omega-v2/python/tests/test_mutation_bridge_http.py
       - .github/workflows/bridge-mutation-admission.yml
   workflow_dispatch:
 
@@ -37,7 +39,12 @@ jobs:
           python3 -m py_compile sovereign-omega-v2/python/mutation_admission.py
           python3 -m py_compile sovereign-omega-v2/python/bridge.py
           python3 -m py_compile sovereign-omega-v2/python/tests/test_mutation_admission.py
+          python3 -m py_compile sovereign-omega-v2/python/tests/test_mutation_bridge_http.py
       - name: Run native admission and AST-bound bridge regressions
         run: |
           cd sovereign-omega-v2
           python3 -m unittest discover -s python/tests -p test_mutation_admission.py -v
+      - name: Execute source-extracted HTTP POST handler with stubbed dependencies
+        run: |
+          cd sovereign-omega-v2
+          python3 -m unittest discover -s python/tests -p test_mutation_bridge_http.py -v
