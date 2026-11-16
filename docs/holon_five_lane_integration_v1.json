@@ -1,0 +1,74 @@
+{
+  "schema": "AEGIS.HOLON.IntegrationCandidate.V1",
+  "status": "OPEN_HOLD_NO_ADMISSION",
+  "base_commit": "ec5fea38b9abee0bf850a1d39b52bdd3fb7197ed",
+  "parent_candidate_commit": "489aa1a55709287927484a27c0384d1d8702c78a",
+  "source_heads": {
+    "PR802": "b76010b639a4cd891ce7e6465c68fcdc1c47d97f",
+    "PR803": "5a18704e7fe4ee73d97c68cd0b9870175a8adca9",
+    "PR804": "462f42555f805ed35ec0f635e4eefe048d2621fa",
+    "PR806": "489aa1a55709287927484a27c0384d1d8702c78a",
+    "PR809": "c542769fa1e6de537afa3e538e3932e9ae3b475e"
+  },
+  "source_blobs": [
+    {
+      "pr": 802,
+      "path": "sovereign-omega-v2/python/hardware_config.py",
+      "blob": "90cc200d3d890121a4996bb74dd2454a2295e698"
+    },
+    {
+      "pr": 802,
+      "path": "sovereign-omega-v2/python/tests/test_hardware_precision_v3.py",
+      "blob": "23b2521d67aa7c93f6b90bf15afea1fcd139436f"
+    },
+    {
+      "pr": 803,
+      "path": "aegis-cl-psi/src/causal_arbiter.rs",
+      "blob": "aa76de80cfb64412b21ab8350df0b4373f760bd2"
+    },
+    {
+      "pr": 804,
+      "path": "aegis-cl-psi/src/lattice_coherence.rs",
+      "blob": "f1899b5d8e138190e1213444249229f0a3a43542"
+    },
+    {
+      "pr": 809,
+      "path": "sovereign-omega-v2/python/exact_negacyclic_ntt.py",
+      "blob": "48028e32610b6c9c423673f8da82263de53e3a8e"
+    },
+    {
+      "pr": 809,
+      "path": "sovereign-omega-v2/python/tests/test_exact_negacyclic_ntt.py",
+      "blob": "464a2773aa9605adfea76b16b4e09b1597f14835"
+    }
+  ],
+  "combine_rules": {
+    "sovereign-omega-v2/python/core_matrix.py": "Retain candidate PR806 M1 API and checkpoint V2; PR810 M2/M3 are not imported; reconciliation OPEN",
+    ".github/workflows/ci.yml": "Preserve PR802 precision, PR806 M1/ledger, PR809 NTT test steps in one exact-head Python Bridge job",
+    ".claude.json": "Regenerated canonical state hash from trusted main and integration branch ref, do not reuse branch-local hashes"
+  },
+  "new_manifest_state_hash": "5685672dad2f1955f5c66685ab4869c9b2b0df711c29e7ff19086a7122373c7a",
+  "tests_gate": [
+    "test_hardware_config.py",
+    "test_hardware_precision_v3.py",
+    "test_ledger_persist_v2.py",
+    "test_m1_chain_checkpoint_v2.py",
+    "test_exact_negacyclic_ntt.py",
+    "aegis-cl-psi native Rust suite"
+  ],
+  "known_conflicts": [
+    "PR810 alternative M1/M2/M3 checkpoint V2 schema is NOT reconciled with PR806",
+    "active draft PRs overlap; no admission/merge without resolving overlap guard",
+    "Appwrite preview build failure also present on base main"
+  ],
+  "external_mutations": {
+    "main": false,
+    "production": false,
+    "merge": false
+  },
+  "verification": {
+    "source_blobs": "read via GitHub",
+    "native_candidate_CI": "OPEN",
+    "independent_review": "OPEN"
+  }
+}

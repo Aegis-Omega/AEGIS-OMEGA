@@ -9,7 +9,7 @@
   "provenance": {
     "generator": "scripts/build-cognitive-manifest.py",
     "repository": "Aegis-Omega/AEGIS-OMEGA",
-    "source_ref": "fix/holon-m1-chain-checkpoint-v2-20261116",
+    "source_ref": "integration/holon-five-lanes-v1-20261116",
     "parent_state_hash": "9d18ee4a9fcc765ba590df3ba655a3e0c85569e017d199b18eaeb83a952fa486",
     "signature_mode": "GITHUB_OIDC_ATTESTATION"
   },
@@ -488,5 +488,5 @@
       "on_success": "broadcast-attested-verified-event-stream"
     }
   },
-  "state_hash": "750555a9b6cffcde3fa0b2228a0b4b0adbdd0e39d314d44ad4a07aeea41c0bfd"
+  "state_hash": "5685672dad2f1955f5c66685ab4869c9b2b0df711c29e7ff19086a7122373c7a"
 }

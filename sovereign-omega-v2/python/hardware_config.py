@@ -174,22 +174,15 @@ def fixed_div(a: int, b: int) -> int:
 
 
 def fixed_sqrt(x: int) -> int:
-    """Integer square root of Q16.16 x. Returns Q16.16 result.
+    """Floor of sqrt(x / 2**16), returned in Q16.16.
 
-    For Q16.16 (x represents v * 65536): sqrt(v) in Q16.16 = isqrt(x) << 8.
-    Uses integer Newton-Raphson on the raw fixed-point value.
+    For nonnegative x, y = isqrt(x << 16) is exact integer arithmetic:
+    y*y <= (x << 16) < (y+1)*(y+1).
+    Negative inputs preserve the existing clamp-to-zero convention.
     """
     if x <= 0:
         return 0
-    # Integer sqrt of raw value via Newton-Raphson on integers
-    r = x
-    while True:
-        r1 = (r + x // r) >> 1
-        if r1 >= r:
-            break
-        r = r1
-    # r = isqrt(x); convert to Q16.16 by shifting up by SHIFT/2
-    return r << (INT_SHIFT_BITS >> 1)
+    return _math.isqrt(x << INT_SHIFT_BITS)
 
 
 def fixed_exp_decay(value: int, decay: int, target: int) -> int:
@@ -282,14 +275,18 @@ def cross_entropy_fixed(p_probs: list, q_probs: list) -> int:
 
 def mutual_information_fixed(joint: list, p_marginal: list, q_marginal: list) -> int:
     """
-    Mutual information I(X;Y) = Σ p(x,y) * log2(p(x,y) / p(x)*p(y)).
+    Mutual information I(X;Y) = sum p(x,y) * log2(p(x,y)/(p(x)*p(y))).
     joint: flat list of Q16.16 joint probabilities (len = |X| * |Y|).
     p_marginal, q_marginal: marginals over X and Y respectively.
-    Returns Q16.16.
+    Returns Q16.16, rounded once to nearest integer.
+
+    Keep px*py as an exact integer inside log2: quantizing this product
+    to Q16.16 first can turn a positive mass into zero and introduce
+    spurious multi-bit information.
     """
     n_x = len(p_marginal)
     n_y = len(q_marginal)
-    total = 0
+    total_q16 = 0.0
     for i, pxy in enumerate(joint):
         if pxy <= 0:
             continue
@@ -299,9 +296,10 @@ def mutual_information_fixed(joint: list, p_marginal: list, q_marginal: list) ->
         py = q_marginal[y] if y < len(q_marginal) else 0
         if px <= 0 or py <= 0:
             continue
-        log2_ratio = _log2_fixed(pxy) - _log2_fixed(fixed_mul(px, py))
-        total += fixed_mul(pxy, log2_ratio)
-    return total
+        log2_ratio = _math.log2(pxy * INT_SCALE) - _math.log2(px * py)
+        total_q16 += pxy * log2_ratio
+    # Floating-point roundoff must not produce negative information.
+    return max(0, round(total_q16))
 
 
 def entropy_rate_fixed(symbol_seq: list, alphabet_size: int) -> int:

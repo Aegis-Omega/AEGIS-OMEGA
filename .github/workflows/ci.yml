@@ -184,6 +184,9 @@ jobs:
       - name: Run hardware_config fixed-point tests
         run: python python/tests/test_hardware_config.py
 
+      - name: Run HOLON Q16 precision regressions
+        run: python -m unittest discover -s python/tests -p 'test_hardware_precision_v3.py' -v
+
       - name: Run constitutional identity tests
         run: python python/tests/test_constitutional_identity.py
 
@@ -201,6 +204,9 @@ jobs:
 
       - name: Verify transitive M1 history and checkpoint V2 regressions
         run: python python/tests/test_m1_chain_checkpoint_v2.py
+
+      - name: Verify exact ECCF negacyclic NTT algebra (104 checks)
+        run: python python/tests/test_exact_negacyclic_ntt.py
 
       # test_ledger_persist.py (v1) allocates 4 GB (real CoreMatrix bytearray) —
       # requires AMD RX 570 hardware-spec RAM; run locally only, not in CI.
