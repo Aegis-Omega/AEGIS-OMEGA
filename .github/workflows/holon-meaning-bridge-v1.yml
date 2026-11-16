@@ -4,14 +4,18 @@ on:
   pull_request:
     paths:
       - 'harness/sdk/holon_meaning_bridge.py'
+      - 'harness/sdk/holon_graph_verifier.py'
       - 'harness/tests/test_holon_meaning_bridge.py'
+      - 'harness/tests/test_holon_graph_verifier.py'
       - 'docs/HOLON_MEANING_BRIDGE_V1.md'
       - '.github/workflows/holon-meaning-bridge-v1.yml'
   push:
     branches: [feat/holon-meaning-heritage-bridge-v1]
     paths:
       - 'harness/sdk/holon_meaning_bridge.py'
+      - 'harness/sdk/holon_graph_verifier.py'
       - 'harness/tests/test_holon_meaning_bridge.py'
+      - 'harness/tests/test_holon_graph_verifier.py'
       - '.github/workflows/holon-meaning-bridge-v1.yml'
 
 permissions:
@@ -50,11 +54,14 @@ jobs:
             harness/sdk/meaning_heritage.py \
             harness/sdk/heritage_composition.py \
             harness/sdk/holon_meaning_bridge.py \
-            harness/tests/test_holon_meaning_bridge.py
+            harness/sdk/holon_graph_verifier.py \
+            harness/tests/test_holon_meaning_bridge.py \
+            harness/tests/test_holon_graph_verifier.py
       - name: Run bridge and inherited MHP falsifiers
         run: |
           python -m pytest -q \
             harness/tests/test_holon_meaning_bridge.py \
+            harness/tests/test_holon_graph_verifier.py \
             harness/tests/test_meaning_heritage_morphisms.py \
             harness/tests/test_heritage_fingerprint_hardening.py \
             harness/tests/test_heritage_transitive_composition.py
