@@ -214,6 +214,8 @@ class CoreMatrix:
         self._epoch: int = 0
         self._era: int = 0          # increments each time M1 wraps (circular log)
         self._running = False
+        self._closed = False
+        self._views_released = False
         self._lock = threading.RLock()
         self._ready = threading.Event()
 
@@ -234,6 +236,11 @@ class CoreMatrix:
 
     def start(self) -> None:
         """Start the core matrix and all subsystems."""
+        with self._lock:
+            if self._closed or self._views_released:
+                raise RuntimeError('CORE_MATRIX_CLOSED')
+            if self._running:
+                return
         self._pgcs.start()
         self._running = True
         self._ready.set()
@@ -258,6 +265,31 @@ class CoreMatrix:
                 'final_epoch': self._epoch,
             })
 
+    def close(self) -> None:
+        """Explicitly release the V15 anonymous arena after stop().
+
+        stop() retains the original postmortem telemetry contract. This
+        separate terminal operation releases all owned memoryviews and closes
+        the mmap. It is idempotent. Exported caller views may delay closing;
+        retrying close() is safe after those external views are released.
+        """
+        with self._lock:
+            if self._running:
+                raise RuntimeError('CORE_MATRIX_STOP_REQUIRED')
+            if self._closed:
+                return
+            if not self._views_released:
+                self._m1_region.release()
+                self._m2_region.release()
+                self._m3_region.release()
+                self._mem.release()
+                self._views_released = True
+            try:
+                self._array.close()
+            except BufferError as exc:
+                raise RuntimeError('CORE_MATRIX_EXPORTED_VIEW') from exc
+            self._closed = True
+
     def process_event(
         self,
         payload: bytes,
@@ -272,6 +304,8 @@ class CoreMatrix:
         INVARIANT: All temporal values derive from sequence, never wall clock.
         """
         with self._lock:
+            if self._closed or self._views_released:
+                raise RuntimeError('CORE_MATRIX_CLOSED')
             # Check failsafe state before processing — FROZEN and RECOVERING both gate events
             failsafe_state = self._failsafe.state
             if failsafe_state in (EpochState.FROZEN, EpochState.RECOVERING):
@@ -344,6 +378,8 @@ class CoreMatrix:
         sequence MUST come from the TypeScript event substrate.
         """
         with self._lock:
+            if self._closed or self._views_released:
+                raise RuntimeError('CORE_MATRIX_CLOSED')
             signal_byte = b'\x01' if accepted else b'\x00'
             M2(self._m2_region, signal_byte, INT_SCALE if accepted else 0, sequence)
 
@@ -408,6 +444,8 @@ class CoreMatrix:
         sequence/era counters — no torn read mid-process_event() (H-02).
         """
         with self._lock:
+            if self._closed or self._views_released:
+                raise RuntimeError('CORE_MATRIX_CLOSED')
             region_len = len(self._m1_region)
             chunk = 256
             positions = [0, region_len // 4, region_len // 2, (3 * region_len) // 4]
