@@ -150,15 +150,15 @@ class MutationAdmissionTests(unittest.TestCase):
         for proposal in ("", "with space", "../path", "a" * 129, None):
             with self.subTest(proposal=proposal):
                 ledger = self.make_ledger()
-                self.assertFalse(ledger.record(proposal, 1, True, 0.25, digest)[0], e_value=32.0, risk_spent=0.05, sample_size=20, e4_method="anytime_valid_bernstein")
+                self.assertFalse(ledger.record(proposal, 1, True, 0.25, digest , e_value=32.0, risk_spent=0.05, sample_size=20, e4_method="anytime_valid_bernstein")[0])
         for seq in (-1, True, False, 1.0, 2**64, None):
             with self.subTest(seq=seq):
                 ledger = self.make_ledger()
-                self.assertFalse(ledger.record("p", seq, True, 0.25, digest)[0], e_value=32.0, risk_spent=0.05, sample_size=20, e4_method="anytime_valid_bernstein")
+                self.assertFalse(ledger.record("p", seq, True, 0.25, digest , e_value=32.0, risk_spent=0.05, sample_size=20, e4_method="anytime_valid_bernstein")[0])
         for malformed in ("", "0" * 63, "Z" * 64, "0" * 65, None):
             with self.subTest(malformed=malformed):
                 ledger = self.make_ledger()
-                self.assertFalse(ledger.record("p", 1, True, 0.25, malformed)[0], e_value=32.0, risk_spent=0.05, sample_size=20, e4_method="anytime_valid_bernstein")
+                self.assertFalse(ledger.record("p", 1, True, 0.25, malformed , e_value=32.0, risk_spent=0.05, sample_size=20, e4_method="anytime_valid_bernstein")[0])
 
     def test_bounded_pending_and_revocation(self):
         ledger = MutationAdmissionLedger(max_pending=2)
