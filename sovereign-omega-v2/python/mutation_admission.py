@@ -30,6 +30,17 @@ def control_authenticated(provided: str | None, configured: str | None) -> bool:
     return hmac.compare_digest(candidate, actual)
 
 
+def control_secrets_distinct(gate_secret: str | None, event_secret: str | None) -> bool:
+    """Prevent a single caller credential from both issuing and using grants."""
+    if not isinstance(gate_secret, str) or not isinstance(event_secret, str):
+        return False
+    gate = gate_secret.encode("utf-8")
+    event = event_secret.encode("utf-8")
+    if len(gate) < 32 or len(event) < 32:
+        return False
+    return not hmac.compare_digest(gate, event)
+
+
 def event_digest(payload: bytes, verifier: bytes, context: bytes) -> str:
     """Versioned, length-framed SHA-256 binding to the exact routed event."""
     digest = hashlib.sha256(_EVENT_DOMAIN)
