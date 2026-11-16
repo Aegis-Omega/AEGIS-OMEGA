@@ -289,14 +289,14 @@ def test_swapped_receipt_is_not_authorized_by_another_context(example):
 
 
 def test_missing_derived_payload_fails_closed(example):
-    lens, verifier, artifacts, _, envelopes, _ = example
+    lens, verifier, artifacts, _, envelopes, _, _ = example
     env = envelopes.fetch_verified(lens.readings[0].envelope_root)
     artifacts.data.pop(env.derived_root)
     assert verifier.verify(lens)[0].error_codes == ("READING_DERIVED_ARTIFACT_UNTRUSTED",)
 
 
 def test_missing_claimset_fails_closed(example):
-    lens, verifier, artifacts, heritage, envelopes, claimsets = example
+    lens, verifier, artifacts, heritage, envelopes, claimsets, _ = example
     env = envelopes.fetch_verified(lens.readings[0].envelope_root)
     claimsets.data.pop(env.derived_claimset_receipt_root)
     assert verifier.verify(lens)[0].error_codes == ("READING_CLAIMSET_UNTRUSTED",)
