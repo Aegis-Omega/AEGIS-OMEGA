@@ -61,6 +61,17 @@ export class RiskBudgetManager {
       return this.makeDecision(proposalId, componentId, false, 0, 0, samples.length, 0, 'CAPACITY_EXCEEDED', currentMs)
     }
 
+    // Harmonic error allocation is over *tested proposals*, not only
+    // accepted proposals. Otherwise rejected independent null tests reuse
+    // alpha_1 without limit, violating any claimed family-wise risk bound.
+    if (
+      !Number.isSafeInteger(this.budget.max_rounds) ||
+      this.budget.max_rounds <= 0 ||
+      this.budget.round_number >= this.budget.max_rounds
+    ) {
+      this.suspended = true
+    }
+
     // Set suspension state if budget has fallen below floor
     if (this.currentBudget(currentMs) < BUDGET_SUSPEND_FLOOR) {
       this.suspended = true
@@ -112,18 +123,19 @@ export class RiskBudgetManager {
       && eValue >= eThreshold
     const accepted = lcbPass && evidencePass
 
-    if (accepted) {
-      const riskSpent = deltaAlpha
-      const newBudget = Object.freeze({
-        ...this.budget,
-        spent: this.budget.spent + riskSpent,
-        round_number: k,
-      })
-      this.budget = newBudget
-
-      if (this.currentBudget(currentMs) < BUDGET_SUSPEND_FLOOR) {
-        this.suspended = true
-      }
+    // One error-budget slot is consumed by every statistically evaluated
+    // candidate, including failed candidates. Only confirmed modifications
+    // consume the separate "spent" monetary-like risk reservoir.
+    this.budget = Object.freeze({
+      ...this.budget,
+      spent: this.budget.spent + (accepted ? deltaAlpha : 0),
+      round_number: k,
+    })
+    if (
+      this.budget.round_number >= this.budget.max_rounds ||
+      this.currentBudget(currentMs) < BUDGET_SUSPEND_FLOOR
+    ) {
+      this.suspended = true
     }
 
     return this.makeDecision(
