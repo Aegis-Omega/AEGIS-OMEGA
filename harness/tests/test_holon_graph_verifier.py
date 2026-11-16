@@ -216,10 +216,20 @@ def test_child_missing_parent_reciprocity_fails(case):
     assert error(case, changed) == ("GRAPH_CHILD_RECIPROCITY_MISSING",)
 
 
-def test_two_node_cycle_rejected(case):
-    parent = replace(case["parent"], part_of=(case["child"].holon_id,), scale="atomic")
-    child = replace(case["child"], composed_of=(case["parent"].holon_id,))
-    changed = case["build"](parent, child, include_meaning=False)
+def test_three_node_cycle_rejected(case):
+    # A two-node cycle already violates HolonSnapshotV1's local parent/child
+    # overlap invariant. Three nodes exercise the actual whole-graph Kahn gate.
+    midpoint_id = "research.holon.midpoint"
+    parent = replace(case["parent"], part_of=(midpoint_id,), scale="atomic")
+    child = replace(case["child"], composed_of=(midpoint_id,))
+    middle = replace(
+        case["parent"],
+        holon_id=midpoint_id,
+        scale="atomic",
+        part_of=(child.holon_id,),
+        composed_of=(parent.holon_id,),
+    )
+    changed = case["build"](parent, child, middle, include_meaning=False)
     assert error(case, changed) == ("GRAPH_CYCLE_DETECTED",)
 
 
