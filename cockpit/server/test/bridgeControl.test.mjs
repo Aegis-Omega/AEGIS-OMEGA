@@ -25,7 +25,7 @@ test('two deterministic frames bind the same exact bytes', () => {
   const first = encodeAdmittedGovernanceMutation(source)
   const second = encodeAdmittedGovernanceMutation(source)
   assert.deepEqual(first, second)
-  assert.equal(first.gate_signal.proposal_id, source.proposalId)
+  assert.equal(first.gate_signal.proposal_id, source.decision.proposal_id)
   assert.equal(first.gate_signal.sequence, 17)
   assert.equal(first.gate_signal.accepted, true)
   assert.equal(first.gate_signal.lcb, 0.125)
