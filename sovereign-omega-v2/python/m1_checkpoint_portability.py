@@ -201,6 +201,27 @@ def plan_chain_relocation(checkpoint: dict, target_slots: int) -> ChainRelocatio
     )
 
 
+def plan_pinned_checkpoint_relocation(
+    raw: bytes, expected_sha256: str, target_slots: int,
+) -> ChainRelocationPlan:
+    """Verify a separately trusted exact-byte checkpoint digest and then plan.
+
+    expected_sha256 MUST come from an operator-approved, independently pinned
+    receipt. Never read it from the same file or treat an unkeyed in-file hash
+    as authentication. This is read-only and never grants runtime admission.
+    """
+    if (type(expected_sha256) is not str or
+            re.fullmatch("[0-9a-f]{64}", expected_sha256) is None):
+        raise PortabilityError("EXTERNAL_SHA256_PIN_INVALID")
+    if type(raw) is not bytes or not 0 < len(raw) <= MAX_CHECKPOINT_JSON_BYTES:
+        raise PortabilityError("BAD_CHECKPOINT_BYTES_OR_LENGTH")
+    observed_sha = sha256(raw).hexdigest()
+    if not compare_digest(observed_sha, expected_sha256):
+        raise PortabilityError("EXTERNAL_SHA256_PIN_MISMATCH")
+    validated = parse_checkpoint_json(raw)
+    return plan_chain_relocation(validated, target_slots)
+
+
 def next_digest_from_anchor(plan: ChainRelocationPlan, payload: bytes) -> str:
     """Algebraic M1 formula used identically by PR #806 / #810."""
     if type(payload) is not bytes:
