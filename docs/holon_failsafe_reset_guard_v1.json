@@ -1,0 +1,34 @@
+{
+  "schema": "AEGIS.HOLON.FailsafeResetGuard.V1",
+  "source_parent_sha": "556e915d5f0fae190fefefb077ace0a9a89a6515",
+  "source_epoch_failsafe_blob": "483e26cff94c963cd1aa71b55fe6eb55182559cb",
+  "target_pull_request": 813,
+  "status": "DRAFT_PENDING_EXACT_HEAD_CI",
+  "date": "2026-11-16",
+  "defect": "No-argument reset_after_recovery previously released QUARANTINE and RECOVERING directly into ACTIVE without authorization",
+  "correction": "Clear only partial failure counter when already ACTIVE; never release QUARANTINE, RECOVERING or FROZEN",
+  "direct_source_paths": [
+    "sovereign-omega-v2/python/epoch_failsafe.py",
+    "sovereign-omega-v2/python/tests/test_failsafe_reset_guard_v1.py",
+    ".github/workflows/ci.yml"
+  ],
+  "regression_test_methods": 5,
+  "preserve": [
+    "All three original math CI tests",
+    "Current checkpoint 2.3.0",
+    "M1/M2/M3",
+    "GitHub overlap and admission gates"
+  ],
+  "open": [
+    "No authorization model for human-supervised recovery",
+    "Concurrent matrix/failsafe lock order not proven",
+    "Legacy stress_test.py uses reset_after_recovery without supervised evidence",
+    "Source branch tests and exact-head CI still required",
+    "Appwrite external build still failing"
+  ],
+  "governance": {
+    "protected_main_modified": false,
+    "production_modified": false,
+    "merged": false
+  }
+}

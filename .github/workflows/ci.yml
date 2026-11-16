@@ -205,6 +205,9 @@ jobs:
       - name: Verify transitive M1 history and checkpoint V2 regressions
         run: python python/tests/test_m1_chain_checkpoint_v2.py
 
+      - name: Verify failsafe reset cannot release quarantine
+        run: python python/tests/test_failsafe_reset_guard_v1.py
+
       - name: Verify exact ECCF negacyclic NTT algebra (104 checks)
         run: python python/tests/test_exact_negacyclic_ntt.py
 
