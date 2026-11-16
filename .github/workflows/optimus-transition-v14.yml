@@ -1,0 +1,52 @@
+name: OPTIMUS V14 Transition Statistics
+
+on:
+  push:
+    branches:
+      - research/optimus-streaming-info-v14-20261116
+    paths:
+      - sovereign-omega-v2/python/transition_info.py
+      - sovereign-omega-v2/python/tests/test_transition_info.py
+      - sovereign-omega-v2/python/core_matrix.py
+      - sovereign-omega-v2/python/transition_observer.py
+      - sovereign-omega-v2/python/tests/test_transition_observer.py
+      - .github/workflows/optimus-transition-v14.yml
+  pull_request:
+    branches:
+      - main
+      - research/holon-q16-precision-v3-20261116
+    paths:
+      - sovereign-omega-v2/python/transition_info.py
+      - sovereign-omega-v2/python/tests/test_transition_info.py
+      - sovereign-omega-v2/python/core_matrix.py
+      - sovereign-omega-v2/python/transition_observer.py
+      - sovereign-omega-v2/python/tests/test_transition_observer.py
+      - .github/workflows/optimus-transition-v14.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  independent-transition-validation:
+    name: Exact transition math and source/summary separation
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - name: Checkout tested commit
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - name: Check Python version
+        run: python3 -c "import sys; assert sys.version_info >= (3, 11), sys.version"
+      - name: Exact reference and metamorphic regressions
+        run: |
+          cd sovereign-omega-v2
+          python3 -m unittest discover -s python/tests -p test_transition_info.py -v
+      - name: Optional CoreMatrix integration, default-off and gate noninterference
+        run: |
+          cd sovereign-omega-v2
+          python3 -m unittest discover -s python/tests -p test_transition_observer.py -v
+      - name: Executable CLI smoke
+        run: |
+          cd sovereign-omega-v2
+          printf '0\n1\n0\n1\n' |
+            python3 python/transition_info.py --alphabet 2 --source-id github-native-v14
