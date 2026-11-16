@@ -219,10 +219,14 @@ class EpochFailsafeController:
         return expected == snapshot.snapshot_hash
 
     def reset_after_recovery(self):
-        """Reset the failsafe state after successful human-supervised recovery."""
+        """Clear partial failures only when the controller is already ACTIVE.
+
+        This no-argument method does not carry evidence of supervised recovery.
+        It must never release QUARANTINE, RECOVERING or FROZEN. Recovery from
+        those states requires a separately authorized, verified protocol.
+        """
         with self._lock:
-            if self._state != EpochState.FROZEN:
-                self._state = EpochState.ACTIVE
+            if self._state == EpochState.ACTIVE:
                 self._consecutive_failures = 0
 
     @property

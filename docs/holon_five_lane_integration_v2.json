@@ -1,0 +1,66 @@
+{
+  "schema": "AEGIS.HOLON.CompositeIntegration.V2",
+  "created_date": "2026-11-16",
+  "stage": "RESEARCH_DRAFT_HOLD_NO_ADMISSION",
+  "base_main_sha": "ec5fea38b9abee0bf850a1d39b52bdd3fb7197ed",
+  "previous_composite_head": "e5cf8bcd0d238951dcbcaf5181c272f52022786d",
+  "new_composite_parent": "e5cf8bcd0d238951dcbcaf5181c272f52022786d",
+  "source_m123_pr": 810,
+  "source_m123_exact_head": "cf30ec8ee3f40d534247cec60c50fdce4b642f80",
+  "source_m123_base": "489aa1a55709287927484a27c0384d1d8702c78a",
+  "m1_algorithm": "SHA256(previous_chain_digest || SHA256(payload))",
+  "checkpoint_version": "2.2.0",
+  "checkpoint_format": "calibrator-RLE-full-continuation-without-event-payload-replay",
+  "source_blobs": {
+    ".github/workflows/m123-v2-contracts.yml": "f42cb8df5346c976ec50b89bd82a962c37cc4437",
+    "docs/AUDIT_FINDINGS.md": "4994f4b5064cc4cb5a140f8e50be3432bee8a40b",
+    "docs/ONTOLOGY.md": "a04e6c2fb356721cb9c24f53accdf6aa0a628a03",
+    "sovereign-omega-v2/python/bridge.py": "b2b5f240a97811803b2d0446e9d0ce94ea91f1d6",
+    "sovereign-omega-v2/python/calibration_checkpoint.py": "e726222f5ff4ba425918bcea91a70be96c95fc95",
+    "sovereign-omega-v2/python/core_matrix.py": "ad9c64e41f6192734be391ce9b415e638e196643",
+    "sovereign-omega-v2/python/gradient_anchor.py": "182b628459825c71295e9bddcdba03b152d60e65",
+    "sovereign-omega-v2/python/ledger_persist.py": "3e4bb5253959989c3d33362b013153628c767a6b",
+    "sovereign-omega-v2/python/m1_chain.py": "dab08ab13d5500b557cca7eadd7b0ad7eae7c435",
+    "sovereign-omega-v2/python/tests/test_ledger_persist.py": "05d6b1fc22e50de13defcebd7e4616fc8f5f90df",
+    "sovereign-omega-v2/python/tests/test_ledger_persist_v2.py": "29d35ebdc35f24c2bea8a033c8825bb7f503eda2",
+    "sovereign-omega-v2/python/tests/test_m123_contracts_v2.py": "d19988545680d872cc6637bd7a666bf0814444d9"
+  },
+  "retained_composite_lanes": {
+    "PR802": "Q16.16 information mathematics and sqrt",
+    "PR803": "causal cycle and confidence validation",
+    "PR804": "L4 partial coherence fail-closed",
+    "PR806": "transitive M1 baseline",
+    "PR809": "exact F65537 negacyclic NTT"
+  },
+  "ci_gates": {
+    "preserved_core": [
+      "test_hardware_precision_v3.py",
+      "test_m1_chain_checkpoint_v2.py",
+      "test_exact_negacyclic_ntt.py"
+    ],
+    "new_independent": ".github/workflows/m123-v2-contracts.yml",
+    "candidate_status": "PENDING_EXACT_COMPOSITE_CI"
+  },
+  "interoperability": {
+    "checkpoint_2_0": "REFUSED_NOT_MIGRATED",
+    "checkpoint_2_1": "REFUSED_NOT_MIGRATED",
+    "checkpoint_2_2": "NEW_CANDIDATE",
+    "full_event_history_replay": "NOT_ESTABLISHED",
+    "authenticated_checkpoint_provenance": "NOT_ESTABLISHED"
+  },
+  "remaining_open": [
+    "Confirm native Python Bridge, Rust CL-PSI, 34 M123 tests and other checks on combined head",
+    "PR overlap guard against open original PRs, do not weaken or bypass",
+    "Independent review of PR811 authenticated E4 bridge caller contract; not included",
+    "Independent meaning lineage PR812; not included",
+    "External Appwrite base-build failure requires build log/root cause",
+    "Production V1/V2 checkpoint migration and real external event ledger",
+    "Manual admission, explicit named merge authorization and protected-main release"
+  ],
+  "governance": {
+    "merge_main": false,
+    "deploy": false,
+    "modify_protected_rules": false,
+    "change_secrets": false
+  }
+}

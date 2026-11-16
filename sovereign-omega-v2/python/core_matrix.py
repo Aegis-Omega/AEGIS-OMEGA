@@ -229,7 +229,10 @@ class CoreMatrix:
         distinct COMMITTED status: irreversible M1 digests are never disguised
         as rolled-back events.
         """
-        with self._lock:
+        # Keep the calibration plan, M1 append and epoch commit in one
+        # exclusion zone. Lock order: CoreMatrix, then calibrator. No reverse
+        # acquisition is permitted in calibration methods.
+        with self._lock, self._calibrator._lock:
             failsafe_state = self._failsafe.state
             if failsafe_state in (EpochState.QUARANTINE, EpochState.FROZEN, EpochState.RECOVERING):
                 return {'status': failsafe_state.value.upper(), 'sequence': self._sequence}

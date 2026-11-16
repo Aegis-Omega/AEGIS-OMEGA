@@ -299,3 +299,13 @@ The 2.2.0 draft introduces `calibration_checkpoint.py`, with lossless consecutiv
 **Draft candidate:** checkpoint 2.3.0 stores `failsafe_snapshot` and its explicit presence declaration, validates a versioned full-state import with strict counters, snapshot hashes, logs, resource ceilings and target freshness before installing. A real CoreMatrix may not load a chain-only mock checkpoint; versions 1.0 through 2.2 reject without fallback. `process_event` blocks QUARANTINE, RECOVERING and FROZEN. CI extends the actual-module regression suite with frozen recovery, quarantine, partial failure counts, snapshot tampering, both buffer snapshots and negative-freshness tests.
 
 **Critical limits:** existing exported snapshot hashes are unkeyed, so this does not authenticate a malicious writer. No full replay, immutable event archive, or production restore receipt is established. Concurrent `report_agent_failure` outside CoreMatrix's event lock and direct controller manipulation still need an independent lock-order/concurrency audit. **DRAFT / HOLD_NO_ADMISSION until exact-HEAD CI PASS.**
+
+### HOLON composite lineage reconciliation, PR #806 → #810 → #813 (2026-11-16)
+
+**Research merge candidate (NOT an admission receipt):** exact PR #810 head `d54284fa502b310961a475c807a7d2e51ed9990e` is the canonical source of the M1/M2/M3 contracts and checkpoint 2.3.0. Previous #813 head `c0e466bf740f5b243effeaa6caa9183ac15ac613` contains the independent five-lane Q16, causal, lattice-coherence, and NTT research updates. New reconciliation must preserve both commit histories and match exact source blob IDs recorded in `docs/holon_five_lane_integration_v3.json`. Historical V2 receipt is preserved unchanged as evidence of an earlier 2.2.0 candidate; it does **not** describe current 2.3 state.
+
+Use an ancestry-verified merge commit with #813 and #810 as parents and retarget #813 to the named #810 draft branch, with `stacked-pr` only if the real base/HEAD comparison verifies. Preserve CI enforcement and the five-lane source files. No production checkpoint migration.
+
+**Gates still required:** independently run M123, Python Bridge, exact NTT, Q16, Rust CL-Ψ, trusted cognitive admission, Automaton checks, PR Overlap Guard and external Appwrite status on the new composite SHA. Some overlaps with third-party draft source lanes may persist even after direct #810/#813 ancestry becomes correct; record them, do not exempt unrelated PRs or weaken policies.
+
+**Status:** OPEN / DRAFT / HOLD_NO_ADMISSION. No assertion of deployed or merged code.

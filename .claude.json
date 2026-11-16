@@ -9,8 +9,8 @@
   "provenance": {
     "generator": "scripts/build-cognitive-manifest.py",
     "repository": "Aegis-Omega/AEGIS-OMEGA",
-    "source_ref": "research/holon-m123-contracts-v2-20261116",
-    "parent_state_hash": "750555a9b6cffcde3fa0b2228a0b4b0adbdd0e39d314d44ad4a07aeea41c0bfd",
+    "source_ref": "integration/holon-five-lanes-v1-20261116",
+    "parent_state_hash": "7c73c0f4b9ba6aa6d80c3c66c8c1973f5af51828b268c5c1f2b308ebf3453162",
     "signature_mode": "GITHUB_OIDC_ATTESTATION"
   },
   "hashing": {
@@ -488,5 +488,5 @@
       "on_success": "broadcast-attested-verified-event-stream"
     }
   },
-  "state_hash": "7c73c0f4b9ba6aa6d80c3c66c8c1973f5af51828b268c5c1f2b308ebf3453162"
+  "state_hash": "e70d47ad23af244a8893a296d26554f13e428100757026dfc7531214187d414c"
 }
