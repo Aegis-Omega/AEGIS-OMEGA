@@ -10,9 +10,15 @@ import json
 import os
 import tempfile
 
-CHECKPOINT_VERSION = '2.1.0' # Adds verified calibration counters; legacy 2.0 cannot resume them
+from calibration_checkpoint import (
+    CalibrationCheckpointError, snapshot_calibration,
+    prepare_calibration_restore, require_fresh_calibrator,
+    install_calibration,
+)
+
+CHECKPOINT_VERSION = '2.2.0'  # Adds versioned, lossless calibrator-state continuation
 CHAIN_MODE = 'sha256-prev-chain-plus-sha256-payload-v2'  # identical PR #806 M1 digest
-STATE_CONTRACT = 'm123-calibration-counters-v1'
+STATE_CONTRACT = 'm123-calibration-state-rle-v2'
 DEFAULT_CHECKPOINT_PATH = os.environ.get(
     'AEGIS_CHECKPOINT_PATH',
     os.path.join(os.path.dirname(__file__), 'aegis_checkpoint.json'),
@@ -61,6 +67,18 @@ def _integrity_hash(obj):
 def save_checkpoint(matrix, path: str = DEFAULT_CHECKPOINT_PATH) -> dict:
     """Persist a chain-continuation anchor atomically; not the event history."""
     with matrix._lock:
+        calibrator = getattr(matrix, '_calibrator', None)
+        if calibrator is not None:
+            try:
+                calibration = snapshot_calibration(calibrator)
+                if calibration['epoch'] != matrix._epoch:
+                    raise CalibrationCheckpointError('matrix and calibrator epochs disagree')
+            except CalibrationCheckpointError as err:
+                raise CheckpointError('Unsafe calibration checkpoint: ' + str(err)) from err
+        else:
+            # Chain-only mock/standalone use is explicit and NEVER claims
+            # calibration continuation. A real CoreMatrix always has _calibrator.
+            calibration = None
         body = {
             'checkpoint_version': CHECKPOINT_VERSION,
             'chain_mode': CHAIN_MODE,
@@ -69,6 +87,8 @@ def save_checkpoint(matrix, path: str = DEFAULT_CHECKPOINT_PATH) -> dict:
             'era': matrix._era,
             'm1_capacity_slots': _m1_slots(matrix),
             'state_contract': STATE_CONTRACT,
+            'calibration_snapshot': calibration,
+            'is_calibration_continuation_supported': calibration is not None,
             'total_processed': getattr(matrix, '_total_processed', matrix._sequence),
             'total_verified': getattr(matrix, '_total_verified', 0),
             'total_vcg_error_fixed': getattr(matrix, '_total_vcg_error_fixed', 0),
@@ -113,6 +133,7 @@ def save_checkpoint(matrix, path: str = DEFAULT_CHECKPOINT_PATH) -> dict:
         'checkpoint_version': CHECKPOINT_VERSION,
         'is_replay_reconstructable': False,
         'is_chain_continuation_supported': True,
+        'is_calibration_continuation_supported': calibration is not None,
     }
 
 
@@ -143,6 +164,21 @@ def load_checkpoint(matrix, path: str = DEFAULT_CHECKPOINT_PATH) -> dict:
     })
     if actual_digest != expected_digest:
         raise CheckpointError('Integrity violation: checkpoint data changed')
+    calibration = body.get('calibration_snapshot')
+    is_calibration = body.get('is_calibration_continuation_supported')
+    if type(is_calibration) is not bool:
+        raise CheckpointError('Missing calibration-continuation declaration')
+    if is_calibration != (calibration is not None):
+        raise CheckpointError('Calibration snapshot/declaration mismatch')
+    calibrator = getattr(matrix, '_calibrator', None)
+    if is_calibration:
+        if calibrator is None:
+            raise CheckpointError('Cannot restore calibration into chain-only matrix')
+        # The exact epoch and token identities are validated below, before
+        # any M1 state is modified.
+    elif calibrator is not None:
+        raise CheckpointError('Real CoreMatrix requires full calibration checkpoint')
+
     counter_keys = ('sequence', 'epoch', 'era', 'total_processed',
                     'total_verified', 'total_vcg_error_fixed')
     if any(type(body.get(k)) is not int or body[k] < 0 for k in counter_keys):
@@ -179,9 +215,21 @@ def load_checkpoint(matrix, path: str = DEFAULT_CHECKPOINT_PATH) -> dict:
             raise CheckpointError('M1 record digest missing')
     elif record != b'\x00' * _M1_ENTRY_BYTES:
         raise CheckpointError('Genesis record must be all zeroes')
+    if is_calibration:
+        try:
+            prepared = prepare_calibration_restore(calibrator, calibration, epoch)
+        except CalibrationCheckpointError as err:
+            raise CheckpointError('Unsafe calibration restore: ' + str(err)) from err
+    else:
+        prepared = None
     with matrix._lock:
         if getattr(matrix, '_sequence', -1) != 0 or getattr(matrix, '_total_processed', 0) != 0:
             raise CheckpointError('Resume requires an unprocessed matrix')
+        if prepared is not None:
+            try:
+                require_fresh_calibrator(calibrator)
+            except CalibrationCheckpointError as err:
+                raise CheckpointError('Unsafe calibration target: ' + str(err)) from err
         if sequence:
             head = ((sequence - 1) % capacity) * _M1_ENTRY_BYTES
             matrix._m1_region[head:head + _M1_ENTRY_BYTES] = record
@@ -194,9 +242,12 @@ def load_checkpoint(matrix, path: str = DEFAULT_CHECKPOINT_PATH) -> dict:
         matrix._last_gate_signal_sequence = body['last_gate_signal_sequence']
         matrix._last_gate_signal_accepted = body['last_gate_signal_accepted']
         matrix._m3_active_length = 0  # context is ephemeral, not replayed
+        if prepared is not None:
+            install_calibration(calibrator, prepared)
     return {
         'sequence': sequence, 'epoch': epoch, 'era': era,
         'integrity_hash': actual_digest, 'path': path,
+        'is_calibration_continuation_supported': is_calibration,
     }
 
 

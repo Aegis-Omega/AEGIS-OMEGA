@@ -5,6 +5,8 @@ on:
     paths:
       - 'sovereign-omega-v2/python/core_matrix.py'
       - 'sovereign-omega-v2/python/ledger_persist.py'
+      - 'sovereign-omega-v2/python/calibration_checkpoint.py'
+      - 'sovereign-omega-v2/python/gradient_anchor.py'
       - 'sovereign-omega-v2/python/bridge.py'
       - 'sovereign-omega-v2/python/tests/test_m123_contracts_v2.py'
       - 'sovereign-omega-v2/python/tests/test_ledger_persist_v2.py'

@@ -19,8 +19,13 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 
 from core_matrix import CoreMatrix, M1, M2, M3
 from epoch_failsafe import EpochState
+from gradient_anchor import GradientAnchorCalibrator, DEFAULT_ANCHOR_TOKENS, AnchorToken
 from hardware_config import INT_SCALE
-from ledger_persist import CheckpointError, load_checkpoint, save_checkpoint
+from ledger_persist import CheckpointError, load_checkpoint, save_checkpoint, _integrity_hash
+from calibration_checkpoint import (
+    CalibrationCheckpointError, snapshot_calibration,
+    prepare_calibration_restore, install_calibration
+)
 
 
 def oracle(payloads):
@@ -49,11 +54,7 @@ def matrix_fixture(slots=3):
     m._last_gate_signal_accepted = None
     m._event_cb = None
     m._failsafe = SimpleNamespace(state=EpochState.ACTIVE)
-    m._calibrator = SimpleNamespace(
-        get_w_scale=lambda _: INT_SCALE,
-        compute_drift_index=lambda: 0.0,
-        calibrate_epoch=lambda epoch: [],
-    )
+    m._calibrator = GradientAnchorCalibrator(DEFAULT_ANCHOR_TOKENS)
     return m
 
 
@@ -211,7 +212,8 @@ class CheckpointV2(unittest.TestCase):
             self.assertFalse(meta['is_replay_reconstructable'])
             with open(path, encoding='utf-8') as f:
                 cp = json.load(f)
-            self.assertEqual(cp['checkpoint_version'], '2.1.0')
+            self.assertEqual(cp['checkpoint_version'], '2.2.0')
+            self.assertTrue(cp['is_calibration_continuation_supported'])
             restored = matrix_fixture(3)
             load_checkpoint(restored, path)
             for i in range(8, 24):
@@ -283,6 +285,149 @@ class CheckpointV2(unittest.TestCase):
             with self.assertRaises(CheckpointError):
                 load_checkpoint(m, path)
         self.assertEqual(m._sequence, 0)
+
+
+
+class CalibrationContinuationV22(unittest.TestCase):
+    def test_rle_is_lossless_and_preserves_convergence(self):
+        source = GradientAnchorCalibrator(DEFAULT_ANCHOR_TOKENS)
+        for epoch in range(1, 251):
+            source.calibrate_epoch(epoch)
+        self.assertEqual(source.convergence_epochs(), 250)
+        record = snapshot_calibration(source)
+        # Stable token measurements compress to one batch + repetition count.
+        self.assertEqual(len(record['measurement_runs']), 1)
+        self.assertEqual(record['measurement_runs'][0][1], 250)
+        self.assertLess(len(json.dumps(record)), 2500)
+        target = GradientAnchorCalibrator(DEFAULT_ANCHOR_TOKENS)
+        prepared = prepare_calibration_restore(target, record, 250)
+        install_calibration(target, prepared)
+        self.assertEqual(target._state.measurements, source._state.measurements)
+        self.assertEqual(target._state.w_scales, source._state.w_scales)
+        self.assertEqual(target._velocities, source._velocities)
+        self.assertEqual(target.convergence_epochs(), 250)
+        self.assertEqual(target.passes_criterion(250), source.passes_criterion(250))
+        self.assertEqual(target.compute_drift_index(), source.compute_drift_index())
+        for epoch in range(251, 261):
+            self.assertEqual(target.calibrate_epoch(epoch),
+                             source.calibrate_epoch(epoch))
+
+    def test_checkpoint_restores_calibration_across_epoch_boundary(self):
+        live, restarted = matrix_fixture(3), matrix_fixture(3)
+        with tempfile.TemporaryDirectory() as tmp:
+            path = os.path.join(tmp, 'cp.json')
+            for i in range(1, 251):
+                live.process_event(str(i).encode(), b'', b'token')
+            self.assertEqual(live._epoch, 2)
+            self.assertEqual(live._calibrator._state.epoch, 2)
+            save_checkpoint(live, path)
+            with open(path, encoding='utf-8') as h:
+                cp = json.load(h)
+            self.assertEqual(cp['checkpoint_version'], '2.2.0')
+            self.assertTrue(cp['is_calibration_continuation_supported'])
+            self.assertEqual(cp['calibration_snapshot']['epoch'], 2)
+            load_checkpoint(restarted, path)
+            self.assertEqual(restarted._calibrator._state.measurements,
+                             live._calibrator._state.measurements)
+            for i in range(251, 401):
+                payload = str(i).encode()
+                a = live.process_event(payload, b'', b'token')
+                b = restarted.process_event(payload, b'', b'token')
+                self.assertEqual(a['state_hash'], b['state_hash'])
+                self.assertEqual(a['drift_index'], b['drift_index'])
+            self.assertEqual(restarted._epoch, 4)
+            self.assertEqual(restarted._calibrator._state.measurements,
+                             live._calibrator._state.measurements)
+
+    def test_changed_calibration_data_denied_even_with_forged_checksum(self):
+        source = matrix_fixture(3)
+        with tempfile.TemporaryDirectory() as tmp:
+            path = os.path.join(tmp, 'cp.json')
+            for i in range(100):
+                source.process_event(b'x', b'', b'')
+            save_checkpoint(source, path)
+            with open(path, encoding='utf-8') as h:
+                cp = json.load(h)
+            cp['calibration_snapshot']['measurement_runs'][0][2][0][1] += 1
+            cp['integrity_hash'] = _integrity_hash({
+                k: v for k, v in cp.items() if k != 'integrity_hash'
+            })
+            with open(path, 'w', encoding='utf-8') as h:
+                json.dump(cp, h)
+            target = matrix_fixture(3)
+            with self.assertRaisesRegex(CheckpointError, 'calibration'):
+                load_checkpoint(target, path)
+            self.assertEqual(target._sequence, 0)
+            self.assertEqual(target._calibrator._state.measurements, [])
+
+    def test_mismatched_anchor_registry_denied_without_mutation(self):
+        source = matrix_fixture(3)
+        source.process_event(b'x', b'', b'')
+        with tempfile.TemporaryDirectory() as tmp:
+            path = os.path.join(tmp, 'cp.json')
+            save_checkpoint(source, path)
+            target = matrix_fixture(3)
+            target._calibrator.inject_anchor_token(AnchorToken(
+                token_id='NEW_ANCHOR', token_hash='00' * 32,
+                expected_w_scale=INT_SCALE, tolerance_fixed=0,
+                description='Different trusted source'))
+            with self.assertRaises(CheckpointError):
+                load_checkpoint(target, path)
+            self.assertEqual(target._sequence, 0)
+
+    def test_calibrator_without_snapshot_is_refused_for_real_matrix(self):
+        chain_only = SimpleNamespace(
+            _lock=threading.RLock(),
+            _m1_region=memoryview(bytearray(120)),
+            _sequence=0, _epoch=0, _era=0,
+            _total_processed=0, _total_verified=0,
+            _total_vcg_error_fixed=0,
+            _last_gate_signal_sequence=-1,
+            _last_gate_signal_accepted=None,
+        )
+        with tempfile.TemporaryDirectory() as tmp:
+            path = os.path.join(tmp, 'cp.json')
+            meta = save_checkpoint(chain_only, path)
+            self.assertFalse(meta['is_calibration_continuation_supported'])
+            target = matrix_fixture(3)
+            with self.assertRaises(CheckpointError):
+                load_checkpoint(target, path)
+            self.assertEqual(target._sequence, 0)
+
+    def test_resource_cap_rejects_overlarge_expansion(self):
+        from unittest.mock import patch
+        import calibration_checkpoint as codec
+        source = GradientAnchorCalibrator(DEFAULT_ANCHOR_TOKENS)
+        source.calibrate_epoch(1)
+        body = snapshot_calibration(source)
+        target = GradientAnchorCalibrator(DEFAULT_ANCHOR_TOKENS)
+        with patch.object(codec, 'MAX_RESTORE_MEASUREMENTS', 4):
+            with self.assertRaisesRegex(CalibrationCheckpointError, 'limit'):
+                prepare_calibration_restore(target, body, 1)
+            self.assertEqual(target._state.epoch, 0)
+            self.assertEqual(target._state.measurements, [])
+
+    def test_tampered_rle_run_denied_before_expansion(self):
+        source = GradientAnchorCalibrator(DEFAULT_ANCHOR_TOKENS)
+        source.calibrate_epoch(1)
+        body = snapshot_calibration(source)
+        body['measurement_runs'][0][1] = 1000000000
+        target = GradientAnchorCalibrator(DEFAULT_ANCHOR_TOKENS)
+        with self.assertRaises(CalibrationCheckpointError):
+            prepare_calibration_restore(target, body, 1)
+        self.assertEqual(target._state.measurements, [])
+
+    def test_state_epoch_type_invalid_fails_closed(self):
+        source = GradientAnchorCalibrator(DEFAULT_ANCHOR_TOKENS)
+        source._state.epoch = 'not-an-epoch'
+        with self.assertRaises(CalibrationCheckpointError):
+            snapshot_calibration(source)
+
+    def test_nonreproducible_nonzero_anchor_initial_state_denied(self):
+        source = GradientAnchorCalibrator(DEFAULT_ANCHOR_TOKENS)
+        source._state.w_scales['GATE_ACCEPT_THRESHOLD'] = INT_SCALE + 1
+        with self.assertRaises(CalibrationCheckpointError):
+            snapshot_calibration(source)
 
 
 if __name__ == '__main__':

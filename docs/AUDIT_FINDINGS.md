@@ -274,3 +274,12 @@ A passing regression test is not a formal security proof or a production receipt
 - **Source of M2/M3:** PR #810 fail-closed statistical gate and byte projection corrections; actual CI MUST be checked on the stacked candidate HEAD.
 - **Checkpoint 2.1.0:** distinguishes newly persisted calibration counters from older 2.0.0 format, rejects all earlier versions for resume. Preservation of calibrator model state across epochs remains unproven.
 - **Authorization:** review admission is not equivalent to a merge; keep DRAFT/HOLD_NO_ADMISSION until the exact-head gates and independent review approve.
+
+### Calibration Continuation Checkpoint 2.2.0 (draft candidate, 2026-11-16)
+
+The 2.1.0 checkpoint preserved M1 SHA-256 chain continuity and calibration **counters**, but lost actual `GradientAnchorCalibrator` dynamic state. That state includes token-specific `w_scales`, momentum `_velocities`, `cumulative_drift`, per-epoch `DriftMeasurement` records, and historical convergence conditions. **`_epoch` alone is not evidence of uninterrupted measurement history.**
+
+The 2.2.0 draft introduces `calibration_checkpoint.py`, with lossless consecutive-identical-epoch RLE, exact token identity/tolerance validation, Q16.16 momentum replay and continuity checks from trusted genesis, exact reconstruction of all historical measurements, monotonic epoch bounds, and a configurable maximum decoded measurement count (default 1,000,000) to limit untrusted checkpoint expansion. Checkpoint save/load now rejects an incomplete calibration snapshot on a real `CoreMatrix`, validates before applying any M1 slot, and rejects 2.1.0 and earlier checkpoint formats. Chain-only test fixtures without a calibrator are explicitly marked as **not** preserving calibration.
+
+**These properties remain CLAIMED IN DRAFT pending the exact-head CI result.** Even after passing tests, this is an unkeyed local checkpoint, *not* proof of authenticated provenance, remote durability or immutable event replay. Full `CoreMatrix.process_event` transactionality, fail-safe state recovery, and M2/M3 arena restoration remain open. Keep **DRAFT / HOLD_NO_ADMISSION** and do not merge or deploy.
+
