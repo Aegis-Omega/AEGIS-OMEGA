@@ -32,6 +32,8 @@ import cvs_entries as gw
 ctx.prec = 192
 T0 = time.perf_counter()
 def tick(s): print('T', s, round(time.perf_counter() - T0, 2), flush=True)
+def load_json(path):
+    with open(path) as f: return json.load(f)
 L = arb(sys.argv[1]); N = int(sys.argv[2]); NP = int(sys.argv[3])
 pi = arb.pi(); quarter = arb('0.25')
 def seqs(n):
@@ -54,7 +56,7 @@ DF = os.environ.get('DIAG_FILE')   # V8i: CC_n, XC_n for |n| <= N from integer f
 def ball(lo, hi, sc): return arb(int(lo) + int(hi)) * sc / 2 + arb(0, arb(int(hi) - int(lo)) * sc / 2)
 if DF:
     assert AF, 'DIAG_FILE needs ALPHA_FILE'
-    DD = json.load(open(DF)); scd = arb(2) ** (-DD['P']); assert DD['L'] == '9/5' and sys.argv[1] == '1.8' and len(DD['CC']) >= N + 1
+    DD = load_json(DF); scd = arb(2) ** (-DD['P']); assert DD['L'] == '9/5' and sys.argv[1] == '1.8' and len(DD['CC']) >= N + 1
     for n in range(N + 1): CXb[n] = (ball(*DD['CC'][n], scd), ball(*DD['XC'][n], scd))
     print('DIAG_FILE', DF, 'no digamma/polygamma evaluated', flush=True)
 for n in range(NP + 1):
@@ -65,7 +67,7 @@ sS = lambda m: Sabs[m] if m >= 0 else -Sabs[-m]
 def sig(n): return sum((w * (2 * pi * n * y / L).sin() for w, y in zip(W, Y)), arb(0))
 alph = {}
 if AF:
-    D = json.load(open(AF)); sc = arb(2) ** (-D['P']); assert D['L'] == '9/5' and sys.argv[1] == '1.8' and L.overlaps(arb(9) / 5) and len(D['lo']) >= NP + 1
+    D = load_json(AF); sc = arb(2) ** (-D['P']); assert D['L'] == '9/5' and sys.argv[1] == '1.8' and L.overlaps(arb(9) / 5) and len(D['lo']) >= NP + 1
     for n in range(NP + 1):
         lo, hi = int(D['lo'][n]), int(D['hi'][n])
         a_ = arb(lo + hi) * sc / 2 + arb(0, arb(hi - lo) * sc / 2)
@@ -112,7 +114,7 @@ if os.environ.get('PARITY_STREAM'):
     # cross block 0. Only the rows n = N+1..NP are evaluated (half the row work); the full Rout is never formed.
     BeS, BoS = parity_cols(); RRe = arb_mat(N, N); RRo = arb_mat(N - 1, N - 1)
     # fail closed unless the reflection identities the streaming relies on hold on the in-band block and on sampled rows
-    nb = 2 * N + 1; ix = {m: band.index(m) for m in band}
+    ix = {m: band.index(m) for m in band}
     # complete input-level guard: off-band rows depend only on alph (odd in n), invd (even, exact) and constants, so
     # row(-n) . B_e = row(n) . B_e and row(-n) . B_o = -row(n) . B_o for every |n| > N once alph is odd everywhere
     assert all((alph[n] + alph[-n]).contains(0) for n in range(NP + 1)), 'alpha not odd: streaming identity unproven'
@@ -189,7 +191,7 @@ def ztv(u):  # Z^T u (k-vector) for a band vector u
     return zu + U2t * up
 if RITZ:  # diagnostic only: bottom pair of (A11, G11) by inverse iteration at working precision, from the float64 start
     u1 = arb_mat([[float(x)] for x in U0[:, 0]])
-    for it in range(6):
+    for _it in range(6):
         u1 = A11.solve(G11 * u1, nonstop=True, algorithm='approx')
         nrm = max(abs(float(u1[i, 0].mid())) for i in range(k)); u1 = u1 * arb(1 / nrm)
     def rq(Mx): return (u1.transpose() * Mx * u1)[0, 0] / (u1.transpose() * G11 * u1)[0, 0]
@@ -199,7 +201,7 @@ if WEIGHTS == 'uniform':
     pw = [fmpq(1, f)] * f
 elif WEIGHTS == 'fixed':  # V9 (ChatGPT HOLON V8/V9): exact rational weights from AEGIS_TAIL_WEIGHTS_JSON, order = vecs then Eco
     from fractions import Fraction
-    raw = json.load(open(os.environ['AEGIS_TAIL_WEIGHTS_JSON']))
+    raw = load_json(os.environ['AEGIS_TAIL_WEIGHTS_JSON'])
     if not isinstance(raw, list) or len(raw) != f or not all(isinstance(x, str) for x in raw):
         raise ValueError('tail weight schema: %d strings expected' % f)
     ex = [Fraction(x) for x in raw]
@@ -229,7 +231,7 @@ elif WEIGHTS == 'schur':
         Tm = arb_mat([[arb(mp.nstr(T[i, j], 55)) for j in order] for i in range(T.rows)])
         return Y * Tm, [E[i] for i in order]
     Y = arb_mat([[float(U0[i, j]) for j in range(RR_)] for i in range(k)])
-    for it in range(5):
+    for _it in range(5):
         Y, lams = rr(A11.solve(G11 * Y, nonstop=True, algorithm='approx'))
     print('ritz', [mp.nstr(x, 6) for x in lams], flush=True)
     WtMi_ = Wm_early.transpose() * ((Mm_early.transpose() * Mm_early).inv() * Wm_early)

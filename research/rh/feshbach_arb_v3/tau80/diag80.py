@@ -11,7 +11,7 @@ usage: diag80.py N P TAILBITS [ARB_SRC_DIR]"""
 import sys, os, math, time, json
 N = int(sys.argv[1]); P = int(sys.argv[2]); T = int(sys.argv[3]); DO_ARB = len(sys.argv) > 4
 os.environ['FX_P'] = str(P); sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from fx import *
+from fx import BETA, E2L, EHALF, F, I, LN2, ONE, PI
 TWO_PI_OVER_L = PI * 2 * F(5, 9)
 def log_iv(y):                     # y >= 1 interval: log y = k log 2 + 2 atanh((z-1)/(z+1)), z = y/2^k in [1, 2)
     k = 0

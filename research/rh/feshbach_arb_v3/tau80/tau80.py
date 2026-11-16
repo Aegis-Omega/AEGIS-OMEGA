@@ -11,7 +11,7 @@ import sys, math, time
 from fractions import Fraction as F
 NP = int(sys.argv[1]); P = int(sys.argv[2]); T = int(sys.argv[3]); DO_ARB = len(sys.argv) > 4
 import os; os.environ['FX_P'] = str(P); sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from fx import *
+from fx import COEF, E2L, EHALF, I, LOGQ, PI, W, atan_iv, sin_iv
 TWO_PI_OVER_L = PI * 2 * F(5, 9)
 TAILC = 20480
 def S_of(n):

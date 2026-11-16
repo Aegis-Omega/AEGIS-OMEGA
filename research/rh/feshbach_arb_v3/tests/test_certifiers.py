@@ -18,17 +18,20 @@ def ball(x, r='0'): return [f'[{x} +/- {r}]' if r != '0' else str(x), '0']
 
 def write_blocks(d, A, G=None, C=None, name='b.json'):
     k = len(A); Z = [[ball(0)] * k for _ in range(k)]
-    json.dump({'A11': A, 'G11': G or Z, 'CB': C or Z}, open(os.path.join(d, name), 'w')); return os.path.join(d, name)
+    with open(os.path.join(d, name), 'w') as f: json.dump({'A11': A, 'G11': G or Z, 'CB': C or Z}, f)
+    return os.path.join(d, name)
 
 
 def manifest(d, blocks, c_inf='0.97991957971', m='1.05'):
     import hashlib
-    h = lambda p: hashlib.sha256(open(p, 'rb').read()).hexdigest()
+    def h(p):
+        with open(p, 'rb') as f: return hashlib.sha256(f.read()).hexdigest()
     for f in ('trace_arb.json', 'krein_slack.log'): shutil.copy(os.path.join(INP, f), d)
     mf = {'blocks': os.path.basename(blocks), 'blocks_sha256': h(blocks), 'c_inf': c_inf,
           'c_inf_source': {'trace_arb': 'trace_arb.json', 'trace_arb_sha256': h(os.path.join(d, 'trace_arb.json')),
                            'krein_log': 'krein_slack.log', 'krein_log_sha256': h(os.path.join(d, 'krein_slack.log')), 'm': m}}
-    json.dump(mf, open(os.path.join(d, 'm.json'), 'w')); return os.path.join(d, 'm.json')
+    with open(os.path.join(d, 'm.json'), 'w') as f: json.dump(mf, f)
+    return os.path.join(d, 'm.json')
 
 
 def run(args, want, label):
