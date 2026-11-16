@@ -247,9 +247,9 @@ class TestAutosave(unittest.TestCase):
         self.assertEqual(len(handler.wfile.messages), 1)
         body = handler.wfile.messages[0]
         self.assertEqual(int(dict(headers)["Content-Length"]), len(body))
-        self.assertTrue(body.startswith(b"retry: 5000\\ndata: "))
-        self.assertTrue(body.endswith(b"\\n\\n"))
-        self.assertEqual(json.loads(body.split(b"\\n")[1][6:]), {
+        self.assertTrue(body.startswith(b"retry: 5000\ndata: "))
+        self.assertTrue(body.endswith(b"\n\n"))
+        self.assertEqual(json.loads(body.split(b"\n")[1][6:]), {
             "epoch": 17, "sequence": 7,
             "gate": {"gate_sealed": False},
         })
@@ -276,7 +276,7 @@ class TestAutosave(unittest.TestCase):
             with patch.object(time, "sleep", side_effect=AssertionError("GET_BLOCKED_SERVER")):
                 handler.do_GET()
             self.assertEqual(len(handler.wfile.messages), 1)
-            payload = json.loads(handler.wfile.messages[0].split(b"\\n")[1][6:])
+            payload = json.loads(handler.wfile.messages[0].split(b"\n")[1][6:])
             payloads.append(payload["epoch"])
             self.assertTrue(handler.close_connection)
         self.assertEqual(payloads, [17, 18])
