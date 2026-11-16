@@ -483,7 +483,7 @@ class BridgeHandler(BaseHTTPRequestHandler):
             except ValueError:
                 self._respond(400, {'status': 'REJECTED', 'reason': 'INVALID_CONTENT_LENGTH'})
                 return
-            if control_length <= 0 or control_length > 131072:
+            if control_length <= 0 or control_length > 160000:
                 self._respond(413, {'status': 'REJECTED', 'reason': 'CONTROL_BODY_SIZE'})
                 return
 
@@ -548,13 +548,20 @@ class BridgeHandler(BaseHTTPRequestHandler):
             except (KeyError, ValueError, TypeError):
                 self._respond(400, {'status': 'REJECTED', 'reason': 'INVALID_EVENT_ENCODING'})
                 return
-            if not _mutation_admission.authorize_event(
-                proposal_id, payload, verifier, context,
-                gate.is_approved(proposal_id) if isinstance(proposal_id, str) else False,
-            ):
+            # Serialize gate verdict, consumption and mutation dispatch with
+            # gate-signal processing, preventing a gate transition between the
+            # approval check and use of its one-shot capability.
+            with _lock:
+                if not _mutation_admission.authorize_event(
+                    proposal_id, payload, verifier, context,
+                    gate.is_approved(proposal_id) if isinstance(proposal_id, str) else False,
+                ):
+                    result = None
+                else:
+                    result = router.route(payload, verifier, context)
+            if result is None:
                 self._respond(403, {'status': 'REJECTED', 'reason': 'MUTATION_NOT_ADMITTED'})
                 return
-            result = router.route(payload, verifier, context)
             self._respond(200, result)
 
         elif self.path == '/checkpoint':
