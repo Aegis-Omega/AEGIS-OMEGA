@@ -57,6 +57,9 @@ export interface MutationTransportFrames {
   }>
   readonly event: Readonly<{
     proposal_id: string
+    component_id: string
+    capability_class: 'SELF_MODIFYING'
+    operator_id: string
     payload_hex: string
     verifier_hex: string
     context_hex: string
@@ -160,6 +163,9 @@ export function encodeAdmittedGovernanceMutation(
     }),
     event: Object.freeze({
       proposal_id: decision.proposal_id,
+      component_id: decision.component_id,
+      capability_class: 'SELF_MODIFYING' as const,
+      operator_id: source.operatorId,
       payload_hex: Buffer.from(source.payload).toString('hex'),
       verifier_hex: Buffer.from(source.verifier).toString('hex'),
       context_hex: Buffer.from(source.context).toString('hex'),
