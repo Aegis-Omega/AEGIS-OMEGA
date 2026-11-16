@@ -1,0 +1,108 @@
+{
+ "L": "9/5",
+ "N": 400,
+ "NP": 16000,
+ "blocks_sha256_not_committed": {
+  "L18_even_renorm_g0.json": "0361ddfb176aa4e2fac802ee9303d4a82c19173488f00923a80e6afec5fddcc4",
+  "L18_joint_g0.json": "6c61854f08b0ab53a9a430433a021647aa9f6e19d7f91791b3637ad005efc6ec",
+  "L18_joint_v9.json": "e9e2075fbe3733cdc3e846157c6672bd9caed0f79e0df5023acf4bb8a3fe9b09",
+  "L18_odd_renorm_g0.json": "c62c3c41e5f6364522b58d157f3a13379a41d4ce5212697ab1c0468a8167475b"
+ },
+ "c_inf": {
+  "bound": "c_inf <= m - trPTP_upper = 0.97991957972385...",
+  "m": "1.05 (krein_slack.log CERTIFIED)",
+  "value": "0.97991957971"
+ },
+ "claim": "Q(G) >= mu ||G||^2 for every moment-zero G in L^2[0,9/5] (prime powers 2, 3, 4, 5)",
+ "drop_pole": true,
+ "extends": "Aegis-Omega/AEGIS-OMEGA@0c1477fb research/rh/feshbach_arb_v2/L1.8",
+ "generator": "src/v8p.py (joint mode without PARITY_*; reproduces the joint g0 and V9 blocks byte-identically)",
+ "not_machine_checked": [
+  "CvS matrix = restricted Weil form on trigonometric basis (arXiv:2607.02828)",
+  "hat Krein pairing",
+  "Feshbach inequality and order-8 weighted Cauchy-Schwarz |n|>NP tail bound",
+  "parity reduction (CvSParitySplitV1.lean pending recompile)",
+  "sector tail split tau(v) = tau(v_e) + tau(v_o)"
+ ],
+ "results": {
+  "ceiling_any_weights_N400": "~4.31e-17 (Rout(u1) bound, v2 analysis)",
+  "joint_g0": {
+   "blocks": 799,
+   "checkers": [
+    "schur_mid",
+    "cert_congr"
+   ],
+   "mu_certified": "4.21e-17",
+   "mu_refused": "4.22e-17"
+  },
+  "joint_v9_external_weights": {
+   "blocks": 799,
+   "checkers": [
+    "schur_mid",
+    "cert_congr"
+   ],
+   "mu_certified": "4.05e-17",
+   "mu_refused": "4.1e-17"
+  },
+  "parity_split_renorm_g0": {
+   "certified": "4.23e-17",
+   "checkers": [
+    "schur_mid",
+    "cert_congr"
+   ],
+   "even": {
+    "blocks": 400,
+    "mu_certified": "4.23e-17",
+    "mu_refused": "4.24e-17"
+   },
+   "odd": {
+    "blocks": 399,
+    "mu_certified": "5e-17"
+   }
+  }
+ },
+ "rh_proven": false,
+ "schema": "AEGIS_KREIN_FESHBACH_ARB_RECEIPT_V3",
+ "sha256": {
+  "README.md": "fa47d5fd4de0e7e5672232de347763b2ba4c7e54a9254ec5af61fa5e9e6b1508",
+  "inputs_L18/krein_slack.log": "c08f223fa8363ba7dff29792140c9a9a5787fea86bd9198f698b05000e0251ff",
+  "inputs_L18/trace_arb.json": "9c96828d8e7a35ef1b84e303ac3dd5db74bbd214462622dae3f551fb7ebab4b7",
+  "manifests/L18_even_renorm_g0.json": "3a9d706a72e7a48bddae12f99a9a923470c46d944edd50a8e6820abe88f8684f",
+  "manifests/L18_joint_g0.json": "b6523cf679924c148c9d54067c2c4ce1c535d12c79d54bc5b581d660a22bd83b",
+  "manifests/L18_joint_v9.json": "9d1f9b72179c8ce165803dc11c7a1cbdc0fcc22be1fcc41db7cbbf47e58ce270",
+  "manifests/L18_odd_renorm_g0.json": "b227b9a4c50b4003ab44405c2df97b0e58cc7370299c597fe88b4d1d46c5485a",
+  "reproduce.sh": "aadd14851700403264b6392bf8f090cdc793a5a97e7ad5d3fc560c26688e9f9c",
+  "runs/v8i_18g0full/blocks.log": "fa6a42759075031336c8822ff0d0050d23db1116b753347ef3ac4fcbd60af26d",
+  "runs/v8i_18g0full/schur.log": "f0576b6275fcfa46174c5d1fcf595fa8771696a616a3be94f9e27080f970e242",
+  "runs/v8i_18g0full/schur_mid.log": "86c0c0b1fe8006f8fb7ddbe2002452c4368106170d4b21177d1a927685a51054",
+  "runs/v8i_18v9w/blocks.log": "eb37a80e82608a56a743a15505bc4bb295a0fb1eac9cc2061bad0fa82c0e2c2c",
+  "runs/v8i_18v9w/schur.log": "20f567297ac7c4b113bcc9f84833ff997dae6cf19aea7e2b1ba765ec0accfe08",
+  "runs/v8i_18v9w/schur_mid_ceiling.log": "44b9689b9db53f88f1f94016ae9d2e5aea97e9ceec1a06ff78f7db0f2053f9f5",
+  "runs/v8p_18fix/blocks.log": "3396839c52f8c01989d131758f0cf9d4ce873b7a85b7a397e89b7c442e520f65",
+  "runs/v8p_18fix/schur_mid_even.log": "84b4fe6d1e7c1244f675931bcb7efda0bbc5dc828eca86744f03f0bc37d21a7f",
+  "runs/v8p_18fix/schur_mid_odd.log": "849b65f2fcdd84738fc688a6fb41c6339125236b3b8bdfde6e4dbd41efeecebe",
+  "runs/v8p_18par/blocks.log": "e5076d74e60f5fb7436f56f6bc6d3601e342242bf9cf9971ee1b7a34e4e0eb25",
+  "runs/v8p_18par/schur_even.log": "91b89a3641892d68358efbba5986788009a40e9581c8d4bd7fd224cc2aade243",
+  "runs/v8p_18par/schur_odd.log": "7541b60e53a6e6d1d03abfdae4d79a908ff2f58eee27c3ea60ce6096acdf5f1d",
+  "src/cert_congr.py": "90791819c11442c093761c77e4b574661a9ed00a39abcbb9477053e949dc0588",
+  "src/cvs_entries.py": "b9e2c3b9bd0fffb0250c74a6b19c51021036fc22ecb223bda11bbf2e2160eee1",
+  "src/schur_mid.py": "5e811cd0393ff7960c0b64f82366ed43f87ecea9af2021c385e0f6dd9225ea5c",
+  "src/v8p.py": "3b6bc0507ba739f61e88f3afaa792407df879ba127845a311079d16b78dbb9a2",
+  "tau80/diag80.py": "73c91e20a640166337d8433cb194f153f4f58b8d20f59010b55d075b99b1f46d",
+  "tau80/fx.py": "ee7866ee1aec5c4a3b7f1f7462b3c3f43b5f80486c9e1bb545c56d41bbf650e0",
+  "tau80/g10_check.py": "dd71685aa732916ffe9a62d3cf2bdb13fefcd47e06c7869055cd8e8aafc227aa",
+  "tau80/tau80.py": "e91685dfd1b2fad0866a26d9028627d0550944c38b78fe1f1b51f38cbc79d9bb",
+  "tests/test_certifiers.py": "471d9857cadef71e56ac157ce8fe5187daf569ca8ddb980412d8302191a83f69",
+  "weights/w_renorm_g0.env": "932805f9963ca14320a47d1ffc2a33fb853249a8000b2c102addb18c1ffad512",
+  "weights/weights_L18_v9.json": "5b18b149ff7d652dea15544b6115fef2da0b4fbcdd2dce7499bc7c961d071572"
+ },
+ "status": "INTERVAL_AND_EXACT_INTEGER_CERTIFIED_NOT_LEAN",
+ "tail_order": 8,
+ "tau80_inputs_sha256_not_committed": {
+  "alpha_L95_NP16000_P120.json": "d5374e046cb004bb68ac20da220737cc882318e2ff7984f77a21252e846d90eb",
+  "diag_L95_N400_P120.json": "efae4a0a5488521f19ed55603b6415a29cacb23d5a28fa1b40d157f36179f126"
+ },
+ "tools": {
+  "python-flint": "0.9.0"
+ }
+}

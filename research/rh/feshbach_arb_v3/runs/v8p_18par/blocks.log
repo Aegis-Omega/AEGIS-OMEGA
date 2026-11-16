@@ -1,0 +1,9 @@
+DIAG_FILE tau80/diag_L95_N400_P120.json no digamma/polygamma evaluated
+ALPHA_FILE tau80/alpha_L95_NP16000_P120.json max radius 9.727696981633746e-29
+T seqs 0.07
+T Qb 1.06
+T rows+RRout 178.52
+T A11G11 179.52
+PARITY_SPLIT even dim 400 atoms [1, 2, 5, 6, 9, 10, 13, 14] weights ['1/9', '1/9', '1/9', '1/9', '1/9', '1/9', '1/9', '1/9', '1/9']
+PARITY_SPLIT odd dim 399 atoms [0, 3, 4, 7, 8, 11, 12, 15] weights ['1/9', '1/9', '1/9', '1/9', '1/9', '1/9', '1/9', '1/9', '1/9']
+T parity 199.82

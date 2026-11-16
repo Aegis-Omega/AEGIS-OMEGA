@@ -1,0 +1,3 @@
+mu=4e-17: FAILED at pivot 121: [+/- 1.96]  (||J|| <= 0)
+mu=4.1e-17: FAILED at pivot 105: [+/- 4.90]  (||J|| <= 0)
+mu=4.2e-17: FAILED at pivot 95: [+/- 33.6]  (||J|| <= 0)
