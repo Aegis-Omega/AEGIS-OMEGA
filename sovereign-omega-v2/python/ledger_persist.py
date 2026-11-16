@@ -15,10 +15,15 @@ from calibration_checkpoint import (
     prepare_calibration_restore, require_fresh_calibrator,
     install_calibration,
 )
+from failsafe_checkpoint import (
+    FailsafeCheckpointError, snapshot_failsafe,
+    prepare_failsafe_restore, require_fresh_failsafe,
+    install_failsafe,
+)
 
-CHECKPOINT_VERSION = '2.2.0'  # Adds versioned, lossless calibrator-state continuation
+CHECKPOINT_VERSION = '2.3.0'  # Adds lossless failsafe quarantine continuation
 CHAIN_MODE = 'sha256-prev-chain-plus-sha256-payload-v2'  # identical PR #806 M1 digest
-STATE_CONTRACT = 'm123-calibration-state-rle-v2'
+STATE_CONTRACT = 'm123-calibration-and-failsafe-state-v3'
 DEFAULT_CHECKPOINT_PATH = os.environ.get(
     'AEGIS_CHECKPOINT_PATH',
     os.path.join(os.path.dirname(__file__), 'aegis_checkpoint.json'),
@@ -79,6 +84,14 @@ def save_checkpoint(matrix, path: str = DEFAULT_CHECKPOINT_PATH) -> dict:
             # Chain-only mock/standalone use is explicit and NEVER claims
             # calibration continuation. A real CoreMatrix always has _calibrator.
             calibration = None
+        failsafe = getattr(matrix, '_failsafe', None)
+        if failsafe is not None:
+            try:
+                failsafe_state = snapshot_failsafe(failsafe)
+            except FailsafeCheckpointError as err:
+                raise CheckpointError('Unsafe failsafe checkpoint: ' + str(err)) from err
+        else:
+            failsafe_state = None
         body = {
             'checkpoint_version': CHECKPOINT_VERSION,
             'chain_mode': CHAIN_MODE,
@@ -89,6 +102,8 @@ def save_checkpoint(matrix, path: str = DEFAULT_CHECKPOINT_PATH) -> dict:
             'state_contract': STATE_CONTRACT,
             'calibration_snapshot': calibration,
             'is_calibration_continuation_supported': calibration is not None,
+            'failsafe_snapshot': failsafe_state,
+            'is_failsafe_continuation_supported': failsafe_state is not None,
             'total_processed': getattr(matrix, '_total_processed', matrix._sequence),
             'total_verified': getattr(matrix, '_total_verified', 0),
             'total_vcg_error_fixed': getattr(matrix, '_total_vcg_error_fixed', 0),
@@ -134,6 +149,7 @@ def save_checkpoint(matrix, path: str = DEFAULT_CHECKPOINT_PATH) -> dict:
         'is_replay_reconstructable': False,
         'is_chain_continuation_supported': True,
         'is_calibration_continuation_supported': calibration is not None,
+        'is_failsafe_continuation_supported': failsafe_state is not None,
     }
 
 
@@ -178,6 +194,18 @@ def load_checkpoint(matrix, path: str = DEFAULT_CHECKPOINT_PATH) -> dict:
         # any M1 state is modified.
     elif calibrator is not None:
         raise CheckpointError('Real CoreMatrix requires full calibration checkpoint')
+    failsafe_data = body.get('failsafe_snapshot')
+    is_failsafe = body.get('is_failsafe_continuation_supported')
+    if type(is_failsafe) is not bool:
+        raise CheckpointError('Missing failsafe-continuation declaration')
+    if is_failsafe != (failsafe_data is not None):
+        raise CheckpointError('Failsafe snapshot/declaration mismatch')
+    failsafe = getattr(matrix, '_failsafe', None)
+    if is_failsafe:
+        if failsafe is None:
+            raise CheckpointError('Cannot restore failsafe into chain-only matrix')
+    elif failsafe is not None:
+        raise CheckpointError('Real CoreMatrix requires full failsafe checkpoint')
 
     counter_keys = ('sequence', 'epoch', 'era', 'total_processed',
                     'total_verified', 'total_vcg_error_fixed')
@@ -222,6 +250,13 @@ def load_checkpoint(matrix, path: str = DEFAULT_CHECKPOINT_PATH) -> dict:
             raise CheckpointError('Unsafe calibration restore: ' + str(err)) from err
     else:
         prepared = None
+    if is_failsafe:
+        try:
+            prepared_failsafe = prepare_failsafe_restore(failsafe, failsafe_data)
+        except FailsafeCheckpointError as err:
+            raise CheckpointError('Unsafe failsafe restore: ' + str(err)) from err
+    else:
+        prepared_failsafe = None
     with matrix._lock:
         if getattr(matrix, '_sequence', -1) != 0 or getattr(matrix, '_total_processed', 0) != 0:
             raise CheckpointError('Resume requires an unprocessed matrix')
@@ -230,6 +265,11 @@ def load_checkpoint(matrix, path: str = DEFAULT_CHECKPOINT_PATH) -> dict:
                 require_fresh_calibrator(calibrator)
             except CalibrationCheckpointError as err:
                 raise CheckpointError('Unsafe calibration target: ' + str(err)) from err
+        if prepared_failsafe is not None:
+            try:
+                require_fresh_failsafe(failsafe)
+            except FailsafeCheckpointError as err:
+                raise CheckpointError('Unsafe failsafe target: ' + str(err)) from err
         if sequence:
             head = ((sequence - 1) % capacity) * _M1_ENTRY_BYTES
             matrix._m1_region[head:head + _M1_ENTRY_BYTES] = record
@@ -244,10 +284,13 @@ def load_checkpoint(matrix, path: str = DEFAULT_CHECKPOINT_PATH) -> dict:
         matrix._m3_active_length = 0  # context is ephemeral, not replayed
         if prepared is not None:
             install_calibration(calibrator, prepared)
+        if prepared_failsafe is not None:
+            install_failsafe(failsafe, prepared_failsafe)
     return {
         'sequence': sequence, 'epoch': epoch, 'era': era,
         'integrity_hash': actual_digest, 'path': path,
         'is_calibration_continuation_supported': is_calibration,
+        'is_failsafe_continuation_supported': is_failsafe,
     }
 
 

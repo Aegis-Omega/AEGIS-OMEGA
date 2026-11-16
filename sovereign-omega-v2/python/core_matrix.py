@@ -231,7 +231,7 @@ class CoreMatrix:
         """
         with self._lock:
             failsafe_state = self._failsafe.state
-            if failsafe_state in (EpochState.FROZEN, EpochState.RECOVERING):
+            if failsafe_state in (EpochState.QUARANTINE, EpochState.FROZEN, EpochState.RECOVERING):
                 return {'status': failsafe_state.value.upper(), 'sequence': self._sequence}
 
             if verifier_result not in (b'', b'\x00', b'\x01'):

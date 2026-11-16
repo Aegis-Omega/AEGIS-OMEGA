@@ -10,7 +10,7 @@
     "generator": "scripts/build-cognitive-manifest.py",
     "repository": "Aegis-Omega/AEGIS-OMEGA",
     "source_ref": "integration/holon-five-lanes-v1-20261116",
-    "parent_state_hash": "9d18ee4a9fcc765ba590df3ba655a3e0c85569e017d199b18eaeb83a952fa486",
+    "parent_state_hash": "7c73c0f4b9ba6aa6d80c3c66c8c1973f5af51828b268c5c1f2b308ebf3453162",
     "signature_mode": "GITHUB_OIDC_ATTESTATION"
   },
   "hashing": {
@@ -488,5 +488,5 @@
       "on_success": "broadcast-attested-verified-event-stream"
     }
   },
-  "state_hash": "5685672dad2f1955f5c66685ab4869c9b2b0df711c29e7ff19086a7122373c7a"
+  "state_hash": "e70d47ad23af244a8893a296d26554f13e428100757026dfc7531214187d414c"
 }

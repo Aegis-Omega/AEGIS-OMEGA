@@ -1,0 +1,68 @@
+{
+  "schema": "AEGIS.HOLON.CompositeIntegration.V3",
+  "created_date": "2026-11-16",
+  "stage": "RESEARCH_DRAFT_HOLD_NO_ADMISSION",
+  "protected_main_sha": "ec5fea38b9abee0bf850a1d39b52bdd3fb7197ed",
+  "previous_composite_pr": 813,
+  "previous_composite_head": "c0e466bf740f5b243effeaa6caa9183ac15ac613",
+  "parent_mathematics_pr": 810,
+  "parent_mathematics_head": "d54284fa502b310961a475c807a7d2e51ed9990e",
+  "prior_m1_parent_pr": 806,
+  "prior_m1_head": "489aa1a55709287927484a27c0384d1d8702c78a",
+  "proposed_git_merge_parents": [
+    "c0e466bf740f5b243effeaa6caa9183ac15ac613",
+    "d54284fa502b310961a475c807a7d2e51ed9990e"
+  ],
+  "stacked_base_branch": "research/holon-m123-contracts-v2-20261116",
+  "digest_algorithm": "SHA256(previous_chain_digest || SHA256(payload))",
+  "checkpoint_schema": "2.3.0",
+  "checkpoint_scope": "Chain continuation + calibrated history + failsafe quarantine. No full event replay; no signed checkpoint provenance.",
+  "canonical_m123_source_blobs": {
+    ".github/workflows/m123-v2-contracts.yml": "0086e275e46ad525a4cf5da57045b18c94dcdb5b",
+    "docs/AUDIT_FINDINGS.md": "a7d1031554a5bd07e94b84d0baee22e22edec22a",
+    "docs/ONTOLOGY.md": "e86f95fb54e7f3798784b425bd2fe20b95e7c838",
+    "sovereign-omega-v2/python/bridge.py": "b2b5f240a97811803b2d0446e9d0ce94ea91f1d6",
+    "sovereign-omega-v2/python/calibration_checkpoint.py": "e726222f5ff4ba425918bcea91a70be96c95fc95",
+    "sovereign-omega-v2/python/core_matrix.py": "2c1650b93f944a6825f64977b013ebcfdee7ffbb",
+    "sovereign-omega-v2/python/failsafe_checkpoint.py": "c13f8d6ed52a31fae8ec2e362548ff908e7650ba",
+    "sovereign-omega-v2/python/gradient_anchor.py": "182b628459825c71295e9bddcdba03b152d60e65",
+    "sovereign-omega-v2/python/ledger_persist.py": "a7e1e1f9eb0e485f96084887287bbb6ea9f24646",
+    "sovereign-omega-v2/python/m1_chain.py": "dab08ab13d5500b557cca7eadd7b0ad7eae7c435",
+    "sovereign-omega-v2/python/tests/test_ledger_persist.py": "05d6b1fc22e50de13defcebd7e4616fc8f5f90df",
+    "sovereign-omega-v2/python/tests/test_ledger_persist_v2.py": "29d35ebdc35f24c2bea8a033c8825bb7f503eda2",
+    "sovereign-omega-v2/python/tests/test_m123_contracts_v2.py": "c1239d51fefef24a441f21dd87dff49844447ece"
+  },
+  "retained_non_m123_lanes_blobs": {
+    ".github/workflows/ci.yml": "1c8d2d865d84f8a62d1843e00543a4a3323d0354",
+    "aegis-cl-psi/src/causal_arbiter.rs": "aa76de80cfb64412b21ab8350df0b4373f760bd2",
+    "aegis-cl-psi/src/lattice_coherence.rs": "f1899b5d8e138190e1213444249229f0a3a43542",
+    "sovereign-omega-v2/python/exact_negacyclic_ntt.py": "48028e32610b6c9c423673f8da82263de53e3a8e",
+    "sovereign-omega-v2/python/hardware_config.py": "90cc200d3d890121a4996bb74dd2454a2295e698",
+    "sovereign-omega-v2/python/tests/test_exact_negacyclic_ntt.py": "464a2773aa9605adfea76b16b4e09b1597f14835",
+    "sovereign-omega-v2/python/tests/test_hardware_precision_v3.py": "23b2521d67aa7c93f6b90bf15afea1fcd139436f"
+  },
+  "manifest_binding": {
+    "source_ref": "integration/holon-five-lanes-v1-20261116",
+    "expected_parent_state_hash": "7c73c0f4b9ba6aa6d80c3c66c8c1973f5af51828b268c5c1f2b308ebf3453162",
+    "new_state_hash": "e70d47ad23af244a8893a296d26554f13e428100757026dfc7531214187d414c",
+    "unchanged_skill_root_hash": "7ea79f4d61c44c9f916121f33f00b329c8cd750d73914b39c9c7fee347c2531b"
+  },
+  "historical_receipt": "docs/holon_five_lane_integration_v2.json",
+  "historical_receipt_status": "VERIFIED_HISTORICAL_SOURCE_ONLY_NOT_CURRENT",
+  "ci_status": "PENDING_NEW_EXACT_HEAD",
+  "known_risks": [
+    "PR overlap guard may still find overlaps with independent source lane drafts; do not bypass",
+    "Appwrite Sites external preview build failing across branches, cause not verified",
+    "Checkpoint 2.2.0 and earlier intentionally rejected; no automatic migration",
+    "E4 anytime statistical proof not established; zero LCB must stay fail closed",
+    "End-to-end immutable event replay, signed checkpoints and concurrency hardening are open",
+    "No merge/deploy/production mutation is authorized"
+  ],
+  "governance": {
+    "merge_main": false,
+    "deploy": false,
+    "modify_protected_rules": false,
+    "close_existing_prs": false,
+    "change_secrets": false
+  }
+}
