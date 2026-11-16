@@ -44,6 +44,7 @@ from pathlib import Path
 from typing import Any
 
 from harness.sdk.skill_authority import compute_registry_root, evaluate_registry
+from agents.evolution_transaction import commit_demotions, inspect_pending
 
 _ROOT = os.path.dirname(os.path.abspath(__file__))
 _REPO_ROOT = os.path.dirname(_ROOT)
@@ -249,10 +250,15 @@ class EvolutionEngine:
     """
 
     def __init__(self, tree_path: str = SKILL_TREE_PATH, lineage: AdaptiveLineage | None = None,
-                 repo_root: str | Path | None = None):
+                 repo_root: str | Path | None = None,
+                 lineage_path: str | Path | None = None):
         self.tree_path = tree_path
         self.repo_root = Path(repo_root).resolve() if repo_root is not None else Path(_REPO_ROOT).resolve()
-        self.lineage = lineage if lineage is not None else AdaptiveLineage.load()
+        # Preserve the V5 test harness path when a lineage object is injected.
+        self.lineage_path = Path(lineage_path) if lineage_path is not None else Path(
+            getattr(lineage, "path", LINEAGE_PATH)
+        )
+        self.lineage = lineage if lineage is not None else AdaptiveLineage.load(self.lineage_path)
         self._tree: dict | None = None
 
     def _load_tree(self) -> dict:
@@ -262,17 +268,8 @@ class EvolutionEngine:
         return self._tree
 
     def _save_tree(self) -> None:
-        if self._tree is not None:
-            root = compute_registry_root(self._tree)
-            self._tree["registry_root"] = root
-            self._tree["genesis_seal"] = root
-            receipt = evaluate_registry(self._tree, repo_root=self.repo_root)
-            if receipt.outcome != "ADMITTED":
-                raise ValueError("refusing to write invalid evolved skill registry")
-            tree_path = Path(self.tree_path)
-            temporary = tree_path.with_suffix(tree_path.suffix + ".tmp")
-            temporary.write_text(json.dumps(self._tree, indent=2) + "\n", encoding="utf-8")
-            os.replace(temporary, tree_path)
+        """Deliberately deny the old unjournaled, non-atomic persistence path."""
+        raise ValueError("UNJOURNALED_REGISTRY_SAVE_DENIED")
 
     @staticmethod
     def _lower_tier(tier: str) -> str:
@@ -338,6 +335,9 @@ class EvolutionEngine:
 
     def tick(self, apply_changes: bool = True) -> list[PromotionVerdict]:
         """Evaluate existing skills; fail closed before any durable state change."""
+        state = inspect_pending(self.tree_path, self.lineage_path)
+        if state["status"] != "CLEAN":
+            raise ValueError("UNRESOLVED_EVOLUTION_TRANSACTION:" + state["status"])
         tree = self._load_tree()
         admitted = evaluate_registry(tree, repo_root=self.repo_root)
         if admitted.outcome != "ADMITTED":
@@ -376,11 +376,16 @@ class EvolutionEngine:
             # must not invent validation receipts or multiply lineage events.
 
         if apply_changes and changed:
-            # Persist the evidence chain before the authority-bearing registry.
-            # Cross-file crash consistency still needs a future transaction
-            # journal; never promote without independent admission.
-            self.lineage.save()
-            self._save_tree()
+            root = compute_registry_root(tree)
+            tree["registry_root"] = root
+            tree["genesis_seal"] = root
+            commit_demotions(
+                tree_path=self.tree_path,
+                lineage_path=self.lineage_path,
+                next_tree=tree,
+                next_lineage=self.lineage,
+                repo_root=self.repo_root,
+            )
         return verdicts
 
     @staticmethod
