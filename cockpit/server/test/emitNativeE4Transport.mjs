@@ -30,6 +30,8 @@ assert.ok(input.insufficient.e_value > 0)
 
 const transport = encodeAdmittedGovernanceMutation({
   decision: input.decision,
+  capabilityClass: input.capability_class,
+  operatorId: input.registered_operator,
   sequence: input.sequence,
   payload: Buffer.from(input.payload_hex, 'hex'),
   verifier: Buffer.from(input.verifier_hex, 'hex'),
@@ -39,6 +41,8 @@ const transport = encodeAdmittedGovernanceMutation({
 // even though its LCB may be positive.
 assert.throws(() => encodeAdmittedGovernanceMutation({
   decision: input.insufficient,
+  capabilityClass: input.capability_class,
+  operatorId: input.registered_operator,
   sequence: input.sequence + 1,
   payload: Buffer.from(input.payload_hex, 'hex'),
   verifier: Buffer.from(input.verifier_hex, 'hex'),
