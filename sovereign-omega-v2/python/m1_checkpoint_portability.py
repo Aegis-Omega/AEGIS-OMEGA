@@ -23,6 +23,17 @@ ZERO_HEADER = b"\x00" * HEADER_BYTES
 CHAIN_MODE = "sha256-prev-chain-plus-sha256-payload-v2"
 STATE_CONTRACT = "m123-calibration-counters-v1"
 VERSIONS = frozenset(("2.0.0", "2.1.0"))
+_V20_FIELDS = frozenset((
+    "checkpoint_version", "chain_mode", "sequence", "epoch", "era",
+    "m1_capacity_slots", "last_m1_entry_hex", "is_replay_reconstructable",
+    "is_chain_continuation_supported", "integrity_hash",
+))
+_V21_FIELDS = _V20_FIELDS | frozenset((
+    "state_contract", "total_processed", "total_verified",
+    "total_vcg_error_fixed", "last_gate_signal_sequence",
+    "last_gate_signal_accepted",
+))
+MAX_CHECKPOINT_JSON_BYTES = 8192
 U64_LIMIT = 1 << 64
 _Q16 = 1 << 16
 
@@ -61,6 +72,46 @@ class ChainRelocationPlan:
     full_history_reconstructable: bool = False
 
 
+def parse_checkpoint_json(raw: bytes) -> dict:
+    """Read *untrusted* V2 JSON without losing duplicate-key information.
+
+    The ordinary Python json.loads silently overwrites duplicate keys. Do not
+    turn that many-to-one transformation into an apparently validated receipt.
+    An unkeyed hash is not author/source authentication even when parsing passes.
+    """
+    if type(raw) is not bytes or not 0 < len(raw) <= MAX_CHECKPOINT_JSON_BYTES:
+        raise PortabilityError("BAD_CHECKPOINT_BYTES_OR_LENGTH")
+
+    def unique_pairs(pairs):
+        result = {}
+        for key, val in pairs:
+            if key in result:
+                raise PortabilityError("DUPLICATE_JSON_KEY")
+            result[key] = val
+        return result
+
+    def decimal_int(token):
+        if len(token.lstrip("-")) > 20:
+            raise PortabilityError("JSON_INTEGER_OUT_OF_PROTOCOL_RANGE")
+        return int(token)
+
+    def reject_noninteger(token):
+        raise PortabilityError("UNSUPPORTED_JSON_NUMBER")
+
+    try:
+        value = json.loads(
+            raw.decode("utf-8", errors="strict"),
+            object_pairs_hook=unique_pairs, parse_int=decimal_int,
+            parse_float=reject_noninteger, parse_constant=reject_noninteger,
+        )
+    except PortabilityError:
+        raise
+    except (ValueError, UnicodeError, RecursionError, OverflowError) as exc:
+        raise PortabilityError("MALFORMED_CHECKPOINT_JSON") from exc
+    validate_chain_checkpoint(value)
+    return value
+
+
 def validate_chain_checkpoint(body: dict) -> tuple[str, int, int, bytes]:
     """Validate historical V2 source schema, checksum and exact final header.
 
@@ -72,6 +123,9 @@ def validate_chain_checkpoint(body: dict) -> tuple[str, int, int, bytes]:
     version = body.get("checkpoint_version")
     if version not in VERSIONS or type(version) is not str:
         raise PortabilityError("UNSUPPORTED_CHECKPOINT_VERSION")
+    expected_fields = _V21_FIELDS if version == "2.1.0" else _V20_FIELDS
+    if frozenset(body) != expected_fields:
+        raise PortabilityError("CHECKPOINT_SCHEMA_MISMATCH")
     if body.get("chain_mode") != CHAIN_MODE:
         raise PortabilityError("INCOMPATIBLE_CHAIN_MODE")
     if body.get("is_replay_reconstructable") is not False:
