@@ -21,6 +21,7 @@ from m1_checkpoint_portability import (
     CHAIN_MODE, HEADER_BYTES, PortabilityError, STATE_CONTRACT,
     U64_LIMIT, ZERO_HEADER, MAX_CHECKPOINT_JSON_BYTES, next_digest_from_anchor,
     parse_checkpoint_json, plan_chain_relocation, validate_chain_checkpoint,
+    plan_pinned_checkpoint_relocation,
     _canonical,
 )
 
@@ -248,6 +249,71 @@ class RelocationProtocolTests(unittest.TestCase):
             validate_chain_checkpoint(signed({**cp, "checkpoint_version": []}))
         with self.assertRaises(PortabilityError):
             validate_chain_checkpoint(signed({**cp, "checkpoint_version": {}}))
+
+    def test_external_pin_binds_exact_bytes_and_rejects_checkpoint_substitution(self):
+        for version in ("2.0.0", "2.1.0"):
+            cp, _ = checkpoint_after([b"genesis", b"later"], 3, version)
+            raw = json.dumps(cp, ensure_ascii=False, sort_keys=True,
+                             separators=(",", ":"), allow_nan=False).encode()
+            trusted_pin = hashlib.sha256(raw).hexdigest()
+            plan = plan_pinned_checkpoint_relocation(raw, trusted_pin, 11)
+            self.assertEqual(plan.checkpoint_version, version)
+            self.assertEqual(plan.sequence, 2)
+            self.assertEqual(plan.destination_offset, 40)
+            self.assertFalse(plan.runtime_checkpoint_admitted)
+
+            # Attacker changes chain digest and recomputes the IN-FILE checksum.
+            changed = signed({
+                **cp,
+                "last_m1_entry_hex": (1).to_bytes(8, "little").hex() + "fa" * 32,
+            })
+            forged_raw = json.dumps(changed, ensure_ascii=False, sort_keys=True,
+                                    separators=(",", ":"), allow_nan=False).encode()
+            self.assertNotEqual(raw, forged_raw)
+            self.assertEqual(plan_chain_relocation(changed, 11).sequence, 2)
+            with self.assertRaises(PortabilityError):
+                plan_pinned_checkpoint_relocation(forged_raw, trusted_pin, 11)
+
+            # A change of whitespace also changes the exact-byte source identity.
+            spaced = json.dumps(cp, indent=2, ensure_ascii=False).encode()
+            with self.assertRaises(PortabilityError):
+                plan_pinned_checkpoint_relocation(spaced, trusted_pin, 11)
+
+    def test_external_pin_rejects_invalid_types_and_untrusted_source(self):
+        cp, _ = checkpoint_after([b"sample"], 3, "2.0.0")
+        raw = json.dumps(cp, sort_keys=True, separators=(",", ":")).encode()
+        pin = hashlib.sha256(raw).hexdigest()
+        for invalid_pin in (None, "", "0"*63, "Z"*64, 0, True):
+            with self.assertRaises(PortabilityError):
+                plan_pinned_checkpoint_relocation(raw, invalid_pin, 3)
+        for invalid_bytes in (None, "", bytearray(raw), b"", b"\xff"):
+            with self.assertRaises(PortabilityError):
+                plan_pinned_checkpoint_relocation(invalid_bytes, pin, 3)
+        # The caller must obtain the pin from an independently trusted source.
+        # A matching attacker-chosen pin is mathematically valid but is NOT
+        # actor authentication or admission to the runtime.
+        attacker = signed({**cp, "last_m1_entry_hex":
+                           (0).to_bytes(8, "little").hex() + "fe"*32})
+        attacker_raw = json.dumps(attacker, sort_keys=True,
+                                  separators=(",", ":")).encode()
+        with self.assertRaises(PortabilityError):
+            plan_pinned_checkpoint_relocation(attacker_raw, pin, 3)
+        forged_plan = plan_pinned_checkpoint_relocation(
+            attacker_raw, hashlib.sha256(attacker_raw).hexdigest(), 3)
+        self.assertFalse(forged_plan.runtime_checkpoint_admitted)
+
+    def test_external_pin_does_not_bypass_strict_parser(self):
+        cp, _ = checkpoint_after([b"x"], 2, "2.1.0")
+        raw = json.dumps(cp, sort_keys=True, separators=(",", ":")).encode()
+        dup = b'{"sequence":1,' + raw[1:]
+        pin = hashlib.sha256(dup).hexdigest()
+        with self.assertRaises(PortabilityError):
+            plan_pinned_checkpoint_relocation(dup, pin, 5)
+        unexpected = signed({**cp, "rogue": "extra"})
+        rogue_raw = json.dumps(unexpected, separators=(",", ":")).encode()
+        with self.assertRaises(PortabilityError):
+            plan_pinned_checkpoint_relocation(
+                rogue_raw, hashlib.sha256(rogue_raw).hexdigest(), 5)
 
     def test_canonical_hash_rejects_duplicate_or_malformed_fields(self):
         cp, _ = checkpoint_after([b"x"], 1, "2.0.0")
