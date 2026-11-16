@@ -54,7 +54,7 @@ def _canonical(obj) -> bytes:
             obj, sort_keys=True, ensure_ascii=False, separators=(",", ":"),
             allow_nan=False,
         ).encode("utf-8")
-    except (TypeError, ValueError, OverflowError) as exc:
+    except (TypeError, ValueError, OverflowError, UnicodeError, RecursionError) as exc:
         raise PortabilityError("NONCANONICAL_CHECKPOINT") from exc
 
 
@@ -121,7 +121,9 @@ def validate_chain_checkpoint(body: dict) -> tuple[str, int, int, bytes]:
     if type(body) is not dict:
         raise PortabilityError("CHECKPOINT_NOT_OBJECT")
     version = body.get("checkpoint_version")
-    if version not in VERSIONS or type(version) is not str:
+    # Check the type before set membership: JSON arrays/objects are unhashable.
+    # All untrusted schema errors must be PortabilityError, not raw TypeError.
+    if type(version) is not str or version not in VERSIONS:
         raise PortabilityError("UNSUPPORTED_CHECKPOINT_VERSION")
     expected_fields = _V21_FIELDS if version == "2.1.0" else _V20_FIELDS
     if frozenset(body) != expected_fields:
