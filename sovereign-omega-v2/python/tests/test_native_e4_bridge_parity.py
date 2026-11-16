@@ -100,6 +100,9 @@ class NativeE4ParityTests(unittest.TestCase):
         handler = BridgeHttpMutationTests(methodName="test_bound_event_single_use_and_no_mismatched_route")
         handler.setUp()
         signal = self.data["admitted"]["gate_signal"]
+        handler.secrets["AEGIS_BRIDGE_COMPONENT_OPERATORS"] = json.dumps({
+            self.data["native_component"]: [self.data["registered_operator"]],
+        })
         event = self.data["admitted"]["event"]
         status, response = handler.send("/gate_signal", signal)
         self.assertEqual(status, 200, response)
@@ -121,6 +124,9 @@ class NativeE4ParityTests(unittest.TestCase):
         # A fake caller changing 'accepted' to true cannot forge a gate pass.
         handler = BridgeHttpMutationTests(methodName="test_bound_event_single_use_and_no_mismatched_route")
         handler.setUp()
+        handler.secrets["AEGIS_BRIDGE_COMPONENT_OPERATORS"] = json.dumps({
+            self.data["native_component"]: [self.data["registered_operator"]],
+        })
         status, result = handler.send("/gate_signal", bad)
         self.assertEqual(status, 403, result)
         self.assertEqual(result["reason"], "E_VALUE_FAIL")
@@ -144,6 +150,9 @@ class NativeE4ParityTests(unittest.TestCase):
                     candidate["risk_spent"] = 0
                 handler = BridgeHttpMutationTests(methodName="test_bound_event_single_use_and_no_mismatched_route")
                 handler.setUp()
+                handler.secrets["AEGIS_BRIDGE_COMPONENT_OPERATORS"] = json.dumps({
+                    self.data["native_component"]: [self.data["registered_operator"]],
+                })
                 status, _ = handler.send("/gate_signal", candidate)
                 if alteration == {"accepted": False}:
                     # Explicit rejection updates gate history but never M2.
