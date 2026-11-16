@@ -1,0 +1,13 @@
+{
+ "blocks": "../runs/v8p_18fix/blocks_even_N400_NP16000.json",
+ "blocks_sha256": "0361ddfb176aa4e2fac802ee9303d4a82c19173488f00923a80e6afec5fddcc4",
+ "c_inf": "0.97991957971",
+ "c_inf_source": {
+  "trace_arb": "../inputs_L18/trace_arb.json",
+  "trace_arb_sha256": "9c96828d8e7a35ef1b84e303ac3dd5db74bbd214462622dae3f551fb7ebab4b7",
+  "krein_log": "../inputs_L18/krein_slack.log",
+  "krein_log_sha256": "c08f223fa8363ba7dff29792140c9a9a5787fea86bd9198f698b05000e0251ff",
+  "m": "1.05",
+  "origin": "Aegis-Omega/AEGIS-OMEGA@0c1477fb research/rh/feshbach_arb_v2/L1.8 (sha256 listed in its RECEIPT.json)"
+ }
+}

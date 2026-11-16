@@ -1,0 +1,5 @@
+'AEGIS.CvSTailRenormV1.schur_mono' depends on axioms: [propext, Classical.choice, Quot.sound]
+'AEGIS.CvSTailRenormV1.renorm_eq' depends on axioms: [propext, Classical.choice, Quot.sound]
+'AEGIS.CvSTailRenormV1.schur_renorm' depends on axioms: [propext, Classical.choice, Quot.sound]
+'AEGIS.CvSTailRenormV1.schur_renorm_sum' depends on axioms: [propext, Classical.choice, Quot.sound]
+exit=0 secs=6
