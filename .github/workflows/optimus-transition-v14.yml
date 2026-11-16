@@ -7,6 +7,9 @@ on:
     paths:
       - sovereign-omega-v2/python/transition_info.py
       - sovereign-omega-v2/python/tests/test_transition_info.py
+      - sovereign-omega-v2/python/core_matrix.py
+      - sovereign-omega-v2/python/transition_observer.py
+      - sovereign-omega-v2/python/tests/test_transition_observer.py
       - .github/workflows/optimus-transition-v14.yml
   pull_request:
     branches:
@@ -15,6 +18,9 @@ on:
     paths:
       - sovereign-omega-v2/python/transition_info.py
       - sovereign-omega-v2/python/tests/test_transition_info.py
+      - sovereign-omega-v2/python/core_matrix.py
+      - sovereign-omega-v2/python/transition_observer.py
+      - sovereign-omega-v2/python/tests/test_transition_observer.py
       - .github/workflows/optimus-transition-v14.yml
   workflow_dispatch:
 
@@ -35,6 +41,10 @@ jobs:
         run: |
           cd sovereign-omega-v2
           python3 -m unittest discover -s python/tests -p test_transition_info.py -v
+      - name: Optional CoreMatrix integration, default-off and gate noninterference
+        run: |
+          cd sovereign-omega-v2
+          python3 -m unittest discover -s python/tests -p test_transition_observer.py -v
       - name: Executable CLI smoke
         run: |
           cd sovereign-omega-v2
