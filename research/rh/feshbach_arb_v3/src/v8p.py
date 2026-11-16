@@ -185,17 +185,17 @@ import numpy as np
 from scipy.linalg import eigh
 WEIGHTS = os.environ.get('TAIL_WEIGHTS', 'uniform'); RITZ = os.environ.get('RITZ', '')
 if RITZ or WEIGHTS not in ('uniform', 'fixed'):
-    _, U0 = eigh(np.array(mid(A11)), np.array(mid(G11)))
+    ev0, U0 = eigh(np.array(mid(A11)), np.array(mid(G11)))
 def ztv(u):  # Z^T u (k-vector) for a band vector u
     zu = arb_mat([[u[i]] for i in fi]); up = arb_mat([[u[i]] for i in pii])
     return zu + U2t * up
 if RITZ:  # diagnostic only: bottom pair of (A11, G11) by inverse iteration at working precision, from the float64 start
     u1 = arb_mat([[float(x)] for x in U0[:, 0]])
-    for _it in range(6):
+    for _ in range(6):
         u1 = A11.solve(G11 * u1, nonstop=True, algorithm='approx')
         nrm = max(abs(float(u1[i, 0].mid())) for i in range(k)); u1 = u1 * arb(1 / nrm)
     def rq(Mx): return (u1.transpose() * Mx * u1)[0, 0] / (u1.transpose() * G11 * u1)[0, 0]
-    lam1 = rq(A11); print('ritz lam1', lam1.str(12), 'float64 eigh lam1', _[0], flush=True)
+    lam1 = rq(A11); print('ritz lam1', lam1.str(12), 'float64 eigh lam1', ev0[0], flush=True)
     tick('ritz')
 if WEIGHTS == 'uniform':
     pw = [fmpq(1, f)] * f
@@ -231,7 +231,7 @@ elif WEIGHTS == 'schur':
         Tm = arb_mat([[arb(mp.nstr(T[i, j], 55)) for j in order] for i in range(T.rows)])
         return Y * Tm, [E[i] for i in order]
     Y = arb_mat([[float(U0[i, j]) for j in range(RR_)] for i in range(k)])
-    for _it in range(5):
+    for _ in range(5):
         Y, lams = rr(A11.solve(G11 * Y, nonstop=True, algorithm='approx'))
     print('ritz', [mp.nstr(x, 6) for x in lams], flush=True)
     WtMi_ = Wm_early.transpose() * ((Mm_early.transpose() * Mm_early).inv() * Wm_early)

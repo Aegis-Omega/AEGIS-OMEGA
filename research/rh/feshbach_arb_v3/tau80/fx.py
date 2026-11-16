@@ -7,33 +7,33 @@ def fl(fr): return (fr.numerator << P) // fr.denominator
 def ce(fr): return -((-fr.numerator << P) // fr.denominator)
 class I:
     __slots__ = ('lo', 'hi')
-    def __init__(s, lo, hi): assert lo <= hi; s.lo, s.hi = lo, hi
+    def __init__(self, lo, hi): assert lo <= hi; self.lo, self.hi = lo, hi
     @staticmethod
     def q(fr): fr = F(fr); return I(fl(fr), ce(fr))
-    def __add__(s, o): o = o if isinstance(o, I) else I.q(o); return I(s.lo + o.lo, s.hi + o.hi)
+    def __add__(self, o): o = o if isinstance(o, I) else I.q(o); return I(self.lo + o.lo, self.hi + o.hi)
     __radd__ = __add__
-    def __neg__(s): return I(-s.hi, -s.lo)
-    def __rsub__(s, o): return I.q(o) - s
-    def __sub__(s, o): return s + (-(o if isinstance(o, I) else I.q(o)))
-    def __mul__(s, o):
+    def __neg__(self): return I(-self.hi, -self.lo)
+    def __rsub__(self, o): return I.q(o) - self
+    def __sub__(self, o): return self + (-(o if isinstance(o, I) else I.q(o)))
+    def __mul__(self, o):
         if not isinstance(o, I):
             o = F(o)
             if o.denominator == 1:
-                k = o.numerator; return I(s.lo * k, s.hi * k) if k >= 0 else I(s.hi * k, s.lo * k)
+                k = o.numerator; return I(self.lo * k, self.hi * k) if k >= 0 else I(self.hi * k, self.lo * k)
             o = I.q(o)
-        p = (s.lo * o.lo, s.lo * o.hi, s.hi * o.lo, s.hi * o.hi)
+        p = (self.lo * o.lo, self.lo * o.hi, self.hi * o.lo, self.hi * o.hi)
         return I(min(p) >> P, -((-max(p)) >> P))
     __rmul__ = __mul__
-    def recip(s):
-        assert s.lo > 0; return I((ONE * ONE) // s.hi, -((-ONE * ONE) // s.lo))
-    def __truediv__(s, o):
-        if isinstance(o, int): assert o > 0; return I(s.lo // o, -((-s.hi) // o))
-        if isinstance(o, F): return s * (1 / o)
-        return s * o.recip()
-    def half(s): return I(s.lo >> 1, -((-s.hi) >> 1))
-    def w(s): return s.hi - s.lo
-    def pm(s, e): return I(s.lo - e.hi, s.hi + e.hi)          # widen by a nonnegative bound e
-    def mid(s): return F(s.lo + s.hi, 2 * ONE)
+    def recip(self):
+        assert self.lo > 0; return I((ONE * ONE) // self.hi, -((-ONE * ONE) // self.lo))
+    def __truediv__(self, o):
+        if isinstance(o, int): assert o > 0; return I(self.lo // o, -((-self.hi) // o))
+        if isinstance(o, F): return self * (1 / o)
+        return self * o.recip()
+    def half(self): return I(self.lo >> 1, -((-self.hi) >> 1))
+    def w(self): return self.hi - self.lo
+    def pm(self, e): return I(self.lo - e.hi, self.hi + e.hi)          # widen by a nonnegative bound e
+    def mid(self): return F(self.lo + self.hi, 2 * ONE)
 
 # --- constants with rigorous rational enclosures ---------------------------------------------------------------
 def atan_rec(x, terms):           # alternating series for 0 < x <= 1/2; returns enclosure of atan(1/x)? no: atan(x)
@@ -79,4 +79,3 @@ def sin_iv(x):
     for j in range(1, 2 * (P // 3) + 40, 2):
         s = s + (t / f if (j // 2) % 2 == 0 else -(t / f)); t = t * y2; f *= (j + 1) * (j + 2)
     e = I(0, max(abs(t.lo), abs(t.hi)) // f + 1); return s.pm(e)
-
