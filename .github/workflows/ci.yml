@@ -184,6 +184,9 @@ jobs:
       - name: Run hardware_config fixed-point tests
         run: python python/tests/test_hardware_config.py
 
+      - name: Run HOLON Q16 precision regressions
+        run: python -m unittest discover -s python/tests -p 'test_hardware_precision_v3.py' -v
+
       - name: Run constitutional identity tests
         run: python python/tests/test_constitutional_identity.py
 
