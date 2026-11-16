@@ -39,7 +39,8 @@ export class RiskBudgetManager {
 
   /**
    * Evaluate whether a proposed modification should be accepted.
-   * The gate accepts when LCB > 0 AND budget permits AND K is within bounds.
+   * The gate accepts when LCB > 0, an independently anytime-valid e-process
+   * crosses its per-round 1/deltaAlpha threshold, and budget/K permit.
    *
    * Returns the full gate decision payload for event logging.
    * All decisions are logged — audit trail is complete.
@@ -60,6 +61,17 @@ export class RiskBudgetManager {
       return this.makeDecision(proposalId, componentId, false, 0, 0, samples.length, 0, 'CAPACITY_EXCEEDED', currentMs)
     }
 
+    // Harmonic error allocation is over *tested proposals*, not only
+    // accepted proposals. Otherwise rejected independent null tests reuse
+    // alpha_1 without limit, violating any claimed family-wise risk bound.
+    if (
+      !Number.isSafeInteger(this.budget.max_rounds) ||
+      this.budget.max_rounds <= 0 ||
+      this.budget.round_number >= this.budget.max_rounds
+    ) {
+      this.suspended = true
+    }
+
     // Set suspension state if budget has fallen below floor
     if (this.currentBudget(currentMs) < BUDGET_SUSPEND_FLOOR) {
       this.suspended = true
@@ -73,6 +85,24 @@ export class RiskBudgetManager {
     const harmonicNumber = harmonicSum(this.budget.max_rounds)
     const deltaAlpha = this.currentBudget(currentMs) / (k * harmonicNumber)
 
+    // Invalid measurements or alpha cannot create valid statistical evidence.
+    // Fail closed *before* normalizing, so Infinity is never clamped to +1.
+    if (
+      samples.length === 0 ||
+      samples.some(s => !Number.isFinite(s))
+    ) {
+      return this.makeDecision(
+        proposalId, componentId, false, 0, 0, samples.length, 0,
+        'VERIFIER_INTEGRITY', currentMs
+      )
+    }
+    if (!Number.isFinite(deltaAlpha) || deltaAlpha <= 0 || deltaAlpha >= 1) {
+      return this.makeDecision(
+        proposalId, componentId, false, 0, 0, samples.length, 0,
+        'BUDGET_EXHAUSTED', currentMs
+      )
+    }
+
     // Compute Bernstein LCB and e-value
     const seq = new ConfidenceSequence(deltaAlpha)
     for (const s of samples) {
@@ -81,25 +111,39 @@ export class RiskBudgetManager {
     const lcb = seq.lcb()
     const eValue = seq.eValue()
 
-    const accepted = lcb > 0
+    // The pointwise empirical-Bernstein half-width in ConfidenceSequence.lcb()
+    // is not itself an anytime-valid confidence sequence. Keep the legacy
+    // LCB > 0 requirement, but it cannot alone authorize sequential mutation.
+    // Under bounded, conditionally mean-nonpositive deltas, the predictable
+    // nonnegative betting process provides Ville's anytime-valid test.
+    const lcbPass = Number.isFinite(lcb) && lcb > 0
+    const eThreshold = 1 / deltaAlpha
+    const evidencePass = Number.isFinite(eValue)
+      && Number.isFinite(eThreshold)
+      && eValue >= eThreshold
+    const accepted = lcbPass && evidencePass
 
-    if (accepted) {
-      const riskSpent = deltaAlpha
-      const newBudget = Object.freeze({
-        ...this.budget,
-        spent: this.budget.spent + riskSpent,
-        round_number: k,
-      })
-      this.budget = newBudget
-
-      if (this.currentBudget(currentMs) < BUDGET_SUSPEND_FLOOR) {
-        this.suspended = true
-      }
+    // One error-budget slot is consumed by every statistically evaluated
+    // candidate, including failed candidates. Only confirmed modifications
+    // consume the separate "spent" monetary-like risk reservoir.
+    this.budget = Object.freeze({
+      ...this.budget,
+      spent: this.budget.spent + (accepted ? deltaAlpha : 0),
+      round_number: k,
+    })
+    if (
+      this.budget.round_number >= this.budget.max_rounds ||
+      this.currentBudget(currentMs) < BUDGET_SUSPEND_FLOOR
+    ) {
+      this.suspended = true
     }
 
     return this.makeDecision(
-      proposalId, componentId, accepted, lcb, eValue,
-      samples.length, deltaAlpha, accepted ? undefined : 'LCB_FAIL', currentMs
+      proposalId, componentId, accepted,
+      Number.isFinite(lcb) ? lcb : 0,
+      Number.isFinite(eValue) ? eValue : 0,
+      samples.length, accepted ? deltaAlpha : 0,
+      accepted ? undefined : (!lcbPass ? 'LCB_FAIL' : 'E_VALUE_FAIL'), currentMs
     )
   }
 

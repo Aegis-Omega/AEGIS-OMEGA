@@ -1,0 +1,51 @@
+name: E4 Anytime Evidence Boundary V1
+
+on:
+  push:
+    branches:
+      - fix/e4-anytime-evidence-boundary-20261116
+    paths:
+      - sovereign-omega-v2/src/gate/risk.ts
+      - sovereign-omega-v2/src/core/types.ts
+      - sovereign-omega-v2/test/integration/gate.test.ts
+      - .github/workflows/e4-anytime-evidence-v1.yml
+  pull_request:
+    branches:
+      - main
+    paths:
+      - sovereign-omega-v2/src/gate/risk.ts
+      - sovereign-omega-v2/src/core/types.ts
+      - sovereign-omega-v2/test/integration/gate.test.ts
+      - .github/workflows/e4-anytime-evidence-v1.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  e4-native-evidence:
+    name: E4 evidence threshold, risk accounting, TS compile
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    defaults:
+      run:
+        working-directory: sovereign-omega-v2
+    steps:
+      - name: Checkout exact candidate commit
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - name: Set up Node 22
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: sovereign-omega-v2/package-lock.json
+      - name: Install pinned dependencies
+        run: npm ci --no-audit --no-fund
+      - name: Native deterministic E4 gate integration regressions
+        run: npm run test -- test/integration/gate.test.ts
+      - name: Check existing Gate 6 contracts
+        run: npm run test -- test/unit/gate.test.ts test/integration/gate-hoeffding-adversarial.test.ts
+      - name: Typecheck and build with exact candidate
+        run: |
+          npm run typecheck
+          npm run build
