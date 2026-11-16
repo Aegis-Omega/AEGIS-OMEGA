@@ -19,7 +19,10 @@ from unittest.mock import patch
 
 PY_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(PY_ROOT))
-from mutation_admission import MutationAdmissionLedger, event_digest
+from mutation_admission import (
+    MutationAdmissionLedger, control_authenticated,
+    control_secrets_distinct, event_digest,
+)
 from dna import GateSignal
 
 
@@ -83,6 +86,8 @@ def make_bridge_post_handler(gate, matrix, router, ledger):
         "last_ack_sequence": -1, "_lock": threading.Lock(),
         "_mutation_admission": ledger, "gate": gate, "matrix": matrix,
         "router": router, "GateSignal": GateSignal,
+        "control_authenticated": control_authenticated,
+        "control_secrets_distinct": control_secrets_distinct,
     }
     exec(compile(ast.Module(body=[cls], type_ignores=[]), str(PY_ROOT / "bridge.py"), "exec"), namespace)
     return namespace["HttpBridgeUnderTest"]
