@@ -283,3 +283,11 @@ The 2.2.0 draft introduces `calibration_checkpoint.py`, with lossless consecutiv
 
 **These properties remain CLAIMED IN DRAFT pending the exact-head CI result.** Even after passing tests, this is an unkeyed local checkpoint, *not* proof of authenticated provenance, remote durability or immutable event replay. Full `CoreMatrix.process_event` transactionality, fail-safe state recovery, and M2/M3 arena restoration remain open. Keep **DRAFT / HOLD_NO_ADMISSION** and do not merge or deploy.
 
+
+### Calibration epoch preflight and committed-callback state (draft, 2026-11-16)
+
+**Observed issue:** the old `GradientAnchorCalibrator.calibrate_epoch` mutates individual anchor scales, velocities and measurements as it traverses the registry. A zero-tolerance anchor violation late in the registry raises after earlier anchors have already been mutated. `CoreMatrix.process_event` also previously incremented sequence and entered the M1 digest ring before calling calibration, which could expose a committed sequence with an incomplete epoch.
+
+**Draft corrective mechanism:** `prepare_epoch` computes an entire epoch in temporary maps and rejects hard-abort failures with zero mutation; `commit_epoch` checks the originating epoch/scales/velocities and installs the batch. `process_event` validates inputs and prepares the next epoch before M1 commits. It reports `COMMITTED_CALLBACK_ERROR` if an era-boundary event callback fails after a successful M1/M2/M3 commit, instead of incorrectly implying rollback. These are mechanical local guarantees subject to the direct exact-head CI tests; **not** a proof of fully atomic event processing, external delivery or authenticated execution.
+
+**OPEN:** M1/M2/M3, callback and external lifecycle cannot yet guarantee crash-atomic remote delivery; separately durable idempotent outbox plus explicit event-commit receipts would be needed for end-to-end exactly-once semantics. Calibrator access outside the matrix lock must be audited before concurrency claims.

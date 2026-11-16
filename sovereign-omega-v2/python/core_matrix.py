@@ -221,66 +221,107 @@ class CoreMatrix:
         verifier_result: bytes,
         context_tokens: bytes,
     ) -> Dict[str, object]:
-        """Process one event. Unverified event-class bytes are not outcomes.
+        """Commit a validated event with fail-closed E4 semantics.
 
-        Local pointwise calibration does NOT authorize an E4 action.
-        The gate_accepted field is fail-closed until an authenticated,
-        statistically validated E4 decision is integrated separately.
+        For a calibration boundary, plan the ENTIRE epoch before M1 mutation,
+        so a zero-tolerance anchor violation cannot commit an event and leave
+        partially advanced calibration. Caller-visible callback failure is a
+        distinct COMMITTED status: irreversible M1 digests are never disguised
+        as rolled-back events.
         """
         with self._lock:
             failsafe_state = self._failsafe.state
             if failsafe_state in (EpochState.FROZEN, EpochState.RECOVERING):
                 return {'status': failsafe_state.value.upper(), 'sequence': self._sequence}
 
-            # Validate all ordinary inputs before first region mutation.
             if verifier_result not in (b'', b'\x00', b'\x01'):
                 raise ValueError('verifier outcome must be empty or a single binary byte')
+            if not isinstance(payload, (bytes, bytearray, memoryview)):
+                raise TypeError('event payload must be bytes-like')
             if not isinstance(context_tokens, (bytes, bytearray, memoryview)):
                 raise TypeError('context must be bytes-like')
-            if len(context_tokens) > len(self._m3_region):
+            # Snapshot once before mutating any arena: caller may supply views
+            # aliasing M1 or M3; memoryview byte lengths are not always len().
+            safe_payload = bytes(payload)
+            safe_context = bytes(context_tokens)
+            if len(safe_context) > len(self._m3_region):
                 raise ValueError('context exceeds M3 region capacity')
-            if len(self._m2_region) < 8 and verifier_result:
-                raise ValueError('M2 region too short')
+            if self._m1_era_capacity <= 0:
+                raise ValueError('M1 ring contains no complete record')
+
+            for name, view, needed in (
+                ('M1', self._m1_region, 40),
+                ('M3', self._m3_region, len(safe_context)),
+            ):
+                if (not isinstance(view, memoryview) or view.readonly or
+                        view.ndim != 1 or view.itemsize != 1 or
+                        not view.contiguous or len(view) < needed):
+                    raise ValueError(f'{name} requires a writable byte region')
+            if verifier_result:
+                view = self._m2_region
+                if (not isinstance(view, memoryview) or view.readonly or
+                        view.ndim != 1 or view.itemsize != 1 or
+                        not view.contiguous or len(view) < 8):
+                    raise ValueError('M2 requires a writable eight-byte region')
+
             w_scale = self._calibrator.get_w_scale('GATE_ACCEPT_THRESHOLD')
-            if not isinstance(w_scale, int) or w_scale < 0:
+            if type(w_scale) is not int or w_scale < 0:
                 raise ValueError('invalid W_scale')
 
             old_sequence = self._sequence
-            next_sequence, state_hash = M1(self._m1_region, payload, old_sequence)
+            old_processed = self._total_processed
+            era_wrap = (old_sequence > 0 and
+                        old_sequence % self._m1_era_capacity == 0)
+            next_epoch = self._epoch + 1
+            planned_epoch = None
+            if (old_processed + 1) % 100 == 0:
+                # Plan may raise on invalid epoch or zero-tolerance drift.
+                # No M1, M2, M3 or counter mutation has occurred yet.
+                planned_epoch = self._calibrator.prepare_epoch(next_epoch)
+
+            next_sequence, state_hash = M1(
+                self._m1_region, safe_payload, old_sequence
+            )
             self._sequence = next_sequence
-            if old_sequence > 0 and old_sequence % self._m1_era_capacity == 0:
+            if era_wrap:
                 self._era += 1
-                if self._event_cb:
+
+            vcg_error_fixed, gate_lcb_fixed = 0, 0
+            if verifier_result:
+                confidence_fixed = (INT_SCALE if verifier_result == b'\x01'
+                                    else INT_SCALE // 2)
+                vcg_error_fixed, gate_lcb_fixed = M2(
+                    self._m2_region, verifier_result, confidence_fixed,
+                    next_sequence,
+                )
+
+            compressed_context, divergence_fixed = M3(
+                self._m3_region, safe_context, w_scale
+            )
+            self._m3_active_length = len(compressed_context)
+            if verifier_result:
+                self._total_vcg_error_fixed += vcg_error_fixed
+                self._total_verified += 1
+            self._total_processed = old_processed + 1
+            if planned_epoch is not None:
+                self._calibrator.commit_epoch(planned_epoch)
+                self._epoch = next_epoch
+
+            callback_error = None
+            if era_wrap and self._event_cb:
+                try:
                     self._event_cb('M1_ERA_WRAP', {
                         'era': self._era,
                         'sequence': old_sequence,
                         'capacity_per_era': self._m1_era_capacity,
                     })
+                except Exception as exc:
+                    # Do not raise as though the M1 append never committed.
+                    callback_error = type(exc).__name__
 
-            # b'' means no ground-truth outcome, not a failed verifier.
-            # EventClass bytes are stripped by the bridge routing adapter.
-            vcg_error_fixed, gate_lcb_fixed = 0, 0
-            if verifier_result:
-                confidence_fixed = INT_SCALE if verifier_result == b'\x01' else INT_SCALE // 2
-                vcg_error_fixed, gate_lcb_fixed = M2(
-                    self._m2_region, verifier_result, confidence_fixed, self._sequence
-                )
-                self._total_vcg_error_fixed += vcg_error_fixed
-                self._total_verified += 1
-
-            compressed_context, divergence_fixed = M3(
-                self._m3_region, context_tokens, w_scale
-            )
-            self._m3_active_length = len(compressed_context)
-            self._total_processed += 1
-            if self._total_processed % 100 == 0:
-                self._epoch += 1
-                self._calibrator.calibrate_epoch(self._epoch)
-
-            # No confidence-sequence history, n, alpha, or variance in M2.
-            # Never elevate its Q16 point estimate to mutation authority.
-            return {
-                'status': 'OK',
+            result = {
+                'status': ('COMMITTED_CALLBACK_ERROR'
+                           if callback_error else 'OK'),
                 'sequence': self._sequence,
                 'epoch': self._epoch,
                 'state_hash': state_hash.hex(),
@@ -293,6 +334,9 @@ class CoreMatrix:
                 'divergence_fixed': divergence_fixed,
                 'drift_index': self._calibrator.compute_drift_index(),
             }
+            if callback_error:
+                result['callback_delivery_error'] = callback_error
+            return result
 
     def receive_gate_signal(self, proposal_id: str, accepted: bool, sequence: int) -> None:
         """Track external E4 gate acknowledgements without falsifying VCG outcomes.

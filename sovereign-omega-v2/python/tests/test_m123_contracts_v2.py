@@ -197,6 +197,68 @@ class CoreMatrixIntegration(unittest.TestCase):
         self.assertEqual(m._sequence, 0)
 
 
+    def test_zero_tolerance_abort_before_m1_write_on_epoch_boundary(self):
+        m = matrix_fixture(3)
+        for _ in range(99):
+            m.process_event(b'ordinary', b'', b'')
+        m._calibrator._state.w_scales['ADVISORY_EXCLUDED'] = INT_SCALE + 1
+        slot_before = bytes(m._m1_region)
+        verified_before = m._total_verified
+        with self.assertRaisesRegex(RuntimeError, 'zero-tolerance anchor'):
+            m.process_event(b'boundary', b'\x01', b'')
+        self.assertEqual(m._sequence, 99)
+        self.assertEqual(m._total_processed, 99)
+        self.assertEqual(m._total_verified, verified_before)
+        self.assertEqual(m._epoch, 0)
+        self.assertEqual(bytes(m._m1_region), slot_before)
+        self.assertEqual(m._calibrator._state.measurements, [])
+
+    def test_callback_failure_is_reported_as_committed(self):
+        m = matrix_fixture(2)
+        for i in range(2):
+            m.process_event(str(i).encode(), b'', b'')
+        def broken_callback(event_type, details):
+            raise RuntimeError('downstream channel unavailable')
+        m._event_cb = broken_callback
+        r = m.process_event(b'2', b'', b'')
+        self.assertEqual(r['status'], 'COMMITTED_CALLBACK_ERROR')
+        self.assertEqual(r['callback_delivery_error'], 'RuntimeError')
+        self.assertEqual(r['sequence'], 3)
+        self.assertEqual(m._total_processed, 3)
+        self.assertEqual(m._era, 1)
+        self.assertEqual(r['state_hash'], oracle([b'0', b'1', b'2'])[-1].hex())
+        # A lost notification is not an uncommitted event: next step must
+        # advance from the actual digest tail, not replay sequence 2.
+        next_event = m.process_event(b'3', b'', b'')
+        self.assertEqual(next_event['sequence'], 4)
+        self.assertEqual(next_event['state_hash'],
+                         oracle([b'0', b'1', b'2', b'3'])[-1].hex())
+
+    def test_zero_tolerance_calibrator_rejects_entire_epoch(self):
+        c = GradientAnchorCalibrator(DEFAULT_ANCHOR_TOKENS)
+        c._state.w_scales['ADVISORY_EXCLUDED'] = INT_SCALE + 1
+        scales_before = dict(c._state.w_scales)
+        velocity_before = dict(c._velocities)
+        with self.assertRaisesRegex(RuntimeError, 'zero-tolerance anchor'):
+            c.calibrate_epoch(1)
+        self.assertEqual(c._state.epoch, 0)
+        self.assertEqual(c._state.w_scales, scales_before)
+        self.assertEqual(c._velocities, velocity_before)
+        self.assertEqual(c._state.total_adjustments, 0)
+        self.assertEqual(c._state.measurements, [])
+
+    def test_calibration_prepared_epoch_rejects_stale_commit(self):
+        c = GradientAnchorCalibrator(DEFAULT_ANCHOR_TOKENS)
+        plan = c.prepare_epoch(1)
+        c.calibrate_epoch(1)
+        old_measurements = list(c._state.measurements)
+        with self.assertRaisesRegex(RuntimeError, 'changed after epoch'):
+            c.commit_epoch(plan)
+        self.assertEqual(c._state.measurements, old_measurements)
+        self.assertEqual(c._state.epoch, 1)
+
+
+
 class CheckpointV2(unittest.TestCase):
     def test_restart_terminal_chain_parity(self):
         start = matrix_fixture(3)
