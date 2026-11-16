@@ -23,7 +23,7 @@ from mutation_admission import (
     MutationAdmissionLedger, control_authenticated,
     control_secrets_distinct, event_digest,
 )
-from dna import GateSignal
+from dna import GateSignal, EventClass, SCHEMAS
 
 
 class FakeGate:
@@ -103,6 +103,7 @@ def make_bridge_post_handler(gate, matrix, router, ledger):
         "last_ack_sequence": -1, "_lock": threading.Lock(),
         "_mutation_admission": ledger, "gate": gate, "matrix": matrix,
         "router": router, "GateSignal": GateSignal,
+        "EventClass": EventClass, "SCHEMAS": SCHEMAS,
         "control_authenticated": control_authenticated,
         "control_secrets_distinct": control_secrets_distinct,
     }
@@ -255,6 +256,52 @@ class BridgeHttpMutationTests(unittest.TestCase):
         self.assertEqual(self.matrix.signals, [("p1", True, 1)])
         self.assertEqual(self.send("/event", self.event())[0], 403)
         self.assertEqual(len(self.router.events), 1)
+
+    def test_non_governance_events_cannot_consume_valid_grant(self):
+        # A forged valid digest does not turn CALIBRATION, TELEMETRY,
+        # EPOCH, unknown or empty verifier classes into GOVERNANCE.
+        for verifier in (b"\x01", b"\x02", b"\x03", b"\xff", b""):
+            with self.subTest(verifier=verifier):
+                self.setUp()
+                proposal = "p1"
+                signal = self.signal()
+                signal["event_sha256"] = event_digest(b"hello", verifier, b"ctx")
+                self.assertEqual(self.send("/gate_signal", signal)[0], 200)
+                event = self.event()
+                event["verifier_hex"] = verifier.hex()
+                status, reply = self.send("/event", event)
+                self.assertEqual(status, 403, reply)
+                self.assertEqual(reply["reason"], "NOT_GOVERNANCE_EVENT")
+                self.assertEqual(self.ledger.pending_count, 1)
+                self.assertEqual(self.router.events, [])
+
+    def test_governance_schema_limits_checked_before_grant_consumption(self):
+        # A syntactically valid, credentialled and granted event larger than
+        # the frozen schema must be rejected before router dispatch.
+        for payload, verifier, context in (
+            (b"x" * (SCHEMAS[EventClass.GOVERNANCE].payload_size_max + 1),
+             b"\x00", b""),
+            (b"x", b"\x00" * (SCHEMAS[EventClass.GOVERNANCE].verifier_size_max + 1),
+             b""),
+            (b"x", b"\x00",
+             b"x" * (SCHEMAS[EventClass.GOVERNANCE].context_size_max + 1)),
+        ):
+            with self.subTest(lengths=(len(payload), len(verifier), len(context))):
+                self.setUp()
+                signal = self.signal()
+                signal["event_sha256"] = event_digest(payload, verifier, context)
+                self.assertEqual(self.send("/gate_signal", signal)[0], 200)
+                event = {
+                    "proposal_id": "p1",
+                    "payload_hex": payload.hex(),
+                    "verifier_hex": verifier.hex(),
+                    "context_hex": context.hex(),
+                }
+                status, reply = self.send("/event", event)
+                self.assertEqual(status, 413, reply)
+                self.assertEqual(reply["reason"], "GOVERNANCE_EVENT_SIZE")
+                self.assertEqual(self.ledger.pending_count, 1)
+                self.assertEqual(self.router.events, [])
 
     def test_malformed_control_json_rejected_not_dispatched(self):
         self.assertEqual(self.send("/gate_signal", b"{invalid")[0], 400)
