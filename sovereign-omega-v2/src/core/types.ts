@@ -226,7 +226,7 @@ export interface GateDecisionPayload {
   readonly budget_remaining: number
   readonly freeze_triggered: boolean
   readonly method: 'anytime_valid_bernstein'
-  readonly rejection_reason?: 'LCB_FAIL' | 'BUDGET_EXHAUSTED' | 'CAPACITY_EXCEEDED' | 'VERIFIER_INTEGRITY'
+  readonly rejection_reason?: 'LCB_FAIL' | 'E_VALUE_FAIL' | 'BUDGET_EXHAUSTED' | 'CAPACITY_EXCEEDED' | 'VERIFIER_INTEGRITY'
 }
 
 export interface RiskBudget {
