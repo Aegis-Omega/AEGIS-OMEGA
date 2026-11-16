@@ -118,6 +118,7 @@ def sanitize_legacy_tree(
         raise SkillAuthorityError("skills must be an array")
 
     skills: list[dict[str, Any]] = []
+    seen_legacy_ids: set[str] = set()
     for raw in raw_skills:
         if not isinstance(raw, Mapping):
             raise SkillAuthorityError("every skill must be an object")
@@ -125,6 +126,9 @@ def sanitize_legacy_tree(
         skill_id = skill.get("skill_id")
         if not isinstance(skill_id, str) or not skill_id:
             raise SkillAuthorityError("skill_id must be a non-empty string")
+        if skill_id in seen_legacy_ids:
+            raise SkillAuthorityError(f"duplicate skill_id: {skill_id}")
+        seen_legacy_ids.add(skill_id)
 
         runs = skill.get("validated_runs", 0)
         if not isinstance(runs, int) or isinstance(runs, bool) or runs < 0:
@@ -194,6 +198,7 @@ def evaluate_registry(
 
     observed = 0
     root_path = Path(repo_root).resolve() if repo_root is not None else None
+    seen_skill_ids: set[str] = set()
 
     for index, raw in enumerate(skills):
         if not isinstance(raw, Mapping):
@@ -203,6 +208,10 @@ def evaluate_registry(
         if not isinstance(sid, str) or not sid:
             sid = f"index-{index}"
             violations.append(f"SKILL[{index}]: missing skill_id")
+        elif sid in seen_skill_ids:
+            violations.append(f"{sid}: duplicate skill_id")
+        else:
+            seen_skill_ids.add(sid)
 
         try:
             state = observation_state(raw)

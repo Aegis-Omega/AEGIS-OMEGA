@@ -3,10 +3,10 @@ AEGIS-Ω Agent Evolution — Hash-Chained Adaptive Lineage
 =======================================================
 The evolutionary metabolism of the automaton's agent system.
 
-Skills are not fixed at their birth tier. They earn promotion through accumulated,
+Skills are not fixed at their birth tier. They may earn promotion through accumulated,
 hash-chained evidence — exactly as CLAUDE.md §"Tier Promotion Protocol" specifies:
 
-    T2 → T1   ≥3 independent validations (failure_rate < 0.1)   → TIER_PROMOTION entry
+    T2 → T1   ≥3 independent validations AND verified provenance → eligible; HOLD pending trusted admission
     T1 → T0   formal proof OR byte-identical cross-platform demo → TIER_PROMOTION + guardian
     Any → lower   new evidence invalidates the prior basis        → TIER_PROMOTION (demotion)
 
@@ -33,14 +33,19 @@ Usage:
 from __future__ import annotations
 
 import argparse
+import copy
 import hashlib
 import json
+import math
 import os
 import sys
 import time
 from dataclasses import dataclass, field, asdict
 from pathlib import Path
 from typing import Any
+
+from harness.sdk.skill_authority import compute_registry_root, evaluate_registry
+from agents.evolution_transaction import commit_demotions, inspect_pending
 
 _ROOT = os.path.dirname(os.path.abspath(__file__))
 _REPO_ROOT = os.path.dirname(_ROOT)
@@ -56,6 +61,56 @@ TIER_ORDER = ["T0", "T1", "T2", "T3", "T4", "T5"]
 PROMOTION_MIN_RUNS = 3
 PROMOTION_MAX_FAILURE_RATE = 0.1
 PROMOTION_MIN_CONFIDENCE = 0.9  # T1 candidates must have earned high confidence
+
+
+def _demotion_evidence_fingerprint(skill: dict) -> str:
+    """Stable observation identity, independent of the mutable current tier.
+
+    Equal evidence on repeated ticks must never trigger successive demotions.
+    This hash only detects replay; it does NOT authenticate the observations.
+    """
+    fields = {
+        "domain": "AEGIS_DEMOTION_OBSERVATION_V1",
+        "skill_id": skill.get("skill_id"),
+        "observation_state": skill.get("observation_state"),
+        "validated_runs": skill.get("validated_runs"),
+        "failure_rate": skill.get("failure_rate"),
+        "failure_rate_observed": skill.get("failure_rate_observed"),
+        "confidence": skill.get("confidence"),
+        "recency_score": skill.get("recency_score"),
+        "last_validated": skill.get("last_validated"),
+        "evidence_refs": skill.get("evidence_refs"),
+    }
+    return hashlib.sha256(
+        json.dumps(fields, sort_keys=True, separators=(",", ":"), allow_nan=False).encode("utf-8")
+    ).hexdigest()
+
+
+def _coherent_observation(skill: dict) -> bool:
+    """Metadata coherence check, NOT independent attestation.
+
+    Even well-formed OBSERVED fields and content-addressed references can be
+    self-authored. They may support a provisional numerical eligibility
+    result, but must never authorize a T2 -> T1 promotion by themselves.
+    """
+    if skill.get("observation_state") != "OBSERVED":
+        return False
+    runs = skill.get("validated_runs")
+    if type(runs) is not int or runs < 1:
+        return False
+    for key in ("failure_rate", "confidence", "recency_score", "failure_rate_observed"):
+        v = skill.get(key)
+        if isinstance(v, bool) or not isinstance(v, (int, float)):
+            return False
+        if not math.isfinite(v) or not 0.0 <= v <= 1.0:
+            return False
+    if not math.isclose(skill["failure_rate"], skill["failure_rate_observed"], abs_tol=1e-12, rel_tol=0.0):
+        return False
+    last = skill.get("last_validated")
+    if not isinstance(last, str) or not last.strip():
+        return False
+    refs = skill.get("evidence_refs")
+    return isinstance(refs, list) and bool(refs) and all(isinstance(x, str) and x.strip() for x in refs)
 
 
 # ── Canonicalization (deterministic, sorted — mirrors EventEnvelope) ───────────
@@ -143,22 +198,32 @@ class AdaptiveLineage:
         if path.exists():
             with open(path) as f:
                 raw = json.load(f)
+            if not isinstance(raw, dict) or raw.get("genesis_hash") != EVOLUTION_GENESIS_HASH:
+                raise ValueError("lineage genesis metadata invalid")
             events = [LineageEvent(**e) for e in raw.get("events", [])]
-            return cls(events)
+            lineage = cls(events)
+            if (raw.get("event_count") != len(events) or
+                    raw.get("terminal_hash") != lineage.terminal_hash() or
+                    not lineage.verify_chain()[0]):
+                raise ValueError("lineage metadata or chain integrity invalid")
+            return lineage
         return cls()
 
     def save(self, path: Path = LINEAGE_PATH) -> None:
-        with open(path, "w") as f:
+        if not self.verify_chain()[0]:
+            raise ValueError("refusing to persist invalid lineage")
+        temporary = path.with_suffix(path.suffix + ".tmp")
+        with open(temporary, "w", encoding="utf-8") as f:
             json.dump(
                 {
                     "genesis_hash": EVOLUTION_GENESIS_HASH,
                     "terminal_hash": self.terminal_hash(),
                     "event_count": len(self.events),
                     "events": [asdict(e) for e in self.events],
-                },
-                f,
-                indent=2,
+                }, f, indent=2,
             )
+            f.write("\n")
+        os.replace(temporary, path)
 
 
 # ── Evolution engine ───────────────────────────────────────────────────────────
@@ -171,6 +236,7 @@ class PromotionVerdict:
     promoted: bool
     reason: str
     requires_guardian: bool = False
+    requires_evidence: bool = False
 
 
 class EvolutionEngine:
@@ -178,15 +244,22 @@ class EvolutionEngine:
     Evaluates the skill tree for tier promotions and records them in the lineage.
 
     Promotion is evidence-driven, not asserted:
-      - T2 → T1: automatic when ≥3 validated_runs, failure_rate < 0.1, confidence ≥ 0.9.
+      - T2 → T1: numerical eligibility only; independent proof admission remains a HOLD.
       - T1 → T0: NEVER automatic. Recorded as guardian-required; not self-granted.
       - Demotion: when failure_rate ≥ 0.5 after ≥3 runs, the prior tier basis is
         invalidated → demote one tier (new evidence invalidates the prior basis).
     """
 
-    def __init__(self, tree_path: str = SKILL_TREE_PATH, lineage: AdaptiveLineage | None = None):
+    def __init__(self, tree_path: str = SKILL_TREE_PATH, lineage: AdaptiveLineage | None = None,
+                 repo_root: str | Path | None = None,
+                 lineage_path: str | Path | None = None):
         self.tree_path = tree_path
-        self.lineage = lineage if lineage is not None else AdaptiveLineage.load()
+        self.repo_root = Path(repo_root).resolve() if repo_root is not None else Path(_REPO_ROOT).resolve()
+        # Preserve the V5 test harness path when a lineage object is injected.
+        self.lineage_path = Path(lineage_path) if lineage_path is not None else Path(
+            getattr(lineage, "path", LINEAGE_PATH)
+        )
+        self.lineage = lineage if lineage is not None else AdaptiveLineage.load(self.lineage_path)
         self._tree: dict | None = None
 
     def _load_tree(self) -> dict:
@@ -196,9 +269,8 @@ class EvolutionEngine:
         return self._tree
 
     def _save_tree(self) -> None:
-        if self._tree is not None:
-            with open(self.tree_path, "w") as f:
-                json.dump(self._tree, f, indent=2)
+        """Deliberately deny the old unjournaled, non-atomic persistence path."""
+        raise ValueError("UNJOURNALED_REGISTRY_SAVE_DENIED")
 
     @staticmethod
     def _lower_tier(tier: str) -> str:
@@ -217,69 +289,111 @@ class EvolutionEngine:
         fail = skill.get("failure_rate", 0.0)
         conf = skill.get("confidence", 0.5)
 
-        # Demotion check first — new failing evidence invalidates the prior basis.
+        # Fail closed on forged or malformed observation metadata.
+        if not _coherent_observation(skill):
+            return PromotionVerdict(
+                sid, tier, None, False,
+                "HOLD: no coherent OBSERVED evidence metadata (not independent attestation)",
+            )
+
+        # Demotion is authority-reducing, but still requires admitted registry
+        # and verified lineage at tick() before persistence.
         if runs >= PROMOTION_MIN_RUNS and fail >= 0.5:
             return PromotionVerdict(
                 sid, tier, self._lower_tier(tier), False,
-                f"failure_rate={fail:.2f} ≥ 0.5 over {runs} runs — prior tier basis invalidated",
+                f"failure_rate={fail:.2f} >= 0.5 over {runs} observed runs",
             )
 
-        # T1 → T0 is never automatic (no autonomous mutation authority).
+        # T1 -> T0 remains guardian-gated with no self-grant.
         if tier == "T1":
             if runs >= PROMOTION_MIN_RUNS and fail < PROMOTION_MAX_FAILURE_RATE and conf >= 0.95:
                 return PromotionVerdict(
                     sid, tier, "T0", False,
-                    f"T1→T0 eligible ({runs} runs, fail={fail:.2f}) — requires /guardian APPROVED formal proof",
+                    "T0-eligible only; requires guardian-approved formal proof",
                     requires_guardian=True,
                 )
-            return PromotionVerdict(sid, tier, None, False, "T1 stable — no promotion criteria met")
+            return PromotionVerdict(sid, tier, None, False, "T1 stable")
 
-        # T2 → T1 — automatic when the evidence threshold is crossed.
         if tier == "T2":
             if (runs >= PROMOTION_MIN_RUNS and fail < PROMOTION_MAX_FAILURE_RATE
                     and conf >= PROMOTION_MIN_CONFIDENCE):
+                # Self-reported OBSERVED fields, evidence_refs, and SHA-256
+                # registry roots are integrity checks, not signatures. Never
+                # make an automatic tier mutation without an independently
+                # authenticated, replayable admission receipt.
                 return PromotionVerdict(
-                    sid, tier, "T1", True,
-                    f"T2→T1: {runs} validations, failure_rate={fail:.2f}, confidence={conf:.2f}",
+                    sid, tier, "T1", False,
+                    f"numerically eligible ({runs} runs, fail={fail:.2f}, conf={conf:.2f}); "
+                    "HOLD: independently authenticated promotion evidence absent",
+                    requires_evidence=True,
                 )
             return PromotionVerdict(
                 sid, tier, None, False,
                 f"T2 not yet eligible (runs={runs}/{PROMOTION_MIN_RUNS}, fail={fail:.2f}, conf={conf:.2f})",
             )
 
-        # T3+ require corpus re-arbitration, not run-count evolution.
-        return PromotionVerdict(sid, tier, None, False, f"{tier} evolves via corpus re-arbitration, not run count")
+        return PromotionVerdict(sid, tier, None, False, f"{tier} requires corpus re-arbitration")
 
     def tick(self, apply_changes: bool = True) -> list[PromotionVerdict]:
-        """Run one evolution tick across all skills. Records lineage events."""
-        tree = self._load_tree()
-        verdicts: list[PromotionVerdict] = []
+        """Evaluate existing skills; fail closed before any durable state change."""
+        state = inspect_pending(self.tree_path, self.lineage_path)
+        if state["status"] != "CLEAN":
+            raise ValueError("UNRESOLVED_EVOLUTION_TRANSACTION:" + state["status"])
+        committed_tree = self._load_tree()
+        # Stage candidate mutations on copies. A failed durable commit must
+        # not produce an in-memory tier or lineage event that was never saved.
+        tree = copy.deepcopy(committed_tree)
+        staged_lineage = AdaptiveLineage(copy.deepcopy(self.lineage.events))
+        admitted = evaluate_registry(tree, repo_root=self.repo_root)
+        if admitted.outcome != "ADMITTED":
+            raise ValueError("skill registry not admitted: " + "; ".join(admitted.violations))
+        valid, bad = self.lineage.verify_chain()
+        if not valid:
+            raise ValueError(f"adaptive lineage invalid at event {bad}")
 
+        verdicts: list[PromotionVerdict] = []
+        changed = False
         for skill in tree.get("skills", []):
             v = self.evaluate_skill(skill)
             verdicts.append(v)
-
-            if v.promoted and apply_changes:
-                # Earned T2→T1 promotion — record and apply.
-                self.lineage.append(
-                    "TIER_PROMOTION", v.skill_id, v.current_tier, v.eligible_tier or v.current_tier, v.reason,
+            if not apply_changes:
+                continue
+            if v.promoted:
+                # Defense-in-depth: evaluate_skill must not self-grant T2 -> T1.
+                raise ValueError("unexpected unauthenticated automatic promotion")
+            if v.eligible_tier and self._is_demotion(v):
+                fingerprint = _demotion_evidence_fingerprint(skill)
+                witness = "obs=" + fingerprint
+                if any(
+                    ev.event_type == "TIER_DEMOTION" and ev.skill_id == v.skill_id
+                    and ev.evidence.endswith(witness)
+                    for ev in staged_lineage.events
+                ):
+                    # Identical observation evidence cannot repeatedly demote.
+                    continue
+                staged_lineage.append(
+                    "TIER_DEMOTION", v.skill_id, v.current_tier, v.eligible_tier,
+                    v.reason + "; " + witness,
                 )
                 skill["tier"] = v.eligible_tier
-            elif v.eligible_tier and self._is_demotion(v) and apply_changes:
-                self.lineage.append(
-                    "TIER_DEMOTION", v.skill_id, v.current_tier, v.eligible_tier, v.reason,
-                )
-                skill["tier"] = v.eligible_tier
-            elif v.requires_guardian and apply_changes:
-                # Record eligibility WITHOUT promoting (no self-grant of T0).
-                self.lineage.append(
-                    "EVIDENCE_RECORDED", v.skill_id, v.current_tier, v.eligible_tier or v.current_tier,
-                    f"T0-eligible, guardian gate not yet satisfied: {v.reason}",
-                )
+                changed = True
+            # A provisional T2 or T0 eligibility is read-only: repeated ticks
+            # must not invent validation receipts or multiply lineage events.
 
-        if apply_changes:
-            self.lineage.save()
-            self._save_tree()
+        if apply_changes and changed:
+            root = compute_registry_root(tree)
+            tree["registry_root"] = root
+            tree["genesis_seal"] = root
+            commit_demotions(
+                tree_path=self.tree_path,
+                lineage_path=self.lineage_path,
+                next_tree=tree,
+                next_lineage=staged_lineage,
+                repo_root=self.repo_root,
+            )
+            # Publish in-process state only after durable transaction success.
+            self._tree = tree
+            self.lineage.events = staged_lineage.events
         return verdicts
 
     @staticmethod
@@ -297,6 +411,7 @@ def _cmd_evolve() -> int:
     engine = EvolutionEngine()
     verdicts = engine.tick(apply_changes=True)
     promoted = [v for v in verdicts if v.promoted]
+    held = [v for v in verdicts if v.requires_evidence]
     demoted = [v for v in verdicts if engine._is_demotion(v) and not v.promoted]
     guardian = [v for v in verdicts if v.requires_guardian]
 
@@ -304,10 +419,13 @@ def _cmd_evolve() -> int:
     print("=" * 60)
     print(f"  Skills evaluated:   {len(verdicts)}")
     print(f"  Promoted (T2→T1):   {len(promoted)}")
+    print(f"  Evidence-held:      {len(held)}")
     print(f"  Demoted:            {len(demoted)}")
     print(f"  T0-eligible (guardian-gated): {len(guardian)}")
     for v in promoted:
         print(f"    ↑ {v.skill_id}: {v.current_tier}→{v.eligible_tier} — {v.reason}")
+    for v in held:
+        print(f"    HOLD {v.skill_id}: {v.reason}")
     for v in demoted:
         print(f"    ↓ {v.skill_id}: {v.current_tier}→{v.eligible_tier} — {v.reason}")
     for v in guardian:
@@ -329,10 +447,10 @@ def _cmd_status() -> int:
     for tier in TIER_ORDER:
         if tier in by_tier:
             print(f"  {tier}: {by_tier[tier]} skills")
-    eligible = [v for v in verdicts if v.promoted or v.requires_guardian]
+    eligible = [v for v in verdicts if v.promoted or v.requires_guardian or v.requires_evidence]
     print(f"\n  Promotion-eligible: {len(eligible)}")
     for v in eligible:
-        gate = " (guardian-gated)" if v.requires_guardian else ""
+        gate = " (guardian-gated)" if v.requires_guardian else (" (evidence-held)" if v.requires_evidence else "")
         print(f"    {v.skill_id}: {v.current_tier}→{v.eligible_tier}{gate}")
     return 0
 
@@ -392,9 +510,10 @@ def _cmd_selftest() -> int:
     engine.lineage = AdaptiveLineage()
     engine._tree = None
     v = engine.evaluate_skill(
-        {"skill_id": "x", "tier": "T2", "validated_runs": 5, "failure_rate": 0.0, "confidence": 0.92}
+        {"skill_id": "x", "tier": "T2", "validated_runs": 5, "failure_rate": 0.0, "failure_rate_observed": 0.0, "confidence": 0.92, "recency_score": 0.95, "last_validated": "2026-11-16T00:00:00Z", "observation_state": "OBSERVED", "evidence_refs": ["CLAUDE.md"]}
     )
-    check("T2 with 5 clean runs is promotion-eligible", v.promoted and v.eligible_tier == "T1")
+    check("T2 numerical eligibility is held for independent evidence",
+          v.requires_evidence and not v.promoted and v.eligible_tier == "T1")
 
     # 7 — T2 with insufficient runs does not promote
     v = engine.evaluate_skill(
@@ -404,13 +523,13 @@ def _cmd_selftest() -> int:
 
     # 8 — T1→T0 is guardian-gated, never auto-promoted
     v = engine.evaluate_skill(
-        {"skill_id": "z", "tier": "T1", "validated_runs": 9, "failure_rate": 0.0, "confidence": 0.99}
+        {"skill_id": "z", "tier": "T1", "validated_runs": 9, "failure_rate": 0.0, "failure_rate_observed": 0.0, "confidence": 0.99, "recency_score": 1.0, "last_validated": "2026-11-16T00:00:00Z", "observation_state": "OBSERVED", "evidence_refs": ["CLAUDE.md"]}
     )
     check("T1→T0 requires guardian, not auto-promoted", v.requires_guardian and not v.promoted)
 
     # 9 — high failure rate demotes
     v = engine.evaluate_skill(
-        {"skill_id": "w", "tier": "T1", "validated_runs": 4, "failure_rate": 0.6, "confidence": 0.8}
+        {"skill_id": "w", "tier": "T1", "validated_runs": 4, "failure_rate": 0.6, "failure_rate_observed": 0.6, "confidence": 0.8, "recency_score": 1.0, "last_validated": "2026-11-16T00:00:00Z", "observation_state": "OBSERVED", "evidence_refs": ["CLAUDE.md"]}
     )
     check("high failure_rate triggers demotion", engine._is_demotion(v) and v.eligible_tier == "T2")
 

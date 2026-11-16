@@ -184,6 +184,18 @@ jobs:
       - name: Run hardware_config fixed-point tests
         run: python python/tests/test_hardware_config.py
 
+      - name: Run HOLON evolution evidence-gate tests
+        run: python ../agents/tests/test_evolution_evidence_gate.py
+
+      - name: Run HOLON journaled evolution crash/recovery tests
+        run: python ../agents/tests/test_evolution_transaction.py
+
+      - name: Run HOLON V8 skill identity and registry uniqueness tests
+        run: python ../agents/tests/test_skill_identity_integrity.py
+
+      - name: Run EvolutionEngine embedded selftest
+        run: PYTHONPATH=.. python -m agents.evolution selftest
+
       - name: Run constitutional identity tests
         run: python python/tests/test_constitutional_identity.py
 
