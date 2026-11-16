@@ -159,6 +159,8 @@ def solve_finite_fiber_constraints(
     """
     if not isinstance(fibers, tuple) or not 1 <= len(fibers) <= MAX_CONTEXTS:
         raise IndexedContextError("FIBERS_INVALID")
+    if any(not isinstance(f, tuple) or len(f) != 2 for f in fibers):
+        raise IndexedContextError("FIBER_RECORD_INVALID")
     if len({f[0] for f in fibers}) != len(fibers):
         raise IndexedContextError("FIBER_DUPLICATE_CONTEXT")
     items: dict[str, tuple[str, ...]] = {}
@@ -171,14 +173,16 @@ def solve_finite_fiber_constraints(
             raise IndexedContextError("FIBER_CHOICES_INVALID")
         items[ctx] = tuple(sorted(choices))
         bound *= len(choices)
-    if bound > MAX_COMBINATIONS:
-        return OPEN, None, bound
-
+    # Validate relation scope and index connectivity before a budget verdict.
+    # Otherwise an invalid or partial context graph could hide behind OPEN.
     if not isinstance(constraints, tuple) or len(constraints) > MAX_RELATIONS:
         raise IndexedContextError("CONSTRAINTS_INVALID")
     edges: dict[tuple[str, str], set[tuple[str, str]]] = {}
     undirected = defaultdict(set)
-    for source, target, pairs in constraints:
+    for relation in constraints:
+        if not isinstance(relation, tuple) or len(relation) != 3:
+            raise IndexedContextError("CONSTRAINT_RECORD_INVALID")
+        source, target, pairs = relation
         if source not in items or target not in items or source == target:
             raise IndexedContextError("CONSTRAINT_CONTEXT_INVALID")
         edge = source, target
@@ -186,6 +190,11 @@ def solve_finite_fiber_constraints(
             raise IndexedContextError("CONSTRAINT_EDGE_DUPLICATE")
         if not isinstance(pairs, tuple) or len(pairs) > MAX_ALLOWED_PAIRS:
             raise IndexedContextError("CONSTRAINT_PAIRS_INVALID")
+        if any(not isinstance(pair, tuple) or len(pair) != 2
+               or any(not isinstance(v, str) for v in pair) for pair in pairs):
+            raise IndexedContextError("CONSTRAINT_PAIR_INVALID")
+        if len(set(pairs)) != len(pairs):
+            raise IndexedContextError("CONSTRAINT_PAIR_DUPLICATE")
         if any(pair[0] not in items[source] or pair[1] not in items[target] for pair in pairs):
             raise IndexedContextError("CONSTRAINT_PAIR_NOT_IN_FIBERS")
         edges[edge] = set(pairs)
@@ -206,6 +215,9 @@ def solve_finite_fiber_constraints(
                     queue.append(target)
         if seen != set(items):
             raise IndexedContextError("CONTEXT_INDEX_UNCONNECTED")
+
+    if bound > MAX_COMBINATIONS:
+        return OPEN, None, bound
 
     ordered = sorted(items)
     for values in itertools.product(*(items[ctx] for ctx in ordered)):
