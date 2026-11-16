@@ -150,17 +150,26 @@ class IndexedContextReceiptV1:
 def solve_finite_fiber_constraints(
     fibers: tuple[tuple[str, tuple[str, ...]], ...],
     constraints: tuple[tuple[str, str, tuple[tuple[str, str], ...]], ...],
+    *,
+    max_search_nodes: int = MAX_COMBINATIONS,
 ) -> tuple[str, tuple[tuple[str, str], ...] | None, int]:
-    """Pure finite enumeration. NO cryptographic trust claims are made here.
+    """Finite CSP: validate first, prune domains, then bounded DFS.
 
-    A returned NO_SOLUTION is only relative to the supplied finite relations.
-    This does not establish inexistence of a global Cartesian section of a
-    categorical fibration, whose coherence/morphisms are not encoded here.
+    The returned bound is the full Cartesian product size for diagnostics,
+    NOT the number of nodes the solver actually explores. A large product
+    does not itself imply OPEN: simple relations can make it tractable.
+    The result is relative to the explicitly admitted finite relation table,
+    never a proof of semantic truth or a categorical Cartesian section.
     """
+    if (isinstance(max_search_nodes, bool) or not isinstance(max_search_nodes, int)
+            or max_search_nodes <= 0):
+        raise IndexedContextError("SEARCH_NODE_BUDGET_INVALID")
     if not isinstance(fibers, tuple) or not 1 <= len(fibers) <= MAX_CONTEXTS:
         raise IndexedContextError("FIBERS_INVALID")
     if any(not isinstance(f, tuple) or len(f) != 2 for f in fibers):
         raise IndexedContextError("FIBER_RECORD_INVALID")
+    if any(not isinstance(f[0], str) for f in fibers):
+        raise IndexedContextError("FIBER_CONTEXT_INVALID")
     if len({f[0] for f in fibers}) != len(fibers):
         raise IndexedContextError("FIBER_DUPLICATE_CONTEXT")
     items: dict[str, tuple[str, ...]] = {}
@@ -173,19 +182,21 @@ def solve_finite_fiber_constraints(
             raise IndexedContextError("FIBER_CHOICES_INVALID")
         items[ctx] = tuple(sorted(choices))
         bound *= len(choices)
-    # Validate relation scope and index connectivity before a budget verdict.
-    # Otherwise an invalid or partial context graph could hide behind OPEN.
+
+    # Every input, domain membership, and relation linkage must be valid
+    # before a bounded-computation OPEN outcome becomes possible.
     if not isinstance(constraints, tuple) or len(constraints) > MAX_RELATIONS:
         raise IndexedContextError("CONSTRAINTS_INVALID")
-    edges: dict[tuple[str, str], set[tuple[str, str]]] = {}
-    undirected = defaultdict(set)
+    edges: dict[tuple[str, str], frozenset[tuple[str, str]]] = {}
+    undirected: dict[str, set[str]] = defaultdict(set)
     for relation in constraints:
         if not isinstance(relation, tuple) or len(relation) != 3:
             raise IndexedContextError("CONSTRAINT_RECORD_INVALID")
         source, target, pairs = relation
-        if source not in items or target not in items or source == target:
+        if (not isinstance(source, str) or not isinstance(target, str)
+                or source not in items or target not in items or source == target):
             raise IndexedContextError("CONSTRAINT_CONTEXT_INVALID")
-        edge = source, target
+        edge = (source, target)
         if edge in edges:
             raise IndexedContextError("CONSTRAINT_EDGE_DUPLICATE")
         if not isinstance(pairs, tuple) or len(pairs) > MAX_ALLOWED_PAIRS:
@@ -197,16 +208,16 @@ def solve_finite_fiber_constraints(
             raise IndexedContextError("CONSTRAINT_PAIR_DUPLICATE")
         if any(pair[0] not in items[source] or pair[1] not in items[target] for pair in pairs):
             raise IndexedContextError("CONSTRAINT_PAIR_NOT_IN_FIBERS")
-        edges[edge] = set(pairs)
+        edges[edge] = frozenset(pairs)
         undirected[source].add(target)
         undirected[target].add(source)
 
-    # In a multi-context problem, an unconnected index cannot silently
-    # masquerade as having cross-context compatibility evidence.
+    # A single totally unlinked context cannot certify relations across a
+    # disconnected declared multi-context index.
     if len(items) > 1:
-        start = min(items)
-        seen = {start}
-        queue = deque([start])
+        first = min(items)
+        seen = {first}
+        queue = deque([first])
         while queue:
             source = queue.popleft()
             for target in sorted(undirected[source]):
@@ -216,16 +227,62 @@ def solve_finite_fiber_constraints(
         if seen != set(items):
             raise IndexedContextError("CONTEXT_INDEX_UNCONNECTED")
 
-    if bound > MAX_COMBINATIONS:
-        return OPEN, None, bound
+    ordered = tuple(sorted(items))
+    ordered_edges = tuple(sorted(edges.items()))
+    explored = 0
 
-    ordered = sorted(items)
-    for values in itertools.product(*(items[ctx] for ctx in ordered)):
-        assignment = dict(zip(ordered, values))
-        if all((assignment[a], assignment[b]) in allowed for (a, b), allowed in edges.items()):
-            return PASS, tuple(zip(ordered, values)), bound
-    return NO_SOLUTION, None, bound
+    def propagate(domains: dict[str, tuple[str, ...]]) -> bool:
+        # Arc-consistency pruning, in both directions, for each explicitly
+        # admitted relation. With finite domains the loop must terminate.
+        changed = True
+        while changed:
+            changed = False
+            for ((source, target), allowed) in ordered_edges:
+                left, right = domains[source], domains[target]
+                new_left = tuple(
+                    x for x in left if any((x, y) in allowed for y in right)
+                )
+                if not new_left:
+                    return False
+                new_right = tuple(
+                    y for y in right if any((x, y) in allowed for x in new_left)
+                )
+                if not new_right:
+                    return False
+                if new_left != left:
+                    domains[source] = new_left
+                    changed = True
+                if new_right != right:
+                    domains[target] = new_right
+                    changed = True
+        return True
 
+    def search(domains: dict[str, tuple[str, ...]]):
+        nonlocal explored
+        if explored >= max_search_nodes:
+            return OPEN, None
+        explored += 1
+        state = dict(domains)
+        if not propagate(state):
+            return NO_SOLUTION, None
+        remaining = [ctx for ctx in ordered if len(state[ctx]) > 1]
+        if not remaining:
+            selected = tuple((ctx, state[ctx][0]) for ctx in ordered)
+            return PASS, selected
+        ctx = min(remaining, key=lambda c: (len(state[c]), c))
+        unknown_branch = False
+        for option in state[ctx]:
+            child = dict(state)
+            child[ctx] = (option,)
+            outcome, witness = search(child)
+            if outcome == PASS:
+                return PASS, witness
+            if outcome == OPEN:
+                unknown_branch = True
+        return (OPEN if unknown_branch else NO_SOLUTION), None
+
+    status, selected = search(items)
+    return status, selected, bound
 
 class IndexedContextVerifierV1:
     def __init__(
