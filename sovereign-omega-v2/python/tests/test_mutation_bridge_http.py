@@ -31,13 +31,30 @@ class FakeGate:
         self.deny = deny
         self.signals = []
         self.verdicts = {}
+        self._last_sequence = -1
+        self._sealed = False
+        self.silently_discard = False
 
     def record_signal(self, signal):
+        # Faithfully model the frozen gate's silent drop behavior.
+        if self._sealed or self.silently_discard or signal.sequence <= self._last_sequence:
+            return
+        self._last_sequence = signal.sequence
         self.signals.append(signal)
         self.verdicts[signal.proposal_id] = signal.accepted and not self.deny
 
     def is_approved(self, proposal_id):
         return self.verdicts.get(proposal_id, False)
+
+    def last_sequence(self):
+        return self._last_sequence
+
+    def seal(self):
+        self._sealed = True
+
+    @property
+    def is_sealed(self):
+        return self._sealed
 
 
 class FakeMatrix:
@@ -198,6 +215,46 @@ class BridgeHttpMutationTests(unittest.TestCase):
         self.assertEqual(self.send("/gate_signal", signal)[0], 403)
         self.assertEqual(self.gate.signals, [])
         self.assertEqual(self.matrix.signals, [])
+
+    def test_sealed_gate_rejects_signals_before_ledger_or_matrix(self):
+        self.gate.seal()
+        status, reply = self.send("/gate_signal", self.signal())
+        self.assertEqual(status, 403)
+        self.assertEqual(reply["reason"], "CONSTITUTIONAL_GATE_SEALED")
+        self.assertEqual(self.ledger.last_sequence, -1)
+        self.assertEqual(self.ledger.pending_count, 0)
+        self.assertEqual(self.matrix.signals, [])
+        self.assertEqual(self.gate.signals, [])
+        self.assertEqual(self.send("/event", self.event())[0], 403)
+        self.assertEqual(self.router.events, [])
+
+    def test_seal_revokes_effective_authority_of_pending_grant(self):
+        self.assertEqual(self.send("/gate_signal", self.signal())[0], 200)
+        self.assertEqual(self.ledger.pending_count, 1)
+        self.assertTrue(self.gate.is_approved("p1"))
+        self.gate.seal()
+        self.assertEqual(self.send("/event", self.event())[0], 403)
+        self.assertEqual(self.router.events, [])
+        self.assertEqual(self.send("/gate_signal", self.signal(sequence=2))[0], 403)
+
+    def test_silent_drop_cannot_reuse_old_approved_proposal(self):
+        self.assertEqual(self.send("/gate_signal", self.signal())[0], 200)
+        self.assertEqual(self.send("/event", self.event())[0], 200)
+        self.assertEqual(len(self.router.events), 1)
+        self.assertEqual(self.gate.last_sequence(), 1)
+        self.assertTrue(self.gate.is_approved("p1"))
+
+        # This simulates the constitutionally frozen gate silently discarding
+        # a new signal while retaining its earlier APPROVED verdict.
+        self.gate.silently_discard = True
+        status, reply = self.send("/gate_signal", self.signal(sequence=2))
+        self.assertEqual(status, 403)
+        self.assertEqual(reply["reason"], "CONSTITUTIONAL_SIGNAL_NOT_RECORDED")
+        self.assertEqual(self.gate.last_sequence(), 1)
+        self.assertEqual(self.ledger.pending_count, 0)
+        self.assertEqual(self.matrix.signals, [("p1", True, 1)])
+        self.assertEqual(self.send("/event", self.event())[0], 403)
+        self.assertEqual(len(self.router.events), 1)
 
     def test_malformed_control_json_rejected_not_dispatched(self):
         self.assertEqual(self.send("/gate_signal", b"{invalid")[0], 400)
