@@ -7,7 +7,7 @@ import tempfile
 import threading
 import unittest
 sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
-from core_matrix import M1
+from m1_chain import M1
 from ledger_persist import (CHECKPOINT_VERSION, CHAIN_MODE, CheckpointError,
                             save_checkpoint, load_checkpoint)
 
