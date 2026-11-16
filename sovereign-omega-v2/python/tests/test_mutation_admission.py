@@ -32,7 +32,7 @@ class MutationAdmissionTests(unittest.TestCase):
 
     def record_grant(self, ledger, proposal="p1", sequence=1, digest=None):
         if digest is None:
-            digest = event_digest(b"payload", b"\\x00", b"context")
+            digest = event_digest(b"payload", b"\x00", b"context")
         return ledger.record(proposal, sequence, True, 0.25, digest)
 
     def test_control_auth_is_fail_closed(self):
@@ -50,44 +50,44 @@ class MutationAdmissionTests(unittest.TestCase):
                 self.assertFalse(control_authenticated(candidate, configured))
 
     def test_digest_length_framing_and_type(self):
-        event = event_digest(b"abc", b"\\x01", b"def")
+        event = event_digest(b"abc", b"\x01", b"def")
         self.assertEqual(len(event), 64)
-        self.assertEqual(event, event_digest(b"abc", b"\\x01", b"def"))
-        self.assertNotEqual(event, event_digest(b"ab", b"c\\x01", b"def"))
-        self.assertNotEqual(event, event_digest(b"abc", b"\\x02", b"def"))
-        self.assertNotEqual(event, event_digest(b"abc", b"\\x01", b"de"))
+        self.assertEqual(event, event_digest(b"abc", b"\x01", b"def"))
+        self.assertNotEqual(event, event_digest(b"ab", b"c\x01", b"def"))
+        self.assertNotEqual(event, event_digest(b"abc", b"\x02", b"def"))
+        self.assertNotEqual(event, event_digest(b"abc", b"\x01", b"de"))
         with self.assertRaises(TypeError):
-            event_digest("abc", b"\\x01", b"def")
+            event_digest("abc", b"\x01", b"def")
 
     def test_positive_approved_proposal_is_bound_single_use(self):
         ledger = self.make_ledger()
         self.assertEqual(self.record_grant(ledger), (True, "ACCEPTED"))
         self.assertEqual(ledger.pending_count, 1)
         self.assertFalse(ledger.authorize_event(
-            "p1", b"payload", b"\\x00", b"context", False
+            "p1", b"payload", b"\x00", b"context", False
         ))
         self.assertEqual(ledger.pending_count, 1)
         self.assertFalse(ledger.authorize_event(
-            "p1", b"payload", b"\\x00", b"wrong", True
+            "p1", b"payload", b"\x00", b"wrong", True
         ))
         self.assertFalse(ledger.authorize_event(
-            "other", b"payload", b"\\x00", b"context", True
+            "other", b"payload", b"\x00", b"context", True
         ))
         self.assertFalse(ledger.authorize_event(
-            "p1", b"payload", b"\\x01", b"context", True
+            "p1", b"payload", b"\x01", b"context", True
         ))
         self.assertEqual(ledger.pending_count, 1)
         self.assertTrue(ledger.authorize_event(
-            "p1", b"payload", b"\\x00", b"context", True
+            "p1", b"payload", b"\x00", b"context", True
         ))
         self.assertEqual(ledger.pending_count, 0)
         self.assertFalse(ledger.authorize_event(
-            "p1", b"payload", b"\\x00", b"context", True
+            "p1", b"payload", b"\x00", b"context", True
         ))
 
     def test_replay_out_of_order_and_duplicate_pending(self):
         ledger = self.make_ledger()
-        digest = event_digest(b"payload", b"\\x00", b"context")
+        digest = event_digest(b"payload", b"\x00", b"context")
         self.assertEqual(self.record_grant(ledger), (True, "ACCEPTED"))
         self.assertEqual(self.record_grant(ledger, sequence=1), (
             False, "SEQUENCE_DESYNC"
@@ -102,11 +102,11 @@ class MutationAdmissionTests(unittest.TestCase):
         ))
         self.assertEqual(ledger.pending_count, 0)
         self.assertFalse(ledger.authorize_event(
-            "p1", b"payload", b"\\x00", b"context", True
+            "p1", b"payload", b"\x00", b"context", True
         ))
 
     def test_negative_and_invalid_lcb_never_authorize(self):
-        valid_digest = event_digest(b"payload", b"\\x00", b"context")
+        valid_digest = event_digest(b"payload", b"\x00", b"context")
         for accepted, lcb in (
             (True, 0.0), (True, -0.1), (True, math.nan),
             (True, math.inf), (True, -math.inf), (False, 0.2),
@@ -123,11 +123,11 @@ class MutationAdmissionTests(unittest.TestCase):
             True, "ACCEPTED"
         ))
         self.assertFalse(ledger.authorize_event(
-            "p", b"payload", b"\\x00", b"context", True
+            "p", b"payload", b"\x00", b"context", True
         ))
 
     def test_bad_proposal_sequence_and_digest(self):
-        digest = event_digest(b"payload", b"\\x00", b"context")
+        digest = event_digest(b"payload", b"\x00", b"context")
         for proposal in ("", "with space", "../path", "a" * 129, None):
             with self.subTest(proposal=proposal):
                 ledger = self.make_ledger()
@@ -162,7 +162,7 @@ class MutationAdmissionTests(unittest.TestCase):
         def consume(i):
             barrier.wait(timeout=5)
             outcomes[i] = ledger.authorize_event(
-                "p1", b"payload", b"\\x00", b"context", True
+                "p1", b"payload", b"\x00", b"context", True
             )
 
         threads = [threading.Thread(target=consume, args=(i,)) for i in range(8)]
