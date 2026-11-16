@@ -252,3 +252,60 @@ def test_overly_many_relation_claims_fail_closed(case):
     rel = case["relation"]
     with pytest.raises(IndexedContextError, match="RELATION_PAIRS_INVALID"):
         replace(rel, allowed_reading_id_pairs=tuple((str(i), "id") for i in range(145)))
+
+
+def test_oversized_disconnected_index_is_denied_before_open_budget():
+    contexts = tuple(h("OVERSIZED_CONTEXT", i) for i in range(12))
+    fibers = tuple((ctx, tuple(str(v) for v in range(12))) for ctx in contexts)
+    # 12^12 assignments exceed the budget, but a missing index link is a
+    # structural failure, not "unknown due to budget".
+    with pytest.raises(IndexedContextError, match="CONTEXT_INDEX_UNCONNECTED"):
+        solve_finite_fiber_constraints(fibers, ())
+
+
+def test_oversized_invalid_relation_is_denied_before_open_budget():
+    contexts = tuple(h("OVERSIZED_CONTEXT", i) for i in range(12))
+    fibers = tuple((ctx, tuple(str(v) for v in range(12))) for ctx in contexts)
+    relations = tuple(
+        (contexts[i], contexts[i + 1], (("0", "0"),))
+        for i in range(11)
+    )
+    bad = relations[:-1] + ((contexts[10], contexts[11], (("0", "not-a-reading"),)),)
+    with pytest.raises(IndexedContextError, match="CONSTRAINT_PAIR_NOT_IN_FIBERS"):
+        solve_finite_fiber_constraints(fibers, bad)
+
+
+def test_oversized_malformed_relation_pair_cannot_hide_behind_open():
+    contexts = tuple(h("OVERSIZED_CONTEXT", i) for i in range(12))
+    fibers = tuple((ctx, tuple(str(v) for v in range(12))) for ctx in contexts)
+    relations = tuple(
+        (contexts[i], contexts[i + 1], (("0", "0"),))
+        for i in range(11)
+    )
+    bad = relations[:-1] + ((contexts[10], contexts[11], (("0",),)),)
+    with pytest.raises(IndexedContextError, match="CONSTRAINT_PAIR_INVALID"):
+        solve_finite_fiber_constraints(fibers, bad)
+
+
+def test_oversized_duplicate_edge_is_denied_before_open_budget():
+    contexts = tuple(h("OVERSIZED_CONTEXT", i) for i in range(12))
+    fibers = tuple((ctx, tuple(str(v) for v in range(12))) for ctx in contexts)
+    relations = tuple(
+        (contexts[i], contexts[i + 1], (("0", "0"),))
+        for i in range(11)
+    )
+    with pytest.raises(IndexedContextError, match="CONSTRAINT_EDGE_DUPLICATE"):
+        solve_finite_fiber_constraints(fibers, relations + (relations[0],))
+
+
+def test_wrong_relation_record_shape_fails_as_structured_denial():
+    a, b = h("CONTEXT", "shape-a"), h("CONTEXT", "shape-b")
+    fibers = ((a, ("0",)), (b, ("1",)))
+    with pytest.raises(IndexedContextError, match="CONSTRAINT_RECORD_INVALID"):
+        solve_finite_fiber_constraints(fibers, ((a, b),))
+
+
+def test_wrong_fiber_record_shape_fails_as_structured_denial():
+    ctx = h("CONTEXT", "shape")
+    with pytest.raises(IndexedContextError, match="FIBER_RECORD_INVALID"):
+        solve_finite_fiber_constraints(((ctx,),), ())
