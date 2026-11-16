@@ -37,6 +37,7 @@ from hardware_config import (
     PGCS_TARGET_FRACTION,
     PGCS_MAX_COMPRESSION,
     PGCS_RING_BUFFER_BYTES,
+    _observed_ring_capacity,
     PGCS_DISK_IO_TARGET,
     to_fixed, from_fixed, fixed_mul, fixed_clamp, INT_SCALE,
 )
@@ -66,12 +67,18 @@ class PGCSTelemetry:
 # ── Ring Buffer ──────────────────────────────────────────────────────────────
 class CompressionRingBuffer:
     """
-    Append-only in-memory compression ring buffer.
-    Lock-free for single-producer, single-consumer.
-    Uses mmap for user-space allocation — no kernel memory management.
+    Bounded append-only compression record store (not a recycling ring).
+    Uses an explicit lock for each write, and refuses a full buffer rather
+    than silently overwriting previously recorded entries.
+    mmap-backed user-space storage; capacity selected when constructed.
     """
 
-    def __init__(self, capacity_bytes: int = PGCS_RING_BUFFER_BYTES):
+    def __init__(self, capacity_bytes: int | None = None):
+        # Do not capture host/cgroup budget in a function default at import.
+        if capacity_bytes is None:
+            capacity_bytes = _observed_ring_capacity()
+        if type(capacity_bytes) is not int or capacity_bytes < 8:
+            raise ValueError('PGCS_RING_CAPACITY_INVALID')
         self._capacity = capacity_bytes
         # mmap-backed allocation: user-space, portable, no kernel dependencies
         self._buf = mmap.mmap(-1, capacity_bytes, mmap.MAP_PRIVATE | mmap.MAP_ANONYMOUS
@@ -89,14 +96,16 @@ class CompressionRingBuffer:
         Returns False if the buffer is full.
         """
         header_size = 8  # 4 bytes original size + 4 bytes compressed size
+        if type(data) is not bytes or type(compressed) is not bytes:
+            raise TypeError('PGCS_RING_RECORD_MUST_BE_BYTES')
+        if len(data) >= (1 << 32) or len(compressed) >= (1 << 32):
+            return False  # u32 wire size cannot encode the record
         total_entry_size = header_size + len(compressed)
 
         with self._lock:
-            if self._write_pos + total_entry_size > self._capacity:
-                self._write_pos = 0  # wrap around
-
+            # Never clobber earlier entries while pretending append-only.
             if total_entry_size > self._capacity - self._write_pos:
-                return False  # insufficient space after wrap
+                return False
 
             # Write header: original_size (4B) + compressed_size (4B)
             self._buf.seek(self._write_pos)
@@ -296,6 +305,7 @@ class PGCSController:
         self._thread: Optional[threading.Thread] = None
         self._compressions = 0
         self._bytes_compressed = 0
+        self._ring_marker_rejections = 0
         self._baseline_disk_io = self._read_disk_io()
 
     def start(self):
@@ -373,13 +383,21 @@ class PGCSController:
         except OSError:
             pass  # non-Linux or libc unavailable — GC alone still helps
 
-        # Write a typed marker to the ring buffer for audit continuity.
+        # Store a typed marker, without making a false audit-continuity claim.
+        # A full buffer is explicitly counted and reported, not overwritten.
         # Format: 0xC0 (compression-event) | compressions_so_far (4B LE) | objects_freed (4B LE)
         n = max(0, collected)
         marker = b'\xc0' + self._compressions.to_bytes(4, 'little') + n.to_bytes(4, 'little')
         compressed_marker = self._compress_fn(marker)
-        self._ring.write(compressed_marker)
-        self._bytes_compressed += len(marker)
+        stored = self._ring.write_segment(marker, compressed_marker)
+        if stored:
+            self._bytes_compressed += len(marker)
+        else:
+            self._ring_marker_rejections += 1
+            if self._event_cb:
+                self._event_cb('PGCS_RING_MARKER_REJECTED', {
+                    'rejections': self._ring_marker_rejections,
+                })
 
         self._compressions += 1
         return collected
