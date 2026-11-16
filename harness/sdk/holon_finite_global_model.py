@@ -71,6 +71,9 @@ class FiniteGlobalModelReceiptV1:
     verified_formal_artifact_roots: tuple[str, ...]
     variables: tuple[str, ...]
     valuation_count: int
+    context_truth_union_masks_hex: tuple[tuple[str, str], ...]
+    global_truth_mask_hex: str
+    shared_valuation_count: int
     model_kind: str
     valuation_index: int | None
     selected_readings: tuple[tuple[str, str], ...]
@@ -205,18 +208,29 @@ class FiniteGlobalModelVerifierV1:
             return deny("GLOBAL_RELATION_SCOPE_INVALID")
 
         count = 1 << len(variable_names)
+        # A context may contain several alternative formal readings.
+        # Union their truth masks; intersect the context masks globally.
+        # Bits encode ALL (<= 2^8) Boolean valuations in a shared universe.
+        context_unions = []
+        global_truth_mask = (1 << count) - 1
+        for ctx in ordered_contexts:
+            local_mask = 0
+            for name in groups[ctx]:
+                local_mask |= truth[name]
+            context_unions.append((ctx, f"{local_mask:064x}"))
+            global_truth_mask &= local_mask
+        shared_valuation_count = global_truth_mask.bit_count()
+        witness = (
+            (global_truth_mask & -global_truth_mask).bit_length() - 1
+            if global_truth_mask else None
+        )
         selected = ()
-        witness: int | None = None
-        for valuation_index in range(count):
-            selected_for_value = []
-            for ctx in ordered_contexts:
-                candidates = [name for name in groups[ctx] if truth[name] & (1 << valuation_index)]
-                if not candidates:
-                    break
-                selected_for_value.append((ctx, candidates[0]))
-            if len(selected_for_value) != len(ordered_contexts):
-                continue
-            assignment = dict(selected_for_value)
+        if witness is not None:
+            selected = tuple(
+                (ctx, next(name for name in groups[ctx] if truth[name] & (1 << witness)))
+                for ctx in ordered_contexts
+            )
+            assignment = dict(selected)
             if any(
                 (assignment[r.source_context_root], assignment[r.target_context_root])
                 not in r.allowed_reading_id_pairs
@@ -226,9 +240,6 @@ class FiniteGlobalModelVerifierV1:
                 # exact same formulas. Such a mismatch is a verifier failure,
                 # not permission to silently choose a different interpretation.
                 return deny("GLOBAL_FORMAL_PAIR_INVARIANT_BROKEN")
-            witness = valuation_index
-            selected = tuple(selected_for_value)
-            break
 
         result_kind = SAT if witness is not None else UNSAT
         relations_roots = tuple(sorted(relations))
@@ -242,13 +253,17 @@ class FiniteGlobalModelVerifierV1:
             "verified_formal_artifact_roots": artifacts_roots,
             "variables": variable_names,
             "valuation_count": count,
+            "context_truth_union_masks_hex": tuple(context_unions),
+            "global_truth_mask_hex": f"{global_truth_mask:064x}",
+            "shared_valuation_count": shared_valuation_count,
             "model_kind": result_kind,
             "valuation_index": witness,
             "selected_readings": selected,
         })
         proof = FiniteGlobalModelReceiptV1(
             problem_root, receipt.root, relations_roots, formal_roots,
-            artifacts_roots, variable_names, count, result_kind,
-            witness, selected, verification_root,
+            artifacts_roots, variable_names, count, tuple(context_unions),
+            f"{global_truth_mask:064x}", shared_valuation_count,
+            result_kind, witness, selected, verification_root,
         )
         return FiniteGlobalVerificationV1(result_kind, (), verification_root), proof
