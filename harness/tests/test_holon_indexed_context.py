@@ -199,7 +199,7 @@ def test_order_independence_of_fiber_enumeration_and_relation_order():
     assert first == second and first[0] == PASS
 
 
-def test_unbounded_case_returns_open_not_an_unfounded_no_solution():
+def test_large_cartesian_space_can_be_proved_sat_by_constraint_propagation():
     contexts = tuple(h("CONTEXT", str(i)) for i in range(12))
     fibers = tuple((ctx, tuple(str(v) for v in range(12))) for ctx in contexts)
     relations = tuple(
@@ -207,7 +207,31 @@ def test_unbounded_case_returns_open_not_an_unfounded_no_solution():
         for i in range(11)
     )
     status, selected, bound = solve_finite_fiber_constraints(fibers, relations)
-    assert status == OPEN and selected is None and bound > MAX_COMBINATIONS
+    assert status == PASS and selected is not None and bound > MAX_COMBINATIONS
+    assignments = dict(selected)
+    assert len(assignments) == len(contexts)
+    assert all(assignments[a] == assignments[b] for a, b, _ in relations)
+
+
+def test_small_search_budget_returns_open_only_after_structural_validation():
+    a, b = h("CONTEXT", "budget-a"), h("CONTEXT", "budget-b")
+    fibers = ((a, ("0", "1")), (b, ("0", "1")))
+    relations = ((a, b, (("0", "0"), ("1", "1"))),)
+    status, selected, bound = solve_finite_fiber_constraints(
+        fibers, relations, max_search_nodes=1
+    )
+    assert status == OPEN and selected is None and bound == 4
+    status2, selected2, bound2 = solve_finite_fiber_constraints(
+        fibers, relations, max_search_nodes=2
+    )
+    assert status2 == PASS and selected2 is not None and bound2 == 4
+
+
+@pytest.mark.parametrize("bad", (0, -1, True, 1.5, None))
+def test_invalid_search_budget_rejected_without_computation(bad):
+    a = h("CONTEXT", "bad-budget")
+    with pytest.raises(IndexedContextError, match="SEARCH_NODE_BUDGET_INVALID"):
+        solve_finite_fiber_constraints(((a, ("x",)),), (), max_search_nodes=bad)
 
 
 def test_duplicate_constraints_fail_not_override_previous_relation():
@@ -309,3 +333,77 @@ def test_wrong_fiber_record_shape_fails_as_structured_denial():
     ctx = h("CONTEXT", "shape")
     with pytest.raises(IndexedContextError, match="FIBER_RECORD_INVALID"):
         solve_finite_fiber_constraints(((ctx,),), ())
+
+
+def test_new_csp_matches_independent_exhaustive_oracle_on_250_small_graphs():
+    # The oracle does NOT call the new pruning/search algorithm. It enumerates
+    # all assignments directly over finite domains; its result checks the
+    # whole solver, not a shared implementation detail.
+    import itertools
+    import random
+
+    rng = random.Random(20261116)
+    for trial in range(250):
+        count = rng.randint(2, 4)
+        contexts = tuple(h("ORACLE_CONTEXT", [trial, idx]) for idx in range(count))
+        options = {
+            ctx: tuple(str(i) for i in range(rng.randint(1, 3)))
+            for ctx in contexts
+        }
+        edges = [(i, i + 1) for i in range(count - 1)]
+        edges.extend(
+            (i, j) for i in range(count) for j in range(i + 2, count)
+            if rng.choice((True, False))
+        )
+        constraints = []
+        for i, j in edges:
+            a, b = contexts[i], contexts[j]
+            pairs = tuple(
+                (x, y) for x in options[a] for y in options[b]
+                if rng.random() < 0.48
+            )
+            constraints.append((a, b, pairs))
+        rng.shuffle(constraints)
+        fibers = list(options.items())
+        rng.shuffle(fibers)
+        status, candidate, bound = solve_finite_fiber_constraints(
+            tuple(fibers), tuple(constraints)
+        )
+        ordered = tuple(sorted(contexts))
+        exhaustive = [
+            dict(zip(ordered, vals))
+            for vals in itertools.product(*(options[ctx] for ctx in ordered))
+            if all(
+                (dict(zip(ordered, vals))[a], dict(zip(ordered, vals))[b]) in pairs
+                for a, b, pairs in constraints
+            )
+        ]
+        assert bound == len(list(itertools.product(*(options[ctx] for ctx in ordered))))
+        assert (status == PASS) == bool(exhaustive), f"trial={trial}"
+        assert status != OPEN, f"unexpected budget exhaustion trial={trial}"
+        if candidate is None:
+            assert status == NO_SOLUTION and not exhaustive, f"trial={trial}"
+        else:
+            assert dict(candidate) in exhaustive, f"invalid witness trial={trial}"
+
+
+def test_pruning_proves_global_no_solution_with_enough_budget():
+    # Equality on two links and inequality on the third is inconsistent.
+    a, b, c = (h("CONTEXT", x) for x in ("s1", "s2", "s3"))
+    fibers = tuple((x, ("0", "1")) for x in (a, b, c))
+    eq = (("0", "0"), ("1", "1"))
+    neq = (("0", "1"), ("1", "0"))
+    rels = ((a, b, eq), (b, c, eq), (c, a, neq))
+    status, witness, bound = solve_finite_fiber_constraints(
+        fibers, rels, max_search_nodes=100
+    )
+    assert status == NO_SOLUTION and witness is None and bound == 8
+
+
+def test_budget_cannot_mask_invalid_cross_context_relation():
+    a, b = h("CONTEXT", "bad-a"), h("CONTEXT", "bad-b")
+    fibers = ((a, ("0", "1")), (b, ("0", "1")))
+    with pytest.raises(IndexedContextError, match="CONSTRAINT_PAIR_NOT_IN_FIBERS"):
+        solve_finite_fiber_constraints(
+            fibers, ((a, b, (("0", "absent"),)),), max_search_nodes=1
+        )
