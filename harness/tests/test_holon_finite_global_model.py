@@ -384,3 +384,97 @@ def test_distinct_context_union_roots_cannot_be_confused():
     assert identities == tuple(sorted(identities))
     assert set(identities) == set(graph["case"]["context"].values())
     assert len(set(identities)) == 3
+
+
+def test_independent_multireading_oracle_on_64_randomized_three_context_graphs():
+    """Separate interpreter exhaustively checks all readings and 2^2 valuations.
+
+    The oracle deliberately does NOT consume the verifier's truth-mask helper,
+    derived certificate or existing pair-table solver, so that a shared bug
+    in either path cannot make the global result look correct.
+    """
+    rng = random.Random(20261116 + 812)
+    sides = ("left", "right", "third")
+
+    def generate(depth):
+        if depth == 0 or rng.random() < 0.42:
+            return rng.choice([var("p"), var("q"), constant(True), constant(False)])
+        op = rng.choice(("not", "and", "or"))
+        if op == "not":
+            return {"op": "not", "arg": generate(depth - 1)}
+        return {"op": op, "args": [generate(depth - 1), generate(depth - 1)]}
+
+    def evaluate(tree, valuation):
+        if tree["op"] == "const":
+            return tree["value"]
+        if tree["op"] == "var":
+            return valuation[tree["name"]]
+        if tree["op"] == "not":
+            return not evaluate(tree["arg"], valuation)
+        values = [evaluate(x, valuation) for x in tree["args"]]
+        return (all(values) if tree["op"] == "and" else any(values))
+
+    for trial in range(64):
+        candidates = {
+            side: (generate(3), generate(3))
+            for side in sides
+        }
+        expressions = {
+            f"{side}-r{slot}": tree
+            for side, pair in candidates.items()
+            for slot, tree in enumerate(pair)
+        }
+        graph = create_graph(expressions)
+        result, proof = graph["global"].verify(graph["problem"].root)
+        assert proof is not None and proof.authority_class == "NONE"
+        oracle = 0
+        local_masks = {side: 0 for side in sides}
+        for index in range(4):
+            valuation = {"p": bool(index & 1), "q": bool(index & 2)}
+            satisfied = {}
+            for side in sides:
+                satisfied[side] = any(
+                    evaluate(tree, valuation) for tree in candidates[side]
+                )
+                if satisfied[side]:
+                    local_masks[side] |= 1 << index
+            if all(satisfied.values()):
+                oracle |= 1 << index
+        assert result.status == (SAT if oracle else UNSAT), f"trial={trial}"
+        assert proof.global_truth_mask_hex == f"{oracle:064x}", f"trial={trial}"
+        assert proof.shared_valuation_count == oracle.bit_count(), f"trial={trial}"
+        for source, hexdigest in proof.context_truth_union_masks_hex:
+            side = next(side for side in sides if graph["case"]["context"][side] == source)
+            assert hexdigest == f"{local_masks[side]:064x}", f"trial={trial}"
+        if oracle:
+            assert proof.valuation_index == (oracle & -oracle).bit_length() - 1
+            selected = dict(proof.selected_readings)
+            for side in sides:
+                chosen = selected[graph["case"]["context"][side]]
+                tree = expressions[chosen]
+                assert evaluate(tree, {
+                    "p": bool(proof.valuation_index & 1),
+                    "q": bool(proof.valuation_index & 2),
+                })
+        else:
+            assert proof.valuation_index is None
+            assert proof.selected_readings == ()
+
+
+def test_maximum_eight_variable_space_hashes_all_256_truth_values():
+    # 256 valuation bits are represented by exactly 64 hexadecimal digits.
+    variables = tuple("abcdefgh")
+    graph = create_graph({
+        "left-a": var("a"),
+        "left-nota": neg(var("a")),
+        "right-true": constant(True),
+        "third-true": constant(True),
+    }, variables=variables)
+    result, proof = graph["global"].verify(graph["problem"].root)
+    assert result.status == SAT and proof is not None
+    assert proof.variables == variables
+    assert proof.valuation_count == 256
+    assert proof.shared_valuation_count == 256
+    assert proof.global_truth_mask_hex == "f" * 64
+    assert proof.valuation_index == 0
+    assert proof.authority_class == "NONE"
