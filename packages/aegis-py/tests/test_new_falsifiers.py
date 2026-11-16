@@ -1,5 +1,4 @@
 import hashlib
-import pytest
 from aegis.adapters import lean_axioms, data_snapshot, VERIFIED, UNKNOWN
 
 HEAD = 'a' * 40
