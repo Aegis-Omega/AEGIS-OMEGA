@@ -65,6 +65,11 @@ class NativeE4ParityTests(unittest.TestCase):
         self.assertGreater(signal["lcb"], 0)
         self.assertGreaterEqual(signal["e_value"], 1 / signal["risk_spent"])
         self.assertEqual(event["proposal_id"], signal["proposal_id"])
+        self.assertEqual(signal["component_id"], self.data["native_component"])
+        self.assertEqual(signal["operator_id"], self.data["registered_operator"])
+        self.assertEqual(signal["capability_class"], "SELF_MODIFYING")
+        self.assertEqual(event["component_id"], signal["component_id"])
+        self.assertEqual(event["operator_id"], signal["operator_id"])
         p, v, c = (bytes.fromhex(event[k])
                    for k in ("payload_hex", "verifier_hex", "context_hex"))
         self.assertEqual(event_digest(p, v, c), signal["event_sha256"])
@@ -74,16 +79,21 @@ class NativeE4ParityTests(unittest.TestCase):
             signal["lcb"], signal["event_sha256"],
             e_value=signal["e_value"], risk_spent=signal["risk_spent"],
             sample_size=signal["sample_size"], e4_method=signal["method"],
+            component_id=signal["component_id"], operator_id=signal["operator_id"],
+            capability_class=signal["capability_class"],
         )
         self.assertEqual(accepted, (True, "ACCEPTED"))
         self.assertFalse(ledger.authorize_event(
             signal["proposal_id"], p, v, c, constitutional_approved=False,
+            component_id=signal["component_id"], operator_id=signal["operator_id"],
         ))
         self.assertTrue(ledger.authorize_event(
             signal["proposal_id"], p, v, c, constitutional_approved=True,
+            component_id=signal["component_id"], operator_id=signal["operator_id"],
         ))
         self.assertFalse(ledger.authorize_event(
             signal["proposal_id"], p, v, c, constitutional_approved=True,
+            component_id=signal["component_id"], operator_id=signal["operator_id"],
         ))
 
     def test_source_generated_signal_reaches_actual_python_post_handler(self):
@@ -97,6 +107,7 @@ class NativeE4ParityTests(unittest.TestCase):
         self.assertEqual(handler.send("/event", event)[0], 403)
         self.assertEqual(len(handler.router.events), 1)
         self.assertEqual(handler.ledger.pending_count, 0)
+        self.assertEqual(handler.matrix.signals[0][0], signal["proposal_id"])
 
     def test_source_generated_positive_lcb_but_weak_e_value_never_grants(self):
         weak = self.data["weak_decision"]
