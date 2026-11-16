@@ -20,6 +20,7 @@ sys.path.insert(0, str(PY_ROOT))
 from mutation_admission import (  # noqa: E402
     MutationAdmissionLedger,
     control_authenticated,
+    control_secrets_distinct,
     event_digest,
 )
 
@@ -48,6 +49,22 @@ class MutationAdmissionTests(unittest.TestCase):
         ):
             with self.subTest(candidate=candidate, configured=configured):
                 self.assertFalse(control_authenticated(candidate, configured))
+
+    def test_issuer_and_consumer_secrets_are_independent(self):
+        issuer = "gate-" + "g" * 48
+        consumer = "event-" + "e" * 48
+        self.assertTrue(control_secrets_distinct(issuer, consumer))
+        self.assertTrue(control_authenticated(issuer, issuer))
+        self.assertTrue(control_authenticated(consumer, consumer))
+        self.assertFalse(control_authenticated(consumer, issuer))
+        self.assertFalse(control_authenticated(issuer, consumer))
+        for gate_secret, event_secret in (
+            (None, consumer), (issuer, None), ("", consumer),
+            (issuer, ""), ("short", consumer), (issuer, "short"),
+            (issuer, issuer),
+        ):
+            with self.subTest(gate_secret=gate_secret, event_secret=event_secret):
+                self.assertFalse(control_secrets_distinct(gate_secret, event_secret))
 
     def test_digest_length_framing_and_type(self):
         event = event_digest(b"abc", b"\x01", b"def")
@@ -187,6 +204,9 @@ class MutationAdmissionTests(unittest.TestCase):
         method = handlers[0]
         rendered = ast.unparse(method)
         self.assertIn("control_authenticated(", rendered)
+        self.assertIn("control_secrets_distinct(", rendered)
+        self.assertIn("AEGIS_BRIDGE_GATE_SECRET", rendered)
+        self.assertIn("AEGIS_BRIDGE_EVENT_SECRET", rendered)
         self.assertIn("_mutation_admission.authorize_event(", rendered)
         self.assertIn("gate.is_approved(", rendered)
         self.assertIn("router.route(payload, verifier, context)", rendered)
