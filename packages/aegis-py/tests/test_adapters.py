@@ -1,7 +1,7 @@
 import hashlib
 
 from aegis.adapters import (REJECTED, UNKNOWN, VERIFIED, can_promote, check_test_run,
-                            data_snapshot, lean_axioms)
+                            data_snapshot, is_receipt_consistent, lean_axioms)
 
 HEAD = "a" * 40
 OTHER = "b" * 40
@@ -16,7 +16,8 @@ STD = "'Foo.bar' depends on axioms: [propext, Classical.choice, Quot.sound]"
 
 def test_unconditional_proof_with_standard_axioms_verifies():
     r = lean_axioms(STD, theorem="Foo.bar", claim="unconditional", **BIND)
-    assert r["status"] == VERIFIED and can_promote(r, expected_head=HEAD)
+    assert r["status"] == VERIFIED and is_receipt_consistent(r, expected_head=HEAD)
+    assert not can_promote(r, expected_head=HEAD)  # deny by default
     assert "intended target" in r["scope"]
 
 
@@ -29,7 +30,7 @@ def test_sorry_is_rejected_for_either_claim():
     out = "'Foo.bar' depends on axioms: [propext, sorryAx]"
     for claim in ("unconditional", "conditional"):
         r = lean_axioms(out, theorem="Foo.bar", claim=claim, declared_assumptions=["sorryAx"], **BIND)
-        assert r["status"] == REJECTED and not can_promote(r, expected_head=HEAD)
+        assert r["status"] == REJECTED and not is_receipt_consistent(r, expected_head=HEAD)
 
 
 def test_custom_axiom_blocks_unconditional_but_declared_conditional_is_labelled():
@@ -97,18 +98,49 @@ def test_unbound_evidence_cannot_verify():
     for kw in ({"verifier": None}, {"verifier": {"name": "lean"}}, {"source_head": None},
                {"source_head": "abc"}, {"environment": {}}):
         r = lean_axioms(STD, theorem="Foo.bar", claim="unconditional", **{**BIND, **kw})
-        assert r["status"] == UNKNOWN and not can_promote(r, expected_head=HEAD)
+        assert r["status"] == UNKNOWN and not is_receipt_consistent(r, expected_head=HEAD)
 
 
-def test_stale_head_and_tampered_receipt_are_not_promotable():
+def test_stale_head_and_tampered_receipt_are_not_consistent():
     r = lean_axioms(STD, theorem="Foo.bar", claim="unconditional", **BIND)
-    assert can_promote(r, expected_head=HEAD)
-    assert not can_promote(r, expected_head=OTHER)
-    assert not can_promote({**r, "status": VERIFIED, "source_head": OTHER}, expected_head=OTHER)
-    assert not can_promote({**r, "scope": "anything"}, expected_head=HEAD)
-    assert not can_promote({k: v for k, v in r.items() if k != "receipt_digest"}, expected_head=HEAD)
-    assert not can_promote({}, expected_head=HEAD)
-    assert not can_promote(r, expected_head="short")
+    assert is_receipt_consistent(r, expected_head=HEAD)
+    assert not is_receipt_consistent(r, expected_head=OTHER)
+    assert not is_receipt_consistent({**r, "source_head": OTHER}, expected_head=OTHER)
+    assert not is_receipt_consistent({**r, "scope": "anything"}, expected_head=HEAD)
+    assert not is_receipt_consistent({k: v for k, v in r.items() if k != "receipt_digest"},
+                                     expected_head=HEAD)
+    assert not is_receipt_consistent({}, expected_head=HEAD)
+    assert not is_receipt_consistent(r, expected_head="short")
+
+
+def test_can_promote_denies_without_external_admission():
+    r = lean_axioms(STD, theorem="Foo.bar", claim="unconditional", **BIND)
+    assert not can_promote(r, expected_head=HEAD)
+    assert not can_promote(r, expected_head=HEAD, admission=None)
+
+
+def test_admission_is_required_and_cannot_rescue_inconsistent_receipts():
+    r = lean_axioms(STD, theorem="Foo.bar", claim="unconditional", **BIND)
+    assert can_promote(r, expected_head=HEAD, admission=lambda rec: True)
+    assert not can_promote(r, expected_head=HEAD, admission=lambda rec: False)
+    assert not can_promote(r, expected_head=HEAD, admission=lambda rec: "yes")  # exactly True
+    assert not can_promote(r, expected_head=OTHER, admission=lambda rec: True)
+    assert not can_promote({**r, "scope": "x"}, expected_head=HEAD, admission=lambda rec: True)
+    rej = lean_axioms("'Foo.bar' depends on axioms: [sorryAx]", theorem="Foo.bar",
+                      claim="unconditional", **BIND)
+    assert not can_promote(rej, expected_head=HEAD, admission=lambda rec: True)
+
+
+def test_fabricated_never_executed_receipts_are_not_promotable():
+    # PR #819 review falsifier: self-consistent forgeries must not promote.
+    for i in range(30):
+        fake = check_test_run({"command": f"never-executed-{i}", "collected": 1, "passed": 1,
+                               "failed": 0, "errors": 0, "skipped": 0},
+                              verifier={"name": f"fake{i}", "version": "1"},
+                              environment={"n": i}, source_head=f"{i:040x}")
+        assert fake["status"] == VERIFIED  # informational only
+        assert is_receipt_consistent(fake, expected_head=f"{i:040x}")
+        assert not can_promote(fake, expected_head=f"{i:040x}")
 
 
 def test_pinned_digest_mismatch_rejects():

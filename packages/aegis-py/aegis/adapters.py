@@ -6,16 +6,18 @@ an exact source head. Every adapter here returns one machine-readable receipt:
     receipt = lean_axioms(output, theorem="Foo.bar", claim="unconditional",
                           verifier={"name": "lean", "version": "4.12.0"},
                           environment={"os": "linux"}, source_head="<40-hex sha>")
-    can_promote(receipt, expected_head="<40-hex sha>")
+    is_receipt_consistent(receipt, expected_head="<40-hex sha>")
 
 Status is one of:
-    verified  the check ran and held, within `scope` (and only within it)
-    rejected  the check ran and failed, or the evidence contradicts its binding
-    unknown   the evidence is missing, unparsable or unbound; never promotable
+    verified  the output supplied to the adapter satisfied the check, within `scope`
+    rejected  the check failed, or the evidence contradicts its binding
+    unknown   the evidence is missing, unparsable or unbound
 
-Only `verified` receipts that still match the expected head and carry an
-intact `receipt_digest` can be promoted. Nothing here runs a verifier: the
-adapters judge output a verifier already produced, offline, stdlib only.
+A receipt is informational. It is NOT authentication: the caller supplies the
+verifier name, environment and head, and `receipt_digest` only detects edits to a
+receipt, not fabrication of one. Nothing here runs a verifier or signs anything.
+`can_promote` therefore denies unless the host passes an external `admission`
+callback (signature, runner observation, operator approval) that returns True.
 
 Not covered (open on #751): browser/DOM, production probes, research
 citations, and wiring into the #746/#747 issue gate, which is not on main.
@@ -60,8 +62,13 @@ def _receipt(kind: str, artifact: bytes, *, verifier: dict | None, environment: 
     return {**body, "receipt_digest": digest(body)}
 
 
-def can_promote(receipt: dict, *, expected_head: str) -> bool:
-    """True only for an intact, verified receipt bound to `expected_head`."""
+def is_receipt_consistent(receipt: dict, *, expected_head: str) -> bool:
+    """True if the receipt is internally consistent, `verified` and names `expected_head`.
+
+    This is self-consistency only. Anyone can fabricate a receipt that passes it,
+    because the digest is computed from the receipt's own fields. It is a necessary
+    condition for promotion, never a sufficient one.
+    """
     try:
         body = {k: v for k, v in receipt.items() if k != "receipt_digest"}
         return (receipt["receipt_digest"] == digest(body)
@@ -71,6 +78,19 @@ def can_promote(receipt: dict, *, expected_head: str) -> bool:
                 and receipt["source_head"] == expected_head)
     except (KeyError, TypeError):
         return False
+
+
+def can_promote(receipt: dict, *, expected_head: str, admission=None) -> bool:
+    """Deny by default.
+
+    Promotion needs an `admission(receipt) -> bool` supplied by the host that
+    authenticates the receipt outside this module (signature, runner observation,
+    operator approval; see #746). Without it, or if it does not return exactly
+    True, the answer is False, even for a consistent `verified` receipt.
+    """
+    if admission is None or not is_receipt_consistent(receipt, expected_head=expected_head):
+        return False
+    return admission(receipt) is True
 
 
 # --- formal proof -----------------------------------------------------------
