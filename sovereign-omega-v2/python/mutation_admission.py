@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import hashlib
 import hmac
+import json
 import math
 import re
 import threading
@@ -41,6 +42,49 @@ def control_secrets_distinct(gate_secret: str | None, event_secret: str | None) 
     return not hmac.compare_digest(gate, event)
 
 
+def control_binding_authorized(
+    component_id: str, operator_id: str, capability_class: str,
+    configured_bindings: str | None,
+) -> bool:
+    """Match an issuer's declaration to server-owned, exact operator policy.
+
+    Environment JSON format: {"component-id":["operator-id"]}.
+    The E4 registry used in PR #817 must agree, but client-provided fields
+    alone never count as authority. Missing/malformed policy denies by default.
+    """
+    if (not isinstance(component_id, str) or not _PROPOSAL_ID.fullmatch(component_id)
+            or not isinstance(operator_id, str) or not _PROPOSAL_ID.fullmatch(operator_id)
+            or capability_class != "SELF_MODIFYING"):
+        return False
+    if (not isinstance(configured_bindings, str)
+            or not 2 <= len(configured_bindings) <= 65536):
+        return False
+    try:
+        # Reject duplicate JSON keys rather than silently last-write-wins.
+        def unique_pairs(pairs):
+            result = {}
+            for key, value in pairs:
+                if key in result:
+                    raise ValueError("duplicate binding")
+                result[key] = value
+            return result
+        bindings = json.loads(configured_bindings, object_pairs_hook=unique_pairs)
+    except (TypeError, ValueError):
+        return False
+    if not isinstance(bindings, dict) or not bindings:
+        return False
+    for key, operators in bindings.items():
+        if (not isinstance(key, str) or not _PROPOSAL_ID.fullmatch(key)
+                or type(operators) is not list or not operators
+                or len(operators) > 128
+                or any(not isinstance(op, str) or not _PROPOSAL_ID.fullmatch(op)
+                       for op in operators)
+                or len(set(operators)) != len(operators)):
+            return False
+    return operator_id in bindings.get(component_id, ())
+
+
+
 def event_digest(payload: bytes, verifier: bytes, context: bytes) -> str:
     """Versioned, length-framed SHA-256 binding to the exact routed event."""
     digest = hashlib.sha256(_EVENT_DOMAIN)
@@ -64,7 +108,7 @@ class MutationAdmissionLedger:
     def __init__(self, max_pending: int = 4096) -> None:
         if type(max_pending) is not int or max_pending < 1:
             raise ValueError("max_pending must be positive")
-        self._pending: dict[str, str] = {}
+        self._pending: dict[str, tuple[str, str, str]] = {}
         self._last_sequence = -1
         self._max_pending = max_pending
         self._lock = threading.Lock()
@@ -81,9 +125,16 @@ class MutationAdmissionLedger:
         risk_spent: float,
         sample_size: int,
         e4_method: str,
+        component_id: str,
+        operator_id: str,
+        capability_class: str,
     ) -> tuple[bool, str]:
         if not isinstance(proposal_id, str) or not _PROPOSAL_ID.fullmatch(proposal_id):
             return False, "INVALID_PROPOSAL"
+        if (not isinstance(component_id, str) or not _PROPOSAL_ID.fullmatch(component_id)
+                or not isinstance(operator_id, str) or not _PROPOSAL_ID.fullmatch(operator_id)
+                or capability_class != "SELF_MODIFYING"):
+            return False, "INVALID_MUTATION_BINDING"
         if type(sequence) is not int or not 0 <= sequence < 2**64:
             return False, "INVALID_SEQUENCE"
         if type(accepted) is not bool:
@@ -133,7 +184,7 @@ class MutationAdmissionLedger:
                 return False, "PENDING_CAPACITY"
             self._last_sequence = sequence
             if accepted:
-                self._pending[proposal_id] = expected_event_sha256
+                self._pending[proposal_id] = (expected_event_sha256, component_id, operator_id)
             else:
                 self._pending.pop(proposal_id, None)
             return True, "ACCEPTED"
@@ -149,6 +200,9 @@ class MutationAdmissionLedger:
         verifier: bytes,
         context: bytes,
         constitutional_approved: bool,
+        *,
+        component_id: str,
+        operator_id: str,
     ) -> bool:
         if constitutional_approved is not True:
             return False
@@ -156,7 +210,7 @@ class MutationAdmissionLedger:
             return False
         observed = event_digest(payload, verifier, context)
         with self._lock:
-            if self._pending.get(proposal_id) != observed:
+            if self._pending.get(proposal_id) != (observed, component_id, operator_id):
                 return False
             self._pending.pop(proposal_id)
             return True
