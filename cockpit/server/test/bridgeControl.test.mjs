@@ -14,6 +14,7 @@ function candidate(overrides = {}) {
     },
     capabilityClass: 'SELF_MODIFYING',
     operatorId: 'bridge-test-operator',
+    bridgeEpochId: 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
     sequence: 17,
     payload: Buffer.from('hello', 'utf8'),
     verifier: Uint8Array.of(0x00),
@@ -31,6 +32,8 @@ test('two deterministic frames bind the same exact bytes', () => {
   assert.equal(first.gate_signal.component_id, 'bridge-test-component')
   assert.equal(first.gate_signal.operator_id, 'bridge-test-operator')
   assert.equal(first.gate_signal.capability_class, 'SELF_MODIFYING')
+  assert.equal(first.gate_signal.bridge_epoch_id, source.bridgeEpochId)
+  assert.equal(first.event.bridge_epoch_id, source.bridgeEpochId)
   assert.equal(first.gate_signal.sequence, 17)
   assert.equal(first.gate_signal.accepted, true)
   assert.equal(first.gate_signal.lcb, 0.125)
@@ -45,6 +48,7 @@ test('two deterministic frames bind the same exact bytes', () => {
     component_id: 'bridge-test-component',
     capability_class: 'SELF_MODIFYING',
     operator_id: 'bridge-test-operator',
+    bridge_epoch_id: 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
     payload_hex: '68656c6c6f',
     verifier_hex: '00',
     context_hex: '007fff',
@@ -87,6 +91,9 @@ test('rejects invalid E4 identifiers, sequence and untrusted decisions', () => {
   }
   for (const capabilityClass of ['INFERENCE_ONLY', '', null]) {
     assert.throws(() => encodeAdmittedGovernanceMutation(candidate({ capabilityClass })))
+  }
+  for (const bridgeEpochId of ['', 'a'.repeat(63), 'g'.repeat(64), 'A'.repeat(64), null]) {
+    assert.throws(() => encodeAdmittedGovernanceMutation(candidate({ bridgeEpochId })))
   }
   for (const sequence of [-1, 1.1, NaN, Infinity, Number.MAX_SAFE_INTEGER + 1, '1', null]) {
     assert.throws(() => encodeAdmittedGovernanceMutation(candidate({ sequence })))
