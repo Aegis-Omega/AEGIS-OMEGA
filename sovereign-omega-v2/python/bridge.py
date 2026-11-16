@@ -515,10 +515,14 @@ class BridgeHandler(BaseHTTPRequestHandler):
                             accepted=accepted,
                             lcb=float(lcb),
                         ))
-                        matrix.receive_gate_signal(proposal_id, accepted, seq)
                         if accepted and not gate.is_approved(proposal_id):
                             _mutation_admission.revoke(proposal_id)
                             allowed, reason = False, 'CONSTITUTIONAL_GATE_DENIED'
+                        elif accepted:
+                            # Mutate M2 only after the constitutional gate's
+                            # proposal-specific verdict and the positive LCB
+                            # signal have both been verified.
+                            matrix.receive_gate_signal(proposal_id, True, seq)
             except Exception:
                 # Partial control-plane writes are not assumed reversible.
                 # Revoke authorization, consume the sequence, and fail closed.
