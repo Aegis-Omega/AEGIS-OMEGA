@@ -157,8 +157,6 @@ def commit_demotions(*, tree_path: str | Path, lineage_path: str | Path,
         root_hash = compute_registry_root(new_tree)
         require(new_tree.get("registry_root") == root_hash and
                 new_tree.get("genesis_seal") == root_hash, "TARGET_ROOT_NOT_BOUND")
-        require(evaluate_registry(new_tree, repo_root=root).outcome == "ADMITTED",
-                "TARGET_REGISTRY_NOT_ADMITTED")
         before_skills = old_tree.get("skills")
         after_skills = new_tree.get("skills")
         require(isinstance(before_skills, list) and isinstance(after_skills, list)
@@ -170,6 +168,8 @@ def commit_demotions(*, tree_path: str | Path, lineage_path: str | Path,
                 "INVALID_TARGET_SKILL_ID")
         require(len(set(target_ids)) == len(target_ids), "DUPLICATE_TARGET_SKILL")
         require(set(target_ids) == set(before_by_id), "SKILL_ID_SET_CHANGED")
+        require(evaluate_registry(new_tree, repo_root=root).outcome == "ADMITTED",
+                "TARGET_REGISTRY_NOT_ADMITTED")
         changed = {}
         for skill in after_skills:
             sid = skill.get("skill_id")
