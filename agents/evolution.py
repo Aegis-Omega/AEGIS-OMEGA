@@ -33,6 +33,7 @@ Usage:
 from __future__ import annotations
 
 import argparse
+import copy
 import hashlib
 import json
 import math
@@ -338,7 +339,11 @@ class EvolutionEngine:
         state = inspect_pending(self.tree_path, self.lineage_path)
         if state["status"] != "CLEAN":
             raise ValueError("UNRESOLVED_EVOLUTION_TRANSACTION:" + state["status"])
-        tree = self._load_tree()
+        committed_tree = self._load_tree()
+        # Stage candidate mutations on copies. A failed durable commit must
+        # not produce an in-memory tier or lineage event that was never saved.
+        tree = copy.deepcopy(committed_tree)
+        staged_lineage = AdaptiveLineage(copy.deepcopy(self.lineage.events))
         admitted = evaluate_registry(tree, repo_root=self.repo_root)
         if admitted.outcome != "ADMITTED":
             raise ValueError("skill registry not admitted: " + "; ".join(admitted.violations))
@@ -362,11 +367,11 @@ class EvolutionEngine:
                 if any(
                     ev.event_type == "TIER_DEMOTION" and ev.skill_id == v.skill_id
                     and ev.evidence.endswith(witness)
-                    for ev in self.lineage.events
+                    for ev in staged_lineage.events
                 ):
                     # Identical observation evidence cannot repeatedly demote.
                     continue
-                self.lineage.append(
+                staged_lineage.append(
                     "TIER_DEMOTION", v.skill_id, v.current_tier, v.eligible_tier,
                     v.reason + "; " + witness,
                 )
@@ -383,9 +388,12 @@ class EvolutionEngine:
                 tree_path=self.tree_path,
                 lineage_path=self.lineage_path,
                 next_tree=tree,
-                next_lineage=self.lineage,
+                next_lineage=staged_lineage,
                 repo_root=self.repo_root,
             )
+            # Publish in-process state only after durable transaction success.
+            self._tree = tree
+            self.lineage.events = staged_lineage.events
         return verdicts
 
     @staticmethod
