@@ -545,6 +545,12 @@ class BridgeHandler(BaseHTTPRequestHandler):
             proposal_id = data.get('proposal_id')
             lcb = data.get('lcb')
             event_sha256 = data.get('event_sha256')
+            # E4 PR #817 transmits both decision criteria, not an LCB-only
+            # proxy. These fields are untrusted until admission validates them.
+            e_value = data.get('e_value')
+            risk_spent = data.get('risk_spent')
+            sample_size = data.get('sample_size')
+            e4_method = data.get('method')
 
             try:
                 # Serialize the three writers by sequence. A later signal
@@ -557,7 +563,9 @@ class BridgeHandler(BaseHTTPRequestHandler):
                         allowed, reason = False, 'CONSTITUTIONAL_GATE_SEALED'
                     else:
                         allowed, reason = _mutation_admission.record(
-                            proposal_id, seq, accepted, lcb, event_sha256
+                            proposal_id, seq, accepted, lcb, event_sha256,
+                            e_value=e_value, risk_spent=risk_spent,
+                            sample_size=sample_size, e4_method=e4_method,
                         )
                     if allowed:
                         last_ack_sequence = seq
