@@ -87,7 +87,7 @@ def validate_chain_checkpoint(body: dict) -> tuple[str, int, int, bytes]:
     if not compare_digest(integrity, expected):
         raise PortabilityError("CHECKPOINT_CHECKSUM_MISMATCH")
 
-    sequence = _exact_uint(body.get("sequence"), "sequence", U64_LIMIT - 1)
+    sequence = _exact_uint(body.get("sequence"), "sequence", U64_LIMIT)
     source_slots = _exact_uint(body.get("m1_capacity_slots"), "source_slots")
     if not source_slots:
         raise PortabilityError("SOURCE_CAPACITY_ZERO")
