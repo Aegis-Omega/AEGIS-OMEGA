@@ -32,8 +32,8 @@ from harness.sdk.meaning_heritage import NO_AUTHORITY, canonical_hash
 DOM_TERM_SOURCE = "AEGIS_HOLON_ONTOLOGY_EXACT_TERM_SOURCE_V1"
 DOM_DELTA_CHECK = "AEGIS_HOLON_ONTOLOGY_TERM_DELTA_CHECK_V1"
 DOM_DELTA_REPORT = "AEGIS_HOLON_ONTOLOGY_TERM_DELTA_REPORT_V1"
-UNCHANGED = "PASS_IDENTICAL_CORE_TERM_SOURCE_ONLY"
-CHANGED = "OPEN_CORE_TERM_SOURCE_REVIEW_REQUIRED"
+UNCHANGED = "PASS_IDENTICAL_ONTOLOGY_SOURCE_ONLY"
+CHANGED = "OPEN_ONTOLOGY_SOURCE_REVIEW_REQUIRED"
 DENIED = "FAIL_ONTOLOGY_SOURCE_COMPARISON_DENIED"
 
 
@@ -50,6 +50,7 @@ class OntologyTermDeltaReportV1:
     candidate_anchor_root: str
     prior_git_blob_sha: str
     candidate_git_blob_sha: str
+    entire_document_identical: bool
     unchanged_term_names: tuple[str, ...]
     changed_term_names: tuple[str, ...]
     added_term_names: tuple[str, ...]
@@ -167,12 +168,21 @@ class HolonOntologyTermDeltaVerifierV1:
         unchanged = tuple(sorted(n for n in common if old[n] == new[n]))
         added = tuple(sorted(set(new) - set(old)))
         removed = tuple(sorted(set(old) - set(new)))
-        status = CHANGED if (changed or added or removed) else UNCHANGED
+        # A governance/preamble change outside Core Terms must not silently
+        # inherit the old source admission merely because all term headings
+        # and bodies compare equal. The complete source is the T0 contract.
+        identical = prior[1] == candidate[1]
+        status = UNCHANGED if identical else CHANGED
+        error = (
+            "REVIEW_CHANGED_CORE_TERM_SOURCE" if (changed or added or removed)
+            else "REVIEW_CHANGED_NON_CORE_SOURCE"
+        )
         root = canonical_hash(DOM_DELTA_CHECK, {
             "prior_anchor_root": prior_anchor_root,
             "candidate_anchor_root": candidate_anchor_root,
             "prior_git_blob_sha": prior[0].git_blob_sha,
             "candidate_git_blob_sha": candidate[0].git_blob_sha,
+            "entire_document_identical": identical,
             "unchanged_term_names": unchanged,
             "changed_term_names": changed,
             "added_term_names": added,
@@ -184,9 +194,9 @@ class HolonOntologyTermDeltaVerifierV1:
         report = OntologyTermDeltaReportV1(
             prior_anchor_root, candidate_anchor_root,
             prior[0].git_blob_sha, candidate[0].git_blob_sha,
-            unchanged, changed, added, removed, before, after, root,
+            identical, unchanged, changed, added, removed, before, after, root,
         )
         return OntologyTermDeltaVerificationV1(
-            status, ("REVIEW_CHANGED_CORE_TERM_SOURCE",) if status == CHANGED else (),
+            status, (error,) if status == CHANGED else (),
             root,
         ), report
