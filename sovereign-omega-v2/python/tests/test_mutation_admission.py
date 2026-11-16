@@ -77,12 +77,12 @@ class MutationAdmissionTests(unittest.TestCase):
             ("pipeline-main", "evil"),
         ):
             self.assertFalse(ledger.authorize_event(
-                "p1", b"payload", b"\\x00", b"context", True,
+                "p1", b"payload", b"\x00", b"context", True,
                 component_id=component, operator_id=operator,
             ))
         self.assertEqual(ledger.pending_count, 1)
         self.assertTrue(ledger.authorize_event(
-            "p1", b"payload", b"\\x00", b"context", True,
+            "p1", b"payload", b"\x00", b"context", True,
             component_id="bridge-test-component", operator_id="bridge-test-operator",
         ))
         self.assertEqual(ledger.pending_count, 0)
@@ -131,27 +131,21 @@ class MutationAdmissionTests(unittest.TestCase):
         ledger = self.make_ledger()
         self.assertEqual(self.record_grant(ledger), (True, "ACCEPTED"))
         self.assertEqual(ledger.pending_count, 1)
-        self.assertFalse(ledger.authorize_event(
-            "p1", b"payload", b"\x00", b"context", False
-        ))
+        self.assertFalse(ledger.authorize_event("p1", b"payload", b"\x00", b"context", False,
+            component_id="bridge-test-component", operator_id="bridge-test-operator"))
         self.assertEqual(ledger.pending_count, 1)
-        self.assertFalse(ledger.authorize_event(
-            "p1", b"payload", b"\x00", b"wrong", True
-        ))
-        self.assertFalse(ledger.authorize_event(
-            "other", b"payload", b"\x00", b"context", True
-        ))
-        self.assertFalse(ledger.authorize_event(
-            "p1", b"payload", b"\x01", b"context", True
-        ))
+        self.assertFalse(ledger.authorize_event("p1", b"payload", b"\x00", b"wrong", True,
+            component_id="bridge-test-component", operator_id="bridge-test-operator"))
+        self.assertFalse(ledger.authorize_event("other", b"payload", b"\x00", b"context", True,
+            component_id="bridge-test-component", operator_id="bridge-test-operator"))
+        self.assertFalse(ledger.authorize_event("p1", b"payload", b"\x01", b"context", True,
+            component_id="bridge-test-component", operator_id="bridge-test-operator"))
         self.assertEqual(ledger.pending_count, 1)
-        self.assertTrue(ledger.authorize_event(
-            "p1", b"payload", b"\x00", b"context", True
-        ))
+        self.assertTrue(ledger.authorize_event("p1", b"payload", b"\x00", b"context", True,
+            component_id="bridge-test-component", operator_id="bridge-test-operator"))
         self.assertEqual(ledger.pending_count, 0)
-        self.assertFalse(ledger.authorize_event(
-            "p1", b"payload", b"\x00", b"context", True
-        ))
+        self.assertFalse(ledger.authorize_event("p1", b"payload", b"\x00", b"context", True,
+            component_id="bridge-test-component", operator_id="bridge-test-operator"))
 
     def test_replay_out_of_order_and_duplicate_pending(self):
         ledger = self.make_ledger()
@@ -172,9 +166,8 @@ class MutationAdmissionTests(unittest.TestCase):
             True, "ACCEPTED"
         ))
         self.assertEqual(ledger.pending_count, 0)
-        self.assertFalse(ledger.authorize_event(
-            "p1", b"payload", b"\x00", b"context", True
-        ))
+        self.assertFalse(ledger.authorize_event("p1", b"payload", b"\x00", b"context", True,
+            component_id="bridge-test-component", operator_id="bridge-test-operator"))
 
     def test_negative_and_invalid_lcb_never_authorize(self):
         valid_digest = event_digest(b"payload", b"\x00", b"context")
@@ -199,9 +192,8 @@ class MutationAdmissionTests(unittest.TestCase):
                              capability_class="SELF_MODIFYING"), (
             True, "ACCEPTED"
         ))
-        self.assertFalse(ledger.authorize_event(
-            "p", b"payload", b"\x00", b"context", True
-        ))
+        self.assertFalse(ledger.authorize_event("p", b"payload", b"\x00", b"context", True,
+            component_id="bridge-test-component", operator_id="bridge-test-operator"))
 
     def test_bad_proposal_sequence_and_digest(self):
         digest = event_digest(b"payload", b"\x00", b"context")
@@ -247,9 +239,8 @@ class MutationAdmissionTests(unittest.TestCase):
 
         def consume(i):
             barrier.wait(timeout=5)
-            outcomes[i] = ledger.authorize_event(
-                "p1", b"payload", b"\x00", b"context", True
-            )
+            outcomes[i] = ledger.authorize_event("p1", b"payload", b"\x00", b"context", True,
+            component_id="bridge-test-component", operator_id="bridge-test-operator")
 
         threads = [threading.Thread(target=consume, args=(i,)) for i in range(8)]
         for thread in threads:
