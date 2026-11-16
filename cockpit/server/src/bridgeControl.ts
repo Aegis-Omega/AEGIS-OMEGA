@@ -14,10 +14,24 @@ const MAX_GOVERNANCE_PAYLOAD = 65536
 const MAX_GOVERNANCE_VERIFIER = 256
 const MAX_GOVERNANCE_CONTEXT = 4096
 
+/** Structural transport projection of sovereign-runtime GateDecisionPayload (#817).
+ * No independent E4 math engine or duplicate acceptance policy is introduced.
+ * Transport validation checks the shape; issuer origin still requires a trusted
+ * server executor, not a value typed by a browser or other caller.
+ */
+export interface E4DecisionEvidence {
+  readonly proposal_id: string
+  readonly accepted: boolean
+  readonly lcb_value: number
+  readonly e_value: number
+  readonly risk_spent: number
+  readonly sample_size: number
+  readonly method: string
+}
+
 export interface AdmittedGovernanceMutation {
-  readonly proposalId: string
+  readonly decision: E4DecisionEvidence
   readonly sequence: number
-  readonly lcb: number
   readonly payload: Uint8Array
   readonly verifier: Uint8Array
   readonly context: Uint8Array
@@ -29,6 +43,10 @@ export interface MutationTransportFrames {
     sequence: number
     accepted: true
     lcb: number
+    e_value: number
+    risk_spent: number
+    sample_size: number
+    method: 'anytime_valid_bernstein'
     event_sha256: string
   }>
   readonly event: Readonly<{
@@ -67,7 +85,9 @@ export function governanceEventDigest(
 
 /**
  * Prepares transport messages but never transmits or grants authorization.
- * A caller-supplied positive number is NOT proof of an E4 decision.
+ * A caller-supplied positive number or self-declared decision object is NOT
+ * proof of an E4 decision. This codec checks a PR #817 structural projection
+ * and never produces an independently authenticated statistical verdict.
  *
  * Server code must use mutually distinct secrets for the issuer (/gate_signal)
  * and consumer (/event), and must enforce E4 provenance before invoking this.
@@ -75,25 +95,49 @@ export function governanceEventDigest(
 export function encodeAdmittedGovernanceMutation(
   source: AdmittedGovernanceMutation
 ): MutationTransportFrames {
-  if (typeof source.proposalId !== 'string' || !PROPOSAL_ID_RE.test(source.proposalId)) {
-    throw new RangeError('proposalId is not a canonical proposal identifier')
+  const decision = source?.decision
+  if (!decision || typeof decision !== 'object') {
+    throw new TypeError('E4 decision evidence is required')
+  }
+  if (typeof decision.proposal_id !== 'string' || !PROPOSAL_ID_RE.test(decision.proposal_id)) {
+    throw new RangeError('E4 proposal_id is not canonical')
   }
   if (!Number.isSafeInteger(source.sequence) || source.sequence < 0) {
     throw new RangeError('sequence must be a nonnegative safe integer')
   }
-  if (!Number.isFinite(source.lcb) || source.lcb <= 0) {
-    throw new RangeError('only a finite strictly positive E4 LCB may be encoded')
+  if (decision.accepted !== true) {
+    throw new RangeError('only explicitly accepted E4 decisions can be encoded')
+  }
+  if (decision.method !== 'anytime_valid_bernstein') {
+    throw new RangeError('unexpected E4 statistical method')
+  }
+  if (!Number.isSafeInteger(decision.sample_size) || decision.sample_size < 1) {
+    throw new RangeError('E4 sample_size must be a positive integer')
+  }
+  if (!Number.isFinite(decision.lcb_value) || decision.lcb_value <= 0) {
+    throw new RangeError('E4 decision requires finite positive LCB')
+  }
+  if (!Number.isFinite(decision.risk_spent) ||
+      decision.risk_spent <= 0 || decision.risk_spent >= 1) {
+    throw new RangeError('E4 risk_spent must be a finite per-round alpha in (0,1)')
+  }
+  if (!Number.isFinite(decision.e_value) ||
+      decision.e_value < 1 / decision.risk_spent) {
+    throw new RangeError('E4 e-process evidence has not crossed its alpha threshold')
   }
   const event_sha256 = governanceEventDigest(
     source.payload, source.verifier, source.context
   )
   return Object.freeze({
     gate_signal: Object.freeze({
-      proposal_id: source.proposalId, sequence: source.sequence,
-      accepted: true as const, lcb: source.lcb, event_sha256,
+      proposal_id: decision.proposal_id, sequence: source.sequence,
+      accepted: true as const, lcb: decision.lcb_value,
+      e_value: decision.e_value, risk_spent: decision.risk_spent,
+      sample_size: decision.sample_size, method: 'anytime_valid_bernstein' as const,
+      event_sha256,
     }),
     event: Object.freeze({
-      proposal_id: source.proposalId,
+      proposal_id: decision.proposal_id,
       payload_hex: Buffer.from(source.payload).toString('hex'),
       verifier_hex: Buffer.from(source.verifier).toString('hex'),
       context_hex: Buffer.from(source.context).toString('hex'),
