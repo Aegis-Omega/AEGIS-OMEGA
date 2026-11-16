@@ -80,6 +80,11 @@ class MockMatrix:
         # 2000 bytes covers write_head for seq up to ~50
         # For seq=42: write_head = (41 * 40) % _M1_SIZE = 1640; 1640+40=1680 < 2000
         self._m1_region = bytearray(2000)
+        if sequence > 0:
+            n = len(self._m1_region) // _M1_ENTRY_BYTES
+            off = ((sequence - 1) % n) * _M1_ENTRY_BYTES
+            self._m1_region[off:off + 8] = (sequence - 1).to_bytes(8, 'little')
+            self._m1_region[off + 8:off + 40] = hashlib.sha256(f'mock:{sequence}'.encode()).digest()
 
 
 def _tmp_path(suffix='.json'):
@@ -130,7 +135,7 @@ def test_save_json_contents():
 
         _chk('JSON has checkpoint_version', 'checkpoint_version' in cp)
         _chk('checkpoint_version == 1.0.0', cp['checkpoint_version'] == CHECKPOINT_VERSION)
-        _chk('is_replay_reconstructable == True', cp.get('is_replay_reconstructable') is True)
+        _chk('is_replay_reconstructable == False', cp.get('is_replay_reconstructable') is False)
         _chk('JSON has integrity_hash', 'integrity_hash' in cp)
         _chk('JSON has last_m1_entry_hex', 'last_m1_entry_hex' in cp)
         _chk('JSON has sequence', 'sequence' in cp)
@@ -175,8 +180,8 @@ def test_save_sequence_42():
 
     mx = MockMatrix(sequence=42, epoch=7, era=2)
     # Put some non-zero bytes at the write_head position
-    write_head = (41 * _M1_ENTRY_BYTES) % _M1_SIZE
-    for i in range(_M1_ENTRY_BYTES):
+    write_head = (41 % (len(mx._m1_region) // _M1_ENTRY_BYTES)) * _M1_ENTRY_BYTES
+    for i in range(8, _M1_ENTRY_BYTES):
         mx._m1_region[write_head + i] = (i + 1) % 256
 
     path = _tmp_path()
@@ -214,9 +219,11 @@ def test_save_integrity_hash_verifies():
         entry_hex = cp['last_m1_entry_hex']
         stored_hash = cp['integrity_hash']
 
-        expected = hashlib.sha256(
-            f'{sequence}:{epoch}:{era}:{entry_hex}'.encode()
-        ).hexdigest()
+        expected = hashlib.sha256(json.dumps(
+            {k: v for k, v in cp.items() if k != 'integrity_hash'},
+            ensure_ascii=False, sort_keys=True, separators=(',', ':'),
+            allow_nan=False,
+        ).encode()).hexdigest()
         _chk('integrity_hash matches independently computed hash', stored_hash == expected)
     finally:
         try:
@@ -359,7 +366,7 @@ def test_checkpoint_error_not_reconstructable():
         save_checkpoint(mx, path)
         with open(path, 'r') as f:
             cp = json.load(f)
-        cp['is_replay_reconstructable'] = False
+        cp['is_replay_reconstructable'] = True
         with open(path, 'w') as f:
             json.dump(cp, f)
         mx2 = MockMatrix()
@@ -408,11 +415,12 @@ def test_checkpoint_error_truncated_entry_hex():
         # but fails the byte-count check
         bad_hex = 'aa' * 20  # 20 bytes instead of 40
         # Recompute hash with bad_hex so integrity passes but byte check fails
-        bad_hash = hashlib.sha256(
-            f'{cp["sequence"]}:{cp["epoch"]}:{cp["era"]}:{bad_hex}'.encode()
-        ).hexdigest()
         cp['last_m1_entry_hex'] = bad_hex
-        cp['integrity_hash'] = bad_hash
+        cp['integrity_hash'] = hashlib.sha256(json.dumps(
+            {k: v for k, v in cp.items() if k != 'integrity_hash'},
+            ensure_ascii=False, sort_keys=True, separators=(',', ':'),
+            allow_nan=False,
+        ).encode()).hexdigest()
         with open(path, 'w') as f:
             json.dump(cp, f)
 

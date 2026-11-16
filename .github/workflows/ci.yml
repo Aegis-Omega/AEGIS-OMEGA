@@ -199,6 +199,9 @@ jobs:
       - name: Run ledger persistence tests (mock CoreMatrix)
         run: python python/tests/test_ledger_persist_v2.py
 
+      - name: Verify transitive M1 history and checkpoint V2 regressions
+        run: python python/tests/test_m1_chain_checkpoint_v2.py
+
       # test_ledger_persist.py (v1) allocates 4 GB (real CoreMatrix bytearray) —
       # requires AMD RX 570 hardware-spec RAM; run locally only, not in CI.
 

@@ -7,7 +7,7 @@ All system components are represented as abstract functional definitions
 M1, M2, M3 operating over a single pre-allocated contiguous byte array.
 
 CONSTRAINTS:
-  - Single file: eliminates module complexity and external dependencies
+  - Isolated M1 hash-chain primitive in m1_chain.py (stdlib only)
   - Memory: single pre-allocated contiguous byte array, 8GB ceiling
   - Execution: unprivileged user-space only, no kernel calls
   - Determinism: bit-shifted integer arithmetic throughout
@@ -70,41 +70,8 @@ M3_SIZE   = int(ARRAY_TOTAL_BYTES * M3_REGION_FRACTION)
 
 # ── Functional Definitions ────────────────────────────────────────────────────
 
-def M1(state: memoryview, payload: bytes, sequence: int) -> Tuple[int, bytes]:
-    """
-    M1: State management function.
-    Transforms the E3 event substrate region of the byte array.
-    Receives: current M1 region view, event payload bytes, sequence number.
-    Returns: (new_sequence, state_hash_bytes).
-
-    INVARIANT: Pure function — no external state, no I/O.
-    INVARIANT: Sequence is always greater than any previously processed sequence.
-    INVARIANT: Output is deterministic for identical inputs.
-    """
-    # Compute payload hash using SHA-256 (byte-level, not string)
-    payload_hash = hashlib.sha256(payload).digest()
-
-    # Write sequence and hash into M1 region at the current write head
-    # Format: 8 bytes sequence + 32 bytes payload hash + payload
-    write_head = (sequence * 40) % len(state)
-    seq_bytes = sequence.to_bytes(8, 'little')
-
-    end_pos = write_head + 40 + len(payload)
-    if end_pos <= len(state):
-        state[write_head:write_head + 8] = seq_bytes
-        state[write_head + 8:write_head + 40] = payload_hash
-        if len(payload) > 0:
-            payload_end = min(write_head + 40 + len(payload), len(state))
-            state[write_head + 40:payload_end] = payload[:payload_end - write_head - 40]
-
-    # Chain hash: SHA-256(previous_state_hash || payload_hash)
-    # This implements the same hash-chaining as the TypeScript E3 substrate
-    prev_offset = ((sequence - 1) * 40) % len(state) if sequence > 0 else 0
-    prev_hash = bytes(state[prev_offset + 8:prev_offset + 40])
-    chain_hash = hashlib.sha256(prev_hash + payload_hash).digest()
-
-    return sequence + 1, chain_hash
-
+# M1 is re-exported here for existing consumers; implementation is hardware-free.
+from m1_chain import M1
 
 def M2(state: memoryview, verifier_result: bytes, confidence_fixed: int, sequence: int = 0) -> Tuple[int, int]:
     """
@@ -224,7 +191,7 @@ class CoreMatrix:
         self._ready = threading.Event()
 
         # Capacity at which M1 write head wraps (events per era)
-        self._m1_era_capacity: int = M1_SIZE // 40
+        self._m1_era_capacity: int = len(self._m1_region) // 40
 
         # Performance metrics (fixed-point for determinism)
         self._total_vcg_error_fixed: int = 0

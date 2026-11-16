@@ -137,7 +137,8 @@ class TestCheckpointRoundTrip(unittest.TestCase):
         with open(self.path) as f:
             cp = json.load(f)
         self.assertEqual(cp['checkpoint_version'], CHECKPOINT_VERSION)
-        self.assertTrue(cp['is_replay_reconstructable'])
+        self.assertIs(cp['is_replay_reconstructable'], False)
+        self.assertTrue(cp['is_chain_continuation_supported'])
         self.assertIn('integrity_hash', cp)
         self.assertIn('last_m1_entry_hex', cp)
 
@@ -205,10 +206,10 @@ class TestCheckpointIntegrityEnforcement(unittest.TestCase):
         with self.assertRaises(CheckpointError):
             load_checkpoint(self.matrix, self.path)
 
-    def test_replay_reconstructable_false_raises(self):
+    def test_false_full_replay_claim_raises(self):
         _advance(self.matrix, 3)
         save_checkpoint(self.matrix, self.path)
-        self._corrupt('is_replay_reconstructable', False)
+        self._corrupt('is_replay_reconstructable', True)
         with self.assertRaises(CheckpointError):
             load_checkpoint(self.matrix, self.path)
 
