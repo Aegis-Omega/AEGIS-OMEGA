@@ -2,13 +2,13 @@
 SOVEREIGN OMEGA — Core Matrix (core_matrix.py)
 EPISTEMIC TIER: T0
 
-The hardware inference layer for AMD RX 570 / 8GB RAM.
+The hardware inference layer with a host/cgroup-aware bounded arena.
 All system components are represented as abstract functional definitions
 M1, M2, M3 operating over a single pre-allocated contiguous byte array.
 
 CONSTRAINTS:
   - Single file: eliminates module complexity and external dependencies
-  - Memory: single pre-allocated contiguous byte array, 8GB ceiling
+  - Memory: adaptive, virtually mapped arena; no machine-specific GB cap
   - Execution: unprivileged user-space only, no kernel calls
   - Determinism: bit-shifted integer arithmetic throughout
   - Self-regulation: via internal math only, no OS intervention
@@ -27,6 +27,7 @@ import array
 import ctypes
 import hashlib
 import os
+import mmap
 import time
 import threading
 from dataclasses import dataclass
@@ -44,28 +45,20 @@ from gradient_anchor import GradientAnchorCalibrator, DEFAULT_ANCHOR_TOKENS
 
 
 # ── Memory Layout ────────────────────────────────────────────────────────────
-# The byte array is partitioned into three regions for M1, M2, M3.
-# All region boundaries are aligned to INT_SCALE (65536 bytes) for
-# deterministic memory access patterns.
+# Proportional arena geometry, derived from actual available host/cgroup memory.
+# V15 deliberately removes the old 4 GiB/RX 570 *runtime default*. Operator
+# override AEGIS_ARRAY_BYTES must fit measured headroom; no silent truncation.
+# M1 is aligned to both 64 KiB and 40-byte records (LCM=327680).
+from adaptive_memory import configured_arena_layout
 
-# Default 4GB (AMD RX 570 / 8GB RAM profile). Overridable via AEGIS_ARRAY_BYTES
-# for memory-constrained deployments (e.g. Cloud Run, where the bridge serves
-# /platform/* + telemetry and does not need the full inference arena). Must be a
-# multiple of INT_SCALE (65536) so region boundaries stay aligned. Unset = 4GB,
-# so all tests and local runs are byte-identical to the original layout.
-_INT_SCALE_ALIGN      = 65536
-ARRAY_TOTAL_BYTES     = int(os.environ.get('AEGIS_ARRAY_BYTES', str(4 * 1024 ** 3)))
-ARRAY_TOTAL_BYTES    -= ARRAY_TOTAL_BYTES % _INT_SCALE_ALIGN  # force alignment
-M1_REGION_FRACTION    = 0.50            # 2GB — state management (E3 substrate)
-M2_REGION_FRACTION    = 0.30            # 1.2GB — calibration and gate data
-M3_REGION_FRACTION    = 0.20            # 0.8GB — inference context and projections
-
+_ARENA_LAYOUT = configured_arena_layout()
+ARRAY_TOTAL_BYTES = _ARENA_LAYOUT.total
 M1_OFFSET = 0
-M1_SIZE   = int(ARRAY_TOTAL_BYTES * M1_REGION_FRACTION)
-M2_OFFSET = M1_SIZE
-M2_SIZE   = int(ARRAY_TOTAL_BYTES * M2_REGION_FRACTION)
-M3_OFFSET = M2_OFFSET + M2_SIZE
-M3_SIZE   = int(ARRAY_TOTAL_BYTES * M3_REGION_FRACTION)
+M1_SIZE = _ARENA_LAYOUT.m1_size
+M2_OFFSET = _ARENA_LAYOUT.m2_offset
+M2_SIZE = _ARENA_LAYOUT.m2_size
+M3_OFFSET = _ARENA_LAYOUT.m3_offset
+M3_SIZE = _ARENA_LAYOUT.m3_size
 
 
 # ── Functional Definitions ────────────────────────────────────────────────────
@@ -200,9 +193,10 @@ class CoreMatrix:
         self._hw = detect_hardware()
         self._event_cb = event_callback
 
-        # Pre-allocate the contiguous byte array
-        # Using bytearray for mutability; memoryview for zero-copy slicing
-        self._array = bytearray(ARRAY_TOTAL_BYTES)
+        # Back a contiguous buffer with a lazy virtual map: no 4 GiB eager
+        # bytearray reservation or zero-fill; touched pages are committed as
+        # actual M1/M2/M3 events arrive. No persistent mapping/IO.
+        self._array = mmap.mmap(-1, ARRAY_TOTAL_BYTES)
         self._mem = memoryview(self._array)
 
         # Region views (zero-copy slices into the single array)
