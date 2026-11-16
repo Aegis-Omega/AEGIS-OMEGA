@@ -75,11 +75,11 @@ def load_real_core():
     anchor.DEFAULT_ANCHOR_TOKENS = []
     modules = {"pgcs": pgcs, "epoch_failsafe": failsafe, "gradient_anchor": anchor}
     with mock.patch.dict(sys.modules, modules):
-        with mock.patch.dict(os.environ, {"AEGIS_ARRAY_BYTES": "131072"}):
+        with mock.patch.dict(os.environ, {"AEGIS_ARRAY_BYTES": "4194304"}):
             spec = importlib.util.spec_from_file_location("aegis_core_under_test", ROOT / "core_matrix.py")
             core = importlib.util.module_from_spec(spec)
             spec.loader.exec_module(core)
-    if core.ARRAY_TOTAL_BYTES != 131072:
+    if core.ARRAY_TOTAL_BYTES != 4194304:
         raise AssertionError("REAL_CORE_ALLOCATION_GUARD_FAILED")
     core.detect_hardware = lambda: SimpleNamespace(platform="mock")
     return core
@@ -102,7 +102,7 @@ class ObserverCoreIntegration(TestCase):
         self.assertIsNone(engine._transition_observer)
         before = engine.emit_vcg_telemetry()
         self.assertNotIn("transition_observer_v14", before)
-        engine.process_event(b"alpha", b"\\x01", b"\\x01\\x02")
+        engine.process_event(b"alpha", b"\x01", b"\x01\x02")
         after = engine.emit_vcg_telemetry()
         self.assertNotIn("transition_observer_v14", after)
 
@@ -114,13 +114,14 @@ class ObserverCoreIntegration(TestCase):
     def test_gate_result_and_all_existing_metrics_identical(self):
         control = self.make_core()
         observed = self.make_core("1")
-        results = [b"", b"\\x00", b"\\x01", b"\\xff", b"\\x00", b""]
+        results = [b"", b"\x00", b"\x01", b"\xff", b"\x00", b""]
         for i, result in enumerate(results):
             data = (b"payload-" + bytes([i]), result, bytes([i, i + 1]))
             self.assertEqual(control.process_event(*data), observed.process_event(*data))
             before = control.emit_vcg_telemetry()
             after = observed.emit_vcg_telemetry()
-            extra = after.pop("transition_observer_v14")
+            self.assertNotIn("transition_observer_v14", after)
+            extra = observed.transition_analytics_snapshot()
             self.assertEqual(before, after)
             self.assertEqual(extra["sample_count"], i + 1)
             self.assertEqual(extra["transition_count"], i)
@@ -132,13 +133,13 @@ class ObserverCoreIntegration(TestCase):
         control = self.make_core()
         observed = self.make_core("1")
         observed._transition_observer.observe_verifier = mock.Mock(side_effect=RuntimeError("analytics broken"))
-        self.assertEqual(control.process_event(b"x", b"\\x01", b"y"),
-                         observed.process_event(b"x", b"\\x01", b"y"))
-        view = observed.emit_vcg_telemetry()["transition_observer_v14"]
+        self.assertEqual(control.process_event(b"x", b"\x01", b"y"),
+                         observed.process_event(b"x", b"\x01", b"y"))
+        view = observed.transition_analytics_snapshot()
         self.assertEqual(view["sample_count"], 0)
         self.assertEqual(view["observation_errors"], 1)
         observed._transition_observer.snapshot = mock.Mock(side_effect=RuntimeError("unavailable"))
-        out = observed.emit_vcg_telemetry()["transition_observer_v14"]
+        out = observed.transition_analytics_snapshot()
         self.assertEqual(out["status"], "UNAVAILABLE")
         self.assertEqual(out["observation_errors"], 2)
 
@@ -146,8 +147,8 @@ class ObserverCoreIntegration(TestCase):
         engine = self.make_core("1")
         for status in (DummyEpochState.FROZEN, DummyEpochState.RECOVERING):
             engine._failsafe.state = status
-            self.assertEqual(engine.process_event(b"x", b"\\x01", b"y")["status"], status.name)
-        self.assertEqual(engine.emit_vcg_telemetry()["transition_observer_v14"]["sample_count"], 0)
+            self.assertEqual(engine.process_event(b"x", b"\x01", b"y")["status"], status.name)
+        self.assertEqual(engine.transition_analytics_snapshot()["sample_count"], 0)
 
 
 if __name__ == "__main__":
