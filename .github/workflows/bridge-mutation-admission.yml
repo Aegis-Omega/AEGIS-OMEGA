@@ -19,6 +19,8 @@ on:
       - cockpit/server/src/observations.ts
       - cockpit/server/test/observations.test.mjs
       - cockpit/src/App.tsx
+      - cockpit/src/lib/telemetry.ts
+      - cockpit/test/telemetry-reconnect.test.mjs
       - .github/workflows/bridge-mutation-admission.yml
   pull_request:
     branches:
@@ -38,6 +40,8 @@ on:
       - cockpit/server/src/observations.ts
       - cockpit/server/test/observations.test.mjs
       - cockpit/src/App.tsx
+      - cockpit/src/lib/telemetry.ts
+      - cockpit/test/telemetry-reconnect.test.mjs
       - .github/workflows/bridge-mutation-admission.yml
   workflow_dispatch:
 
@@ -106,3 +110,6 @@ jobs:
         run: |
           npm ci --no-audit --no-fund
           npm run build
+      - name: Verify native-transpiled browser SSE retry, freshness and teardown
+        working-directory: cockpit
+        run: node --test test/telemetry-reconnect.test.mjs
