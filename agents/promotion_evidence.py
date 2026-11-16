@@ -129,13 +129,17 @@ def _plan_check(plan: Any, *, expected_plan_sha256: str, expected_candidate: str
     _need(isinstance(tasks, list) and len(tasks) >= 30, "FEWER_THAN_30_PREREGISTERED_TASKS")
     _need(len(tasks) <= 5000, "TASK_LIMIT_EXCEEDED")
     seen = {}
+    seen_digests = set()
     for task in tasks:
         _need(isinstance(task, Mapping), "TASK_MALFORMED")
         tid = task.get("id")
         _need(isinstance(tid, str) and re.fullmatch(r"[A-Za-z0-9_.:-]{1,96}", tid),
               "TASK_ID_INVALID")
         _need(tid not in seen, "DUPLICATE_PREREGISTERED_TASK")
-        seen[tid] = _hex(task.get("task_sha256"), SHA256_RE, "TASK_DIGEST_INVALID")
+        digest = _hex(task.get("task_sha256"), SHA256_RE, "TASK_DIGEST_INVALID")
+        _need(digest not in seen_digests, "DUPLICATE_PREREGISTERED_TASK_DIGEST")
+        seen_digests.add(digest)
+        seen[tid] = digest
     return seen
 
 
