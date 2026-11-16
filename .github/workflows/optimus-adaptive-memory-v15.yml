@@ -9,6 +9,8 @@ on:
       - sovereign-omega-v2/python/hardware_config.py
       - sovereign-omega-v2/python/core_matrix.py
       - sovereign-omega-v2/python/ledger_persist.py
+      - sovereign-omega-v2/python/m1_checkpoint_portability.py
+      - sovereign-omega-v2/python/tests/test_m1_checkpoint_portability_v15.py
       - sovereign-omega-v2/python/tests/test_adaptive_memory_v15.py
       - sovereign-omega-v2/python/tests/test_hardware_config.py
       - sovereign-omega-v2/python/tests/test_transition_core_integration.py
@@ -21,6 +23,8 @@ on:
       - sovereign-omega-v2/python/hardware_config.py
       - sovereign-omega-v2/python/core_matrix.py
       - sovereign-omega-v2/python/ledger_persist.py
+      - sovereign-omega-v2/python/m1_checkpoint_portability.py
+      - sovereign-omega-v2/python/tests/test_m1_checkpoint_portability_v15.py
       - sovereign-omega-v2/python/tests/test_adaptive_memory_v15.py
       - sovereign-omega-v2/python/tests/test_hardware_config.py
       - sovereign-omega-v2/python/tests/test_transition_core_integration.py
@@ -53,6 +57,11 @@ jobs:
           set -euo pipefail
           cd sovereign-omega-v2
           python3 python/tests/test_ledger_persist_v2.py
+      - name: V2 M1 checkpoint relocation remains read-only and capacity-independent
+        run: |
+          set -euo pipefail
+          cd sovereign-omega-v2
+          python3 -m unittest discover -s python/tests -p 'test_m1_checkpoint_portability_v15.py' -v
       - name: Native CoreMatrix integration with lazy mmap
         run: |
           set -euo pipefail
