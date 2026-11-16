@@ -19,8 +19,9 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from m1_checkpoint_portability import (
     CHAIN_MODE, HEADER_BYTES, PortabilityError, STATE_CONTRACT,
-    U64_LIMIT, ZERO_HEADER, next_digest_from_anchor,
-    plan_chain_relocation, validate_chain_checkpoint,
+    U64_LIMIT, ZERO_HEADER, MAX_CHECKPOINT_JSON_BYTES, next_digest_from_anchor,
+    parse_checkpoint_json, plan_chain_relocation, validate_chain_checkpoint,
+    _canonical,
 )
 
 
@@ -192,6 +193,61 @@ class RelocationProtocolTests(unittest.TestCase):
         p = plan_chain_relocation(forged, 4)
         self.assertNotEqual(p.anchor_digest_hex, cp["last_m1_entry_hex"][16:])
         self.assertFalse(p.runtime_checkpoint_admitted)
+
+    def test_strict_reader_accepts_exact_v20_and_v21_bytes(self):
+        for version in ("2.0.0", "2.1.0"):
+            cp, _ = checkpoint_after([b"alpha", b"beta"], 3, version)
+            raw = json.dumps(cp, sort_keys=True, ensure_ascii=False,
+                             separators=(",", ":"), allow_nan=False).encode("utf-8")
+            loaded = parse_checkpoint_json(raw)
+            self.assertEqual(loaded, cp)
+            self.assertEqual(plan_chain_relocation(loaded, 7).target_slots, 7)
+
+    def test_strict_reader_rejects_duplicate_keys_including_escaped_alias(self):
+        cp, _ = checkpoint_after([b"alpha"], 2, "2.0.0")
+        raw = json.dumps(cp, sort_keys=True, separators=(",", ":")).encode("utf-8")
+        for duplicate in (
+            b'{"sequence":1,' + raw[1:],
+            b'{"\\u0073equence":1,' + raw[1:],
+            b'{"x":{"nested":1,"nested":2}}',
+        ):
+            with self.assertRaises(PortabilityError):
+                parse_checkpoint_json(duplicate)
+
+    def test_strict_reader_rejects_noncanonical_shapes_and_numeric_domains(self):
+        cp, _ = checkpoint_after([b"alpha"], 2, "2.0.0")
+        for invalid in (
+            b'{"checkpoint_version":[]}', b'{"checkpoint_version":{}}',
+            b'{"checkpoint_version":null}', b'{"x":1.25}',
+            b'{"x":1e100}', b'{"x":NaN}', b'{"x":Infinity}',
+            b'{"x":-Infinity}', b'{"x":123456789012345678901}',
+            b"[]", b"null", b"\\xff", b"\\xef\\xbb\\xbf{}",
+            b" " * (MAX_CHECKPOINT_JSON_BYTES + 1),
+            b"[" * 1030 + b"0" + b"]" * 1030,
+        ):
+            with self.assertRaises(PortabilityError, msg=repr(invalid[:90])):
+                parse_checkpoint_json(invalid)
+        with self.assertRaises(PortabilityError):
+            parse_checkpoint_json("not-bytes")
+        # A valid hash does not authorize unknown fields or foreign versions.
+        for bad in (
+            signed({**cp, "unexpected": 7}),
+            signed({**cp, "checkpoint_version": []}),
+            signed({**cp, "checkpoint_version": {}}),
+        ):
+            raw = json.dumps(bad, separators=(",", ":"), ensure_ascii=False).encode()
+            with self.assertRaises(PortabilityError):
+                parse_checkpoint_json(raw)
+
+    def test_unicode_and_non_string_field_types_are_fail_closed(self):
+        # Non-UTF8 and unpaired surrogates do not become uncaught exceptions.
+        with self.assertRaises(PortabilityError):
+            _canonical({"x": "\ud800"})
+        cp, _ = checkpoint_after([b"x"], 2, "2.0.0")
+        with self.assertRaises(PortabilityError):
+            validate_chain_checkpoint(signed({**cp, "checkpoint_version": []}))
+        with self.assertRaises(PortabilityError):
+            validate_chain_checkpoint(signed({**cp, "checkpoint_version": {}}))
 
     def test_canonical_hash_rejects_duplicate_or_malformed_fields(self):
         cp, _ = checkpoint_after([b"x"], 1, "2.0.0")
