@@ -70,113 +70,118 @@ M3_SIZE   = int(ARRAY_TOTAL_BYTES * M3_REGION_FRACTION)
 
 # ── Functional Definitions ────────────────────────────────────────────────────
 
+_M1_ENTRY_BYTES = 40
+_M1_GENESIS = bytes(32)
+_M1_DOMAIN = b'AEGIS-M1-CHAIN-V2\x00'
+
+
 def M1(state: memoryview, payload: bytes, sequence: int) -> Tuple[int, bytes]:
-    """
-    M1: State management function.
-    Transforms the E3 event substrate region of the byte array.
-    Receives: current M1 region view, event payload bytes, sequence number.
-    Returns: (new_sequence, state_hash_bytes).
+    """Advance an in-place SHA-256 chain over fixed 40-byte ring slots.
 
-    INVARIANT: Pure function — no external state, no I/O.
-    INVARIANT: Sequence is always greater than any previously processed sequence.
-    INVARIANT: Output is deterministic for identical inputs.
+    Each slot contains u64le(sequence) || chain_digest. The digest binds
+    the payload length and payload SHA-256; raw payload bytes are NOT stored
+    in this ring. A separate authenticated event ledger is needed for replay.
+    Requires exclusive write access; this is NOT a pure function.
     """
-    # Compute payload hash using SHA-256 (byte-level, not string)
-    payload_hash = hashlib.sha256(payload).digest()
+    if state.readonly or state.ndim != 1 or state.itemsize != 1 or not state.contiguous:
+        raise ValueError('M1 requires a contiguous writable byte memoryview')
+    slots = len(state) // _M1_ENTRY_BYTES
+    if slots == 0:
+        raise ValueError('M1 region must have at least 40 bytes')
+    if not isinstance(sequence, int) or not 0 <= sequence < (1 << 64) - 1:
+        raise ValueError('M1 sequence must fit u64 including successor')
+    if not isinstance(payload, (bytes, bytearray, memoryview)):
+        raise TypeError('M1 payload must be bytes-like')
 
-    # Write sequence and hash into M1 region at the current write head
-    # Format: 8 bytes sequence + 32 bytes payload hash + payload
-    write_head = (sequence * 40) % len(state)
+    snapshot = bytes(payload)
+    if len(snapshot) >= 1 << 64:
+        raise ValueError('M1 payload length must fit u64')
     seq_bytes = sequence.to_bytes(8, 'little')
+    slot = (sequence % slots) * _M1_ENTRY_BYTES
+    old = bytes(state[slot:slot + _M1_ENTRY_BYTES])
+    if sequence == 0:
+        if old != bytes(_M1_ENTRY_BYTES):
+            raise ValueError('M1 genesis requires an empty first slot')
+        prev_digest = _M1_GENESIS
+    else:
+        prev_slot = ((sequence - 1) % slots) * _M1_ENTRY_BYTES
+        prev_record = bytes(state[prev_slot:prev_slot + _M1_ENTRY_BYTES])
+        if (prev_record[:8] != (sequence - 1).to_bytes(8, 'little')
+                or prev_record[8:] == bytes(32)):
+            raise ValueError('M1 chain predecessor missing or mismatched')
+        prev_digest = prev_record[8:]
+        if old != bytes(_M1_ENTRY_BYTES) and old[:8] == seq_bytes:
+            raise ValueError('M1 replay/rewrite of an existing sequence')
+        if sequence < slots and old != bytes(_M1_ENTRY_BYTES):
+            raise ValueError('M1 unexpected occupied slot before first wrap')
 
-    end_pos = write_head + 40 + len(payload)
-    if end_pos <= len(state):
-        state[write_head:write_head + 8] = seq_bytes
-        state[write_head + 8:write_head + 40] = payload_hash
-        if len(payload) > 0:
-            payload_end = min(write_head + 40 + len(payload), len(state))
-            state[write_head + 40:payload_end] = payload[:payload_end - write_head - 40]
-
-    # Chain hash: SHA-256(previous_state_hash || payload_hash)
-    # This implements the same hash-chaining as the TypeScript E3 substrate
-    prev_offset = ((sequence - 1) * 40) % len(state) if sequence > 0 else 0
-    prev_hash = bytes(state[prev_offset + 8:prev_offset + 40])
-    chain_hash = hashlib.sha256(prev_hash + payload_hash).digest()
-
-    return sequence + 1, chain_hash
+    digest = hashlib.sha256(
+        _M1_DOMAIN + prev_digest + seq_bytes + len(snapshot).to_bytes(8, 'little')
+        + hashlib.sha256(snapshot).digest()
+    ).digest()
+    state[slot:slot + _M1_ENTRY_BYTES] = seq_bytes + digest
+    return sequence + 1, digest
 
 
-def M2(state: memoryview, verifier_result: bytes, confidence_fixed: int, sequence: int = 0) -> Tuple[int, int]:
+def M2(state: memoryview, verifier_result: bytes, confidence_fixed: int,
+       sequence: int = 0) -> Tuple[int, int]:
+    """Record pointwise calibration error, not an unsupported statistical LCB.
+
+    The 8-byte circular record is u32le(absolute_error_Q16) || u32le(0).
+    The existing second return field is reserved for a separately validated
+    multi-observation confidence bound, and fails closed (0) until then.
+    The verifier byte must be an OUTCOME, never an EventClass discriminator.
+    This function mutates state in place; it is NOT pure.
     """
-    M2: Calibration and gate data function.
-    Transforms the calibration region of the byte array.
-    Receives: M2 region view, verifier result bytes, Q16.16 confidence value, sequence number.
-    Returns: (vcg_error_fixed, gate_lcb_fixed) — both Q16.16 fixed-point.
+    if state.readonly or state.ndim != 1 or state.itemsize != 1 or not state.contiguous:
+        raise ValueError('M2 requires a contiguous writable byte memoryview')
+    slots = len(state) // 8
+    if slots == 0:
+        raise ValueError('M2 region must have at least eight bytes')
+    if not isinstance(sequence, int) or sequence < 0:
+        raise ValueError('M2 sequence must be nonnegative')
+    if verifier_result not in (b'\x00', b'\x01'):
+        raise ValueError('M2 requires a single explicit binary verifier outcome')
 
-    INVARIANT: confidence_fixed must be in [0, INT_SCALE] (representing [0.0, 1.0]).
-    INVARIANT: Pure function — no side effects.
-    INVARIANT: sequence must be included in offset to prevent same-length collision.
-    """
-    # Clamp confidence to valid range
     confidence_fixed = fixed_clamp(confidence_fixed, 0, INT_SCALE)
-
-    # Compute empirical correctness from verifier result
-    # Single byte: 0x01 = passed, 0x00 = failed
-    actual_correct = int(verifier_result[0]) if verifier_result else 0
-    actual_fixed = INT_SCALE if actual_correct else 0
-
-    # VCG error = |confidence - actual| in Q16.16
+    actual_fixed = INT_SCALE if verifier_result == b'\x01' else 0
     vcg_error_fixed = abs(confidence_fixed - actual_fixed)
-
-    # Simple LCB approximation: confidence - sqrt(2 * variance / n)
-    # Using integer arithmetic: LCB ≈ confidence - 2 * vcg_error / INT_SCALE
-    # This is a conservative bound; the TypeScript layer computes the full Bernstein bound
-    lcb_adjustment = (2 * vcg_error_fixed) >> 1
-    gate_lcb_fixed = max(0, confidence_fixed - lcb_adjustment)
-
-    # Write to M2 region — offset incorporates sequence to prevent collision when
-    # different events produce verifier_result bytes of equal length.
-    offset = (sequence * 8 + len(verifier_result)) % (len(state) // 8)
-    if offset + 8 <= len(state):
-        state[offset:offset + 4] = vcg_error_fixed.to_bytes(4, 'little', signed=False)
-        state[offset + 4:offset + 8] = gate_lcb_fixed.to_bytes(4, 'little', signed=False)
-
+    gate_lcb_fixed = 0
+    offset = (sequence % slots) * 8
+    state[offset:offset + 8] = (vcg_error_fixed.to_bytes(4, 'little')
+                               + gate_lcb_fixed.to_bytes(4, 'little'))
     return vcg_error_fixed, gate_lcb_fixed
 
 
 def M3(state: memoryview, context_tokens: bytes, w_scale: int) -> Tuple[bytes, int]:
-    """
-    M3: Inference context and projection function.
-    Transforms the context region of the byte array.
-    Receives: M3 region view, context token bytes, Q16.16 W_scale value.
-    Returns: (compressed_context, divergence_score_fixed).
+    """Project bytes and return Q16.16 mean absolute projection distortion.
 
-    INVARIANT: w_scale is always within the anchor token tolerance bounds.
-    INVARIANT: context_tokens is the active window — not the full history.
+    Only state[:len(context_tokens)] is active after the call. Trailing bytes
+    remain unchanged; caller must track active length. Snapshot source first
+    for deterministic operation when input aliases the destination.
     """
-    if not context_tokens:
+    if state.readonly or state.ndim != 1 or state.itemsize != 1 or not state.contiguous:
+        raise ValueError('M3 requires a contiguous writable byte memoryview')
+    if not isinstance(w_scale, int) or w_scale < 0:
+        raise ValueError('M3 w_scale must be a nonnegative Q16.16 integer')
+    if not isinstance(context_tokens, (bytes, bytearray, memoryview)):
+        raise TypeError('M3 context_tokens must be bytes-like')
+    original = bytes(context_tokens)
+    n = len(original)
+    if n > len(state):
+        raise ValueError('M3 active window exceeds region capacity')
+    if n == 0:
         return b'', 0
 
-    # Apply W_scale to context token weights
-    # This is the correction mechanism that keeps the router calibrated
-    scaled_len = min(len(context_tokens), len(state))
-    scaled = bytearray(scaled_len)
-    for i in range(scaled_len):
-        # Fixed-point multiplication: token[i] * w_scale / INT_SCALE
-        token_val = context_tokens[i]
-        scaled_val = (token_val * w_scale) >> INT_SHIFT_BITS
-        scaled[i] = min(255, max(0, scaled_val))
-
-    # Write to M3 region
-    state[:scaled_len] = scaled
-
-    # Compute divergence score as mean absolute deviation from INT_SCALE-normalised values
-    # Lower divergence = better calibration
-    expected = w_scale >> 8  # expected scaled token value
-    total_deviation = sum(abs(b - expected) for b in scaled)
-    divergence_fixed = (total_deviation * INT_SCALE) // (scaled_len * 255) if scaled_len > 0 else 0
-
-    return bytes(scaled), divergence_fixed
+    scaled = bytearray(n)
+    total_distortion = 0
+    for i, token_val in enumerate(original):
+        scaled_val = min(255, (token_val * w_scale) >> INT_SHIFT_BITS)
+        scaled[i] = scaled_val
+        total_distortion += abs(token_val - scaled_val)
+    distortion_fixed = (total_distortion * INT_SCALE) // (n * 255)
+    state[:n] = scaled
+    return bytes(scaled), distortion_fixed
 
 
 # ── Core Matrix Controller ───────────────────────────────────────────────────
@@ -229,6 +234,10 @@ class CoreMatrix:
         # Performance metrics (fixed-point for determinism)
         self._total_vcg_error_fixed: int = 0
         self._total_processed: int = 0
+        self._total_verified: int = 0
+        self._m3_active_length: int = 0
+        self._last_gate_signal_sequence: int = -1
+        self._last_gate_signal_accepted: Optional[bool] = None
 
     def start(self) -> None:
         """Start the core matrix and all subsystems."""
@@ -262,59 +271,64 @@ class CoreMatrix:
         verifier_result: bytes,
         context_tokens: bytes,
     ) -> Dict[str, object]:
-        """
-        Process one governance event through M1 → M2 → M3.
-        Returns telemetry dict for the TypeScript calibration layer.
+        """Process one event. Unverified event-class bytes are not outcomes.
 
-        INVARIANT: sequence is always incremented atomically.
-        INVARIANT: All temporal values derive from sequence, never wall clock.
+        Local pointwise calibration does NOT authorize an E4 action.
+        The gate_accepted field is fail-closed until an authenticated,
+        statistically validated E4 decision is integrated separately.
         """
         with self._lock:
-            # Check failsafe state before processing — FROZEN and RECOVERING both gate events
             failsafe_state = self._failsafe.state
             if failsafe_state in (EpochState.FROZEN, EpochState.RECOVERING):
                 return {'status': failsafe_state.value.upper(), 'sequence': self._sequence}
 
-            # Detect M1 circular wrap and log an era-boundary event (F-07)
-            if self._sequence > 0 and self._sequence % self._m1_era_capacity == 0:
+            # Validate all ordinary inputs before first region mutation.
+            if verifier_result not in (b'', b'\x00', b'\x01'):
+                raise ValueError('verifier outcome must be empty or a single binary byte')
+            if not isinstance(context_tokens, (bytes, bytearray, memoryview)):
+                raise TypeError('context must be bytes-like')
+            if len(context_tokens) > len(self._m3_region):
+                raise ValueError('context exceeds M3 region capacity')
+            if len(self._m2_region) < 8 and verifier_result:
+                raise ValueError('M2 region too short')
+            w_scale = self._calibrator.get_w_scale('GATE_ACCEPT_THRESHOLD')
+            if not isinstance(w_scale, int) or w_scale < 0:
+                raise ValueError('invalid W_scale')
+
+            old_sequence = self._sequence
+            next_sequence, state_hash = M1(self._m1_region, payload, old_sequence)
+            self._sequence = next_sequence
+            if old_sequence > 0 and old_sequence % self._m1_era_capacity == 0:
                 self._era += 1
                 if self._event_cb:
                     self._event_cb('M1_ERA_WRAP', {
                         'era': self._era,
-                        'sequence': self._sequence,
+                        'sequence': old_sequence,
                         'capacity_per_era': self._m1_era_capacity,
                     })
 
-            # M1: state management
-            self._sequence, state_hash = M1(
-                self._m1_region, payload, self._sequence
-            )
+            # b'' means no ground-truth outcome, not a failed verifier.
+            # EventClass bytes are stripped by the bridge routing adapter.
+            vcg_error_fixed, gate_lcb_fixed = 0, 0
+            if verifier_result:
+                confidence_fixed = INT_SCALE if verifier_result == b'\x01' else INT_SCALE // 2
+                vcg_error_fixed, gate_lcb_fixed = M2(
+                    self._m2_region, verifier_result, confidence_fixed, self._sequence
+                )
+                self._total_vcg_error_fixed += vcg_error_fixed
+                self._total_verified += 1
 
-            # M2: calibration gate
-            # confidence_fixed derived from verifier result
-            confidence_fixed = INT_SCALE if verifier_result and verifier_result[0] else INT_SCALE // 2
-            vcg_error_fixed, gate_lcb_fixed = M2(
-                self._m2_region, verifier_result, confidence_fixed, self._sequence
-            )
-
-            # M3: context projection with current W_scale
-            w_scale = self._calibrator.get_w_scale('GATE_ACCEPT_THRESHOLD')
             compressed_context, divergence_fixed = M3(
                 self._m3_region, context_tokens, w_scale
             )
-
-            # Accumulate VCG
-            self._total_vcg_error_fixed += vcg_error_fixed
+            self._m3_active_length = len(compressed_context)
             self._total_processed += 1
-
-            # Calibrate anchor tokens every 100 events
             if self._total_processed % 100 == 0:
                 self._epoch += 1
                 self._calibrator.calibrate_epoch(self._epoch)
 
-            # Gate decision: LCB > 0 means accept
-            gate_accepted = gate_lcb_fixed > 0
-
+            # No confidence-sequence history, n, alpha, or variance in M2.
+            # Never elevate its Q16 point estimate to mutation authority.
             return {
                 'status': 'OK',
                 'sequence': self._sequence,
@@ -323,20 +337,27 @@ class CoreMatrix:
                 'vcg_error_fixed': vcg_error_fixed,
                 'vcg_error_float': from_fixed(vcg_error_fixed),
                 'gate_lcb_fixed': gate_lcb_fixed,
-                'gate_accepted': gate_accepted,
+                'gate_lcb_valid': False,
+                'gate_accepted': False,
+                'verified_outcome_available': bool(verifier_result),
                 'divergence_fixed': divergence_fixed,
                 'drift_index': self._calibrator.compute_drift_index(),
             }
 
     def receive_gate_signal(self, proposal_id: str, accepted: bool, sequence: int) -> None:
-        """
-        Receive gate decision from the TypeScript E4 gate.
-        Updates M2 region to reflect the gate outcome.
-        sequence MUST come from the TypeScript event substrate.
+        """Track external E4 gate acknowledgements without falsifying VCG outcomes.
+
+        A gate's accept/reject decision is NOT an observed correctness label;
+        do not insert it into M2's pointwise calibration slots.
+        Only the separate MutationGate maintains approval authority.
         """
         with self._lock:
-            signal_byte = b'\x01' if accepted else b'\x00'
-            M2(self._m2_region, signal_byte, INT_SCALE if accepted else 0, sequence)
+            if not isinstance(sequence, int) or sequence < 0:
+                raise ValueError('gate signal sequence must be nonnegative')
+            if sequence <= self._last_gate_signal_sequence:
+                return
+            self._last_gate_signal_sequence = sequence
+            self._last_gate_signal_accepted = bool(accepted)
 
     def emit_vcg_telemetry(self) -> Dict[str, object]:
         """
@@ -349,7 +370,7 @@ class CoreMatrix:
             seq = self._sequence
             epoch = self._epoch
             avg_vcg_error = from_fixed(
-                self._total_vcg_error_fixed // max(1, self._total_processed)
+                self._total_vcg_error_fixed // max(1, self._total_verified)
             )
             drift_index = self._calibrator.compute_drift_index()
             failsafe_state = self._failsafe.state.value
@@ -361,6 +382,7 @@ class CoreMatrix:
             'sequence': seq,
             'epoch': epoch,
             'avg_vcg_error': avg_vcg_error,
+            'vcg_observations': self._total_verified,
             'drift_index': drift_index,
             'pgcs_passes': pgcs_snap.passes_criterion,
             'failsafe_state': failsafe_state,

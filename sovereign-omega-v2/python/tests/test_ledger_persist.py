@@ -27,9 +27,13 @@ CONTEXT = b'\x00' * 8
 
 
 def _advance(matrix, n=10):
-    """Push n events through the matrix to advance sequence/epoch."""
+    """Return all chain digests while advancing the matrix."""
+    hashes = []
     for i in range(n):
-        matrix.process_event(PAYLOAD, VERIFIER, CONTEXT)
+        outcome = matrix.process_event(PAYLOAD, VERIFIER, CONTEXT)
+        assert outcome['gate_accepted'] is False  # M2 has no statistical LCB
+        hashes.append(outcome['state_hash'])
+    return hashes
 
 
 class TestCheckpointRoundTrip(unittest.TestCase):
@@ -112,8 +116,10 @@ class TestCheckpointRoundTrip(unittest.TestCase):
         try:
             load_checkpoint(matrix2, self.path)
             self.assertEqual(matrix2._sequence, seq_at_save)
-            # Should be able to process more events without crash
-            _advance(matrix2, 5)
+            # Require cryptographic parity with uninterrupted execution.
+            expected_digests = _advance(self.matrix, 5)
+            actual_digests = _advance(matrix2, 5)
+            self.assertEqual(actual_digests, expected_digests)
             self.assertEqual(matrix2._sequence, seq_at_save + 5)
         finally:
             matrix2.stop()
@@ -137,7 +143,8 @@ class TestCheckpointRoundTrip(unittest.TestCase):
         with open(self.path) as f:
             cp = json.load(f)
         self.assertEqual(cp['checkpoint_version'], CHECKPOINT_VERSION)
-        self.assertTrue(cp['is_replay_reconstructable'])
+        self.assertFalse(cp['is_replay_reconstructable'])
+        self.assertTrue(cp['can_resume_chain'])
         self.assertIn('integrity_hash', cp)
         self.assertIn('last_m1_entry_hex', cp)
 
@@ -205,10 +212,10 @@ class TestCheckpointIntegrityEnforcement(unittest.TestCase):
         with self.assertRaises(CheckpointError):
             load_checkpoint(self.matrix, self.path)
 
-    def test_replay_reconstructable_false_raises(self):
+    def test_replay_reconstructable_true_raises(self):
         _advance(self.matrix, 3)
         save_checkpoint(self.matrix, self.path)
-        self._corrupt('is_replay_reconstructable', False)
+        self._corrupt('is_replay_reconstructable', True)
         with self.assertRaises(CheckpointError):
             load_checkpoint(self.matrix, self.path)
 

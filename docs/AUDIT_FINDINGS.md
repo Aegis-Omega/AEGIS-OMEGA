@@ -225,3 +225,45 @@ PR #16 adversarial audit (ChatGPT): all 3 review comments addressed and confirme
 
 **Commercial products are Gumroad-ready** — F-11 and F-12 fixed, all builds pass.
 Gumroad zips regenerated: platform-picker.zip (128 KB), hook-generator.zip (127 KB), content-calendar.zip (125 KB).
+
+---
+
+## 2026-11-16 M1/M2/M3 V2 mathematical contract review (draft / HOLD)
+
+This independent audit supersedes any blanket "Layer B Python is production-ready"
+conclusion in the historical summary **for the M1/M2/M3 interfaces**. The
+historical F-03 and F-07 fixes addressed narrower symptoms; they did not
+establish the stated stronger cryptographic/statistical invariants.
+
+- **M1 (confirmed on main):** prior payload hash was substituted for prior
+  chain digest; variable payload writes overlapped fixed-stride records; near
+  the end of a region a write could be skipped while acknowledging a sequence;
+  append-only claims were false for the mutable ring.
+- **M2 (confirmed on main):** `(2*error)>>1` equals nonnegative error; the
+  claimed Bernstein LCB had no variance, n or alpha. Byte-level modulo over
+  eight-byte slots allowed collisions and overlap. Router EventClass and
+  verifier correctness were incorrectly conflated.
+- **M3 (confirmed on main):** `expected=w_scale>>8` makes identity projection
+  have nonzero "divergence" and zero-scale information destruction score 0.
+- **V2 candidate semantics:** M1 is a sequence/domain-bound SHA-256 digest ring
+  (NOT event storage). M2 records pointwise error and reserves the legacy LCB
+  field at zero until a separately validated E4 confidence sequence exists.
+  M3 reports normalized mean absolute projection distortion. All functions
+  mutate caller memory under a caller-managed lock; they are not pure.
+- **Checkpoint V2:** contains the actual chain digest tail and counters, but no
+  event payloads. It states `is_replay_reconstructable=false`, and rejects
+  V1 checkpoints. This deliberately requires an explicit migration plan before
+  any deployment with existing checkpoint files.
+- **Not established:** replay reconstruction, authenticated external ledger,
+  cryptographic checkpoint authenticity against writers, M1/M2/M3 cross-layer
+  CI at actual PR HEAD, full TypeScript/Python parity, statistical anytime-valid
+  coverage, safety of accepting actions in E4, or deployment readiness.
+- **Remaining integration risks:** CoreMatrix mutations are not fully
+  transactional across M1/M2/M3 and calibration callbacks; the projection
+  leaves stale bytes after a shorter window (only active length is valid);
+  the ring cannot detect substitution of all records by an attacker with
+  full memory-write access. An independent reviewer must inspect these before
+  any release or promotion.
+
+**Governance:** DRAFT / HOLD_NO_ADMISSION. No merge or deployment authorized.
+A passing regression test is not a formal security proof or a production receipt.
