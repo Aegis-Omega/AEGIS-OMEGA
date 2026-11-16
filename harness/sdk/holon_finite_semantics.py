@@ -69,7 +69,9 @@ def _parse_tree(node: object, vars_: set[str], depth: int, budget: list[int]) ->
         raise FiniteBooleanError("FORMULA_AST_SHAPE_INVALID")
     op = node.get("op")
     if op == "var":
-        if set(node) != {"op", "name"} or node["name"] not in vars_:
+        if (set(node) != {"op", "name"}
+                or type(node["name"]) is not str
+                or node["name"] not in vars_):
             raise FiniteBooleanError("FORMULA_VARIABLE_NOT_DECLARED")
     elif op == "const":
         if set(node) != {"op", "value"} or type(node["value"]) is not bool:
