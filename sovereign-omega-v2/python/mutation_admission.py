@@ -13,11 +13,13 @@ import hmac
 import json
 import math
 import re
+import secrets
 import threading
 
 _EVENT_DOMAIN = b"AEGIS_MUTATION_EVENT_V1\x00"
 _PROPOSAL_ID = re.compile(r"[A-Za-z0-9._:-]{1,128}\Z")
 _SHA256 = re.compile(r"[0-9a-f]{64}\Z")
+_BRIDGE_EPOCH = re.compile(r"[0-9a-f]{64}\Z")
 
 
 def control_authenticated(provided: str | None, configured: str | None) -> bool:
@@ -105,9 +107,18 @@ class MutationAdmissionLedger:
     relying on a rolling global majority for unrelated proposals.
     """
 
-    def __init__(self, max_pending: int = 4096) -> None:
+    def __init__(self, max_pending: int = 4096, *, bridge_epoch_id: str | None = None) -> None:
         if type(max_pending) is not int or max_pending < 1:
             raise ValueError("max_pending must be positive")
+        # Generate a cryptographically unpredictable per-process incarnation.
+        # Explicit epochs are only for deterministic replay tests. Production
+        # instantiates this ledger with no override and never reuses a saved ID.
+        if bridge_epoch_id is None:
+            bridge_epoch_id = secrets.token_hex(32)
+        if (not isinstance(bridge_epoch_id, str)
+                or not _BRIDGE_EPOCH.fullmatch(bridge_epoch_id)):
+            raise ValueError("invalid bridge epoch identifier")
+        self._bridge_epoch_id = bridge_epoch_id
         self._pending: dict[str, tuple[str, str, str]] = {}
         self._last_sequence = -1
         self._max_pending = max_pending
@@ -128,6 +139,7 @@ class MutationAdmissionLedger:
         component_id: str,
         operator_id: str,
         capability_class: str,
+        bridge_epoch_id: str,
     ) -> tuple[bool, str]:
         if not isinstance(proposal_id, str) or not _PROPOSAL_ID.fullmatch(proposal_id):
             return False, "INVALID_PROPOSAL"
@@ -135,6 +147,10 @@ class MutationAdmissionLedger:
                 or not isinstance(operator_id, str) or not _PROPOSAL_ID.fullmatch(operator_id)
                 or capability_class != "SELF_MODIFYING"):
             return False, "INVALID_MUTATION_BINDING"
+        if (not isinstance(bridge_epoch_id, str)
+                or not _BRIDGE_EPOCH.fullmatch(bridge_epoch_id)
+                or not hmac.compare_digest(bridge_epoch_id, self._bridge_epoch_id)):
+            return False, "BRIDGE_EPOCH_MISMATCH"
         if type(sequence) is not int or not 0 <= sequence < 2**64:
             return False, "INVALID_SEQUENCE"
         if type(accepted) is not bool:
@@ -203,8 +219,13 @@ class MutationAdmissionLedger:
         *,
         component_id: str,
         operator_id: str,
+        bridge_epoch_id: str,
     ) -> bool:
         if constitutional_approved is not True:
+            return False
+        if (not isinstance(bridge_epoch_id, str)
+                or not _BRIDGE_EPOCH.fullmatch(bridge_epoch_id)
+                or not hmac.compare_digest(bridge_epoch_id, self._bridge_epoch_id)):
             return False
         if not isinstance(proposal_id, str) or not _PROPOSAL_ID.fullmatch(proposal_id):
             return False
@@ -214,6 +235,11 @@ class MutationAdmissionLedger:
                 return False
             self._pending.pop(proposal_id)
             return True
+
+    @property
+    def bridge_epoch_id(self) -> str:
+        """Public-to-authorized-server boot identity, not a credential."""
+        return self._bridge_epoch_id
 
     @property
     def last_sequence(self) -> int:
