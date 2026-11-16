@@ -71,39 +71,33 @@ M3_SIZE   = int(ARRAY_TOTAL_BYTES * M3_REGION_FRACTION)
 # ── Functional Definitions ────────────────────────────────────────────────────
 
 def M1(state: memoryview, payload: bytes, sequence: int) -> Tuple[int, bytes]:
+    """Append an M1 digest to a circular array of complete 40-byte records.
+
+    A record stores u64 little-endian sequence followed by SHA256 of
+    (previous_chain_digest || SHA256(payload)); genesis digest is 32 zeros.
+    This MUTATES state, it is not pure. Payloads are not retained in the
+    record arena, so full historical replay needs a separate durable log.
     """
-    M1: State management function.
-    Transforms the E3 event substrate region of the byte array.
-    Receives: current M1 region view, event payload bytes, sequence number.
-    Returns: (new_sequence, state_hash_bytes).
-
-    INVARIANT: Pure function — no external state, no I/O.
-    INVARIANT: Sequence is always greater than any previously processed sequence.
-    INVARIANT: Output is deterministic for identical inputs.
-    """
-    # Compute payload hash using SHA-256 (byte-level, not string)
-    payload_hash = hashlib.sha256(payload).digest()
-
-    # Write sequence and hash into M1 region at the current write head
-    # Format: 8 bytes sequence + 32 bytes payload hash + payload
-    write_head = (sequence * 40) % len(state)
-    seq_bytes = sequence.to_bytes(8, 'little')
-
-    end_pos = write_head + 40 + len(payload)
-    if end_pos <= len(state):
-        state[write_head:write_head + 8] = seq_bytes
-        state[write_head + 8:write_head + 40] = payload_hash
-        if len(payload) > 0:
-            payload_end = min(write_head + 40 + len(payload), len(state))
-            state[write_head + 40:payload_end] = payload[:payload_end - write_head - 40]
-
-    # Chain hash: SHA-256(previous_state_hash || payload_hash)
-    # This implements the same hash-chaining as the TypeScript E3 substrate
-    prev_offset = ((sequence - 1) * 40) % len(state) if sequence > 0 else 0
-    prev_hash = bytes(state[prev_offset + 8:prev_offset + 40])
-    chain_hash = hashlib.sha256(prev_hash + payload_hash).digest()
-
-    return sequence + 1, chain_hash
+    if type(sequence) is not int or not 0 <= sequence < (1 << 64) - 1:
+        raise ValueError('M1 requires a nonnegative u64 sequence with room to increment')
+    capacity = len(state) // 40
+    if capacity < 1 or getattr(state, 'readonly', False):
+        raise ValueError('M1 requires at least one writable 40-byte slot')
+    if sequence:
+        prev_pos = ((sequence - 1) % capacity) * 40
+        prev_record = bytes(state[prev_pos:prev_pos + 40])
+        if int.from_bytes(prev_record[:8], 'little') != sequence - 1:
+            raise ValueError('M1 previous record sequence mismatch')
+        prev_digest = prev_record[8:40]
+        if prev_digest == b'\x00' * 32:
+            raise ValueError('M1 previous digest missing')
+    else:
+        prev_digest = b'\x00' * 32
+    payload_digest = hashlib.sha256(payload).digest()
+    chain_digest = hashlib.sha256(prev_digest + payload_digest).digest()
+    head = (sequence % capacity) * 40
+    state[head:head + 40] = sequence.to_bytes(8, 'little') + chain_digest
+    return sequence + 1, chain_digest
 
 
 def M2(state: memoryview, verifier_result: bytes, confidence_fixed: int, sequence: int = 0) -> Tuple[int, int]:
@@ -224,7 +218,7 @@ class CoreMatrix:
         self._ready = threading.Event()
 
         # Capacity at which M1 write head wraps (events per era)
-        self._m1_era_capacity: int = M1_SIZE // 40
+        self._m1_era_capacity: int = len(self._m1_region) // 40
 
         # Performance metrics (fixed-point for determinism)
         self._total_vcg_error_fixed: int = 0
