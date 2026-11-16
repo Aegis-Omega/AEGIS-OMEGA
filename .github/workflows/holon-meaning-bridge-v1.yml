@@ -8,6 +8,8 @@ on:
       - 'harness/tests/test_holon_meaning_bridge.py'
       - 'harness/tests/test_holon_graph_verifier.py'
       - 'harness/tests/test_holon_parity_vectors.py'
+      - 'harness/sdk/holon_ontology_binding.py'
+      - 'harness/tests/test_holon_ontology_binding.py'
       - 'harness/tests/emit_holon_parity_vectors.py'
       - 'harness/tests/verify_holon_parity.mjs'
       - 'docs/HOLON_MEANING_BRIDGE_V1.md'
@@ -20,6 +22,8 @@ on:
       - 'harness/tests/test_holon_meaning_bridge.py'
       - 'harness/tests/test_holon_graph_verifier.py'
       - 'harness/tests/test_holon_parity_vectors.py'
+      - 'harness/sdk/holon_ontology_binding.py'
+      - 'harness/tests/test_holon_ontology_binding.py'
       - 'harness/tests/emit_holon_parity_vectors.py'
       - 'harness/tests/verify_holon_parity.mjs'
       - '.github/workflows/holon-meaning-bridge-v1.yml'
@@ -65,11 +69,14 @@ jobs:
             harness/sdk/heritage_composition.py \
             harness/sdk/holon_meaning_bridge.py \
             harness/sdk/holon_graph_verifier.py \
+            harness/sdk/holon_ontology_binding.py \
             harness/tests/test_holon_meaning_bridge.py \
             harness/tests/test_holon_graph_verifier.py \
             harness/tests/test_holon_parity_vectors.py \
+            harness/tests/test_holon_ontology_binding.py \
             harness/tests/test_holon_parity_vectors.py \
-            harness/tests/emit_holon_parity_vectors.py
+            harness/tests/emit_holon_parity_vectors.py \
+            harness/tests/test_holon_ontology_binding.py
       - name: Run bridge and inherited MHP falsifiers
         run: |
           python -m pytest -q \
