@@ -1,186 +1,199 @@
-"""SOVEREIGN OMEGA -- Ledger Persistence, chain-continuation checkpoint V2.
+"""AEGIS Omega / Gate 170: versioned M1 hash-chain continuation checkpoint.
 
-Each M1 ring slot is 8-byte sequence + 32-byte SHA-256 *chain* digest.
-Only the chain tail is checkpointed; raw event bodies are NOT retained.
-A checkpoint alone does not make the event history replay-reconstructable.
-Legacy V1 stored a payload hash, not a chain hash, so V1 MUST NOT resume V2.
+The V2 40-byte event header stores sequence + a chain digest, not a payload.
+The last header can restart the chain, but cannot replay historical payloads.
+The unkeyed integrity hash detects corruption, NOT authenticated provenance.
+Legacy V1 checkpoints stored payload hashes and MUST NOT be interpreted as V2.
 """
 import hashlib
-import hmac
 import json
 import os
 import tempfile
 
-CHECKPOINT_VERSION = '2.0.0'
-CHAIN_ALGORITHM = 'AEGIS-M1-CHAIN-V2'
+CHECKPOINT_VERSION = '2.1.0' # Adds verified calibration counters; legacy 2.0 cannot resume them
+CHAIN_MODE = 'sha256-prev-chain-plus-sha256-payload-v2'  # identical PR #806 M1 digest
+STATE_CONTRACT = 'm123-calibration-counters-v1'
 DEFAULT_CHECKPOINT_PATH = os.environ.get(
     'AEGIS_CHECKPOINT_PATH',
     os.path.join(os.path.dirname(__file__), 'aegis_checkpoint.json'),
 )
 _M1_ENTRY_BYTES = 40
-_M1_SIZE = 2 * 1024 ** 3  # Legacy constant; V2 indexes actual matrix region.
+_M1_REGION_FRACTION = 0.50
+_ARRAY_TOTAL_BYTES = 4 * 1024 ** 3
+_M1_SIZE = int(_ARRAY_TOTAL_BYTES * _M1_REGION_FRACTION)  # nominal, for legacy test imports only
 
 
 class CheckpointError(Exception):
     pass
 
 
-def _capacity(matrix) -> int:
+def _m1_slots(matrix):
     slots = len(matrix._m1_region) // _M1_ENTRY_BYTES
     if slots < 1:
-        raise CheckpointError('M1 region has no complete digest slots')
+        raise CheckpointError('M1 region has no complete record')
     return slots
 
 
-def _last_m1_entry(matrix) -> bytes:
-    """Read the last full u64 sequence + 32-byte chain digest slot."""
-    seq = matrix._sequence
-    slots = _capacity(matrix)
-    if not isinstance(seq, int) or not 0 <= seq < (1 << 64):
-        raise CheckpointError('checkpoint sequence out of u64 range')
-    if seq == 0:
-        return bytes(_M1_ENTRY_BYTES)
-    prev_seq = seq - 1
-    offset = (prev_seq % slots) * _M1_ENTRY_BYTES
-    entry = bytes(matrix._m1_region[offset:offset + _M1_ENTRY_BYTES])
-    if (len(entry) != _M1_ENTRY_BYTES
-            or entry[:8] != prev_seq.to_bytes(8, 'little')
-            or entry[8:] == bytes(32)):
-        raise CheckpointError('last M1 chain digest missing or sequence mismatch')
-    return entry
+def _last_m1_entry(matrix):
+    sequence = matrix._sequence
+    if sequence == 0:
+        return b'\x00' * _M1_ENTRY_BYTES
+    if sequence < 0 or sequence >= (1 << 64):
+        raise CheckpointError('M1 sequence outside u64 range')
+    position = ((sequence - 1) % _m1_slots(matrix)) * _M1_ENTRY_BYTES
+    record = bytes(matrix._m1_region[position:position + _M1_ENTRY_BYTES])
+    if len(record) != _M1_ENTRY_BYTES:
+        raise CheckpointError('M1 record truncated')
+    if int.from_bytes(record[:8], 'little') != sequence - 1:
+        raise CheckpointError('M1 record sequence mismatch')
+    if record[8:] == b'\x00' * 32:
+        raise CheckpointError('M1 record digest missing')
+    return record
 
 
-def _integrity_hash(checkpoint_fields: dict) -> str:
-    """Unkeyed checksum, NOT an authenticity signature or MAC."""
+def _integrity_hash(obj):
     return hashlib.sha256(json.dumps(
-        checkpoint_fields, sort_keys=True, separators=(',', ':'),
-        ensure_ascii=True,
+        obj, ensure_ascii=False, sort_keys=True, separators=(',', ':'),
+        allow_nan=False,
     ).encode('utf-8')).hexdigest()
 
 
 def save_checkpoint(matrix, path: str = DEFAULT_CHECKPOINT_PATH) -> dict:
-    """Atomically replace a V2 chain-tail checkpoint under the matrix lock."""
+    """Persist a chain-continuation anchor atomically; not the event history."""
     with matrix._lock:
-        fields = {
+        body = {
             'checkpoint_version': CHECKPOINT_VERSION,
-            'chain_algorithm': CHAIN_ALGORITHM,
-            'm1_capacity_slots': _capacity(matrix),
+            'chain_mode': CHAIN_MODE,
             'sequence': matrix._sequence,
             'epoch': matrix._epoch,
             'era': matrix._era,
+            'm1_capacity_slots': _m1_slots(matrix),
+            'state_contract': STATE_CONTRACT,
             'total_processed': getattr(matrix, '_total_processed', matrix._sequence),
             'total_verified': getattr(matrix, '_total_verified', 0),
             'total_vcg_error_fixed': getattr(matrix, '_total_vcg_error_fixed', 0),
+            'last_gate_signal_sequence': getattr(matrix, '_last_gate_signal_sequence', -1),
+            'last_gate_signal_accepted': getattr(matrix, '_last_gate_signal_accepted', None),
             'last_m1_entry_hex': _last_m1_entry(matrix).hex(),
-            'can_resume_chain': True,
             'is_replay_reconstructable': False,
+            'is_chain_continuation_supported': True,
         }
     counters = ('sequence', 'epoch', 'era', 'total_processed',
                 'total_verified', 'total_vcg_error_fixed')
-    if any(type(fields[k]) is not int or fields[k] < 0 for k in counters):
-        raise CheckpointError('invalid checkpoint counters')
-    if (fields['sequence'] != fields['total_processed'] or
-            fields['total_verified'] > fields['total_processed'] or
-            fields['total_vcg_error_fixed'] > fields['total_verified'] * 65536):
-        raise CheckpointError('checkpoint counters do not satisfy invariants')
-    checkpoint = {**fields, 'integrity_hash': _integrity_hash(fields)}
-    directory = os.path.dirname(os.path.abspath(path)) or '.'
-    fd, tmp = tempfile.mkstemp(dir=directory, suffix='.tmp')
+    if any(type(body[k]) is not int or body[k] < 0 for k in counters):
+        raise CheckpointError('Invalid checkpoint counters')
+    if (body['total_processed'] != body['sequence'] or
+            body['total_verified'] > body['total_processed'] or
+            body['total_vcg_error_fixed'] > body['total_verified'] * 65536):
+        raise CheckpointError('Inconsistent calibration counters')
+    if (type(body['last_gate_signal_sequence']) is not int or
+            body['last_gate_signal_sequence'] < -1 or
+            body['last_gate_signal_accepted'] is not None and
+            type(body['last_gate_signal_accepted']) is not bool):
+        raise CheckpointError('Invalid gate observation metadata')
+    body['integrity_hash'] = _integrity_hash(body)
+    fd, temp_path = tempfile.mkstemp(
+        dir=os.path.dirname(os.path.abspath(path)) or '.', suffix='.tmp',
+    )
     try:
-        with os.fdopen(fd, 'w', encoding='utf-8') as out:
-            json.dump(checkpoint, out, sort_keys=True)
-            out.flush()
-            os.fsync(out.fileno())
-        os.replace(tmp, path)
+        with os.fdopen(fd, 'w', encoding='utf-8') as handle:
+            json.dump(body, handle)
+            handle.flush()
+            os.fsync(handle.fileno())
+        os.replace(temp_path, path)
     except Exception:
         try:
-            os.unlink(tmp)
+            os.unlink(temp_path)
         except OSError:
             pass
         raise
     return {
-        'sequence': fields['sequence'], 'epoch': fields['epoch'],
-        'era': fields['era'], 'integrity_hash': checkpoint['integrity_hash'],
-        'path': path, 'can_resume_chain': True,
-        'is_replay_reconstructable': False,
+        'sequence': body['sequence'], 'epoch': body['epoch'],
+        'era': body['era'], 'integrity_hash': body['integrity_hash'], 'path': path,
     }
 
 
 def load_checkpoint(matrix, path: str = DEFAULT_CHECKPOINT_PATH) -> dict:
-    """Restore a V2 chain tail, rejecting V1 and any mismatched region.
-
-    Validation completes before any destination mutation. An unkeyed checksum
-    cannot detect intentional editing by an actor with checkpoint write access.
-    """
+    """Validate all fields before modifying the destination matrix."""
     if not os.path.exists(path):
         raise CheckpointError(f'Checkpoint not found: {path}')
-    try:
-        with open(path, 'r', encoding='utf-8') as inp:
-            cp = json.load(inp)
-    except (OSError, ValueError, TypeError) as exc:
-        raise CheckpointError(f'Invalid checkpoint JSON: {exc}') from exc
-    if not isinstance(cp, dict):
-        raise CheckpointError('checkpoint root must be an object')
-    if cp.get('checkpoint_version') != CHECKPOINT_VERSION:
+    with open(path, encoding='utf-8') as handle:
+        body = json.load(handle)
+    if not isinstance(body, dict):
+        raise CheckpointError('Checkpoint must be an object')
+    if body.get('checkpoint_version') != CHECKPOINT_VERSION:
         raise CheckpointError(
-            'Unsupported checkpoint version (V1 contained payload hashes, not '
-            'chain digests); explicit migration with external event log required'
+            f'Version mismatch: expected {CHECKPOINT_VERSION}, '
+            f'got {body.get("checkpoint_version")}'
         )
-    fields = {key: val for key, val in cp.items() if key != 'integrity_hash'}
-    if not hmac.compare_digest(_integrity_hash(fields), str(cp.get('integrity_hash', ''))):
-        raise CheckpointError('checkpoint checksum mismatch')
-    if (cp.get('chain_algorithm') != CHAIN_ALGORITHM
-            or cp.get('can_resume_chain') is not True
-            or cp.get('is_replay_reconstructable') is not False):
-        raise CheckpointError('checkpoint chain/replay contract mismatch')
-    slots = _capacity(matrix)
-    if type(cp.get('m1_capacity_slots')) is not int or cp['m1_capacity_slots'] != slots:
-        raise CheckpointError('M1 region capacity differs from checkpoint')
-    counters = ('sequence', 'epoch', 'era', 'total_processed',
-                'total_verified', 'total_vcg_error_fixed')
-    if any(type(cp.get(k)) is not int or cp[k] < 0 for k in counters):
-        raise CheckpointError('invalid checkpoint counters')
-    sequence = cp['sequence']
-    if (sequence != cp['total_processed'] or
-            cp['total_verified'] > cp['total_processed'] or
-            cp['total_vcg_error_fixed'] > cp['total_verified'] * 65536):
-        raise CheckpointError('checkpoint counters do not satisfy invariants')
-    if sequence >= 1 << 64:
-        raise CheckpointError('checkpoint sequence out of u64 range')
-    if not isinstance(cp.get('last_m1_entry_hex'), str):
-        raise CheckpointError('missing or non-string M1 entry hex')
+    if body.get('state_contract') != STATE_CONTRACT:
+        raise CheckpointError('Unknown checkpoint calibration contract')
+    if body.get('chain_mode') != CHAIN_MODE:
+        raise CheckpointError('Unknown M1 chain mode')
+    if body.get('is_replay_reconstructable') is not False:
+        raise CheckpointError('Full historical replay cannot be claimed by V2')
+    if body.get('is_chain_continuation_supported') is not True:
+        raise CheckpointError('Missing chain continuation declaration')
+    actual_digest = body.get('integrity_hash')
+    expected_digest = _integrity_hash({
+        k: v for k, v in body.items() if k != 'integrity_hash'
+    })
+    if actual_digest != expected_digest:
+        raise CheckpointError('Integrity violation: checkpoint data changed')
+    counter_keys = ('sequence', 'epoch', 'era', 'total_processed',
+                    'total_verified', 'total_vcg_error_fixed')
+    if any(type(body.get(k)) is not int or body[k] < 0 for k in counter_keys):
+        raise CheckpointError('Malformed calibration counters')
+    sequence = body['sequence']
+    epoch, era = body['epoch'], body['era']
+    if (sequence != body['total_processed'] or
+            body['total_verified'] > body['total_processed'] or
+            body['total_vcg_error_fixed'] > body['total_verified'] * 65536):
+        raise CheckpointError('Inconsistent calibration counters')
+    if (type(body.get('last_gate_signal_sequence')) is not int or
+            body['last_gate_signal_sequence'] < -1 or
+            body.get('last_gate_signal_accepted') is not None and
+            type(body['last_gate_signal_accepted']) is not bool):
+        raise CheckpointError('Invalid gate observation metadata')
     try:
-        entry = bytes.fromhex(cp['last_m1_entry_hex'])
-    except (TypeError, ValueError) as exc:
-        raise CheckpointError('invalid M1 entry hex') from exc
-    if len(entry) != _M1_ENTRY_BYTES or entry.hex() != cp['last_m1_entry_hex']:
-        raise CheckpointError('invalid M1 entry format')
-    if sequence == 0:
-        if entry != bytes(_M1_ENTRY_BYTES):
-            raise CheckpointError('genesis checkpoint entry must be zero')
-    elif (entry[:8] != (sequence - 1).to_bytes(8, 'little')
-            or entry[8:] == bytes(32)):
-        raise CheckpointError('checkpoint M1 chain tail does not match sequence')
-
+        if type(body['m1_capacity_slots']) is not int:
+            raise ValueError('capacity must be integer')
+        capacity = body['m1_capacity_slots']
+        if not isinstance(body['last_m1_entry_hex'], str):
+            raise ValueError('entry must be hex string')
+        record = bytes.fromhex(body['last_m1_entry_hex'])
+    except (TypeError, ValueError, KeyError) as err:
+        raise CheckpointError('Malformed checkpoint') from err
+    if sequence >= (1 << 64): raise CheckpointError('Sequence outside u64 range')
+    if capacity != _m1_slots(matrix):
+        raise CheckpointError('M1 capacity mismatch; refusing relocation')
+    if len(record) != _M1_ENTRY_BYTES:
+        raise CheckpointError('M1 record must contain 40 bytes')
+    if sequence:
+        if int.from_bytes(record[:8], 'little') != sequence - 1:
+            raise CheckpointError('M1 record sequence mismatch')
+        if record[8:] == b'\x00' * 32:
+            raise CheckpointError('M1 record digest missing')
+    elif record != b'\x00' * _M1_ENTRY_BYTES:
+        raise CheckpointError('Genesis record must be all zeroes')
     with matrix._lock:
-        if getattr(matrix, '_sequence', None) != 0 or getattr(matrix, '_total_processed', 0) != 0:
-            raise CheckpointError('load requires a fresh, unprocessed matrix')
-        if sequence > 0:
-            offset = ((sequence - 1) % slots) * _M1_ENTRY_BYTES
-            matrix._m1_region[offset:offset + _M1_ENTRY_BYTES] = entry
-        else:
-            matrix._m1_region[:_M1_ENTRY_BYTES] = bytes(_M1_ENTRY_BYTES)
+        if getattr(matrix, '_sequence', -1) != 0 or getattr(matrix, '_total_processed', 0) != 0:
+            raise CheckpointError('Resume requires an unprocessed matrix')
+        if sequence:
+            head = ((sequence - 1) % capacity) * _M1_ENTRY_BYTES
+            matrix._m1_region[head:head + _M1_ENTRY_BYTES] = record
         matrix._sequence = sequence
-        matrix._epoch = cp['epoch']
-        matrix._era = cp['era']
-        matrix._total_processed = cp['total_processed']
-        matrix._total_verified = cp['total_verified']
-        matrix._total_vcg_error_fixed = cp['total_vcg_error_fixed']
-        matrix._m3_active_length = 0  # M3 context bytes were not checkpointed
+        matrix._epoch = epoch
+        matrix._era = era
+        matrix._total_processed = body['total_processed']
+        matrix._total_verified = body['total_verified']
+        matrix._total_vcg_error_fixed = body['total_vcg_error_fixed']
+        matrix._last_gate_signal_sequence = body['last_gate_signal_sequence']
+        matrix._last_gate_signal_accepted = body['last_gate_signal_accepted']
+        matrix._m3_active_length = 0  # context is ephemeral, not replayed
     return {
-        'sequence': sequence, 'epoch': cp['epoch'], 'era': cp['era'],
-        'integrity_hash': cp['integrity_hash'], 'path': path,
-        'can_resume_chain': True, 'is_replay_reconstructable': False,
+        'sequence': sequence, 'epoch': epoch, 'era': era,
+        'integrity_hash': actual_digest, 'path': path,
     }
 
 

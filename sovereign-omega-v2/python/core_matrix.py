@@ -7,7 +7,7 @@ All system components are represented as abstract functional definitions
 M1, M2, M3 operating over a single pre-allocated contiguous byte array.
 
 CONSTRAINTS:
-  - Single file: eliminates module complexity and external dependencies
+  - Isolated M1 hash-chain primitive in m1_chain.py (stdlib only)
   - Memory: single pre-allocated contiguous byte array, 8GB ceiling
   - Execution: unprivileged user-space only, no kernel calls
   - Determinism: bit-shifted integer arithmetic throughout
@@ -70,58 +70,8 @@ M3_SIZE   = int(ARRAY_TOTAL_BYTES * M3_REGION_FRACTION)
 
 # ── Functional Definitions ────────────────────────────────────────────────────
 
-_M1_ENTRY_BYTES = 40
-_M1_GENESIS = bytes(32)
-_M1_DOMAIN = b'AEGIS-M1-CHAIN-V2\x00'
-
-
-def M1(state: memoryview, payload: bytes, sequence: int) -> Tuple[int, bytes]:
-    """Advance an in-place SHA-256 chain over fixed 40-byte ring slots.
-
-    Each slot contains u64le(sequence) || chain_digest. The digest binds
-    the payload length and payload SHA-256; raw payload bytes are NOT stored
-    in this ring. A separate authenticated event ledger is needed for replay.
-    Requires exclusive write access; this is NOT a pure function.
-    """
-    if state.readonly or state.ndim != 1 or state.itemsize != 1 or not state.contiguous:
-        raise ValueError('M1 requires a contiguous writable byte memoryview')
-    slots = len(state) // _M1_ENTRY_BYTES
-    if slots == 0:
-        raise ValueError('M1 region must have at least 40 bytes')
-    if not isinstance(sequence, int) or not 0 <= sequence < (1 << 64) - 1:
-        raise ValueError('M1 sequence must fit u64 including successor')
-    if not isinstance(payload, (bytes, bytearray, memoryview)):
-        raise TypeError('M1 payload must be bytes-like')
-
-    snapshot = bytes(payload)
-    if len(snapshot) >= 1 << 64:
-        raise ValueError('M1 payload length must fit u64')
-    seq_bytes = sequence.to_bytes(8, 'little')
-    slot = (sequence % slots) * _M1_ENTRY_BYTES
-    old = bytes(state[slot:slot + _M1_ENTRY_BYTES])
-    if sequence == 0:
-        if old != bytes(_M1_ENTRY_BYTES):
-            raise ValueError('M1 genesis requires an empty first slot')
-        prev_digest = _M1_GENESIS
-    else:
-        prev_slot = ((sequence - 1) % slots) * _M1_ENTRY_BYTES
-        prev_record = bytes(state[prev_slot:prev_slot + _M1_ENTRY_BYTES])
-        if (prev_record[:8] != (sequence - 1).to_bytes(8, 'little')
-                or prev_record[8:] == bytes(32)):
-            raise ValueError('M1 chain predecessor missing or mismatched')
-        prev_digest = prev_record[8:]
-        if old != bytes(_M1_ENTRY_BYTES) and old[:8] == seq_bytes:
-            raise ValueError('M1 replay/rewrite of an existing sequence')
-        if sequence < slots and old != bytes(_M1_ENTRY_BYTES):
-            raise ValueError('M1 unexpected occupied slot before first wrap')
-
-    digest = hashlib.sha256(
-        _M1_DOMAIN + prev_digest + seq_bytes + len(snapshot).to_bytes(8, 'little')
-        + hashlib.sha256(snapshot).digest()
-    ).digest()
-    state[slot:slot + _M1_ENTRY_BYTES] = seq_bytes + digest
-    return sequence + 1, digest
-
+# M1 is re-exported here for existing consumers; implementation is hardware-free.
+from m1_chain import M1
 
 def M2(state: memoryview, verifier_result: bytes, confidence_fixed: int,
        sequence: int = 0) -> Tuple[int, int]:
@@ -229,7 +179,7 @@ class CoreMatrix:
         self._ready = threading.Event()
 
         # Capacity at which M1 write head wraps (events per era)
-        self._m1_era_capacity: int = M1_SIZE // 40
+        self._m1_era_capacity: int = len(self._m1_region) // 40
 
         # Performance metrics (fixed-point for determinism)
         self._total_vcg_error_fixed: int = 0

@@ -245,14 +245,14 @@ establish the stated stronger cryptographic/statistical invariants.
   verifier correctness were incorrectly conflated.
 - **M3 (confirmed on main):** `expected=w_scale>>8` makes identity projection
   have nonzero "divergence" and zero-scale information destruction score 0.
-- **V2 candidate semantics:** M1 is a sequence/domain-bound SHA-256 digest ring
+- **Reconciled stacked candidate semantics:** M1 retains #806's transitive SHA-256(prev_digest || SHA-256(payload)) digest ring
   (NOT event storage). M2 records pointwise error and reserves the legacy LCB
   field at zero until a separately validated E4 confidence sequence exists.
   M3 reports normalized mean absolute projection distortion. All functions
   mutate caller memory under a caller-managed lock; they are not pure.
-- **Checkpoint V2:** contains the actual chain digest tail and counters, but no
+- **Checkpoint 2.1.0:** contains the actual #806-format chain digest tail and persisted calibration counters, but no
   event payloads. It states `is_replay_reconstructable=false`, and rejects
-  V1 checkpoints. This deliberately requires an explicit migration plan before
+  V1 and earlier V2.0 checkpoints. This deliberately requires an explicit migration plan before
   any deployment with existing checkpoint files.
 - **Not established:** replay reconstruction, authenticated external ledger,
   cryptographic checkpoint authenticity against writers, M1/M2/M3 cross-layer
@@ -267,3 +267,10 @@ establish the stated stronger cryptographic/statistical invariants.
 
 **Governance:** DRAFT / HOLD_NO_ADMISSION. No merge or deployment authorized.
 A passing regression test is not a formal security proof or a production receipt.
+
+### PR #806 → #810 stacked reconciliation (2026-11-16)
+
+- **Source of M1:** PR #806's standalone stdlib-only `m1_chain.py`, with unchanged SHA256(prev_digest || SHA256(payload)) digest format. This format binds earlier events transitively, but does not individually bind sequence or payload length to the digest. Event sequence remains in the 40-byte record header.
+- **Source of M2/M3:** PR #810 fail-closed statistical gate and byte projection corrections; actual CI MUST be checked on the stacked candidate HEAD.
+- **Checkpoint 2.1.0:** distinguishes newly persisted calibration counters from older 2.0.0 format, rejects all earlier versions for resume. Preservation of calibrator model state across epochs remains unproven.
+- **Authorization:** review admission is not equivalent to a merge; keep DRAFT/HOLD_NO_ADMISSION until the exact-head gates and independent review approve.

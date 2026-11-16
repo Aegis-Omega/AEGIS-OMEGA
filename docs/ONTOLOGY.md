@@ -130,12 +130,12 @@ corruption_count = 0 across all epochs.
 
 ### M1 / M2 / M3
 The three *mutable* functional regions of the preallocated CoreMatrix byte array:
-- **M1** (nominally 50%): in-place circular digest index. Each complete 40-byte slot stores a little-endian u64 sequence and an SHA-256 *chained* digest binding the prior digest, sequence, payload length, and payload hash. The ring is NOT append-only, and it does NOT store event payloads. Full event replay and forensic nonrepudiation need an authenticated append-only ledger outside the ring.
+- **M1** (nominally 50%): in-place circular digest index. Each complete 40-byte slot stores a little-endian u64 sequence and an SHA-256 *chained* digest defined as SHA256(previous_chain_digest || SHA256(payload)). The sequence is stored alongside the digest but is NOT cryptographically bound into that digest; changing the digest format requires a separately versioned chain. The ring is NOT append-only, and it does NOT store event payloads. Full event replay and forensic nonrepudiation need an authenticated append-only ledger outside the ring.
 - **M2** (nominally 30%): aligned circular 8-byte records of Q16.16 pointwise verifier error plus a second compatibility field reserved at zero. **No statistical confidence bound is available** from an isolated outcome. A verifier_result is an explicitly validated binary outcome, never the router's EventClass byte. E4 authority remains separate.
 - **M3** (nominally 20%): context projection with Q16.16 W_scale and normalized mean absolute *projection distortion*. Only the returned number of bytes constitutes the active window; trailing arena bytes may be stale. This measure is not anchor drift, truthfulness, or semantic information conservation.
 - All three mutate their caller-provided writable memoryview. They are deterministic state transitions under a caller-managed lock, **not pure functions**. Q16.16 is the local Python format, not a proof of numerical exactness.
 
-V2 checkpoints persist only the M1 chain tail and validated counters, not event bodies or M2/M3 buffers. is_replay_reconstructable=false is mandatory; V1 checkpoints cannot safely resume a V2 chain and must fail closed pending explicit event-log migration.
+Checkpoint schema 2.1.0 persists the PR #806 M1 chain tail plus calibration counters and gate observation metadata, not event payloads, M2/M3 buffers, or calibration model state. is_replay_reconstructable=false is mandatory; old schemas 1.0.0 and 2.0.0 must fail closed pending explicit reviewed migration. Checkpoint checksum is unkeyed and DOES NOT authenticate a writer.
 
 ### W_scale
 A Q16.16 fixed-point correction factor computed by GradientAnchorCalibrator.

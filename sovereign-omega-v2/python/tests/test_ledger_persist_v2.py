@@ -83,9 +83,13 @@ class MockMatrix:
         self._total_processed = sequence
         self._total_verified = 0
         self._total_vcg_error_fixed = 0
-        if sequence:
-            slot = ((sequence - 1) % 50) * 40
-            self._m1_region[slot:slot+40] = (sequence-1).to_bytes(8,'little') + hashlib.sha256(str(sequence).encode()).digest()
+        self._last_gate_signal_sequence = -1
+        self._last_gate_signal_accepted = None
+        if sequence > 0:
+            n = len(self._m1_region) // _M1_ENTRY_BYTES
+            off = ((sequence - 1) % n) * _M1_ENTRY_BYTES
+            self._m1_region[off:off + 8] = (sequence - 1).to_bytes(8, 'little')
+            self._m1_region[off + 8:off + 40] = hashlib.sha256(f'mock:{sequence}'.encode()).digest()
 
 
 def _tmp_path(suffix='.json'):
@@ -181,8 +185,9 @@ def test_save_sequence_42():
 
     mx = MockMatrix(sequence=42, epoch=7, era=2)
     # Put some non-zero bytes at the write_head position
-    write_head = (41 % 50) * _M1_ENTRY_BYTES
-    mx._m1_region[write_head:write_head+40] = (41).to_bytes(8, 'little') + b'\x01'*32
+    write_head = (41 % (len(mx._m1_region) // _M1_ENTRY_BYTES)) * _M1_ENTRY_BYTES
+    for i in range(8, _M1_ENTRY_BYTES):
+        mx._m1_region[write_head + i] = (i + 1) % 256
 
     path = _tmp_path()
     try:
@@ -220,8 +225,9 @@ def test_save_integrity_hash_verifies():
         stored_hash = cp['integrity_hash']
 
         expected = hashlib.sha256(json.dumps(
-            {k:v for k,v in cp.items() if k != 'integrity_hash'},
-            sort_keys=True, separators=(',', ':'), ensure_ascii=True,
+            {k: v for k, v in cp.items() if k != 'integrity_hash'},
+            ensure_ascii=False, sort_keys=True, separators=(',', ':'),
+            allow_nan=False,
         ).encode()).hexdigest()
         _chk('integrity_hash matches independently computed hash', stored_hash == expected)
     finally:
@@ -266,7 +272,7 @@ def test_load_seq0_roundtrip():
     path = _tmp_path()
     try:
         save_checkpoint(mx, path)
-        mx2 = MockMatrix()  # V2 must load into a fresh state
+        mx2 = MockMatrix()  # V2.1 restore requires an unprocessed target
         load_checkpoint(mx2, path)
         _chk('seq=0 restored correctly', mx2._sequence == 0)
         _chk('epoch=0 restored correctly', mx2._epoch == 0)
@@ -414,11 +420,12 @@ def test_checkpoint_error_truncated_entry_hex():
         # but fails the byte-count check
         bad_hex = 'aa' * 20  # 20 bytes instead of 40
         # Recompute hash with bad_hex so integrity passes but byte check fails
-        bad_hash = hashlib.sha256(
-            f'{cp["sequence"]}:{cp["epoch"]}:{cp["era"]}:{bad_hex}'.encode()
-        ).hexdigest()
         cp['last_m1_entry_hex'] = bad_hex
-        cp['integrity_hash'] = bad_hash
+        cp['integrity_hash'] = hashlib.sha256(json.dumps(
+            {k: v for k, v in cp.items() if k != 'integrity_hash'},
+            ensure_ascii=False, sort_keys=True, separators=(',', ':'),
+            allow_nan=False,
+        ).encode()).hexdigest()
         with open(path, 'w') as f:
             json.dump(cp, f)
 

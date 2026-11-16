@@ -27,10 +27,8 @@ def oracle(payloads):
     prior = bytes(32)
     result = []
     for n, payload in enumerate(payloads):
-        prior = hashlib.sha256(
-            b'AEGIS-M1-CHAIN-V2\x00' + prior + n.to_bytes(8, 'little')
-            + len(payload).to_bytes(8, 'little') + hashlib.sha256(payload).digest()
-        ).digest()
+        # PR #806 canonical digest format: do not change without new chain version.
+        prior = hashlib.sha256(prior + hashlib.sha256(payload).digest()).digest()
         result.append(prior)
     return result
 
@@ -213,7 +211,7 @@ class CheckpointV2(unittest.TestCase):
             self.assertFalse(meta['is_replay_reconstructable'])
             with open(path, encoding='utf-8') as f:
                 cp = json.load(f)
-            self.assertEqual(cp['checkpoint_version'], '2.0.0')
+            self.assertEqual(cp['checkpoint_version'], '2.1.0')
             restored = matrix_fixture(3)
             load_checkpoint(restored, path)
             for i in range(8, 24):
@@ -221,6 +219,60 @@ class CheckpointV2(unittest.TestCase):
                 self.assertEqual(
                     restored.process_event(payload, b'', b'')['state_hash'],
                     full.process_event(payload, b'', b'')['state_hash'])
+
+    def test_calibration_counters_restore_exactly(self):
+        initial = matrix_fixture(3)
+        with tempfile.TemporaryDirectory() as tmp:
+            path = os.path.join(tmp, 'cp.json')
+            for v in (b'\x00', b'', b'\x01', b'\x00', b''):
+                initial.process_event(b'x', v, b'')
+            initial.receive_gate_signal('proposal', True, 42)
+            save_checkpoint(initial, path)
+            later = matrix_fixture(3)
+            load_checkpoint(later, path)
+            self.assertEqual(later._sequence, 5)
+            self.assertEqual(later._total_processed, 5)
+            self.assertEqual(later._total_verified, 3)
+            self.assertEqual(later._total_vcg_error_fixed,
+                             initial._total_vcg_error_fixed)
+            self.assertEqual(later._last_gate_signal_sequence, 42)
+            self.assertEqual(later._last_gate_signal_accepted, True)
+            self.assertEqual(later._m3_active_length, 0)
+
+    def test_v2_0_is_not_silently_treated_as_v2_1(self):
+        first = matrix_fixture()
+        first.process_event(b'a', b'\x01', b'')
+        with tempfile.TemporaryDirectory() as tmp:
+            path = os.path.join(tmp, 'cp.json')
+            save_checkpoint(first, path)
+            with open(path, encoding='utf-8') as h:
+                body = json.load(h)
+            body['checkpoint_version'] = '2.0.0'
+            # Simulate a full rewrite with a correctly recomputed unkeyed
+            # checksum; version and contract validation must still deny.
+            body['integrity_hash'] = hashlib.sha256(json.dumps(
+                {k: v for k, v in body.items() if k != 'integrity_hash'},
+                ensure_ascii=False, sort_keys=True, separators=(',', ':'),
+                allow_nan=False
+            ).encode()).hexdigest()
+            with open(path, 'w', encoding='utf-8') as h:
+                json.dump(body, h)
+            restored = matrix_fixture()
+            with self.assertRaises(CheckpointError):
+                load_checkpoint(restored, path)
+            self.assertEqual(restored._sequence, 0)
+
+    def test_cannot_restore_into_live_matrix(self):
+        start = matrix_fixture()
+        live = matrix_fixture()
+        with tempfile.TemporaryDirectory() as tmp:
+            path = os.path.join(tmp, 'cp.json')
+            start.process_event(b'x', b'\x01', b'')
+            live.process_event(b'y', b'\x01', b'')
+            save_checkpoint(start, path)
+            with self.assertRaises(CheckpointError):
+                load_checkpoint(live, path)
+            self.assertEqual(live._sequence, 1)
 
     def test_v1_checkpoint_refused_without_mutation(self):
         m = matrix_fixture()
