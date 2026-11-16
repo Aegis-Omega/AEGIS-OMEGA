@@ -19,6 +19,7 @@ sys.path.insert(0, str(PY_ROOT))
 
 from mutation_admission import (  # noqa: E402
     MutationAdmissionLedger,
+    control_binding_authorized,
     control_authenticated,
     control_secrets_distinct,
     event_digest,
@@ -36,7 +37,55 @@ class MutationAdmissionTests(unittest.TestCase):
             digest = event_digest(b"payload", b"\x00", b"context")
         return ledger.record(proposal, sequence, True, 0.25, digest,
                              e_value=32.0, risk_spent=0.05,
-                             sample_size=20, e4_method="anytime_valid_bernstein")
+                             sample_size=20, e4_method="anytime_valid_bernstein",
+                             component_id="bridge-test-component",
+                             operator_id="bridge-test-operator",
+                             capability_class="SELF_MODIFYING")
+
+    def test_server_binding_policy_is_strict_and_fail_closed(self):
+        valid = '{"bridge-test-component":["bridge-test-operator"]}'
+        self.assertTrue(control_binding_authorized(
+            "bridge-test-component", "bridge-test-operator", "SELF_MODIFYING", valid
+        ))
+        for config in (
+            None, "", "{}", "[]", "{", '{"bridge-test-component":[]}',
+            '{"bridge-test-component":["bridge-test-operator","bridge-test-operator"]}',
+            '{"bridge-test-component":["bridge-test-operator"],"bridge-test-component":["evil"]}',
+            '{"bridge-test-component":["evil"]}',
+        ):
+            with self.subTest(config=config):
+                self.assertFalse(control_binding_authorized(
+                    "bridge-test-component", "bridge-test-operator", "SELF_MODIFYING", config
+                ))
+        for component, operator, capability in (
+            ("pipeline-main", "bridge-test-operator", "SELF_MODIFYING"),
+            ("bridge-test-component", "evil", "SELF_MODIFYING"),
+            ("bridge-test-component", "bridge-test-operator", "INFERENCE_ONLY"),
+            ("bad/component", "bridge-test-operator", "SELF_MODIFYING"),
+        ):
+            with self.subTest(component=component, operator=operator, capability=capability):
+                self.assertFalse(control_binding_authorized(
+                    component, operator, capability, valid
+                ))
+
+    def test_ledger_grant_cannot_be_retargeted_between_components_or_operators(self):
+        ledger = self.make_ledger()
+        self.assertEqual(self.record_grant(ledger), (True, "ACCEPTED"))
+        for component, operator in (
+            ("pipeline-main", "bridge-test-operator"),
+            ("bridge-test-component", "evil"),
+            ("pipeline-main", "evil"),
+        ):
+            self.assertFalse(ledger.authorize_event(
+                "p1", b"payload", b"\\x00", b"context", True,
+                component_id=component, operator_id=operator,
+            ))
+        self.assertEqual(ledger.pending_count, 1)
+        self.assertTrue(ledger.authorize_event(
+            "p1", b"payload", b"\\x00", b"context", True,
+            component_id="bridge-test-component", operator_id="bridge-test-operator",
+        ))
+        self.assertEqual(ledger.pending_count, 0)
 
     def test_control_auth_is_fail_closed(self):
         self.assertTrue(control_authenticated(self.SECRET, self.SECRET))
@@ -116,7 +165,10 @@ class MutationAdmissionTests(unittest.TestCase):
         ))
         self.assertEqual(ledger.last_sequence, 1)
         self.assertEqual(ledger.pending_count, 1)
-        self.assertEqual(ledger.record("p1", 2, False, -0.1, digest, e_value=32.0, risk_spent=0.0, sample_size=20, e4_method="anytime_valid_bernstein"), (
+        self.assertEqual(ledger.record("p1", 2, False, -0.1, digest, e_value=32.0, risk_spent=0.0, sample_size=20, e4_method="anytime_valid_bernstein",
+                             component_id="bridge-test-component",
+                             operator_id="bridge-test-operator",
+                             capability_class="SELF_MODIFYING"), (
             True, "ACCEPTED"
         ))
         self.assertEqual(ledger.pending_count, 0)
@@ -133,12 +185,18 @@ class MutationAdmissionTests(unittest.TestCase):
         ):
             with self.subTest(accepted=accepted, lcb=lcb):
                 ledger = self.make_ledger()
-                allowed, _ = ledger.record("p", 1, accepted, lcb, valid_digest, e_value=32.0, risk_spent=0.05, sample_size=20, e4_method="anytime_valid_bernstein")
+                allowed, _ = ledger.record("p", 1, accepted, lcb, valid_digest, e_value=32.0, risk_spent=0.05, sample_size=20, e4_method="anytime_valid_bernstein",
+                             component_id="bridge-test-component",
+                             operator_id="bridge-test-operator",
+                             capability_class="SELF_MODIFYING")
                 self.assertFalse(allowed)
                 self.assertEqual(ledger.pending_count, 0)
                 self.assertEqual(ledger.last_sequence, -1)
         ledger = self.make_ledger()
-        self.assertEqual(ledger.record("p", 1, False, -0.25, valid_digest, e_value=32.0, risk_spent=0.0, sample_size=20, e4_method="anytime_valid_bernstein"), (
+        self.assertEqual(ledger.record("p", 1, False, -0.25, valid_digest, e_value=32.0, risk_spent=0.0, sample_size=20, e4_method="anytime_valid_bernstein",
+                             component_id="bridge-test-component",
+                             operator_id="bridge-test-operator",
+                             capability_class="SELF_MODIFYING"), (
             True, "ACCEPTED"
         ))
         self.assertFalse(ledger.authorize_event(
@@ -150,15 +208,24 @@ class MutationAdmissionTests(unittest.TestCase):
         for proposal in ("", "with space", "../path", "a" * 129, None):
             with self.subTest(proposal=proposal):
                 ledger = self.make_ledger()
-                self.assertFalse(ledger.record(proposal, 1, True, 0.25, digest , e_value=32.0, risk_spent=0.05, sample_size=20, e4_method="anytime_valid_bernstein")[0])
+                self.assertFalse(ledger.record(proposal, 1, True, 0.25, digest , e_value=32.0, risk_spent=0.05, sample_size=20, e4_method="anytime_valid_bernstein",
+                             component_id="bridge-test-component",
+                             operator_id="bridge-test-operator",
+                             capability_class="SELF_MODIFYING")[0])
         for seq in (-1, True, False, 1.0, 2**64, None):
             with self.subTest(seq=seq):
                 ledger = self.make_ledger()
-                self.assertFalse(ledger.record("p", seq, True, 0.25, digest , e_value=32.0, risk_spent=0.05, sample_size=20, e4_method="anytime_valid_bernstein")[0])
+                self.assertFalse(ledger.record("p", seq, True, 0.25, digest , e_value=32.0, risk_spent=0.05, sample_size=20, e4_method="anytime_valid_bernstein",
+                             component_id="bridge-test-component",
+                             operator_id="bridge-test-operator",
+                             capability_class="SELF_MODIFYING")[0])
         for malformed in ("", "0" * 63, "Z" * 64, "0" * 65, None):
             with self.subTest(malformed=malformed):
                 ledger = self.make_ledger()
-                self.assertFalse(ledger.record("p", 1, True, 0.25, malformed , e_value=32.0, risk_spent=0.05, sample_size=20, e4_method="anytime_valid_bernstein")[0])
+                self.assertFalse(ledger.record("p", 1, True, 0.25, malformed , e_value=32.0, risk_spent=0.05, sample_size=20, e4_method="anytime_valid_bernstein",
+                             component_id="bridge-test-component",
+                             operator_id="bridge-test-operator",
+                             capability_class="SELF_MODIFYING")[0])
 
     def test_bounded_pending_and_revocation(self):
         ledger = MutationAdmissionLedger(max_pending=2)
