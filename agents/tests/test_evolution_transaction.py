@@ -99,6 +99,43 @@ class EvolutionTransactionTests(unittest.TestCase):
         self.assertEqual(tree_before, self.tree.read_bytes())
         self.assertEqual(lineage_before, self.lineage.read_bytes())
 
+    def test_failed_engine_commit_does_not_publish_uncommitted_memory(self):
+        from unittest.mock import patch
+        engine = EvolutionEngine(tree_path=str(self.tree),
+                                 lineage_path=self.lineage, repo_root=self.root)
+        originally = engine._load_tree()
+        original_bytes = self.tree.read_bytes()
+        with patch("agents.evolution.commit_demotions",
+                   side_effect=EvolutionTransactionError("INJECTED_COMMIT_FAILURE")):
+            with self.assertRaisesRegex(EvolutionTransactionError, "INJECTED_COMMIT_FAILURE"):
+                engine.tick(apply_changes=True)
+        self.assertIs(engine._tree, originally)
+        self.assertEqual(engine._tree["skills"][0]["tier"], "T1")
+        self.assertEqual(engine.lineage.events, [])
+        self.assertEqual(self.tree.read_bytes(), original_bytes)
+        self.assertFalse(self.lineage.exists())
+
+    def test_partial_disk_commit_does_not_publish_memory_and_denies_next_tick(self):
+        from unittest.mock import patch
+        from agents import evolution as evolution_module
+        original_commit = evolution_module.commit_demotions
+        engine = EvolutionEngine(tree_path=str(self.tree),
+                                 lineage_path=self.lineage, repo_root=self.root)
+        originally = engine._load_tree()
+
+        def crash_after_lineage(**kwargs):
+            return original_commit(**kwargs, fault_after="lineage")
+
+        with patch("agents.evolution.commit_demotions", side_effect=crash_after_lineage):
+            with self.assertRaisesRegex(EvolutionTransactionError, "INJECTED_CRASH_AFTER_LINEAGE"):
+                engine.tick(apply_changes=True)
+        self.assertIs(engine._tree, originally)
+        self.assertEqual(engine._tree["skills"][0]["tier"], "T1")
+        self.assertEqual(engine.lineage.events, [])
+        self.assertEqual(inspect_pending(self.tree, self.lineage)["status"], "PARTIAL_COMMIT")
+        with self.assertRaisesRegex(ValueError, "UNRESOLVED_EVOLUTION_TRANSACTION"):
+            engine.tick(apply_changes=False)
+
     def test_crash_after_journal_is_prepared_and_blocks_next_writer(self):
         with self.assertRaisesRegex(EvolutionTransactionError, "INJECTED_CRASH_AFTER_JOURNAL"):
             self.commit(fault_after="journal")
