@@ -146,6 +146,21 @@ check(_recomputed == e1['envelope_hash'], 'envelope_hash recomputable from body 
 
 check('ts' not in e0 and 'timestamp' not in e0, 'no wall-clock timestamp in envelope')
 
+# ─── Historical JCS-1 receipts versus RFC 8785 UTF-16 ordering ──────────────
+# Preserve legacy Python receipt bytes. This test is not a migration.
+historical = {'\uE000': 1, '\U0001F600': 2}
+legacy_bytes = '{"\uE000":1,"\U0001F600":2}'.encode('utf-8')
+corrected_bytes = '{"\U0001F600":2,"\uE000":1}'.encode('utf-8')
+
+check(ce.CANON_VERSION == 'JCS-1', 'historical JCS-1 version remains explicit')
+check(ce.canon(historical) == legacy_bytes, 'historical Python bytes remain stable')
+check(
+    hashlib.sha256(ce.canon(historical)).hexdigest()
+    == '871954531859c7572c6279f90eb83a594ddc3a289e8bdc28d2a84ffb8c1a1703',
+    'historical digest remains stable',
+)
+check(legacy_bytes != corrected_bytes, 'corrected UTF-16 ordering differs from legacy bytes')
+
 # ─── Verdict ──────────────────────────────────────────────────────────────────
 
 print(f'\n{PASS} passed, {FAIL} failed')
