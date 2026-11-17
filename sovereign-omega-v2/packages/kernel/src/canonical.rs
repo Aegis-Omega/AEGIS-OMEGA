@@ -6,17 +6,247 @@
 // and re-serializes with minimal whitespace and canonical escaping.
 // ============================================================
 
-/// Canonicalize UTF-8 JSON bytes per RFC 8785.
-/// Returns canonical UTF-8 bytes with keys sorted lexicographically.
-pub fn canonicalize_json(input: &[u8]) -> Vec<u8> {
-    let s = match core::str::from_utf8(input) {
-        Ok(s) => s,
-        Err(_) => return input.to_vec(), // pass-through on invalid UTF-8
-    };
-    let mut parser = Parser::new(s.trim());
+/// Canonicalize valid I-JSON bytes; reject malformed JSON before hash creation.
+///
+/// The untrusted input is checked for complete JSON syntax, UTF-8 validity,
+/// unpaired surrogates, duplicate object keys, and non-finite numbers.
+/// A fallible return is mandatory: invalid bytes must never be hashed as if
+/// they were a canonical JSON representation.
+pub fn canonicalize_json(input: &[u8]) -> Result<Vec<u8>, &'static str> {
+    core::str::from_utf8(input).map_err(|_| "INVALID_UTF8")?;
+    let mut syntax = JsonSyntax { bytes: input, pos: 0 };
+    syntax.ws();
+    syntax.value(0)?;
+    syntax.ws();
+    if syntax.pos != input.len() {
+        return Err("JSON_TRAILING_DATA");
+    }
+    let mut parser = Parser::new(core::str::from_utf8(input).expect("validated"));
     let mut out = Vec::new();
     parser.parse_value(&mut out);
-    out
+    Ok(out)
+}
+
+/// A bounded, independent JSON syntax guard. The serializer below is
+/// deliberately retained to preserve the existing valid-input contract.
+struct JsonSyntax<'a> {
+    bytes: &'a [u8],
+    pos: usize,
+}
+
+impl<'a> JsonSyntax<'a> {
+    fn peek(&self) -> Option<u8> {
+        self.bytes.get(self.pos).copied()
+    }
+
+    fn ws(&mut self) {
+        while matches!(self.peek(), Some(b' ' | b'\t' | b'\n' | b'\r')) {
+            self.pos += 1;
+        }
+    }
+
+    fn expect(&mut self, b: u8) -> Result<(), &'static str> {
+        if self.peek() != Some(b) {
+            return Err("JSON_SYNTAX");
+        }
+        self.pos += 1;
+        Ok(())
+    }
+
+    fn hex4(&mut self) -> Result<u16, &'static str> {
+        let mut n: u16 = 0;
+        for _ in 0..4 {
+            let b = self.peek().ok_or("JSON_INVALID_ESCAPE")?;
+            let d = match b {
+                b'0'..=b'9' => b - b'0',
+                b'a'..=b'f' => b - b'a' + 10,
+                b'A'..=b'F' => b - b'A' + 10,
+                _ => return Err("JSON_INVALID_ESCAPE"),
+            };
+            n = n * 16 + d as u16;
+            self.pos += 1;
+        }
+        Ok(n)
+    }
+
+    fn string(&mut self) -> Result<String, &'static str> {
+        self.expect(b'"')?;
+        let mut result = String::new();
+        loop {
+            match self.peek() {
+                None => return Err("JSON_UNTERMINATED_STRING"),
+                Some(b'"') => {
+                    self.pos += 1;
+                    return Ok(result);
+                }
+                Some(b'\\') => {
+                    self.pos += 1;
+                    let ch = self.peek().ok_or("JSON_INVALID_ESCAPE")?;
+                    self.pos += 1;
+                    match ch {
+                        b'"' => result.push('"'),
+                        b'\\' => result.push('\\'),
+                        b'/' => result.push('/'),
+                        b'b' => result.push('\u{0008}'),
+                        b'f' => result.push('\u{000c}'),
+                        b'n' => result.push('\n'),
+                        b'r' => result.push('\r'),
+                        b't' => result.push('\t'),
+                        b'u' => {
+                            let hi = self.hex4()?;
+                            if (0xD800..=0xDBFF).contains(&hi) {
+                                self.expect(b'\\')?;
+                                self.expect(b'u')?;
+                                let lo = self.hex4()?;
+                                if !(0xDC00..=0xDFFF).contains(&lo) {
+                                    return Err("JSON_UNPAIRED_SURROGATE");
+                                }
+                                let cp = 0x10000 + (((hi as u32) - 0xD800) << 10)
+                                    + ((lo as u32) - 0xDC00);
+                                result.push(char::from_u32(cp).ok_or("JSON_INVALID_SCALAR")?);
+                            } else if (0xDC00..=0xDFFF).contains(&hi) {
+                                return Err("JSON_UNPAIRED_SURROGATE");
+                            } else {
+                                result.push(char::from_u32(hi as u32).ok_or("JSON_INVALID_SCALAR")?);
+                            }
+                        }
+                        _ => return Err("JSON_INVALID_ESCAPE"),
+                    }
+                }
+                Some(b) if b < 0x20 => return Err("JSON_CONTROL_IN_STRING"),
+                Some(b) if b.is_ascii() => {
+                    result.push(b as char);
+                    self.pos += 1;
+                }
+                Some(_) => {
+                    let rest = core::str::from_utf8(&self.bytes[self.pos..])
+                        .map_err(|_| "INVALID_UTF8")?;
+                    let ch = rest.chars().next().ok_or("INVALID_UTF8")?;
+                    result.push(ch);
+                    self.pos += ch.len_utf8();
+                }
+            }
+        }
+    }
+
+    fn digits(&mut self) -> usize {
+        let start = self.pos;
+        while matches!(self.peek(), Some(b'0'..=b'9')) {
+            self.pos += 1;
+        }
+        self.pos - start
+    }
+
+    fn number(&mut self) -> Result<(), &'static str> {
+        let start = self.pos;
+        if self.peek() == Some(b'-') {
+            self.pos += 1;
+        }
+        match self.peek() {
+            Some(b'0') => self.pos += 1,
+            Some(b'1'..=b'9') => {
+                self.pos += 1;
+                self.digits();
+            }
+            _ => return Err("JSON_INVALID_NUMBER"),
+        }
+        if self.peek() == Some(b'.') {
+            self.pos += 1;
+            if self.digits() == 0 {
+                return Err("JSON_INVALID_NUMBER");
+            }
+        }
+        if matches!(self.peek(), Some(b'e' | b'E')) {
+            self.pos += 1;
+            if matches!(self.peek(), Some(b'+' | b'-')) {
+                self.pos += 1;
+            }
+            if self.digits() == 0 {
+                return Err("JSON_INVALID_NUMBER");
+            }
+        }
+        let lexeme = core::str::from_utf8(&self.bytes[start..self.pos])
+            .map_err(|_| "INVALID_UTF8")?;
+        let n = lexeme.parse::<f64>().map_err(|_| "JSON_INVALID_NUMBER")?;
+        if !n.is_finite() {
+            return Err("JSON_NONFINITE_NUMBER");
+        }
+        Ok(())
+    }
+
+    fn literal(&mut self, s: &[u8]) -> Result<(), &'static str> {
+        if !self.bytes[self.pos..].starts_with(s) {
+            return Err("JSON_INVALID_LITERAL");
+        }
+        self.pos += s.len();
+        Ok(())
+    }
+
+    fn value(&mut self, depth: usize) -> Result<(), &'static str> {
+        if depth > 128 {
+            return Err("JSON_NESTING_LIMIT");
+        }
+        self.ws();
+        match self.peek() {
+            Some(b'"') => {
+                self.string()?;
+            }
+            Some(b'{') => {
+                self.pos += 1;
+                self.ws();
+                let mut keys = std::collections::BTreeSet::new();
+                if self.peek() == Some(b'}') {
+                    self.pos += 1;
+                    return Ok(());
+                }
+                loop {
+                    self.ws();
+                    let key = self.string()?;
+                    if !keys.insert(key) {
+                        return Err("JSON_DUPLICATE_KEY");
+                    }
+                    self.ws();
+                    self.expect(b':')?;
+                    self.value(depth + 1)?;
+                    self.ws();
+                    match self.peek() {
+                        Some(b',') => self.pos += 1,
+                        Some(b'}') => {
+                            self.pos += 1;
+                            break;
+                        }
+                        _ => return Err("JSON_OBJECT_SEPARATOR"),
+                    }
+                }
+            }
+            Some(b'[') => {
+                self.pos += 1;
+                self.ws();
+                if self.peek() == Some(b']') {
+                    self.pos += 1;
+                    return Ok(());
+                }
+                loop {
+                    self.value(depth + 1)?;
+                    self.ws();
+                    match self.peek() {
+                        Some(b',') => self.pos += 1,
+                        Some(b']') => {
+                            self.pos += 1;
+                            break;
+                        }
+                        _ => return Err("JSON_ARRAY_SEPARATOR"),
+                    }
+                }
+            }
+            Some(b't') => self.literal(b"true")?,
+            Some(b'f') => self.literal(b"false")?,
+            Some(b'n') => self.literal(b"null")?,
+            Some(b'-' | b'0'..=b'9') => self.number()?,
+            _ => return Err("JSON_SYNTAX"),
+        }
+        Ok(())
+    }
 }
 
 struct Parser<'a> {
@@ -332,7 +562,7 @@ mod rfc8785_unicode_regressions {
     use super::canonicalize_json;
 
     fn canonical(s: &str) -> String {
-        String::from_utf8(canonicalize_json(s.as_bytes())).unwrap()
+        String::from_utf8(canonicalize_json(s.as_bytes()).expect("valid JSON")).unwrap()
     }
 
     #[test]
@@ -373,7 +603,7 @@ mod rfc8785_numeric_regressions {
     use super::canonicalize_json;
 
     fn canonical(s: &str) -> String {
-        String::from_utf8(canonicalize_json(s.as_bytes())).unwrap()
+        String::from_utf8(canonicalize_json(s.as_bytes()).expect("valid JSON")).unwrap()
     }
 
     #[test]
@@ -425,4 +655,47 @@ mod rfc8785_numeric_regressions {
         }
     }
 
+}
+
+
+#[cfg(test)]
+mod invalid_json_regressions {
+    use super::canonicalize_json;
+
+    #[test]
+    fn rejects_invalid_json_syntax_and_ambiguous_keys() {
+        let invalid = [
+            "", " ", "true false", "nulx", "01", "-01", "1e+",
+            "1e400", "[1,]", r#"{"a":1,}"#,
+            r#"{"a":1,"a":2}"#, r#"{"a":1,"\u0061":2}"#,
+            r#"{"a" 1}"#, r#"{"a":}"#, r#"{"a":0}stuff"#,
+            r#""\uD800""#, r#""\uDE00""#,
+            r#""\uD800\u0041""#, r#""\q""#, r#""\uG000""#,
+            "[", "{", r#""unterminated"#,
+            r#""unescaped
+newline""#,
+        ];
+        for input in invalid {
+            assert!(canonicalize_json(input.as_bytes()).is_err(), "accepted {input:?}");
+        }
+        assert!(canonicalize_json(&[b'"', 0xc3, 0x28, b'"']).is_err());
+    }
+
+    #[test]
+    fn accepts_nested_and_escaped_valid_json() {
+        let valid = [
+            "null", "true", "-0", "1e21", "[]", "{}",
+            r#"{"escaped":"\uD83D\uDE00","array":[0,false,"a\nb"]}"#,
+            r#"{"é":1,"😀":2}"#, r#"{"a":1,"b":2}"#,
+        ];
+        for input in valid {
+            assert!(canonicalize_json(input.as_bytes()).is_ok(), "rejected {input:?}");
+        }
+    }
+
+    #[test]
+    fn enforces_nesting_depth_limit() {
+        let input = format!("{}0{}", "[".repeat(130), "]".repeat(130));
+        assert!(canonicalize_json(input.as_bytes()).is_err());
+    }
 }

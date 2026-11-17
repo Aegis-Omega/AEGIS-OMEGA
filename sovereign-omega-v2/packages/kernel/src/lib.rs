@@ -95,7 +95,15 @@ pub unsafe extern "C" fn canonicalize(
     out_ptr: i32,
 ) -> i32 {
     let input = core::slice::from_raw_parts(input_ptr as *const u8, input_len as usize);
-    let result = canonical::canonicalize_json(input);
+    // Fail closed on invalid JSON or a canonical form beyond the fixed 32KB
+    // output buffer. A negative result is a rejection, never a byte length.
+    if input_len < 0 {
+        return -1;
+    }
+    let result = match canonical::canonicalize_json(input) {
+        Ok(value) if value.len() <= 32_768 => value,
+        _ => return -1,
+    };
     let out = core::slice::from_raw_parts_mut(out_ptr as *mut u8, result.len());
     out.copy_from_slice(&result);
     result.len() as i32

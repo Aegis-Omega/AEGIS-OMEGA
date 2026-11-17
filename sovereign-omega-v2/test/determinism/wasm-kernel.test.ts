@@ -402,3 +402,30 @@ describe.skipIf(!WASM_READY)('WASM numeric JCS parity', () => {
     expect(tested).toBe(512)
   })
 })
+
+
+// Invalid bytes must not be accepted as a hashable canonical JSON value.
+// These are direct invalid-input probes; no JS JSON.parse prefilter.
+describe.skipIf(!WASM_READY)('WASM fail-closed JSON parsing', () => {
+  const rejected = [
+    '', ' ', 'true false', 'nulx', '01', '-01', '1e+',
+    '1e400', '[1,]', '{"a":1,}', '{"a":1,"a":2}',
+    '{"a":1,"\\u0061":2}', '{"a" 1}', '{"a":}',
+    '{"a":0}stuff', '"\\uD800"', '"\\uDE00"', '"\\uD800\\u0041"',
+    '"\\q"', '"\\uG000"', '[', '{', '"unterminated',
+    '"unescaped\nnewline"',
+  ]
+  it('rejects malformed JSON, unpaired surrogates and duplicate keys', async () => {
+    const k = await ensureKernel()
+    const inPtr = k.get_input_ptr()
+    const outPtr = k.get_output_ptr()
+    for (const value of rejected) {
+      const input = new TextEncoder().encode(value)
+      writeToWasm(k, input, inPtr)
+      expect(k.canonicalize(inPtr, input.length, outPtr)).toBe(-1)
+    }
+    const invalidUtf8 = Uint8Array.from([34, 195, 40, 34])
+    writeToWasm(k, invalidUtf8, inPtr)
+    expect(k.canonicalize(inPtr, invalidUtf8.length, outPtr)).toBe(-1)
+  })
+})
