@@ -141,6 +141,15 @@ def save_checkpoint(matrix, path: str = DEFAULT_CHECKPOINT_PATH) -> dict:
             handle.flush()
             os.fsync(handle.fileno())
         os.replace(temp_path, path)
+        try:
+            directory = os.path.dirname(os.path.abspath(path)) or '.'
+            dirfd = os.open(directory, os.O_RDONLY | getattr(os, 'O_DIRECTORY', 0))
+            try:
+                os.fsync(dirfd)
+            finally:
+                os.close(dirfd)
+        except OSError as exc:
+            raise CheckpointError('CHECKPOINT_REPLACED_DURABILITY_UNCONFIRMED') from exc
     except Exception:
         try:
             os.unlink(temp_path)
@@ -292,22 +301,50 @@ def _load_checkpoint_locked(matrix, path: str) -> dict:
             require_fresh_failsafe(failsafe)
         except FailsafeCheckpointError as err:
             raise CheckpointError('Unsafe failsafe target: ' + str(err)) from err
-    if sequence:
-        head = ((sequence - 1) % capacity) * _M1_ENTRY_BYTES
-        matrix._m1_region[head:head + _M1_ENTRY_BYTES] = record
-    matrix._sequence = sequence
-    matrix._epoch = epoch
-    matrix._era = era
-    matrix._total_processed = body['total_processed']
-    matrix._total_verified = body['total_verified']
-    matrix._total_vcg_error_fixed = body['total_vcg_error_fixed']
-    matrix._last_gate_signal_sequence = body['last_gate_signal_sequence']
-    matrix._last_gate_signal_accepted = body['last_gate_signal_accepted']
-    matrix._m3_active_length = 0  # context is ephemeral, not replayed
-    if prepared is not None:
-        install_calibration(calibrator, prepared)
-    if prepared_failsafe is not None:
-        install_failsafe(failsafe, prepared_failsafe)
+    failsafe_install_lock = (getattr(failsafe, '_lock', nullcontext())
+                             if prepared_failsafe is not None else nullcontext())
+    with failsafe_install_lock:
+        if prepared_failsafe is not None:
+            require_fresh_failsafe(failsafe)
+        head = ((sequence - 1) % capacity) * _M1_ENTRY_BYTES if sequence else None
+        old_entry = (bytes(matrix._m1_region[head:head + _M1_ENTRY_BYTES])
+                     if head is not None else None)
+        fields = ('_sequence', '_epoch', '_era', '_total_processed',
+                  '_total_verified', '_total_vcg_error_fixed',
+                  '_last_gate_signal_sequence', '_last_gate_signal_accepted',
+                  '_m3_active_length')
+        old_fields = {key: getattr(matrix, key) for key in fields}
+        old_cal = vars(calibrator).copy() if prepared is not None else None
+        old_failsafe = vars(failsafe).copy() if prepared_failsafe is not None else None
+        try:
+            if head is not None:
+                matrix._m1_region[head:head + _M1_ENTRY_BYTES] = record
+            matrix._sequence = sequence
+            matrix._epoch = epoch
+            matrix._era = era
+            matrix._total_processed = body['total_processed']
+            matrix._total_verified = body['total_verified']
+            matrix._total_vcg_error_fixed = body['total_vcg_error_fixed']
+            matrix._last_gate_signal_sequence = body['last_gate_signal_sequence']
+            matrix._last_gate_signal_accepted = body['last_gate_signal_accepted']
+            matrix._m3_active_length = 0
+            if prepared is not None:
+                install_calibration(calibrator, prepared)
+            if prepared_failsafe is not None:
+                install_failsafe(failsafe, prepared_failsafe)
+        except BaseException:
+            if head is not None:
+                matrix._m1_region[head:head + _M1_ENTRY_BYTES] = old_entry
+            for key, value in old_fields.items():
+                setattr(matrix, key, value)
+            if old_cal is not None:
+                vars(calibrator).clear()
+                vars(calibrator).update(old_cal)
+            if old_failsafe is not None:
+                with failsafe._lock if hasattr(failsafe, '_lock') else nullcontext():
+                    vars(failsafe).clear()
+                    vars(failsafe).update(old_failsafe)
+            raise
     return {
         'sequence': sequence, 'epoch': epoch, 'era': era,
         'integrity_hash': actual_digest, 'path': path,

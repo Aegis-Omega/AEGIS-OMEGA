@@ -49,11 +49,18 @@ def cgroup_remaining_bytes() -> int | None:
     ):
         limit = _integer_file(limit_file)
         if limit is None:
-            continue
+            try:
+                raw = Path(limit_file).read_text(encoding="ascii").strip()
+            except FileNotFoundError:
+                continue
+            except (OSError, UnicodeError) as exc:
+                raise MemoryBudgetError("CGROUP_MEMORY_LIMIT_UNREADABLE") from exc
+            if raw == "max" or (raw.isdecimal() and int(raw) >= (1 << 60)):
+                continue
+            raise MemoryBudgetError("CGROUP_MEMORY_LIMIT_INVALID")
         current = _integer_file(current_file)
-        # Never interpret a missing utilization reading as 0 use.
         if current is None:
-            continue
+            raise MemoryBudgetError("CGROUP_MEMORY_CURRENT_UNKNOWN")
         return max(0, limit - current)
     return None
 
