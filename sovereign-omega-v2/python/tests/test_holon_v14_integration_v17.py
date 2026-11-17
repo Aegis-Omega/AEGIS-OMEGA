@@ -11,10 +11,10 @@ import unittest
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import Mock, patch
-import core_matrix
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
+import core_matrix
 from test_m123_contracts_v2 import matrix_fixture
 from transition_observer import TransitionObserver
 from transition_info import TransitionStats, adjacent_mi_q16, entropy_rate_q16

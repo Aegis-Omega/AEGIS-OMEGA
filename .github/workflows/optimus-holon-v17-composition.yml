@@ -54,7 +54,7 @@ jobs:
           test "$(git hash-object sovereign-omega-v2/python/transition_observer.py)" = '27590925bba2991970c69b5038e872f4f74305f1'
           test "$(git hash-object sovereign-omega-v2/python/tests/test_transition_info.py)" = 'b4ba07f9d184ad72bde9c21fe33832e2fe03b01f'
           test "$(git hash-object sovereign-omega-v2/python/tests/test_checkpoint_lock_integrity_v1.py)" = 'a0de239fa183d0f01e42a1516c365ce305020f06'
-          test "$(git hash-object sovereign-omega-v2/python/tests/test_holon_v14_integration_v17.py)" = '4bc90ba4f914c50527fc0d354194867a7cebacaf'
+          test "$(git hash-object sovereign-omega-v2/python/tests/test_holon_v14_integration_v17.py)" = '3cfb88394d2719d6cf3f52b63098535aac90b9bb'
       - name: Existing legacy ledger assertions
         run: python sovereign-omega-v2/python/tests/test_ledger_persist_v2.py
       - name: Existing actual M123 V2 regressions
