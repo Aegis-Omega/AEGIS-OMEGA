@@ -110,9 +110,11 @@ class CalibrationCheckpointLockIntegrityV1(unittest.TestCase):
 
     def test_chain_only_checkpoint_remains_supported(self):
         source = matrix_fixture(3)
+        # Chain-only is a checkpoint continuation mode, not uncalibrated
+        # live ingestion: process the event before disabling collaborators.
+        source.process_event(b"z", b"", b"")
         source._calibrator = None
         source._failsafe = None
-        source.process_event(b"z", b"", b"")
         with tempfile.TemporaryDirectory() as directory:
             path = os.path.join(directory, "checkpoint.json")
             save_checkpoint(source, path)
