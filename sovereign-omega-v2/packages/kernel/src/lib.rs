@@ -84,7 +84,7 @@ pub extern "C" fn bernstein_lcb(
 }
 
 /// RFC 8785 JSON canonicalization.
-/// Parses JSON at input_ptr, sorts object keys by Unicode code point order,
+/// Parses JSON at input_ptr, sorts object keys by UTF-16 code unit order,
 /// writes canonical UTF-8 bytes to out_ptr.
 /// Returns output byte length.
 /// Ports canonicalizeJCS from src/core/canonicalize.ts.

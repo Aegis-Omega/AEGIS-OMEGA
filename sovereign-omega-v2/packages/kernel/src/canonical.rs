@@ -2,7 +2,7 @@
 // AEGIS Ω — RFC 8785 JSON Canonicalization
 // EPISTEMIC TIER: T0
 // Byte-identical port of canonicalizeJCS from src/core/canonicalize.ts.
-// Parses JSON bytes, sorts object keys by Unicode code point order,
+// Parses JSON bytes, sorts object keys by UTF-16 code unit order,
 // and re-serializes with minimal whitespace and canonical escaping.
 // ============================================================
 
@@ -98,7 +98,16 @@ impl<'a> Parser<'a> {
                     }
                     _ => {}
                 },
-                Some(b) => result.push(b as char),
+                Some(b) if b.is_ascii() => result.push(b as char),
+                Some(_) => {
+                    // Input was validated as UTF-8 before parsing.
+                    let start = self.pos - 1;
+                    let rest = core::str::from_utf8(&self.input[start..])
+                        .expect("source UTF-8 validated");
+                    let ch = rest.chars().next().expect("nonempty UTF-8 scalar");
+                    result.push(ch);
+                    self.pos += ch.len_utf8() - 1;
+                },
                 None => break,
             }
         }
@@ -188,22 +197,8 @@ impl<'a> Parser<'a> {
         // consume '}'
         if self.peek() == Some(b'}') { self.pos += 1; }
 
-        // Sort keys by Unicode code point sequence (RFC 8785)
-        pairs.sort_by(|a, b| {
-            let mut ai = a.0.chars();
-            let mut bi = b.0.chars();
-            loop {
-                match (ai.next(), bi.next()) {
-                    (None, None) => return core::cmp::Ordering::Equal,
-                    (None, _)   => return core::cmp::Ordering::Less,
-                    (_, None)   => return core::cmp::Ordering::Greater,
-                    (Some(ac), Some(bc)) => {
-                        let ord = (ac as u32).cmp(&(bc as u32));
-                        if ord != core::cmp::Ordering::Equal { return ord; }
-                    }
-                }
-            }
-        });
+        // RFC 8785 sec. 3.2.3 requires UTF-16 code-unit order.
+        pairs.sort_by(|a, b| a.0.encode_utf16().cmp(b.0.encode_utf16()));
 
         out.push(b'{');
         for (i, (key, val)) in pairs.iter().enumerate() {
@@ -291,4 +286,45 @@ fn format_number_js(v: f64) -> String {
         }
     }
     s
+}
+
+#[cfg(test)]
+mod rfc8785_unicode_regressions {
+    use super::canonicalize_json;
+
+    fn canonical(s: &str) -> String {
+        String::from_utf8(canonicalize_json(s.as_bytes())).unwrap()
+    }
+
+    #[test]
+    fn non_bmp_key_precedes_bmp_private_use() {
+        let input = r#"{"\uE000":1,"😀":2}"#;
+        let expected = format!("{{\"😀\":2,\"{}\":1}}", '\u{E000}');
+        assert_eq!(canonical(input), expected);
+    }
+
+    #[test]
+    fn raw_utf8_multibyte_keys_and_values() {
+        assert_eq!(
+            canonical(r#"{"😀":"漢字","é":"🧪"}"#),
+            r#"{"é":"🧪","😀":"漢字"}"#
+        );
+    }
+
+    #[test]
+    fn escaped_surrogate_pair_order() {
+        let input = r#"{"\uE000":1,"\uD83D\uDE00":2}"#;
+        let expected = format!("{{\"😀\":2,\"{}\":1}}", '\u{E000}');
+        assert_eq!(canonical(input), expected);
+    }
+
+    #[test]
+    fn nested_objects_preserve_unicode_values() {
+        let input = r#"{"outer":[{"\uE000":"漢","😀":"字"}],"a":1}"#;
+        let expected = format!(
+            "{{\"a\":1,\"outer\":[{{\"😀\":\"字\",\"{}\":\"漢\"}}]}}",
+            '\u{E000}'
+        );
+        assert_eq!(canonical(input), expected);
+    }
 }

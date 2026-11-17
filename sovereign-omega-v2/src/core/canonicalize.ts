@@ -44,16 +44,8 @@ function serializeValue(value: unknown): string {
 
   if (type === 'object') {
     const obj = value as Record<string, unknown>
-    // RFC 8785: sort object keys by Unicode code point order
-    const sortedKeys = Object.keys(obj).sort((a, b) => {
-      // Compare by Unicode code point sequence (not locale-sensitive)
-      for (let i = 0; i < Math.min(a.length, b.length); i++) {
-        /* c8 ignore next -- noUncheckedIndexedAccess artifact; i < min(a.length, b.length) guarantees valid indices */
-        const diff = (a.codePointAt(i) ?? 0) - (b.codePointAt(i) ?? 0)
-        if (diff !== 0) return diff
-      }
-      return a.length - b.length
-    })
+    // RFC 8785 sec. 3.2.3 sorts object keys by UTF-16 code units.
+    const sortedKeys = Object.keys(obj).sort()
     const pairs = sortedKeys
       .filter(k => obj[k] !== undefined)
       .map(k => serializeString(k) + ':' + serializeValue(obj[k]))

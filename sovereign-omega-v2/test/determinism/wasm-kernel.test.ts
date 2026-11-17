@@ -314,3 +314,28 @@ describe.skipIf(!WASM_READY)('WASM Kernel Parity — Gate 16', () => {
   })
 
 })
+
+
+// Requires an actual compiled kernel.wasm; skipped tests do not certify parity.
+describe.skipIf(!WASM_READY)('WASM Unicode canonicalization parity', () => {
+  const cases: unknown[] = [
+    { '\uE000': 1, '😀': 2 },
+    { '😀': '漢字', 'é': '🧪' },
+    { outer: [{ '\uE000': '漢', '😀': '字' }], role: 'café' },
+  ]
+  for (const [index, value] of cases.entries()) {
+    it('Unicode case ' + index + ' is byte-identical to TypeScript 3 times', async () => {
+      const k = await ensureKernel()
+      const input = new TextEncoder().encode(JSON.stringify(value))
+      const expected = new TextEncoder().encode(canonicalizeJCSString(value))
+      const inPtr = k.get_input_ptr()
+      const outPtr = k.get_output_ptr()
+      for (let run = 0; run < 3; run++) {
+        writeToWasm(k, input, inPtr)
+        const len = k.canonicalize(inPtr, input.length, outPtr)
+        expect(Array.from(readFromWasm(k, outPtr, len)))
+          .toEqual(Array.from(expected))
+      }
+    })
+  }
+})
