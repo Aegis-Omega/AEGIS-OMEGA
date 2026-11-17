@@ -429,3 +429,31 @@ describe.skipIf(!WASM_READY)('WASM fail-closed JSON parsing', () => {
     expect(k.canonicalize(inPtr, invalidUtf8.length, outPtr)).toBe(-1)
   })
 })
+
+
+describe.skipIf(!WASM_READY)('WASM JCS input/output buffer limits', () => {
+  it('rejects a negative input length without accessing memory', async () => {
+    const k = await ensureKernel()
+    expect(k.canonicalize(k.get_input_ptr(), -1, k.get_output_ptr())).toBe(-1)
+  })
+
+  it('rejects input larger than the fixed 32 KiB input buffer', async () => {
+    const k = await ensureKernel()
+    expect(k.canonicalize(k.get_input_ptr(), 32769, k.get_output_ptr())).toBe(-1)
+  })
+
+  it('rejects canonical output larger than the fixed 32 KiB output buffer', async () => {
+    const k = await ensureKernel()
+    const input = new TextEncoder().encode(
+      '[' + Array(2000).fill('1e20').join(',') + ']',
+    )
+    expect(input.length).toBeLessThan(32768)
+    const expectedSize = new TextEncoder().encode(
+      canonicalizeJCSString(Array(2000).fill(1e20)),
+    ).length
+    expect(expectedSize).toBeGreaterThan(32768)
+    const ptr = k.get_input_ptr()
+    writeToWasm(k, input, ptr)
+    expect(k.canonicalize(ptr, input.length, k.get_output_ptr())).toBe(-1)
+  })
+})
