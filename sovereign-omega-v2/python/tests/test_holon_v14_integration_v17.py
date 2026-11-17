@@ -65,7 +65,7 @@ class HolonV14Integration(unittest.TestCase):
         b = self.make(True)
         with self.assertRaises(ValueError):
             b.process_event(b'x', b'\x03', b'')
-        b._failsafe.state = EpochState.FROZEN
+        b._failsafe._state = EpochState.FROZEN
         self.assertEqual(b.process_event(b'y', b'\x01', b'')['status'], 'FROZEN')
         self.assertEqual(b.transition_analytics_snapshot()['sample_count'], 0)
 
@@ -105,7 +105,7 @@ class HolonV14Integration(unittest.TestCase):
         m.process_event(b'a', b'', b'')
         m.process_event(b'b', b'', b'')
         m._event_cb = Mock(side_effect=RuntimeError('notification failure'))
-        result = m.process_event(b'c', b'\\x01', b'')
+        result = m.process_event(b'c', b'\x01', b'')
         self.assertEqual(result['status'], 'COMMITTED_CALLBACK_ERROR')
         self.assertEqual(result['sequence'], 3)
         self.assertEqual(m.transition_analytics_snapshot()['sample_count'], 3)
