@@ -86,8 +86,11 @@ class HolonV14Integration(unittest.TestCase):
 
 
     def test_constructor_default_off_and_exact_opt_in(self):
-        # The CI sets a 64 KiB real arena. Never allocate the 4 GiB default.
-        self.assertLessEqual(core_matrix.ARRAY_TOTAL_BYTES, 131072)
+        # V18 computes a bounded 4 MiB minimum arena per instance.
+        # Patch only the budget provider, never the M1/M2/M3 functions.
+        from adaptive_memory import MIN_ARENA_BYTES, plan_layout
+        layout = plan_layout(MIN_ARENA_BYTES)
+        self.assertLessEqual(layout.total, 16 * 1024 * 1024)
         for setting, enabled in [('0', False), ('true', False), ('1', True)]:
             fake_pgcs = SimpleNamespace(
                 start=lambda: None, stop=lambda: None,
@@ -96,9 +99,13 @@ class HolonV14Integration(unittest.TestCase):
                 with patch.object(core_matrix, 'detect_hardware',
                                   return_value=SimpleNamespace(platform='test', is_target_hardware=False)):
                     with patch.object(core_matrix, 'PGCSController', return_value=fake_pgcs):
-                        matrix = core_matrix.CoreMatrix()
-            self.assertEqual(matrix._transition_observer is not None, enabled)
-            self.assertNotIn('transition_observer_v14', matrix.emit_vcg_telemetry())
+                        with patch.object(core_matrix, 'configured_arena_layout', return_value=layout):
+                            matrix = core_matrix.CoreMatrix()
+            try:
+                self.assertEqual(matrix._transition_observer is not None, enabled)
+                self.assertNotIn('transition_observer_v14', matrix.emit_vcg_telemetry())
+            finally:
+                matrix.close()
 
     def test_callback_failure_cannot_uncommit_observed_event(self):
         m = self.make(True, slots=2)
