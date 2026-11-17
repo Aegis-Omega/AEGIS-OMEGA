@@ -328,3 +328,27 @@ mod rfc8785_unicode_regressions {
         assert_eq!(canonical(input), expected);
     }
 }
+
+#[cfg(test)]
+mod rfc8785_numeric_regressions {
+    use super::canonicalize_json;
+
+    fn canonical(s: &str) -> String {
+        String::from_utf8(canonicalize_json(s.as_bytes())).unwrap()
+    }
+
+    #[test]
+    fn es2020_scientific_notation_thresholds() {
+        assert_eq!(canonical("1e21"), "1e+21");
+        assert_eq!(canonical("1e-7"), "1e-7");
+        assert_eq!(canonical("1e-6"), "0.000001");
+        assert_eq!(canonical("1e20"), "100000000000000000000");
+    }
+
+    #[test]
+    fn javascript_negative_zero_and_signed_exponents() {
+        assert_eq!(canonical("-0"), "0");
+        assert_eq!(canonical("-1e21"), "-1e+21");
+        assert_eq!(canonical("1.25e-7"), "1.25e-7");
+    }
+}
