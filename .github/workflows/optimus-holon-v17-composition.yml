@@ -1,0 +1,74 @@
+name: OPTIMUS V17 HOLON M123 + V14 Source-Bound Composition
+
+on:
+  push:
+    branches:
+      - integration/optimus-v17-holon-transition-v14-20261116
+    paths:
+      - 'sovereign-omega-v2/python/**'
+      - '.github/workflows/optimus-holon-v17-composition.yml'
+      - '.claude.json'
+  pull_request:
+    branches:
+      - integration/holon-five-lanes-v1-20261116
+    paths:
+      - 'sovereign-omega-v2/python/**'
+      - '.github/workflows/optimus-holon-v17-composition.yml'
+      - '.claude.json'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  source-bound-regressions:
+    name: M123, V14, checkpoint 2.3 and opt-in noninterference
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    env:
+      AEGIS_ARRAY_BYTES: '65536'
+      AEGIS_TRANSITION_OBSERVER: '0'
+      PYTHONDONTWRITEBYTECODE: '1'
+    steps:
+      - name: Checkout exact candidate without persisted credentials
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - name: Python 3.11
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: '3.11'
+      - name: Install existing CoreMatrix dependency
+        run: python -m pip install psutil
+      - name: Compile actual modules, never allocate default 4 GiB arena
+        run: |
+          python -m py_compile sovereign-omega-v2/python/core_matrix.py sovereign-omega-v2/python/transition_info.py sovereign-omega-v2/python/transition_observer.py
+          python -c "import os; assert os.environ['AEGIS_ARRAY_BYTES'] == '65536'"
+      - name: Verify HOLON cognitive manifest ancestry
+        run: |
+          python scripts/build-cognitive-manifest.py --check --ref integration/optimus-v17-holon-transition-v14-20261116 --parent-state-hash e70d47ad23af244a8893a296d26554f13e428100757026dfc7531214187d414c
+      - name: Source-bound exact Git blob identity checks
+        run: |
+          test "$(git hash-object sovereign-omega-v2/python/core_matrix.py)" = '25c8629587800cc585a36c3a4e10f030523516bd'
+          test "$(git hash-object sovereign-omega-v2/python/transition_info.py)" = '4e9b68b8ce09c69a20e8fe8c04057bef1cc9a7fe'
+          test "$(git hash-object sovereign-omega-v2/python/transition_observer.py)" = '27590925bba2991970c69b5038e872f4f74305f1'
+          test "$(git hash-object sovereign-omega-v2/python/tests/test_transition_info.py)" = 'b4ba07f9d184ad72bde9c21fe33832e2fe03b01f'
+          test "$(git hash-object sovereign-omega-v2/python/tests/test_checkpoint_lock_integrity_v1.py)" = 'a0de239fa183d0f01e42a1516c365ce305020f06'
+          test "$(git hash-object sovereign-omega-v2/python/tests/test_holon_v14_integration_v17.py)" = '4bc90ba4f914c50527fc0d354194867a7cebacaf'
+      - name: Existing legacy ledger assertions
+        run: python sovereign-omega-v2/python/tests/test_ledger_persist_v2.py
+      - name: Existing actual M123 V2 regressions
+        run: python -m unittest discover -s sovereign-omega-v2/python/tests -p 'test_m123_contracts_v2.py' -v
+      - name: Recovery failsafe cannot be bypassed
+        run: python -m unittest discover -s sovereign-omega-v2/python/tests -p 'test_failsafe_reset_guard_v1.py' -v
+      - name: Calibration plan integrity
+        run: python -m unittest discover -s sovereign-omega-v2/python/tests -p 'test_calibration_plan_integrity_v1.py' -v
+      - name: Checkpoint lock and chain-only continuation
+        run: python -m unittest discover -s sovereign-omega-v2/python/tests -p 'test_checkpoint_lock_integrity_v1.py' -v
+      - name: V14 streaming transition exact math
+        run: python -m unittest discover -s sovereign-omega-v2/python/tests -p 'test_transition_info.py' -v
+      - name: V17 HOLON-V14 native integration, E4 noninterference
+        run: python -m unittest discover -s sovereign-omega-v2/python/tests -p 'test_holon_v14_integration_v17.py' -v
+      - name: V14 CLI smoke, descriptive only
+        run: |
+          printf '0\n1\n0\n1\n' | python sovereign-omega-v2/python/transition_info.py --alphabet 2 --source-id v17-exact-head

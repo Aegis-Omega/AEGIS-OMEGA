@@ -178,6 +178,14 @@ class CoreMatrix:
         self._lock = threading.RLock()
         self._ready = threading.Event()
 
+        # OPTIMUS V17: optional process-local transition statistics. Nothing
+        # from this observer participates in E4, M1, public telemetry or replay.
+        self._transition_observer = None
+        self._transition_observer_errors = 0
+        if os.environ.get('AEGIS_TRANSITION_OBSERVER') == '1':
+            from transition_observer import TransitionObserver
+            self._transition_observer = TransitionObserver()
+
         # Capacity at which M1 write head wraps (events per era)
         self._m1_era_capacity: int = len(self._m1_region) // 40
 
@@ -339,6 +347,16 @@ class CoreMatrix:
             }
             if callback_error:
                 result['callback_delivery_error'] = callback_error
+            # An observer failure cannot undo the committed M1 event or
+            # alter the returned gate status. Fixtures predating V17 omit it.
+            observer = getattr(self, '_transition_observer', None)
+            if observer is not None:
+                try:
+                    observer.observe_verifier(verifier_result)
+                except Exception:
+                    self._transition_observer_errors = (
+                        getattr(self, '_transition_observer_errors', 0) + 1
+                    )
             return result
 
     def receive_gate_signal(self, proposal_id: str, accepted: bool, sequence: int) -> None:
@@ -386,6 +404,31 @@ class CoreMatrix:
             'corruption_count': corruption_count,
             'calibrator_passes_100k': calibrator_ok,
         }
+
+    def transition_analytics_snapshot(self) -> Optional[Dict[str, object]]:
+        """Internal-only, explicitly authorized, process-local observation.
+
+        Not part of emit_vcg_telemetry, /telemetry, SSE, checkpoint, or E4.
+        The statistical summary is lossy and is not a replay or identity proof.
+        """
+        with self._lock:
+            observer = getattr(self, '_transition_observer', None)
+            if observer is None:
+                return None
+            try:
+                snapshot = observer.snapshot()
+                snapshot['observation_errors'] = getattr(
+                    self, '_transition_observer_errors', 0
+                )
+                return snapshot
+            except Exception:
+                return {
+                    'schema': 'AEGIS_VERIFIER_TRANSITIONS_V14_1',
+                    'status': 'UNAVAILABLE',
+                    'observation_errors': getattr(
+                        self, '_transition_observer_errors', 0
+                    ) + 1,
+                }
 
     def get_epoch_snapshot(self) -> Optional[bytes]:
         """
