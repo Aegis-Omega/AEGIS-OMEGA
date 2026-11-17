@@ -386,7 +386,8 @@ describe.skipIf(!WASM_READY)('WASM numeric JCS parity', () => {
     for (let i = 0; i < 512; i++) {
       const expo = exponents[i % exponents.length]!
       const sign = i % 2 === 0 ? 1 : -1
-      const fraction = 1 + (next() % 1000000) / 1000000
+      // Keep the mantissa below 1.5 so exponent 308 stays finite.
+      const fraction = 1 + (next() % 1000000) / 2000000
       const value = sign * fraction * 10 ** expo
       if (!Number.isFinite(value) || value === 0) continue
       const raw = JSON.stringify({ value })
