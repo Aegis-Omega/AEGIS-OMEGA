@@ -339,3 +339,65 @@ describe.skipIf(!WASM_READY)('WASM Unicode canonicalization parity', () => {
     })
   }
 })
+
+
+// RFC 8785 ES2020 Number::toString parity across Rust/WASM and TypeScript.
+// The workflow must compile kernel.wasm; a skipped suite is never a PASS.
+describe.skipIf(!WASM_READY)('WASM numeric JCS parity', () => {
+  const rawCases = [
+    '1e21', '-1e21', '1e20', '1e22', '1e-6', '1e-7', '1.25e-7',
+    '1.7976931348623157e308', '2.2250738585072014e-308',
+    '5e-324', '1e308', '1e-308', '9007199254740991',
+    '9007199254740992', '333333333.33333329',
+    '0.000001', '0.0000001', '-0', '1.2345678901234567',
+    '0.000001234', '0.0000001234', '1234567890123456789',
+    '-1e-8', '1.25e-6', '4.50e21', '1.0000000000000002',
+  ]
+  it('matches TypeScript for 26 exact numeric lexemes, 3 repetitions', async () => {
+    const k = await ensureKernel()
+    const inPtr = k.get_input_ptr()
+    const outPtr = k.get_output_ptr()
+    for (const raw of rawCases) {
+      const input = new TextEncoder().encode(raw)
+      const expected = new TextEncoder().encode(canonicalizeJCSString(JSON.parse(raw)))
+      for (let run = 0; run < 3; run++) {
+        writeToWasm(k, input, inPtr)
+        const count = k.canonicalize(inPtr, input.length, outPtr)
+        expect(Array.from(readFromWasm(k, outPtr, count)))
+          .toEqual(Array.from(expected))
+      }
+    }
+  })
+
+  it('matches TypeScript on 512 seeded finite numbers across exponent ranges', async () => {
+    const k = await ensureKernel()
+    const inPtr = k.get_input_ptr()
+    const outPtr = k.get_output_ptr()
+    const exponents = [-308, -300, -100, -7, -6, -5, -2, -1,
+      0, 1, 5, 10, 20, 21, 22, 100, 300, 308]
+    let seed = 0x12345678
+    function next(): number {
+      seed ^= seed << 13
+      seed ^= seed >>> 17
+      seed ^= seed << 5
+      return seed >>> 0
+    }
+    let tested = 0
+    for (let i = 0; i < 512; i++) {
+      const expo = exponents[i % exponents.length]!
+      const sign = i % 2 === 0 ? 1 : -1
+      const fraction = 1 + (next() % 1000000) / 1000000
+      const value = sign * fraction * 10 ** expo
+      if (!Number.isFinite(value) || value === 0) continue
+      const raw = JSON.stringify({ value })
+      const expected = new TextEncoder().encode(canonicalizeJCSString({ value }))
+      const input = new TextEncoder().encode(raw)
+      writeToWasm(k, input, inPtr)
+      const length = k.canonicalize(inPtr, input.length, outPtr)
+      expect(Array.from(readFromWasm(k, outPtr, length)))
+        .toEqual(Array.from(expected))
+      tested++
+    }
+    expect(tested).toBe(512)
+  })
+})

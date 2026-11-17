@@ -265,27 +265,66 @@ impl<'a> Parser<'a> {
 /// Special case: -0.0 → "0" (RFC 8785).
 fn format_number_js(v: f64) -> String {
     if v == 0.0 {
-        return "0".to_string(); // handles both 0.0 and -0.0
+        return "0".to_string(); // both +0.0 and -0.0
     }
-    // For integer values representable without loss, use integer format
-    if v.fract() == 0.0 && v.abs() < 1.0e15 {
-        return format!("{}", v as i64);
-    }
-    // For general floats: Rust's default f64 Display uses the Grisu3/Dragon4
-    // shortest-round-trip algorithm — matches JavaScript for common values.
-    let s = format!("{}", v);
-    // Normalize exponent notation to match JavaScript (e.g. "1e20" not "1E20")
-    if let Some(e_pos) = s.find('e') {
-        let mantissa = &s[..e_pos];
-        let exp_str = &s[e_pos + 1..];
-        let exp: i32 = exp_str.parse().unwrap_or(0);
-        if exp >= 0 {
-            return format!("{}e+{}", mantissa, exp);
+
+    // Rust Display provides shortest round-tripping decimal digits for f64
+    // but not ECMAScript's fixed/scientific formatting thresholds.
+    // RFC 8785 requires the shortest digits in ES2020 Number::toString layout.
+    let raw = v.abs().to_string();
+    let (mantissa, exponent) = match raw.find(|ch: char| ch == 'e' || ch == 'E') {
+        Some(i) => (&raw[..i], raw[i + 1..].parse::<i32>().expect("decimal exponent")),
+        None => (raw.as_str(), 0),
+    };
+
+    let mut digits = String::new();
+    let mut decimal_point = None;
+    for ch in mantissa.chars() {
+        if ch == '.' {
+            decimal_point = Some(digits.len() as i32);
         } else {
-            return format!("{}e{}", mantissa, exp);
+            debug_assert!(ch.is_ascii_digit(), "f64 Display emits decimal digits");
+            digits.push(ch);
         }
     }
-    s
+    let mut n = decimal_point.unwrap_or(digits.len() as i32) + exponent;
+
+    // Normalize "0.00001230" to digits="123" and n=-4.
+    let leading_zeros = digits.bytes().take_while(|b| *b == b'0').count();
+    digits.drain(..leading_zeros);
+    n -= leading_zeros as i32;
+    while digits.ends_with('0') {
+        digits.pop();
+    }
+    if digits.is_empty() {
+        return "0".to_string();
+    }
+
+    let k = digits.len() as i32;
+    let formatted = if k <= n && n <= 21 {
+        format!("{}{}", digits, "0".repeat((n - k) as usize))
+    } else if 0 < n && n <= 21 {
+        format!("{}.{}", &digits[..n as usize], &digits[n as usize..])
+    } else if -6 < n && n <= 0 {
+        format!("0.{}{}", "0".repeat((-n) as usize), digits)
+    } else {
+        let mantissa = if k == 1 {
+            digits
+        } else {
+            format!("{}.{}", &digits[..1], &digits[1..])
+        };
+        let e = n - 1;
+        if e >= 0 {
+            format!("{}e+{}", mantissa, e)
+        } else {
+            format!("{}e{}", mantissa, e)
+        }
+    };
+    if v.is_sign_negative() {
+        format!("-{}", formatted)
+    } else {
+        formatted
+    }
 }
 
 #[cfg(test)]
@@ -351,4 +390,39 @@ mod rfc8785_numeric_regressions {
         assert_eq!(canonical("-1e21"), "-1e+21");
         assert_eq!(canonical("1.25e-7"), "1.25e-7");
     }
+    #[test]
+    fn extra_jcs_numeric_vectors() {
+        let vectors = [
+            ("1e21", "1e+21"),
+            ("-1e21", "-1e+21"),
+            ("1e20", "100000000000000000000"),
+            ("1e22", "1e+22"),
+            ("1e-6", "0.000001"),
+            ("1e-7", "1e-7"),
+            ("1.25e-7", "1.25e-7"),
+            ("1.7976931348623157e308", "1.7976931348623157e+308"),
+            ("2.2250738585072014e-308", "2.2250738585072014e-308"),
+            ("5e-324", "5e-324"),
+            ("1e308", "1e+308"),
+            ("1e-308", "1e-308"),
+            ("9007199254740991", "9007199254740991"),
+            ("9007199254740992", "9007199254740992"),
+            ("333333333.33333329", "333333333.3333333"),
+            ("0.000001", "0.000001"),
+            ("0.0000001", "1e-7"),
+            ("-0", "0"),
+            ("1.2345678901234567", "1.2345678901234567"),
+            ("0.000001234", "0.000001234"),
+            ("0.0000001234", "1.234e-7"),
+            ("1234567890123456789", "1234567890123456800"),
+            ("-1e-8", "-1e-8"),
+            ("1.25e-6", "0.00000125"),
+            ("4.50e21", "4.5e+21"),
+            ("1.0000000000000002", "1.0000000000000002"),
+        ];
+        for (raw, expected) in vectors {
+            assert_eq!(canonical(raw), expected, "input {raw}");
+        }
+    }
+
 }
