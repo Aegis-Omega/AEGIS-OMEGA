@@ -10,7 +10,6 @@ on:
       - 'sovereign-omega-v2/test/determinism/wasm-kernel.test.ts'
       - 'sovereign-omega-v2/test/determinism/jcs-historical-compat.test.ts'
       - 'sovereign-omega-v2/python/tests/test_canon_equivalence.py'
-      - 'sovereign-omega-v2/python/canonical_envelope.py'
       - '.github/workflows/jcs-cross-engine.yml'
 
 permissions:
