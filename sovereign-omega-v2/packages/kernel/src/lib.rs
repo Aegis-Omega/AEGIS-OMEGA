@@ -94,12 +94,15 @@ pub unsafe extern "C" fn canonicalize(
     input_len: i32,
     out_ptr: i32,
 ) -> i32 {
+    // Validate lengths before forming a Rust slice. Casting a negative i32
+    // to usize would create an invalid slice and violate memory safety.
+    // The WASM API uses the kernel's fixed 32KB input/output buffers.
+    if input_len < 0 || input_len as usize > 32_768 {
+        return -1;
+    }
     let input = core::slice::from_raw_parts(input_ptr as *const u8, input_len as usize);
     // Fail closed on invalid JSON or a canonical form beyond the fixed 32KB
     // output buffer. A negative result is a rejection, never a byte length.
-    if input_len < 0 {
-        return -1;
-    }
     let result = match canonical::canonicalize_json(input) {
         Ok(value) if value.len() <= 32_768 => value,
         _ => return -1,
