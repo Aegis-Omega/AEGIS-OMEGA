@@ -9,8 +9,8 @@
   "provenance": {
     "generator": "scripts/build-cognitive-manifest.py",
     "repository": "Aegis-Omega/AEGIS-OMEGA",
-    "source_ref": "integration/optimus-v17-holon-transition-v14-20261116",
-    "parent_state_hash": "e70d47ad23af244a8893a296d26554f13e428100757026dfc7531214187d414c",
+    "source_ref": "integration/optimus-v18-adaptive-holon-20261117",
+    "parent_state_hash": "7da4a08bc415e25b268158b238385ac576eb43a40a80523ca014800021ab09a1",
     "signature_mode": "GITHUB_OIDC_ATTESTATION"
   },
   "hashing": {
@@ -488,5 +488,5 @@
       "on_success": "broadcast-attested-verified-event-stream"
     }
   },
-  "state_hash": "7da4a08bc415e25b268158b238385ac576eb43a40a80523ca014800021ab09a1"
+  "state_hash": "96d9749975019b83397e383478fcc7cd7e61fb2f3b3a854512367e3ee8f9ab41"
 }
