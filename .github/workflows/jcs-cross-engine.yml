@@ -1,0 +1,61 @@
+name: JCS cross-engine parity
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'sovereign-omega-v2/src/core/canonicalize.ts'
+      - 'sovereign-omega-v2/packages/kernel/**'
+      - 'sovereign-omega-v2/test/determinism/rfc8785-utf16-order.test.ts'
+      - 'sovereign-omega-v2/test/determinism/wasm-kernel.test.ts'
+      - '.github/workflows/jcs-cross-engine.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: jcs-parity-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  canonicalization-parity:
+    name: Rust build + actual WASM/TypeScript parity
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: sovereign-omega-v2
+    steps:
+      - name: Checkout exact pull-request candidate
+        uses: actions/checkout@v4
+
+      - name: Prepare Node 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: sovereign-omega-v2/package-lock.json
+
+      - name: Prepare Rust and WebAssembly target
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+
+      - name: Install locked Node dependencies
+        run: npm ci
+
+      - name: Compile and execute Rust kernel tests
+        run: cargo test --locked -p kernel
+
+      - name: Compile real WASM kernel (no skipped parity)
+        run: |
+          cargo build --locked --target wasm32-unknown-unknown --release -p kernel
+          test -s target/wasm32-unknown-unknown/release/kernel.wasm
+
+      - name: Run Unicode regression and real WASM parity
+        run: |
+          test -s target/wasm32-unknown-unknown/release/kernel.wasm
+          npx vitest run test/unit/jcs.test.ts test/determinism/rfc8785-utf16-order.test.ts test/determinism/wasm-kernel.test.ts --reporter=verbose
+
+      - name: Verify TypeScript types
+        run: npm run typecheck
