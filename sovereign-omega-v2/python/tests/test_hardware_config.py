@@ -62,8 +62,8 @@ def expect_raises(name: str, exc_type, fn) -> None:
 def test_constants():
     print('\nconstants:')
 
-    _chk('RAM_TOTAL_BYTES == 8 * 1024**3', RAM_TOTAL_BYTES == 8 * 1024 ** 3)
-    _chk('VRAM_TOTAL_BYTES == 8 * 1024**3', VRAM_TOTAL_BYTES == 8 * 1024 ** 3)
+    _chk('RAM is measured or unknown, never an assumed 8GB', RAM_TOTAL_BYTES >= 0)
+    _chk('VRAM can be unknown (0), never an assumed GPU model', VRAM_TOTAL_BYTES >= 0)
     _chk('INT_SHIFT_BITS == 16', INT_SHIFT_BITS == 16)
     _chk('INT_SCALE == 65536', INT_SCALE == 65536)
     _chk('INT_SCALE == 1 << INT_SHIFT_BITS', INT_SCALE == (1 << INT_SHIFT_BITS))

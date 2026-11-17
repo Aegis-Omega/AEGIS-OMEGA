@@ -1,0 +1,78 @@
+name: OPTIMUS V19 PGCS Resource and Audit Integrity
+
+on:
+  push:
+    branches:
+      - integration/optimus-v19-pgcs-resource-integrity-20261117
+    paths:
+      - '.github/workflows/optimus-v19-pgcs-integrity.yml'
+      - '.claude.json'
+      - 'sovereign-omega-v2/python/**'
+  pull_request:
+    branches:
+      - integration/optimus-v18-adaptive-holon-20261117
+    paths:
+      - '.github/workflows/optimus-v19-pgcs-integrity.yml'
+      - '.claude.json'
+      - 'sovereign-omega-v2/python/**'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  source-bound-holon-and-pgcs:
+    name: V19 PGCS / V18 mmap / M123 checkpoint 2.3 exact-head
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    env:
+      PYTHONDONTWRITEBYTECODE: '1'
+      AEGIS_TRANSITION_OBSERVER: '0'
+    steps:
+      - name: Checkout exact candidate without persisted credentials
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - name: Python 3.11
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: '3.11'
+      - name: Install existing psutil dependency
+        run: python -m pip install psutil
+      - name: Check exact source and test Git blobs
+        run: |
+          set -euo pipefail
+          test "$(git hash-object sovereign-omega-v2/python/hardware_config.py)" = '5e27f71a13940752f940764acf03b96c0ef80637'
+          test "$(git hash-object sovereign-omega-v2/python/pgcs.py)" = 'a31beab4efd5e9847dd9b5091dd2621fb7f04815'
+          test "$(git hash-object sovereign-omega-v2/python/tests/test_hardware_config.py)" = '513c4c18f405d138f9aa7a023277fa97bdf271f6'
+          test "$(git hash-object sovereign-omega-v2/python/tests/test_v19_pgcs_resource_integrity.py)" = '83b6be5918f2844b4b6d722836eca0d93283648f'
+          test "$(git hash-object sovereign-omega-v2/python/core_matrix.py)" = 'c7ac61798919b02c24c947ae5d97346d83447b3f'
+          test "$(git hash-object sovereign-omega-v2/python/adaptive_memory.py)" = 'eb188b65105ce9cd99c72dd17e78f13cc6dde85d'
+          test "$(git hash-object sovereign-omega-v2/python/ledger_persist.py)" = '8667a1d96e80cd63cd0c95a7621e0749cb3af116'
+          test "$(git hash-object sovereign-omega-v2/python/m1_chain.py)" = 'dab08ab13d5500b557cca7eadd7b0ad7eae7c435'
+      - name: Verify cognitive manifest ancestry with no skill edits
+        run: |
+          python scripts/build-cognitive-manifest.py --check --ref integration/optimus-v19-pgcs-resource-integrity-20261117 --parent-state-hash 96d9749975019b83397e383478fcc7cd7e61fb2f3b3a854512367e3ee8f9ab41
+      - name: Compile source and tests
+        run: |
+          python -m py_compile sovereign-omega-v2/python/core_matrix.py sovereign-omega-v2/python/pgcs.py sovereign-omega-v2/python/hardware_config.py sovereign-omega-v2/python/tests/test_v19_pgcs_resource_integrity.py
+      - name: Existing hardware config Q16 and hardware source tests
+        run: python sovereign-omega-v2/python/tests/test_hardware_config.py
+      - name: V19 dynamic PGCS ring and truthful audit tests
+        run: python -m unittest discover -s sovereign-omega-v2/python/tests -p 'test_v19_pgcs_resource_integrity.py' -v
+      - name: V15 exact adaptive memory layout tests
+        run: python -m unittest discover -s sovereign-omega-v2/python/tests -p 'test_adaptive_memory_v15.py' -v
+      - name: V18 actual mmap M1 2.3 and V14 noninterference tests
+        run: python -m unittest discover -s sovereign-omega-v2/python/tests -p 'test_v18_adaptive_holon.py' -v
+      - name: M123 actual module contracts
+        run: python -m unittest discover -s sovereign-omega-v2/python/tests -p 'test_m123_contracts_v2.py' -v
+      - name: Failsafe calibration and checkpoint lock contracts
+        run: |
+          python -m unittest discover -s sovereign-omega-v2/python/tests -p 'test_failsafe_reset_guard_v1.py' -v
+          python -m unittest discover -s sovereign-omega-v2/python/tests -p 'test_calibration_plan_integrity_v1.py' -v
+          python -m unittest discover -s sovereign-omega-v2/python/tests -p 'test_checkpoint_lock_integrity_v1.py' -v
+      - name: Legacy ledger, V14 exact information and V17 integration
+        run: |
+          python sovereign-omega-v2/python/tests/test_ledger_persist_v2.py
+          python -m unittest discover -s sovereign-omega-v2/python/tests -p 'test_transition_info.py' -v
+          python -m unittest discover -s sovereign-omega-v2/python/tests -p 'test_holon_v14_integration_v17.py' -v
