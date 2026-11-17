@@ -313,7 +313,10 @@ def _load_checkpoint_locked(matrix, path: str) -> dict:
                   '_total_verified', '_total_vcg_error_fixed',
                   '_last_gate_signal_sequence', '_last_gate_signal_accepted',
                   '_m3_active_length')
-        old_fields = {key: getattr(matrix, key) for key in fields}
+        # A chain-only checkpoint target may omit the ephemeral M3 field.
+        # Remember absence explicitly so rollback restores the exact shape.
+        absent = object()
+        old_fields = {key: getattr(matrix, key, absent) for key in fields}
         old_cal = vars(calibrator).copy() if prepared is not None else None
         old_failsafe = vars(failsafe).copy() if prepared_failsafe is not None else None
         try:
@@ -336,7 +339,11 @@ def _load_checkpoint_locked(matrix, path: str) -> dict:
             if head is not None:
                 matrix._m1_region[head:head + _M1_ENTRY_BYTES] = old_entry
             for key, value in old_fields.items():
-                setattr(matrix, key, value)
+                if value is absent:
+                    if hasattr(matrix, key):
+                        delattr(matrix, key)
+                else:
+                    setattr(matrix, key, value)
             if old_cal is not None:
                 vars(calibrator).clear()
                 vars(calibrator).update(old_cal)

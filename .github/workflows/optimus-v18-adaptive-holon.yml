@@ -43,11 +43,11 @@ jobs:
       - name: Verify exact V18 and original V15 donor Git blobs
         run: |
           set -euo pipefail
-          test "$(git hash-object sovereign-omega-v2/python/core_matrix.py)" = 'c7ac61798919b02c24c947ae5d97346d83447b3f'
-          test "$(git hash-object sovereign-omega-v2/python/adaptive_memory.py)" = 'eb188b65105ce9cd99c72dd17e78f13cc6dde85d'
+          test "$(git hash-object sovereign-omega-v2/python/core_matrix.py)" = 'dd5ad797b934238bad59ed41c3f9e7f26a751828'
+          test "$(git hash-object sovereign-omega-v2/python/adaptive_memory.py)" = '28e1d602f4c8efcd335b00635328b4d07d2bac52'
           test "$(git hash-object sovereign-omega-v2/python/tests/test_v18_adaptive_holon.py)" = 'fec06b5c65ccb3acbf5fa98b02f7ae644f196586'
           test "$(git hash-object sovereign-omega-v2/python/tests/test_holon_v14_integration_v17.py)" = '38f1699e526c1700837ae36c9f14c14e128fef18'
-          test "$(git hash-object sovereign-omega-v2/python/ledger_persist.py)" = '8667a1d96e80cd63cd0c95a7621e0749cb3af116'
+          test "$(git hash-object sovereign-omega-v2/python/ledger_persist.py)" = 'c18c81c2ec4cb28f2db99b5f87e4bf5aeac81826'
           test "$(git hash-object sovereign-omega-v2/python/m1_chain.py)" = 'dab08ab13d5500b557cca7eadd7b0ad7eae7c435'
       - name: Verify cognitive manifest ancestor and keep skills unchanged
         run: |
