@@ -43,7 +43,7 @@ jobs:
       - name: Verify exact V18 and original V15 donor Git blobs
         run: |
           set -euo pipefail
-          test "$(git hash-object sovereign-omega-v2/python/core_matrix.py)" = 'dd5ad797b934238bad59ed41c3f9e7f26a751828'
+          test "$(git hash-object sovereign-omega-v2/python/core_matrix.py)" = 'e5c912274d4af49e3a73bb3da245fd47bb2d9dc0'
           test "$(git hash-object sovereign-omega-v2/python/adaptive_memory.py)" = '28e1d602f4c8efcd335b00635328b4d07d2bac52'
           test "$(git hash-object sovereign-omega-v2/python/tests/test_v18_adaptive_holon.py)" = 'fec06b5c65ccb3acbf5fa98b02f7ae644f196586'
           test "$(git hash-object sovereign-omega-v2/python/tests/test_holon_v14_integration_v17.py)" = '38f1699e526c1700837ae36c9f14c14e128fef18'
