@@ -389,5 +389,20 @@ class PGCSResourceCoherenceV19(unittest.TestCase):
             controller.stop()
 
 
+    def test_rle_codec_roundtrip_all_bytes_and_boundary_runs(self):
+        # Reserved raw byte 0xFE must never decode as 0xFF.
+        cases = [bytes([value]) for value in range(256)]
+        cases += [
+            b"", bytes([0xFE, 0xFF]), bytes([0xFE, 0xFE]),
+            bytes([0xFF]) * 300, bytes([0xFE]) * 300,
+            bytes(range(256)) * 3,
+            bytes([0]) * 255 + bytes([0xFE]) + bytes([0]) * 255,
+            bytes([0xFE]) + bytes([0]) * 100,
+        ]
+        for data in cases:
+            with self.subTest(length=len(data), prefix=data[:4].hex()):
+                self.assertEqual(pgcs._rle_decode(pgcs._rle_encode(data)), data)
+
+
 if __name__ == "__main__":
     unittest.main()

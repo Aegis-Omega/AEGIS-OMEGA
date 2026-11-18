@@ -261,7 +261,7 @@ def quantise_decompress(data: bytes) -> bytes:
 
 
 def _rle_encode(data: bytes) -> bytes:
-    """Run-length encode bytes. Format: [0xFF, count, byte] for runs of 3+, else raw byte."""
+    """Use unambiguous [0xFF, count, byte] triplets for runs and reserved bytes."""
     if not data:
         return data
     out = bytearray()
@@ -271,11 +271,10 @@ def _rle_encode(data: bytes) -> bytes:
         run = 1
         while i + run < len(data) and data[i + run] == b and run < 255:
             run += 1
-        if run >= 3:
+        if run >= 3 or b in (0xFE, 0xFF):
             out.extend([0xFF, run, b])
         else:
-            for _ in range(run):
-                out.append(b if b != 0xFF else 0xFE)  # escape 0xFF as 0xFE in raw mode
+            out.extend([b] * run)
         i += run
     return bytes(out)
 
