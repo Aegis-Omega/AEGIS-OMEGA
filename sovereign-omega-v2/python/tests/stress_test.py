@@ -56,12 +56,12 @@ class StressTestResult:
             f"Events processed:   {self.events_processed:,}",
             f"",
             f"PGCS  (disk I/O=0): {'PASS' if self.pgcs_passes else 'FAIL'}",
-            f"TGCS  (σ²=0):       {'PASS' if self.tgcs_passes else 'FAIL'}",
+            f"TGCS  (σ²=0):       {'PASS' if self.tgcs_passes else 'UNVERIFIED'}",
             f"AFSE  (R²≥0.98):    {'PASS' if self.afse_passes else 'FAIL'} (R²={self.afse_r_squared:.4f})",
             f"Epoch Failsafe:     {'PASS' if self.epoch_failsafe_passes else 'FAIL'} (corruptions={self.corruption_count})",
             f"Gradient Anchor:    {'PASS' if self.gradient_anchor_passes else 'FAIL'} (D={self.final_drift_index:.6f})",
             f"",
-            f"OVERALL:            {'*** PASS ***' if self.overall_pass else '*** FAIL ***'}",
+            f"OVERALL:            {'*** PASS ***' if self.overall_pass else '*** HOLD / NOT ADMITTED ***'}",
         ]
         return "\n".join(lines)
 
@@ -88,6 +88,7 @@ def run_stress_test(duration_s: float, crash_loops: int) -> StressTestResult:
 
     print("Starting stress test... (Ctrl+C to abort)")
 
+    interrupted = False
     try:
         while time.monotonic() - start_time < duration_s:
             # Process a batch of events
@@ -129,34 +130,54 @@ def run_stress_test(duration_s: float, crash_loops: int) -> StressTestResult:
                 failsafe.reset_after_recovery()
 
     except KeyboardInterrupt:
+        interrupted = True
         print("\nAborted by user.")
 
-    matrix.stop()
-    elapsed = time.monotonic() - start_time
-
-    telemetry = matrix.emit_vcg_telemetry()
+    # Capture T0 telemetry *before* terminal PGCS stop. Any fault in
+    # observation must propagate and must never produce an admitted PASS.
+    # A deliberately interrupted run cannot satisfy the full protocol.
+    finally:
+        elapsed = time.monotonic() - start_time
+        try:
+            telemetry = matrix.emit_vcg_telemetry()
+        finally:
+            matrix.stop()
     drift_index = calibrator.compute_drift_index()
-    calibrator_passes = calibrator.passes_criterion(min(100_000, sequence // 100))
+    # A partial calibration trace cannot attest the 100,000-epoch target.
+    epochs_observed = sequence // 100
+    calibrator_passes = (epochs_observed >= 100_000 and
+                         calibrator.passes_criterion(100_000))
 
     # AFSE R² — actual computation from the AFSEController (not hardcoded)
     afse_r2 = afse_ctrl.get_r2()
 
+    # The 12-hour criterion is stricter than a quick smoke or one swap sample.
+    # TGCS run-to-run sigma^2 has no measured source in this harness:
+    # fail CLOSED rather than fabricating a passing value.
+    full_window = (not interrupted and
+                   duration_s >= STRESS_TEST_DURATION_H * 3600 and
+                   elapsed >= STRESS_TEST_DURATION_H * 3600)
+    pgcs_passes = (full_window and
+                   telemetry.get('pgcs_passes') is True)
+    tgcs_passes = False  # OPEN: independent run-to-run variance evidence
+    failsafe_passes = (not interrupted and
+                       crash_loops >= CRASH_LOOP_COUNT and
+                       failsafe.passes_t0_criterion())
+
     result = StressTestResult(
         duration_s=elapsed,
         events_processed=sequence,
-        pgcs_passes=telemetry.get('pgcs_passes', False),
-        tgcs_passes=True,  # TGCS: checked via PGCS stability
+        pgcs_passes=pgcs_passes,
+        tgcs_passes=tgcs_passes,
         afse_r_squared=afse_r2,
         afse_passes=afse_r2 >= 0.98,
-        epoch_failsafe_passes=failsafe.passes_t0_criterion(),
+        epoch_failsafe_passes=failsafe_passes,
         gradient_anchor_passes=calibrator_passes,
         corruption_count=failsafe.corruption_count,
         final_drift_index=drift_index,
         overall_pass=(
-            telemetry.get('pgcs_passes', False) and
-            failsafe.passes_t0_criterion() and
-            calibrator_passes and
-            afse_r2 >= 0.98
+            pgcs_passes and tgcs_passes and failsafe_passes and
+            calibrator_passes and afse_r2 >= 0.98
         ),
     )
 
