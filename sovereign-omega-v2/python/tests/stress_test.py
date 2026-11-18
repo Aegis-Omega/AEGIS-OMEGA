@@ -20,11 +20,12 @@ USAGE:
 
 import argparse
 import json
+import math
 import os
 import sys
 import time
 from dataclasses import dataclass
-from typing import List
+from typing import List, Optional
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 
@@ -33,6 +34,62 @@ from epoch_failsafe import EpochFailsafeController
 from gradient_anchor import GradientAnchorCalibrator, DEFAULT_ANCHOR_TOKENS
 from hardware_config import STRESS_TEST_DURATION_H, CRASH_LOOP_COUNT, detect_hardware
 from tgcs_afse import AFSEController
+
+
+# Observe cumulative PGCS swap evidence every 30 s, with up to 60 s
+# between successful observations. No assertion of continuous external
+# kernel tracing is made by this bounded sampling witness.
+PGCS_SAMPLE_INTERVAL_S = 30.0
+PGCS_MAX_SAMPLE_GAP_S = 60.0
+
+
+@dataclass
+class PGCSIntervalWitness:
+    """Monotonic, fail-closed sampled evidence across the requested window."""
+
+    sample_count: int = 0
+    first_elapsed_s: Optional[float] = None
+    last_elapsed_s: Optional[float] = None
+    max_gap_s: float = 0.0
+    first_rejection: Optional[str] = None
+
+    def _reject(self, code: str) -> None:
+        if self.first_rejection is None:
+            self.first_rejection = code
+
+    def observe(self, elapsed_s: float, telemetry: dict) -> None:
+        self.sample_count += 1
+        if (type(elapsed_s) not in (int, float) or
+                not math.isfinite(elapsed_s) or elapsed_s < 0):
+            self._reject("PGCS_INVALID_MONOTONIC_TIME")
+            return
+
+        if self.last_elapsed_s is not None:
+            if elapsed_s < self.last_elapsed_s:
+                self._reject("PGCS_CLOCK_REGRESSION")
+                return
+            gap = elapsed_s - self.last_elapsed_s
+            self.max_gap_s = max(self.max_gap_s, gap)
+            if gap > PGCS_MAX_SAMPLE_GAP_S:
+                self._reject("PGCS_SAMPLE_GAP")
+        else:
+            self.first_elapsed_s = elapsed_s
+
+        self.last_elapsed_s = elapsed_s
+        if not isinstance(telemetry, dict) or telemetry.get("pgcs_passes") is not True:
+            self._reject("PGCS_SAMPLE_UNVERIFIED")
+
+    def passes_window(self, requested_s: float, observed_s: float,
+                      interrupted: bool) -> bool:
+        required_s = STRESS_TEST_DURATION_H * 3600
+        return (
+            not interrupted and self.first_rejection is None and
+            requested_s >= required_s and observed_s >= required_s and
+            self.sample_count >= 2 and self.first_elapsed_s == 0.0 and
+            self.last_elapsed_s == observed_s and
+            self.max_gap_s <= PGCS_MAX_SAMPLE_GAP_S and
+            self.last_elapsed_s - self.first_elapsed_s >= required_s
+        )
 
 
 @dataclass
@@ -48,6 +105,9 @@ class StressTestResult:
     corruption_count: int
     final_drift_index: float
     overall_pass: bool
+    pgcs_sample_count: int = 0
+    pgcs_max_sample_gap_s: float = 0.0
+    pgcs_first_rejection: Optional[str] = None
 
     def report(self) -> str:
         lines = [
@@ -55,7 +115,9 @@ class StressTestResult:
             f"Duration:           {self.duration_s:.1f}s ({self.duration_s/3600:.2f}h)",
             f"Events processed:   {self.events_processed:,}",
             f"",
-            f"PGCS  (disk I/O=0): {'PASS' if self.pgcs_passes else 'FAIL'}",
+            f"PGCS (sampled 12h): {'PASS' if self.pgcs_passes else 'HOLD'}",
+            f"PGCS sample count:   {self.pgcs_sample_count} (max gap {self.pgcs_max_sample_gap_s:.1f}s)",
+            f"PGCS gap/fault:      {self.pgcs_first_rejection or 'none observed'}",
             f"TGCS  (σ²=0):       {'PASS' if self.tgcs_passes else 'UNVERIFIED'}",
             f"AFSE  (R²≥0.98):    {'PASS' if self.afse_passes else 'FAIL'} (R²={self.afse_r_squared:.4f})",
             f"Epoch Failsafe:     {'PASS' if self.epoch_failsafe_passes else 'FAIL'} (corruptions={self.corruption_count})",
@@ -85,12 +147,23 @@ def run_stress_test(duration_s: float, crash_loops: int) -> StressTestResult:
     matrix.start()
     start_time = time.monotonic()
     sequence = 0
+    pgcs_witness = PGCSIntervalWitness()
+    last_pgcs_sample_s = 0.0
 
     print("Starting stress test... (Ctrl+C to abort)")
 
     interrupted = False
     try:
-        while time.monotonic() - start_time < duration_s:
+        # A valid final sample cannot replace the first observation.
+        pgcs_witness.observe(0.0, matrix.emit_vcg_telemetry())
+        while True:
+            observed_s = time.monotonic() - start_time
+            if observed_s >= duration_s:
+                break
+            if observed_s - last_pgcs_sample_s >= PGCS_SAMPLE_INTERVAL_S:
+                pgcs_witness.observe(observed_s, matrix.emit_vcg_telemetry())
+                last_pgcs_sample_s = observed_s
+
             # Process a batch of events
             for _ in range(100):
                 payload = f"event_{sequence}".encode()
@@ -140,6 +213,7 @@ def run_stress_test(duration_s: float, crash_loops: int) -> StressTestResult:
         elapsed = time.monotonic() - start_time
         try:
             telemetry = matrix.emit_vcg_telemetry()
+            pgcs_witness.observe(elapsed, telemetry)
         finally:
             matrix.stop()
     drift_index = calibrator.compute_drift_index()
@@ -158,7 +232,7 @@ def run_stress_test(duration_s: float, crash_loops: int) -> StressTestResult:
                    duration_s >= STRESS_TEST_DURATION_H * 3600 and
                    elapsed >= STRESS_TEST_DURATION_H * 3600)
     pgcs_passes = (full_window and
-                   telemetry.get('pgcs_passes') is True)
+                   pgcs_witness.passes_window(duration_s, elapsed, interrupted))
     tgcs_passes = False  # OPEN: independent run-to-run variance evidence
     failsafe_passes = (not interrupted and
                        crash_loops >= CRASH_LOOP_COUNT and
@@ -179,6 +253,9 @@ def run_stress_test(duration_s: float, crash_loops: int) -> StressTestResult:
             pgcs_passes and tgcs_passes and failsafe_passes and
             calibrator_passes and afse_r2 >= 0.98
         ),
+        pgcs_sample_count=pgcs_witness.sample_count,
+        pgcs_max_sample_gap_s=pgcs_witness.max_gap_s,
+        pgcs_first_rejection=pgcs_witness.first_rejection,
     )
 
     return result

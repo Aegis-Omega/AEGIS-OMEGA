@@ -67,7 +67,10 @@ class StressAdmissionV20(unittest.TestCase):
                               side_effect=[100.0, 100.0 + duration + 1,
                                            100.0 + duration + 1]):
                 outcome = stress_test.run_stress_test(duration, 1000)
-        self.assertTrue(outcome.pgcs_passes)
+        # One observation at the beginning and one 12h later cannot meet
+        # the V21 periodic interval coverage requirement.
+        self.assertFalse(outcome.pgcs_passes)
+        self.assertEqual(outcome.pgcs_first_rejection, "PGCS_SAMPLE_GAP")
         self.assertFalse(outcome.tgcs_passes)
         self.assertFalse(outcome.overall_pass)
         self.assertIn("UNVERIFIED", outcome.report())
