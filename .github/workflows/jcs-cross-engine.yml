@@ -8,6 +8,8 @@ on:
       - 'sovereign-omega-v2/packages/kernel/**'
       - 'sovereign-omega-v2/test/determinism/rfc8785-utf16-order.test.ts'
       - 'sovereign-omega-v2/test/determinism/wasm-kernel.test.ts'
+      - 'sovereign-omega-v2/test/determinism/frame-hash-wasm.test.ts'
+      - 'sovereign-omega-v2/test/determinism/replay-equivalence.test.ts'
       - 'sovereign-omega-v2/test/determinism/jcs-historical-compat.test.ts'
       - 'sovereign-omega-v2/python/tests/test_canon_equivalence.py'
       - '.github/workflows/jcs-cross-engine.yml'
@@ -61,7 +63,7 @@ jobs:
       - name: Run Unicode regression and real WASM parity
         run: |
           test -s target/wasm32-unknown-unknown/release/kernel.wasm
-          npx vitest run test/unit/jcs.test.ts test/determinism/rfc8785-utf16-order.test.ts test/determinism/wasm-kernel.test.ts test/determinism/jcs-historical-compat.test.ts --reporter=verbose
+          npx vitest run test/unit/jcs.test.ts test/determinism/rfc8785-utf16-order.test.ts test/determinism/wasm-kernel.test.ts test/determinism/jcs-historical-compat.test.ts test/determinism/frame-hash-wasm.test.ts test/determinism/replay-equivalence.test.ts --reporter=verbose
 
       - name: Verify historical Python JCS-1 receipts (no migration)
         run: python3 python/tests/test_canon_equivalence.py
