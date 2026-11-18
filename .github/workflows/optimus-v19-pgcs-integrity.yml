@@ -43,9 +43,9 @@ jobs:
         run: |
           set -euo pipefail
           test "$(git hash-object sovereign-omega-v2/python/hardware_config.py)" = '5e27f71a13940752f940764acf03b96c0ef80637'
-          test "$(git hash-object sovereign-omega-v2/python/pgcs.py)" = 'a31beab4efd5e9847dd9b5091dd2621fb7f04815'
+          test "$(git hash-object sovereign-omega-v2/python/pgcs.py)" = '2c1e30564252378f4f2ba82dcc90a08a49d8130b'
           test "$(git hash-object sovereign-omega-v2/python/tests/test_hardware_config.py)" = '513c4c18f405d138f9aa7a023277fa97bdf271f6'
-          test "$(git hash-object sovereign-omega-v2/python/tests/test_v19_pgcs_resource_integrity.py)" = '83b6be5918f2844b4b6d722836eca0d93283648f'
+          test "$(git hash-object sovereign-omega-v2/python/tests/test_v19_pgcs_resource_integrity.py)" = '827275df2a579b5b08d1642fc3f8e483ca8b7fe8'
           test "$(git hash-object sovereign-omega-v2/python/core_matrix.py)" = 'dd5ad797b934238bad59ed41c3f9e7f26a751828'
           test "$(git hash-object sovereign-omega-v2/python/adaptive_memory.py)" = '28e1d602f4c8efcd335b00635328b4d07d2bac52'
           test "$(git hash-object sovereign-omega-v2/python/ledger_persist.py)" = 'c18c81c2ec4cb28f2db99b5f87e4bf5aeac81826'

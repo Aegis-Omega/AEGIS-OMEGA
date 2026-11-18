@@ -7,6 +7,7 @@ import gc
 import sys
 import unittest
 from pathlib import Path
+from types import SimpleNamespace
 from unittest.mock import Mock, patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
@@ -90,6 +91,90 @@ class PGCSResourceCoherenceV19(unittest.TestCase):
     def test_unknown_gpu_is_not_fabricated(self):
         with patch.object(hw.os, "popen", return_value=Mock(read=Mock(return_value="{}"))):
             self.assertEqual(hw._detect_vram_userspace(), 0)
+
+
+    def test_swap_sample_has_byte_units_not_pages(self):
+        # psutil swap counters already represent bytes.
+        probe = pgcs.PGCSController.__new__(pgcs.PGCSController)
+        sample = SimpleNamespace(sin=8193, sout=12345)
+        with patch.object(pgcs.psutil, "swap_memory", return_value=sample):
+            self.assertEqual(probe._read_disk_io(), (8193, 12345))
+
+    def test_swap_sample_failure_cannot_fabricate_no_disk_io(self):
+        probe = pgcs.PGCSController.__new__(pgcs.PGCSController)
+        with patch.object(pgcs.psutil, "swap_memory",
+                          side_effect=OSError("swap counters not readable")):
+            with self.assertRaisesRegex(pgcs.PGCSDiskIOUnavailable,
+                                        "PGCS_SWAP_COUNTER_UNAVAILABLE"):
+                probe._read_disk_io()
+
+    def test_invalid_swap_values_cannot_masquerade_as_zero(self):
+        probe = pgcs.PGCSController.__new__(pgcs.PGCSController)
+        samples = [(None, 0), (-1, 0), (1.0, 0), (False, 0),
+                   (0, True), (0, -7), (2, "1")]
+        for sin, sout in samples:
+            with self.subTest(sin=sin, sout=sout):
+                with patch.object(pgcs.psutil, "swap_memory",
+                                  return_value=SimpleNamespace(sin=sin, sout=sout)):
+                    with self.assertRaisesRegex(pgcs.PGCSDiskIOUnavailable,
+                                                "PGCS_SWAP_COUNTER_INVALID"):
+                        probe._read_disk_io()
+
+    def test_missing_baseline_denies_controller_before_ring_allocation(self):
+        with patch.object(pgcs.PGCSController, "_read_disk_io",
+                          side_effect=pgcs.PGCSDiskIOUnavailable("baseline unavailable")):
+            with patch.object(pgcs, "CompressionRingBuffer") as ring:
+                with self.assertRaises(pgcs.PGCSDiskIOUnavailable):
+                    pgcs.PGCSController()
+                ring.assert_not_called()
+
+    def test_swap_counter_regression_is_not_clamped_to_zero(self):
+        with patch.object(pgcs, "_observed_ring_capacity", return_value=128):
+            with patch.object(pgcs.PGCSController, "_read_disk_io", return_value=(100, 80)):
+                controller = pgcs.PGCSController()
+        try:
+            with patch.object(pgcs.PGCSController, "_read_disk_io", return_value=(99, 80)):
+                with self.assertRaisesRegex(pgcs.PGCSDiskIOUnavailable,
+                                            "PGCS_SWAP_COUNTER_REGRESSION"):
+                    controller.snapshot(1)
+        finally:
+            controller.stop()
+
+    def test_verified_zero_delta_only_from_equal_valid_counter_samples(self):
+        with patch.object(pgcs, "_observed_ring_capacity", return_value=128):
+            with patch.object(pgcs.PGCSController, "_read_disk_io", return_value=(100, 80)):
+                controller = pgcs.PGCSController()
+        try:
+            ram = SimpleNamespace(used=20, total=100, percent=20.0)
+            with patch.object(pgcs.psutil, "virtual_memory", return_value=ram):
+                with patch.object(pgcs.PGCSController, "_read_disk_io",
+                                  return_value=(100, 80)):
+                    sample = controller.snapshot(2)
+                    self.assertEqual((sample.disk_swap_bytes_in,
+                                      sample.disk_swap_bytes_out), (0, 0))
+                    self.assertTrue(sample.passes_criterion)
+                with patch.object(pgcs.PGCSController, "_read_disk_io",
+                                  return_value=(100, 82)):
+                    increased = controller.snapshot(3)
+                    self.assertEqual((increased.disk_swap_bytes_in,
+                                      increased.disk_swap_bytes_out), (0, 2))
+                    self.assertFalse(increased.passes_criterion)
+        finally:
+            controller.stop()
+
+    def test_snapshot_sample_failure_propagates_without_pass(self):
+        with patch.object(pgcs, "_observed_ring_capacity", return_value=128):
+            with patch.object(pgcs.PGCSController, "_read_disk_io", return_value=(200, 150)):
+                controller = pgcs.PGCSController()
+        try:
+            ram = SimpleNamespace(used=20, total=100, percent=20.0)
+            with patch.object(pgcs.psutil, "virtual_memory", return_value=ram):
+                with patch.object(pgcs.PGCSController, "_read_disk_io",
+                                  side_effect=pgcs.PGCSDiskIOUnavailable("telemetry unavailable")):
+                    with self.assertRaises(pgcs.PGCSDiskIOUnavailable):
+                        controller.snapshot(4)
+        finally:
+            controller.stop()
 
 
 if __name__ == "__main__":

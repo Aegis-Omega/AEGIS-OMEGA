@@ -23,7 +23,6 @@ import array
 import ctypes
 import mmap
 import os
-import resource
 import threading
 import time
 from dataclasses import dataclass, field
@@ -41,6 +40,10 @@ from hardware_config import (
     PGCS_DISK_IO_TARGET,
     to_fixed, from_fixed, fixed_mul, fixed_clamp, INT_SCALE,
 )
+
+
+class PGCSDiskIOUnavailable(RuntimeError):
+    """A swap measurement is missing or cannot prove monotonic byte counters."""
 
 
 # ── Telemetry ────────────────────────────────────────────────────────────────
@@ -298,6 +301,9 @@ class PGCSController:
         on_compress: Optional[Callable[[bytes], bytes]] = None,
         event_callback: Optional[Callable[[str, dict], None]] = None,
     ):
+        # Observe before allocating mmap: a missing baseline cannot look
+        # like zero swap activity and must not leave an unowned ring mapping.
+        self._baseline_disk_io = self._read_disk_io()
         self._ring = CompressionRingBuffer()
         self._compress_fn = on_compress or quantise_compress
         self._event_cb = event_callback
@@ -306,7 +312,6 @@ class PGCSController:
         self._compressions = 0
         self._bytes_compressed = 0
         self._ring_marker_rejections = 0
-        self._baseline_disk_io = self._read_disk_io()
 
     def start(self):
         """Start the background PGCS monitoring thread."""
@@ -328,9 +333,14 @@ class PGCSController:
         """
         mem = psutil.virtual_memory()
         current_disk_io = self._read_disk_io()
+        # Cumulative counters are monotone during one process lifetime.
+        # A reset/invalid sample is UNKNOWN, never a zero-swap PASS.
+        if (current_disk_io[0] < self._baseline_disk_io[0] or
+                current_disk_io[1] < self._baseline_disk_io[1]):
+            raise PGCSDiskIOUnavailable('PGCS_SWAP_COUNTER_REGRESSION')
         delta_io = (
-            max(0, current_disk_io[0] - self._baseline_disk_io[0]),
-            max(0, current_disk_io[1] - self._baseline_disk_io[1]),
+            current_disk_io[0] - self._baseline_disk_io[0],
+            current_disk_io[1] - self._baseline_disk_io[1],
         )
         return PGCSTelemetry(
             timestamp_ms=sequence_number,  # sequence used as temporal proxy
@@ -403,15 +413,17 @@ class PGCSController:
         return collected
 
     def _read_disk_io(self) -> tuple:
-        """Read memory swap counters as bytes (page-ins/page-outs to disk).
-        psutil.swap_memory().sin/sout return cumulative page counts since boot
-        on Linux. Multiplied by resource.getpagesize() to convert to bytes.
-        The passes_criterion check (== 0) is unit-agnostic; byte units ensure
-        correct display in telemetry and comparisons across platforms.
+        """Measure cumulative swap I/O in bytes without fabricating zero.
+
+        psutil already reports sin/sout in bytes; never multiply by the
+        memory page size. Missing or invalid measurements fail closed.
         """
         try:
             swap = psutil.swap_memory()
-            page_size = resource.getpagesize()
-            return (swap.sin * page_size, swap.sout * page_size)
-        except Exception:
-            return (0, 0)
+            sin, sout = swap.sin, swap.sout
+        except Exception as exc:
+            raise PGCSDiskIOUnavailable('PGCS_SWAP_COUNTER_UNAVAILABLE') from exc
+        if (type(sin) is not int or type(sout) is not int or
+                sin < 0 or sout < 0):
+            raise PGCSDiskIOUnavailable('PGCS_SWAP_COUNTER_INVALID')
+        return sin, sout
