@@ -1,0 +1,89 @@
+name: OPTIMUS V21 PGCS Interval Witness Preflight
+
+on:
+  push:
+    branches:
+      - integration/optimus-v21-pgcs-interval-witness-20261118
+    paths:
+      - '.github/workflows/optimus-v21-pgcs-interval-witness.yml'
+      - '.claude.json'
+      - 'sovereign-omega-v2/python/**'
+  pull_request:
+    branches:
+      - integration/optimus-v20-stress-admission-20261118
+    paths:
+      - '.github/workflows/optimus-v21-pgcs-interval-witness.yml'
+      - '.claude.json'
+      - 'sovereign-omega-v2/python/**'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  exact-source-sampled-interval:
+    name: V21 sampled PGCS coverage and V20+V19 regressions
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    env:
+      PYTHONDONTWRITEBYTECODE: '1'
+      AEGIS_TRANSITION_OBSERVER: '0'
+    steps:
+      - name: Checkout exact candidate without persisted credentials
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - name: Python 3.11
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: '3.11'
+      - name: Install existing psutil dependency
+        run: python -m pip install psutil
+      - name: Check exact source and test Git blobs
+        run: |
+          set -euo pipefail
+          test "$(git hash-object sovereign-omega-v2/python/hardware_config.py)" = '5e27f71a13940752f940764acf03b96c0ef80637'
+          test "$(git hash-object sovereign-omega-v2/python/pgcs.py)" = '1d35791262e89bd75a49487c61e47deb1b8ff966'
+          test "$(git hash-object sovereign-omega-v2/python/tests/test_hardware_config.py)" = '513c4c18f405d138f9aa7a023277fa97bdf271f6'
+          test "$(git hash-object sovereign-omega-v2/python/tests/test_v19_pgcs_resource_integrity.py)" = '9629eee192fcef37d394fa778b614ffee1c9729d'
+          test "$(git hash-object sovereign-omega-v2/python/core_matrix.py)" = 'dd5ad797b934238bad59ed41c3f9e7f26a751828'
+          test "$(git hash-object sovereign-omega-v2/python/adaptive_memory.py)" = '28e1d602f4c8efcd335b00635328b4d07d2bac52'
+          test "$(git hash-object sovereign-omega-v2/python/ledger_persist.py)" = 'c18c81c2ec4cb28f2db99b5f87e4bf5aeac81826'
+          test "$(git hash-object sovereign-omega-v2/python/m1_chain.py)" = 'dab08ab13d5500b557cca7eadd7b0ad7eae7c435'
+          test "$(git hash-object sovereign-omega-v2/python/tests/stress_test.py)" = '07c4c4fc4d5446e92883ab7032d386438ba0e883'
+          test "$(git hash-object sovereign-omega-v2/python/tests/test_stress_admission_v20.py)" = '77e1f27e534373212c61baddf0291edede7260e1'
+          test "$(git hash-object sovereign-omega-v2/python/tests/test_pgcs_interval_witness_v21.py)" = '5cb404ef71a3124f7af2fc9d261cec01b95e0cc3'
+      - name: Pin V18 headroom and M123 test fixtures
+        run: |
+          test "$(git hash-object sovereign-omega-v2/python/tests/test_m123_contracts_v2.py)" = '8ad4c164954ed5a7de49bb46ce9e12d6308944ca'
+          test "$(git hash-object sovereign-omega-v2/python/tests/test_v18_adaptive_holon.py)" = '735914bb8a83b96ad63ad055bf52f59ebe7f39e1'
+      - name: Verify cognitive manifest ancestry with no skill edits
+        run: |
+          python scripts/build-cognitive-manifest.py --check --ref integration/optimus-v21-pgcs-interval-witness-20261118 --parent-state-hash 61b93f617ca1c9e2e6d0b20de55e58a2ebe96b137c3d3e6e145559990dd4ed51
+      - name: Compile source and tests
+        run: |
+          python -m py_compile sovereign-omega-v2/python/core_matrix.py sovereign-omega-v2/python/pgcs.py sovereign-omega-v2/python/hardware_config.py sovereign-omega-v2/python/tests/test_v19_pgcs_resource_integrity.py sovereign-omega-v2/python/tests/stress_test.py sovereign-omega-v2/python/tests/test_stress_admission_v20.py sovereign-omega-v2/python/tests/test_pgcs_interval_witness_v21.py
+      - name: Existing hardware config Q16 and hardware source tests
+        run: python sovereign-omega-v2/python/tests/test_hardware_config.py
+      - name: V19 dynamic PGCS ring and truthful audit tests
+        run: python -m unittest discover -s sovereign-omega-v2/python/tests -p 'test_v19_pgcs_resource_integrity.py' -v
+      - name: V15 exact adaptive memory layout tests
+        run: python -m unittest discover -s sovereign-omega-v2/python/tests -p 'test_adaptive_memory_v15.py' -v
+      - name: V18 actual mmap M1 2.3 and V14 noninterference tests
+        run: python -m unittest discover -s sovereign-omega-v2/python/tests -p 'test_v18_adaptive_holon.py' -v
+      - name: M123 actual module contracts
+        run: python -m unittest discover -s sovereign-omega-v2/python/tests -p 'test_m123_contracts_v2.py' -v
+      - name: Failsafe calibration and checkpoint lock contracts
+        run: |
+          python -m unittest discover -s sovereign-omega-v2/python/tests -p 'test_failsafe_reset_guard_v1.py' -v
+          python -m unittest discover -s sovereign-omega-v2/python/tests -p 'test_calibration_plan_integrity_v1.py' -v
+          python -m unittest discover -s sovereign-omega-v2/python/tests -p 'test_checkpoint_lock_integrity_v1.py' -v
+      - name: Legacy ledger, V14 exact information and V17 integration
+        run: |
+          python sovereign-omega-v2/python/tests/test_ledger_persist_v2.py
+          python -m unittest discover -s sovereign-omega-v2/python/tests -p 'test_transition_info.py' -v
+          python -m unittest discover -s sovereign-omega-v2/python/tests -p 'test_holon_v14_integration_v17.py' -v
+      - name: V20 stress admission rejects unmeasured and abbreviated claims
+        run: python -m unittest discover -s sovereign-omega-v2/python/tests -p 'test_stress_admission_v20.py' -v
+      - name: V21 exact-window PGCS coverage and no false admission
+        run: python -m unittest discover -s sovereign-omega-v2/python/tests -p 'test_pgcs_interval_witness_v21.py' -v
