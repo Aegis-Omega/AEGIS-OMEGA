@@ -271,6 +271,8 @@ class CoreMatrix:
                     getattr(self, '_stopped', False) or
                     getattr(self, '_views_released', False)):
                 raise RuntimeError('CORE_MATRIX_CLOSED')
+            if self._layout.total > effective_available_bytes() // 2:
+                raise MemoryBudgetError('CORE_MATRIX_HEADROOM_LOST')
             failsafe_state = self._failsafe.state
             if failsafe_state in (EpochState.QUARANTINE, EpochState.FROZEN, EpochState.RECOVERING):
                 return {'status': failsafe_state.value.upper(), 'sequence': self._sequence}

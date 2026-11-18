@@ -146,5 +146,20 @@ class AdaptiveHolonV18(unittest.TestCase):
         self.assertEqual(bytes(matrix._m1_region[:40]), prior)
 
 
+    def test_headroom_loss_fails_closed_without_mutation(self):
+        matrix, _ = self.make()
+        before = (matrix._sequence, matrix._total_processed,
+                  bytes(matrix._m1_region[:40]),
+                  bytes(matrix._m2_region[:8]))
+        with patch.object(core_matrix, "effective_available_bytes",
+                          return_value=2 * matrix._layout.total - 1):
+            with self.assertRaisesRegex(core_matrix.MemoryBudgetError,
+                                        "CORE_MATRIX_HEADROOM_LOST"):
+                matrix.process_event(b"should-not-commit", b"\x01", b"context")
+        self.assertEqual((matrix._sequence, matrix._total_processed,
+                          bytes(matrix._m1_region[:40]),
+                          bytes(matrix._m2_region[:8])), before)
+
+
 if __name__ == "__main__":
     unittest.main()

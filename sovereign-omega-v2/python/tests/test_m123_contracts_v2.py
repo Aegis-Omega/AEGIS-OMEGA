@@ -45,6 +45,10 @@ def matrix_fixture(slots=3):
     m._m1_region = memoryview(bytearray(slots * 40))
     m._m2_region = memoryview(bytearray(128))
     m._m3_region = memoryview(bytearray(128))
+    # Simulated M123 byte fixture: derive an explicit layout from actual
+    # allocated views. Runtime memory enforcement remains unchanged.
+    m._layout = SimpleNamespace(total=sum(len(view) for view in (
+        m._m1_region, m._m2_region, m._m3_region)))
     m._m1_era_capacity = slots
     m._total_processed = 0
     m._total_verified = 0

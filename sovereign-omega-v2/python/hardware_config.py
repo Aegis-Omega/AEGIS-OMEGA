@@ -2,9 +2,9 @@
 SOVEREIGN OMEGA — Hardware Configuration Layer
 EPISTEMIC TIER: T0 (mechanically enforced constants)
 
-All hardware constants for AMD RX 570 / 8GB RAM deployment.
-This file is the single source of truth for all resource bounds.
-No dynamic allocation. No privileged calls. User-space only.
+Resource limits are detected from the running host and container, not a
+historical GPU or RAM specification. Runtime arena layout lives in
+adaptive_memory.py. No privileged calls; user-space only.
 """
 
 import os
@@ -12,16 +12,35 @@ import platform
 from dataclasses import dataclass
 from typing import Optional
 
+from adaptive_memory import (
+    host_memory_bytes, effective_available_bytes, MemoryBudgetError,
+    PAGE_ALIGNMENT, MIN_ARENA_BYTES, DEFAULT_BUDGET_DIVISOR,
+)
+
+
+def _observed_ram_total() -> int:
+    try:
+        return host_memory_bytes()[0]
+    except MemoryBudgetError:
+        return 0  # UNKNOWN; never invent a hardware capacity
+
+
+def _observed_ring_capacity() -> int:
+    try:
+        return max(PAGE_ALIGNMENT, effective_available_bytes() // 128)
+    except MemoryBudgetError:
+        return PAGE_ALIGNMENT  # structural minimum, not a machine profile
+
 
 # ── Physical Constraints ────────────────────────────────────────────────────
-RAM_TOTAL_BYTES        = 8 * 1024 ** 3         # 8 GB hard ceiling
-VRAM_TOTAL_BYTES       = 8 * 1024 ** 3         # RX 570 8GB variant
+RAM_TOTAL_BYTES        = _observed_ram_total()  # discovered RAM; 0 = unknown
+VRAM_TOTAL_BYTES       = 0  # no assumed GPU; real VRAM is detected on demand
 PGCS_TRIGGER_FRACTION  = 0.92                   # compress at 92% RAM usage
 PGCS_TARGET_FRACTION   = 0.75                   # compress down to 75%
 PGCS_MAX_COMPRESSION   = 50                     # 50x max via integer quantisation
-PGCS_RING_BUFFER_BYTES = 512 * 1024 * 1024      # 512MB ring buffer
+PGCS_RING_BUFFER_BYTES = _observed_ring_capacity()  # cgroup-aware ring
 
-# ── Thermal Constraints (AMD RX 570) ────────────────────────────────────────
+# ── Thermal Policy Defaults (not a GPU hardware profile) ────────────────────────────────────────
 THERMAL_THROTTLE_C     = 80                     # throttle threshold °C
 THERMAL_EMERGENCY_C    = 90                     # emergency cycle-stretch °C
 THERMAL_SAMPLE_INTERVAL_S = 0.5                 # polling interval
@@ -80,10 +99,16 @@ def detect_hardware() -> HardwareProfile:
     # Thermal path for AMD GPUs (user-space sysfs read)
     thermal_path = _find_amd_thermal_path()
 
-    # Target hardware check
+    # Legacy boolean field: usable for the minimum adaptive arena, regardless
+    # of GPU presence or a particular manufacturer. The actual arena budget
+    # is checked independently when the CoreMatrix module loads.
+    try:
+        available = effective_available_bytes()
+    except MemoryBudgetError:
+        available = 0
     is_target = (
-        ram_bytes <= RAM_TOTAL_BYTES * 1.1 and  # within 10% of 8GB
-        vram_bytes <= VRAM_TOTAL_BYTES * 1.1
+        cpu_cores >= 1 and ram_bytes > 0 and
+        available >= MIN_ARENA_BYTES * DEFAULT_BUDGET_DIVISOR
     )
 
     return HardwareProfile(
@@ -108,7 +133,7 @@ def _detect_vram_userspace() -> int:
                     return int(card["VRAM Total Memory (B)"])
     except Exception:
         pass
-    return VRAM_TOTAL_BYTES  # assume target spec if detection fails
+    return 0  # GPU/VRAM unknown: no fabricated device
 
 
 def _find_amd_thermal_path() -> Optional[str]:

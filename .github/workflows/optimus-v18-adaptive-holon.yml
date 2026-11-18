@@ -43,9 +43,9 @@ jobs:
       - name: Verify exact V18 and original V15 donor Git blobs
         run: |
           set -euo pipefail
-          test "$(git hash-object sovereign-omega-v2/python/core_matrix.py)" = 'e5c912274d4af49e3a73bb3da245fd47bb2d9dc0'
+          test "$(git hash-object sovereign-omega-v2/python/core_matrix.py)" = 'dd5ad797b934238bad59ed41c3f9e7f26a751828'
           test "$(git hash-object sovereign-omega-v2/python/adaptive_memory.py)" = '28e1d602f4c8efcd335b00635328b4d07d2bac52'
-          test "$(git hash-object sovereign-omega-v2/python/tests/test_v18_adaptive_holon.py)" = 'fec06b5c65ccb3acbf5fa98b02f7ae644f196586'
+          test "$(git hash-object sovereign-omega-v2/python/tests/test_v18_adaptive_holon.py)" = '735914bb8a83b96ad63ad055bf52f59ebe7f39e1'
           test "$(git hash-object sovereign-omega-v2/python/tests/test_holon_v14_integration_v17.py)" = '38f1699e526c1700837ae36c9f14c14e128fef18'
           test "$(git hash-object sovereign-omega-v2/python/ledger_persist.py)" = 'c18c81c2ec4cb28f2db99b5f87e4bf5aeac81826'
           test "$(git hash-object sovereign-omega-v2/python/m1_chain.py)" = 'dab08ab13d5500b557cca7eadd7b0ad7eae7c435'
@@ -54,6 +54,8 @@ jobs:
           python scripts/build-cognitive-manifest.py --check --ref integration/optimus-v18-adaptive-holon-20261117 --parent-state-hash 7da4a08bc415e25b268158b238385ac576eb43a40a80523ca014800021ab09a1
       - name: Compile exact modules before import
         run: python -m py_compile sovereign-omega-v2/python/core_matrix.py sovereign-omega-v2/python/adaptive_memory.py sovereign-omega-v2/python/ledger_persist.py
+      - name: Verify M123 fixture declares actual test layout
+        run: test "$(git hash-object sovereign-omega-v2/python/tests/test_m123_contracts_v2.py)" = '8ad4c164954ed5a7de49bb46ce9e12d6308944ca'
       - name: Existing M1 M2 M3 source-bound contracts
         run: python -m unittest discover -s sovereign-omega-v2/python/tests -p 'test_m123_contracts_v2.py' -v
       - name: Existing calibration and recovery regressions

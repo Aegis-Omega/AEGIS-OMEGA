@@ -13,7 +13,7 @@ DEPENDENCY CHAIN: PGCS must pass before TGCS telemetry is meaningful.
 TGCS must pass before AFSE analysis is valid.
 
 ARCHITECTURE: append-only, in-memory neural compression ring buffer
-with lock-free atomic-style operations (single-producer, single-consumer).
+with lock-serialized append-only records and no silent overwrite.
 Compression triggers at PGCS_TRIGGER_FRACTION (0.92) of total RAM.
 Target after compression: PGCS_TARGET_FRACTION (0.75) of total RAM.
 Maximum compression ratio: 50x via integer quantisation.
@@ -23,7 +23,6 @@ import array
 import ctypes
 import mmap
 import os
-import resource
 import threading
 import time
 from dataclasses import dataclass, field
@@ -37,9 +36,18 @@ from hardware_config import (
     PGCS_TARGET_FRACTION,
     PGCS_MAX_COMPRESSION,
     PGCS_RING_BUFFER_BYTES,
+    _observed_ring_capacity,
     PGCS_DISK_IO_TARGET,
     to_fixed, from_fixed, fixed_mul, fixed_clamp, INT_SCALE,
 )
+
+
+class PGCSDiskIOUnavailable(RuntimeError):
+    """A swap measurement is missing or cannot prove monotonic byte counters."""
+
+
+class PGCSMonitorUnavailable(RuntimeError):
+    """The PGCS monitor has stopped, failed, or terminated unexpectedly."""
 
 
 # ── Telemetry ────────────────────────────────────────────────────────────────
@@ -66,12 +74,18 @@ class PGCSTelemetry:
 # ── Ring Buffer ──────────────────────────────────────────────────────────────
 class CompressionRingBuffer:
     """
-    Append-only in-memory compression ring buffer.
-    Lock-free for single-producer, single-consumer.
-    Uses mmap for user-space allocation — no kernel memory management.
+    Bounded append-only compression record store (not a recycling ring).
+    Uses an explicit lock for each write, and refuses a full buffer rather
+    than silently overwriting previously recorded entries.
+    mmap-backed user-space storage; capacity selected when constructed.
     """
 
-    def __init__(self, capacity_bytes: int = PGCS_RING_BUFFER_BYTES):
+    def __init__(self, capacity_bytes: int | None = None):
+        # Do not capture host/cgroup budget in a function default at import.
+        if capacity_bytes is None:
+            capacity_bytes = _observed_ring_capacity()
+        if type(capacity_bytes) is not int or capacity_bytes < 8:
+            raise ValueError('PGCS_RING_CAPACITY_INVALID')
         self._capacity = capacity_bytes
         # mmap-backed allocation: user-space, portable, no kernel dependencies
         self._buf = mmap.mmap(-1, capacity_bytes, mmap.MAP_PRIVATE | mmap.MAP_ANONYMOUS
@@ -82,6 +96,7 @@ class CompressionRingBuffer:
         self._total_written = 0
         self._total_compressed_bytes = 0
         self._lock = threading.Lock()
+        self._closed = False
 
     def write_segment(self, data: bytes, compressed: bytes) -> bool:
         """
@@ -89,14 +104,18 @@ class CompressionRingBuffer:
         Returns False if the buffer is full.
         """
         header_size = 8  # 4 bytes original size + 4 bytes compressed size
+        if type(data) is not bytes or type(compressed) is not bytes:
+            raise TypeError('PGCS_RING_RECORD_MUST_BE_BYTES')
+        if len(data) >= (1 << 32) or len(compressed) >= (1 << 32):
+            return False  # u32 wire size cannot encode the record
         total_entry_size = header_size + len(compressed)
 
         with self._lock:
-            if self._write_pos + total_entry_size > self._capacity:
-                self._write_pos = 0  # wrap around
-
+            if self._closed:
+                raise RuntimeError('PGCS_RING_CLOSED')
+            # Never clobber earlier entries while pretending append-only.
             if total_entry_size > self._capacity - self._write_pos:
-                return False  # insufficient space after wrap
+                return False
 
             # Write header: original_size (4B) + compressed_size (4B)
             self._buf.seek(self._write_pos)
@@ -122,7 +141,12 @@ class CompressionRingBuffer:
         return self._total_written / self._total_compressed_bytes
 
     def close(self):
-        self._buf.close()
+        # Serialize close with writers; double close must be harmless.
+        with self._lock:
+            if self._closed:
+                return
+            self._buf.close()
+            self._closed = True
 
 
 # ── Integer Quantisation Compression ────────────────────────────────────────
@@ -237,7 +261,7 @@ def quantise_decompress(data: bytes) -> bytes:
 
 
 def _rle_encode(data: bytes) -> bytes:
-    """Run-length encode bytes. Format: [0xFF, count, byte] for runs of 3+, else raw byte."""
+    """Use unambiguous [0xFF, count, byte] triplets for runs and reserved bytes."""
     if not data:
         return data
     out = bytearray()
@@ -247,11 +271,10 @@ def _rle_encode(data: bytes) -> bytes:
         run = 1
         while i + run < len(data) and data[i + run] == b and run < 255:
             run += 1
-        if run >= 3:
+        if run >= 3 or b in (0xFE, 0xFF):
             out.extend([0xFF, run, b])
         else:
-            for _ in range(run):
-                out.append(b if b != 0xFF else 0xFE)  # escape 0xFF as 0xFE in raw mode
+            out.extend([b] * run)
         i += run
     return bytes(out)
 
@@ -289,40 +312,102 @@ class PGCSController:
         on_compress: Optional[Callable[[bytes], bytes]] = None,
         event_callback: Optional[Callable[[str, dict], None]] = None,
     ):
+        # Observe before allocating mmap: a missing baseline cannot look
+        # like zero swap activity and must not leave an unowned ring mapping.
+        self._baseline_disk_io = self._read_disk_io()
         self._ring = CompressionRingBuffer()
         self._compress_fn = on_compress or quantise_compress
         self._event_cb = event_callback
         self._running = False
         self._thread: Optional[threading.Thread] = None
+        self._lifecycle_lock = threading.RLock()
+        self._stopping = False
+        self._stopped = False
+        self._monitor_started = False
+        self._monitor_fault: Optional[str] = None
         self._compressions = 0
         self._bytes_compressed = 0
-        self._baseline_disk_io = self._read_disk_io()
+        self._ring_marker_rejections = 0
 
     def start(self):
-        """Start the background PGCS monitoring thread."""
-        self._running = True
-        self._thread = threading.Thread(target=self._monitor_loop, daemon=True)
-        self._thread.start()
+        """Start the PGCS monitor once; closed controllers cannot restart."""
+        with self._lifecycle_lock:
+            if self._stopped or self._stopping:
+                raise RuntimeError('PGCS_MONITOR_CLOSED')
+            if self._running:
+                return
+            thread = threading.Thread(target=self._monitor_loop, daemon=True)
+            self._running = True
+            self._thread = thread
+            try:
+                thread.start()
+                self._monitor_started = True
+            except BaseException:
+                self._running = False
+                self._thread = None
+                self._stopping = True
+                raise
 
     def stop(self):
-        """Stop the PGCS monitoring thread."""
-        self._running = False
-        if self._thread:
-            self._thread.join(timeout=2.0)
-        self._ring.close()
+        """Terminate the monitor before releasing mmap; retry on timeout.
+
+        No ring release occurs while a monitor thread might still write.
+        A self-join cannot provide a safe close and is rejected explicitly.
+        """
+        with self._lifecycle_lock:
+            if self._stopped:
+                return
+            self._stopping = True
+            self._running = False
+            thread = self._thread
+        if thread is not None:
+            if thread is threading.current_thread():
+                raise RuntimeError('PGCS_MONITOR_SELF_JOIN')
+            thread.join(timeout=2.0)
+            if thread.is_alive():
+                raise RuntimeError('PGCS_MONITOR_STOP_TIMEOUT')
+        with self._lifecycle_lock:
+            if self._stopped:
+                return
+            self._ring.close()
+            self._stopped = True
+            self._thread = None
+
+    def _require_monitor_health(self) -> None:
+        """Never claim healthy T0 monitoring after failure or termination.
+
+        Pre-start snapshots retain the previous passive telemetry contract.
+        Only a started monitor is required to remain alive. A second check
+        after sampling prevents a failure during observation from passing.
+        """
+        with self._lifecycle_lock:
+            if self._monitor_fault is not None:
+                raise PGCSMonitorUnavailable('PGCS_MONITOR_FAILED')
+            if self._stopping or self._stopped:
+                raise PGCSMonitorUnavailable('PGCS_MONITOR_STOPPED')
+            if self._monitor_started and (
+                    not self._running or self._thread is None or
+                    not self._thread.is_alive()):
+                raise PGCSMonitorUnavailable('PGCS_MONITOR_NOT_RUNNING')
 
     def snapshot(self, sequence_number: int) -> PGCSTelemetry:
         """
-        Take an immutable telemetry snapshot.
+        Take a T0 telemetry snapshot without falsifying monitor health.
         sequence_number MUST come from the event substrate, never time.time().
         """
+        self._require_monitor_health()
         mem = psutil.virtual_memory()
         current_disk_io = self._read_disk_io()
+        # Cumulative counters are monotone during one process lifetime.
+        # A reset/invalid sample is UNKNOWN, never a zero-swap PASS.
+        if (current_disk_io[0] < self._baseline_disk_io[0] or
+                current_disk_io[1] < self._baseline_disk_io[1]):
+            raise PGCSDiskIOUnavailable('PGCS_SWAP_COUNTER_REGRESSION')
         delta_io = (
-            max(0, current_disk_io[0] - self._baseline_disk_io[0]),
-            max(0, current_disk_io[1] - self._baseline_disk_io[1]),
+            current_disk_io[0] - self._baseline_disk_io[0],
+            current_disk_io[1] - self._baseline_disk_io[1],
         )
-        return PGCSTelemetry(
+        telemetry = PGCSTelemetry(
             timestamp_ms=sequence_number,  # sequence used as temporal proxy
             ram_used_bytes=mem.used,
             ram_total_bytes=mem.total,
@@ -334,20 +419,30 @@ class PGCSController:
             disk_swap_bytes_out=delta_io[1],
             ring_buffer_utilisation=self._ring.utilisation,
         )
+        self._require_monitor_health()
+        return telemetry
 
     def _monitor_loop(self):
-        while self._running:
-            mem = psutil.virtual_memory()
-            usage = mem.percent / 100.0
+        try:
+            while self._running:
+                mem = psutil.virtual_memory()
+                usage = mem.percent / 100.0
 
-            if usage >= PGCS_TRIGGER_FRACTION:
-                self._trigger_compression()
-                if self._event_cb:
-                    self._event_cb('PGCS_TRIGGERED', {
-                        'usage_fraction': usage,
-                        'compressions': self._compressions,
-                    })
-            time.sleep(0.1)
+                if usage >= PGCS_TRIGGER_FRACTION:
+                    self._trigger_compression()
+                    if self._event_cb:
+                        self._event_cb('PGCS_TRIGGERED', {
+                            'usage_fraction': usage,
+                            'compressions': self._compressions,
+                        })
+                time.sleep(0.1)
+        except Exception as exc:
+            # Never let a failed monitor look like a healthy zero-swap
+            # observation; retain only the error class, not sensitive data.
+            with self._lifecycle_lock:
+                self._monitor_fault = type(exc).__name__
+                self._running = False
+                self._stopping = True
 
     def _trigger_compression(self) -> int:
         """
@@ -373,27 +468,37 @@ class PGCSController:
         except OSError:
             pass  # non-Linux or libc unavailable — GC alone still helps
 
-        # Write a typed marker to the ring buffer for audit continuity.
+        # Store a typed marker, without making a false audit-continuity claim.
+        # A full buffer is explicitly counted and reported, not overwritten.
         # Format: 0xC0 (compression-event) | compressions_so_far (4B LE) | objects_freed (4B LE)
         n = max(0, collected)
         marker = b'\xc0' + self._compressions.to_bytes(4, 'little') + n.to_bytes(4, 'little')
         compressed_marker = self._compress_fn(marker)
-        self._ring.write(compressed_marker)
-        self._bytes_compressed += len(marker)
+        stored = self._ring.write_segment(marker, compressed_marker)
+        if stored:
+            self._bytes_compressed += len(marker)
+        else:
+            self._ring_marker_rejections += 1
+            if self._event_cb:
+                self._event_cb('PGCS_RING_MARKER_REJECTED', {
+                    'rejections': self._ring_marker_rejections,
+                })
 
         self._compressions += 1
         return collected
 
     def _read_disk_io(self) -> tuple:
-        """Read memory swap counters as bytes (page-ins/page-outs to disk).
-        psutil.swap_memory().sin/sout return cumulative page counts since boot
-        on Linux. Multiplied by resource.getpagesize() to convert to bytes.
-        The passes_criterion check (== 0) is unit-agnostic; byte units ensure
-        correct display in telemetry and comparisons across platforms.
+        """Measure cumulative swap I/O in bytes without fabricating zero.
+
+        psutil already reports sin/sout in bytes; never multiply by the
+        memory page size. Missing or invalid measurements fail closed.
         """
         try:
             swap = psutil.swap_memory()
-            page_size = resource.getpagesize()
-            return (swap.sin * page_size, swap.sout * page_size)
-        except Exception:
-            return (0, 0)
+            sin, sout = swap.sin, swap.sout
+        except Exception as exc:
+            raise PGCSDiskIOUnavailable('PGCS_SWAP_COUNTER_UNAVAILABLE') from exc
+        if (type(sin) is not int or type(sout) is not int or
+                sin < 0 or sout < 0):
+            raise PGCSDiskIOUnavailable('PGCS_SWAP_COUNTER_INVALID')
+        return sin, sout
