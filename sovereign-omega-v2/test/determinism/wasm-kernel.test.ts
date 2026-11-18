@@ -314,3 +314,146 @@ describe.skipIf(!WASM_READY)('WASM Kernel Parity — Gate 16', () => {
   })
 
 })
+
+
+// Requires an actual compiled kernel.wasm; skipped tests do not certify parity.
+describe.skipIf(!WASM_READY)('WASM Unicode canonicalization parity', () => {
+  const cases: unknown[] = [
+    { '\uE000': 1, '😀': 2 },
+    { '😀': '漢字', 'é': '🧪' },
+    { outer: [{ '\uE000': '漢', '😀': '字' }], role: 'café' },
+  ]
+  for (const [index, value] of cases.entries()) {
+    it('Unicode case ' + index + ' is byte-identical to TypeScript 3 times', async () => {
+      const k = await ensureKernel()
+      const input = new TextEncoder().encode(JSON.stringify(value))
+      const expected = new TextEncoder().encode(canonicalizeJCSString(value))
+      const inPtr = k.get_input_ptr()
+      const outPtr = k.get_output_ptr()
+      for (let run = 0; run < 3; run++) {
+        writeToWasm(k, input, inPtr)
+        const len = k.canonicalize(inPtr, input.length, outPtr)
+        expect(Array.from(readFromWasm(k, outPtr, len)))
+          .toEqual(Array.from(expected))
+      }
+    })
+  }
+})
+
+
+// RFC 8785 ES2020 Number::toString parity across Rust/WASM and TypeScript.
+// The workflow must compile kernel.wasm; a skipped suite is never a PASS.
+describe.skipIf(!WASM_READY)('WASM numeric JCS parity', () => {
+  const rawCases = [
+    '1e21', '-1e21', '1e20', '1e22', '1e-6', '1e-7', '1.25e-7',
+    '1.7976931348623157e308', '2.2250738585072014e-308',
+    '5e-324', '1e308', '1e-308', '9007199254740991',
+    '9007199254740992', '333333333.33333329',
+    '0.000001', '0.0000001', '-0', '1.2345678901234567',
+    '0.000001234', '0.0000001234', '1234567890123456789',
+    '-1e-8', '1.25e-6', '4.50e21', '1.0000000000000002',
+  ]
+  it('matches TypeScript for 26 exact numeric lexemes, 3 repetitions', async () => {
+    const k = await ensureKernel()
+    const inPtr = k.get_input_ptr()
+    const outPtr = k.get_output_ptr()
+    for (const raw of rawCases) {
+      const input = new TextEncoder().encode(raw)
+      const expected = new TextEncoder().encode(canonicalizeJCSString(JSON.parse(raw)))
+      for (let run = 0; run < 3; run++) {
+        writeToWasm(k, input, inPtr)
+        const count = k.canonicalize(inPtr, input.length, outPtr)
+        expect(Array.from(readFromWasm(k, outPtr, count)))
+          .toEqual(Array.from(expected))
+      }
+    }
+  })
+
+  it('matches TypeScript on 512 seeded finite numbers across exponent ranges', async () => {
+    const k = await ensureKernel()
+    const inPtr = k.get_input_ptr()
+    const outPtr = k.get_output_ptr()
+    const exponents = [-308, -300, -100, -7, -6, -5, -2, -1,
+      0, 1, 5, 10, 20, 21, 22, 100, 300, 308]
+    let seed = 0x12345678
+    function next(): number {
+      seed ^= seed << 13
+      seed ^= seed >>> 17
+      seed ^= seed << 5
+      return seed >>> 0
+    }
+    let tested = 0
+    for (let i = 0; i < 512; i++) {
+      const expo = exponents[i % exponents.length]!
+      const sign = i % 2 === 0 ? 1 : -1
+      // Keep the mantissa below 1.5 so exponent 308 stays finite.
+      const fraction = 1 + (next() % 1000000) / 2000000
+      const value = sign * fraction * 10 ** expo
+      if (!Number.isFinite(value) || value === 0) continue
+      const raw = JSON.stringify({ value })
+      const expected = new TextEncoder().encode(canonicalizeJCSString({ value }))
+      const input = new TextEncoder().encode(raw)
+      writeToWasm(k, input, inPtr)
+      const length = k.canonicalize(inPtr, input.length, outPtr)
+      expect(Array.from(readFromWasm(k, outPtr, length)))
+        .toEqual(Array.from(expected))
+      tested++
+    }
+    expect(tested).toBe(512)
+  })
+})
+
+
+// Invalid bytes must not be accepted as a hashable canonical JSON value.
+// These are direct invalid-input probes; no JS JSON.parse prefilter.
+describe.skipIf(!WASM_READY)('WASM fail-closed JSON parsing', () => {
+  const rejected = [
+    '', ' ', 'true false', 'nulx', '01', '-01', '1e+',
+    '1e400', '[1,]', '{"a":1,}', '{"a":1,"a":2}',
+    '{"a":1,"\\u0061":2}', '{"a" 1}', '{"a":}',
+    '{"a":0}stuff', '"\\uD800"', '"\\uDE00"', '"\\uD800\\u0041"',
+    '"\\q"', '"\\uG000"', '[', '{', '"unterminated',
+    '"unescaped\nnewline"',
+  ]
+  it('rejects malformed JSON, unpaired surrogates and duplicate keys', async () => {
+    const k = await ensureKernel()
+    const inPtr = k.get_input_ptr()
+    const outPtr = k.get_output_ptr()
+    for (const value of rejected) {
+      const input = new TextEncoder().encode(value)
+      writeToWasm(k, input, inPtr)
+      expect(k.canonicalize(inPtr, input.length, outPtr)).toBe(-1)
+    }
+    const invalidUtf8 = Uint8Array.from([34, 195, 40, 34])
+    writeToWasm(k, invalidUtf8, inPtr)
+    expect(k.canonicalize(inPtr, invalidUtf8.length, outPtr)).toBe(-1)
+  })
+})
+
+
+describe.skipIf(!WASM_READY)('WASM JCS input/output buffer limits', () => {
+  it('rejects a negative input length without accessing memory', async () => {
+    const k = await ensureKernel()
+    expect(k.canonicalize(k.get_input_ptr(), -1, k.get_output_ptr())).toBe(-1)
+  })
+
+  it('rejects input larger than the fixed 32 KiB input buffer', async () => {
+    const k = await ensureKernel()
+    expect(k.canonicalize(k.get_input_ptr(), 32769, k.get_output_ptr())).toBe(-1)
+  })
+
+  it('rejects canonical output larger than the fixed 32 KiB output buffer', async () => {
+    const k = await ensureKernel()
+    const input = new TextEncoder().encode(
+      '[' + Array(2000).fill('1e20').join(',') + ']',
+    )
+    expect(input.length).toBeLessThan(32768)
+    const expectedSize = new TextEncoder().encode(
+      canonicalizeJCSString(Array(2000).fill(1e20)),
+    ).length
+    expect(expectedSize).toBeGreaterThan(32768)
+    const ptr = k.get_input_ptr()
+    writeToWasm(k, input, ptr)
+    expect(k.canonicalize(ptr, input.length, k.get_output_ptr())).toBe(-1)
+  })
+})

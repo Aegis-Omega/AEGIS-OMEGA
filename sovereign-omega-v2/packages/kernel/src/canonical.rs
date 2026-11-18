@@ -2,21 +2,251 @@
 // AEGIS Ω — RFC 8785 JSON Canonicalization
 // EPISTEMIC TIER: T0
 // Byte-identical port of canonicalizeJCS from src/core/canonicalize.ts.
-// Parses JSON bytes, sorts object keys by Unicode code point order,
+// Parses JSON bytes, sorts object keys by UTF-16 code unit order,
 // and re-serializes with minimal whitespace and canonical escaping.
 // ============================================================
 
-/// Canonicalize UTF-8 JSON bytes per RFC 8785.
-/// Returns canonical UTF-8 bytes with keys sorted lexicographically.
-pub fn canonicalize_json(input: &[u8]) -> Vec<u8> {
-    let s = match core::str::from_utf8(input) {
-        Ok(s) => s,
-        Err(_) => return input.to_vec(), // pass-through on invalid UTF-8
-    };
-    let mut parser = Parser::new(s.trim());
+/// Canonicalize valid I-JSON bytes; reject malformed JSON before hash creation.
+///
+/// The untrusted input is checked for complete JSON syntax, UTF-8 validity,
+/// unpaired surrogates, duplicate object keys, and non-finite numbers.
+/// A fallible return is mandatory: invalid bytes must never be hashed as if
+/// they were a canonical JSON representation.
+pub fn canonicalize_json(input: &[u8]) -> Result<Vec<u8>, &'static str> {
+    core::str::from_utf8(input).map_err(|_| "INVALID_UTF8")?;
+    let mut syntax = JsonSyntax { bytes: input, pos: 0 };
+    syntax.ws();
+    syntax.value(0)?;
+    syntax.ws();
+    if syntax.pos != input.len() {
+        return Err("JSON_TRAILING_DATA");
+    }
+    let mut parser = Parser::new(core::str::from_utf8(input).expect("validated"));
     let mut out = Vec::new();
     parser.parse_value(&mut out);
-    out
+    Ok(out)
+}
+
+/// A bounded, independent JSON syntax guard. The serializer below is
+/// deliberately retained to preserve the existing valid-input contract.
+struct JsonSyntax<'a> {
+    bytes: &'a [u8],
+    pos: usize,
+}
+
+impl<'a> JsonSyntax<'a> {
+    fn peek(&self) -> Option<u8> {
+        self.bytes.get(self.pos).copied()
+    }
+
+    fn ws(&mut self) {
+        while matches!(self.peek(), Some(b' ' | b'\t' | b'\n' | b'\r')) {
+            self.pos += 1;
+        }
+    }
+
+    fn expect(&mut self, b: u8) -> Result<(), &'static str> {
+        if self.peek() != Some(b) {
+            return Err("JSON_SYNTAX");
+        }
+        self.pos += 1;
+        Ok(())
+    }
+
+    fn hex4(&mut self) -> Result<u16, &'static str> {
+        let mut n: u16 = 0;
+        for _ in 0..4 {
+            let b = self.peek().ok_or("JSON_INVALID_ESCAPE")?;
+            let d = match b {
+                b'0'..=b'9' => b - b'0',
+                b'a'..=b'f' => b - b'a' + 10,
+                b'A'..=b'F' => b - b'A' + 10,
+                _ => return Err("JSON_INVALID_ESCAPE"),
+            };
+            n = n * 16 + d as u16;
+            self.pos += 1;
+        }
+        Ok(n)
+    }
+
+    fn string(&mut self) -> Result<String, &'static str> {
+        self.expect(b'"')?;
+        let mut result = String::new();
+        loop {
+            match self.peek() {
+                None => return Err("JSON_UNTERMINATED_STRING"),
+                Some(b'"') => {
+                    self.pos += 1;
+                    return Ok(result);
+                }
+                Some(b'\\') => {
+                    self.pos += 1;
+                    let ch = self.peek().ok_or("JSON_INVALID_ESCAPE")?;
+                    self.pos += 1;
+                    match ch {
+                        b'"' => result.push('"'),
+                        b'\\' => result.push('\\'),
+                        b'/' => result.push('/'),
+                        b'b' => result.push('\u{0008}'),
+                        b'f' => result.push('\u{000c}'),
+                        b'n' => result.push('\n'),
+                        b'r' => result.push('\r'),
+                        b't' => result.push('\t'),
+                        b'u' => {
+                            let hi = self.hex4()?;
+                            if (0xD800..=0xDBFF).contains(&hi) {
+                                self.expect(b'\\')?;
+                                self.expect(b'u')?;
+                                let lo = self.hex4()?;
+                                if !(0xDC00..=0xDFFF).contains(&lo) {
+                                    return Err("JSON_UNPAIRED_SURROGATE");
+                                }
+                                let cp = 0x10000 + (((hi as u32) - 0xD800) << 10)
+                                    + ((lo as u32) - 0xDC00);
+                                result.push(char::from_u32(cp).ok_or("JSON_INVALID_SCALAR")?);
+                            } else if (0xDC00..=0xDFFF).contains(&hi) {
+                                return Err("JSON_UNPAIRED_SURROGATE");
+                            } else {
+                                result.push(char::from_u32(hi as u32).ok_or("JSON_INVALID_SCALAR")?);
+                            }
+                        }
+                        _ => return Err("JSON_INVALID_ESCAPE"),
+                    }
+                }
+                Some(b) if b < 0x20 => return Err("JSON_CONTROL_IN_STRING"),
+                Some(b) if b.is_ascii() => {
+                    result.push(b as char);
+                    self.pos += 1;
+                }
+                Some(_) => {
+                    let rest = core::str::from_utf8(&self.bytes[self.pos..])
+                        .map_err(|_| "INVALID_UTF8")?;
+                    let ch = rest.chars().next().ok_or("INVALID_UTF8")?;
+                    result.push(ch);
+                    self.pos += ch.len_utf8();
+                }
+            }
+        }
+    }
+
+    fn digits(&mut self) -> usize {
+        let start = self.pos;
+        while matches!(self.peek(), Some(b'0'..=b'9')) {
+            self.pos += 1;
+        }
+        self.pos - start
+    }
+
+    fn number(&mut self) -> Result<(), &'static str> {
+        let start = self.pos;
+        if self.peek() == Some(b'-') {
+            self.pos += 1;
+        }
+        match self.peek() {
+            Some(b'0') => self.pos += 1,
+            Some(b'1'..=b'9') => {
+                self.pos += 1;
+                self.digits();
+            }
+            _ => return Err("JSON_INVALID_NUMBER"),
+        }
+        if self.peek() == Some(b'.') {
+            self.pos += 1;
+            if self.digits() == 0 {
+                return Err("JSON_INVALID_NUMBER");
+            }
+        }
+        if matches!(self.peek(), Some(b'e' | b'E')) {
+            self.pos += 1;
+            if matches!(self.peek(), Some(b'+' | b'-')) {
+                self.pos += 1;
+            }
+            if self.digits() == 0 {
+                return Err("JSON_INVALID_NUMBER");
+            }
+        }
+        let lexeme = core::str::from_utf8(&self.bytes[start..self.pos])
+            .map_err(|_| "INVALID_UTF8")?;
+        let n = lexeme.parse::<f64>().map_err(|_| "JSON_INVALID_NUMBER")?;
+        if !n.is_finite() {
+            return Err("JSON_NONFINITE_NUMBER");
+        }
+        Ok(())
+    }
+
+    fn literal(&mut self, s: &[u8]) -> Result<(), &'static str> {
+        if !self.bytes[self.pos..].starts_with(s) {
+            return Err("JSON_INVALID_LITERAL");
+        }
+        self.pos += s.len();
+        Ok(())
+    }
+
+    fn value(&mut self, depth: usize) -> Result<(), &'static str> {
+        if depth > 128 {
+            return Err("JSON_NESTING_LIMIT");
+        }
+        self.ws();
+        match self.peek() {
+            Some(b'"') => {
+                self.string()?;
+            }
+            Some(b'{') => {
+                self.pos += 1;
+                self.ws();
+                let mut keys = std::collections::BTreeSet::new();
+                if self.peek() == Some(b'}') {
+                    self.pos += 1;
+                    return Ok(());
+                }
+                loop {
+                    self.ws();
+                    let key = self.string()?;
+                    if !keys.insert(key) {
+                        return Err("JSON_DUPLICATE_KEY");
+                    }
+                    self.ws();
+                    self.expect(b':')?;
+                    self.value(depth + 1)?;
+                    self.ws();
+                    match self.peek() {
+                        Some(b',') => self.pos += 1,
+                        Some(b'}') => {
+                            self.pos += 1;
+                            break;
+                        }
+                        _ => return Err("JSON_OBJECT_SEPARATOR"),
+                    }
+                }
+            }
+            Some(b'[') => {
+                self.pos += 1;
+                self.ws();
+                if self.peek() == Some(b']') {
+                    self.pos += 1;
+                    return Ok(());
+                }
+                loop {
+                    self.value(depth + 1)?;
+                    self.ws();
+                    match self.peek() {
+                        Some(b',') => self.pos += 1,
+                        Some(b']') => {
+                            self.pos += 1;
+                            break;
+                        }
+                        _ => return Err("JSON_ARRAY_SEPARATOR"),
+                    }
+                }
+            }
+            Some(b't') => self.literal(b"true")?,
+            Some(b'f') => self.literal(b"false")?,
+            Some(b'n') => self.literal(b"null")?,
+            Some(b'-' | b'0'..=b'9') => self.number()?,
+            _ => return Err("JSON_SYNTAX"),
+        }
+        Ok(())
+    }
 }
 
 struct Parser<'a> {
@@ -98,7 +328,16 @@ impl<'a> Parser<'a> {
                     }
                     _ => {}
                 },
-                Some(b) => result.push(b as char),
+                Some(b) if b.is_ascii() => result.push(b as char),
+                Some(_) => {
+                    // Input was validated as UTF-8 before parsing.
+                    let start = self.pos - 1;
+                    let rest = core::str::from_utf8(&self.input[start..])
+                        .expect("source UTF-8 validated");
+                    let ch = rest.chars().next().expect("nonempty UTF-8 scalar");
+                    result.push(ch);
+                    self.pos += ch.len_utf8() - 1;
+                },
                 None => break,
             }
         }
@@ -188,22 +427,8 @@ impl<'a> Parser<'a> {
         // consume '}'
         if self.peek() == Some(b'}') { self.pos += 1; }
 
-        // Sort keys by Unicode code point sequence (RFC 8785)
-        pairs.sort_by(|a, b| {
-            let mut ai = a.0.chars();
-            let mut bi = b.0.chars();
-            loop {
-                match (ai.next(), bi.next()) {
-                    (None, None) => return core::cmp::Ordering::Equal,
-                    (None, _)   => return core::cmp::Ordering::Less,
-                    (_, None)   => return core::cmp::Ordering::Greater,
-                    (Some(ac), Some(bc)) => {
-                        let ord = (ac as u32).cmp(&(bc as u32));
-                        if ord != core::cmp::Ordering::Equal { return ord; }
-                    }
-                }
-            }
-        });
+        // RFC 8785 sec. 3.2.3 requires UTF-16 code-unit order.
+        pairs.sort_by(|a, b| a.0.encode_utf16().cmp(b.0.encode_utf16()));
 
         out.push(b'{');
         for (i, (key, val)) in pairs.iter().enumerate() {
@@ -270,25 +495,207 @@ impl<'a> Parser<'a> {
 /// Special case: -0.0 → "0" (RFC 8785).
 fn format_number_js(v: f64) -> String {
     if v == 0.0 {
-        return "0".to_string(); // handles both 0.0 and -0.0
+        return "0".to_string(); // both +0.0 and -0.0
     }
-    // For integer values representable without loss, use integer format
-    if v.fract() == 0.0 && v.abs() < 1.0e15 {
-        return format!("{}", v as i64);
-    }
-    // For general floats: Rust's default f64 Display uses the Grisu3/Dragon4
-    // shortest-round-trip algorithm — matches JavaScript for common values.
-    let s = format!("{}", v);
-    // Normalize exponent notation to match JavaScript (e.g. "1e20" not "1E20")
-    if let Some(e_pos) = s.find('e') {
-        let mantissa = &s[..e_pos];
-        let exp_str = &s[e_pos + 1..];
-        let exp: i32 = exp_str.parse().unwrap_or(0);
-        if exp >= 0 {
-            return format!("{}e+{}", mantissa, exp);
+
+    // Rust Display provides shortest round-tripping decimal digits for f64
+    // but not ECMAScript's fixed/scientific formatting thresholds.
+    // RFC 8785 requires the shortest digits in ES2020 Number::toString layout.
+    let raw = v.abs().to_string();
+    let (mantissa, exponent) = match raw.find(|ch: char| ch == 'e' || ch == 'E') {
+        Some(i) => (&raw[..i], raw[i + 1..].parse::<i32>().expect("decimal exponent")),
+        None => (raw.as_str(), 0),
+    };
+
+    let mut digits = String::new();
+    let mut decimal_point = None;
+    for ch in mantissa.chars() {
+        if ch == '.' {
+            decimal_point = Some(digits.len() as i32);
         } else {
-            return format!("{}e{}", mantissa, exp);
+            debug_assert!(ch.is_ascii_digit(), "f64 Display emits decimal digits");
+            digits.push(ch);
         }
     }
-    s
+    let mut n = decimal_point.unwrap_or(digits.len() as i32) + exponent;
+
+    // Normalize "0.00001230" to digits="123" and n=-4.
+    let leading_zeros = digits.bytes().take_while(|b| *b == b'0').count();
+    digits.drain(..leading_zeros);
+    n -= leading_zeros as i32;
+    while digits.ends_with('0') {
+        digits.pop();
+    }
+    if digits.is_empty() {
+        return "0".to_string();
+    }
+
+    let k = digits.len() as i32;
+    let formatted = if k <= n && n <= 21 {
+        format!("{}{}", digits, "0".repeat((n - k) as usize))
+    } else if 0 < n && n <= 21 {
+        format!("{}.{}", &digits[..n as usize], &digits[n as usize..])
+    } else if -6 < n && n <= 0 {
+        format!("0.{}{}", "0".repeat((-n) as usize), digits)
+    } else {
+        let mantissa = if k == 1 {
+            digits
+        } else {
+            format!("{}.{}", &digits[..1], &digits[1..])
+        };
+        let e = n - 1;
+        if e >= 0 {
+            format!("{}e+{}", mantissa, e)
+        } else {
+            format!("{}e{}", mantissa, e)
+        }
+    };
+    if v.is_sign_negative() {
+        format!("-{}", formatted)
+    } else {
+        formatted
+    }
+}
+
+#[cfg(test)]
+mod rfc8785_unicode_regressions {
+    use super::canonicalize_json;
+
+    fn canonical(s: &str) -> String {
+        String::from_utf8(canonicalize_json(s.as_bytes()).expect("valid JSON")).unwrap()
+    }
+
+    #[test]
+    fn non_bmp_key_precedes_bmp_private_use() {
+        let input = r#"{"\uE000":1,"😀":2}"#;
+        let expected = format!("{{\"😀\":2,\"{}\":1}}", '\u{E000}');
+        assert_eq!(canonical(input), expected);
+    }
+
+    #[test]
+    fn raw_utf8_multibyte_keys_and_values() {
+        assert_eq!(
+            canonical(r#"{"😀":"漢字","é":"🧪"}"#),
+            r#"{"é":"🧪","😀":"漢字"}"#
+        );
+    }
+
+    #[test]
+    fn escaped_surrogate_pair_order() {
+        let input = r#"{"\uE000":1,"\uD83D\uDE00":2}"#;
+        let expected = format!("{{\"😀\":2,\"{}\":1}}", '\u{E000}');
+        assert_eq!(canonical(input), expected);
+    }
+
+    #[test]
+    fn nested_objects_preserve_unicode_values() {
+        let input = r#"{"outer":[{"\uE000":"漢","😀":"字"}],"a":1}"#;
+        let expected = format!(
+            "{{\"a\":1,\"outer\":[{{\"😀\":\"字\",\"{}\":\"漢\"}}]}}",
+            '\u{E000}'
+        );
+        assert_eq!(canonical(input), expected);
+    }
+}
+
+#[cfg(test)]
+mod rfc8785_numeric_regressions {
+    use super::canonicalize_json;
+
+    fn canonical(s: &str) -> String {
+        String::from_utf8(canonicalize_json(s.as_bytes()).expect("valid JSON")).unwrap()
+    }
+
+    #[test]
+    fn es2020_scientific_notation_thresholds() {
+        assert_eq!(canonical("1e21"), "1e+21");
+        assert_eq!(canonical("1e-7"), "1e-7");
+        assert_eq!(canonical("1e-6"), "0.000001");
+        assert_eq!(canonical("1e20"), "100000000000000000000");
+    }
+
+    #[test]
+    fn javascript_negative_zero_and_signed_exponents() {
+        assert_eq!(canonical("-0"), "0");
+        assert_eq!(canonical("-1e21"), "-1e+21");
+        assert_eq!(canonical("1.25e-7"), "1.25e-7");
+    }
+    #[test]
+    fn extra_jcs_numeric_vectors() {
+        let vectors = [
+            ("1e21", "1e+21"),
+            ("-1e21", "-1e+21"),
+            ("1e20", "100000000000000000000"),
+            ("1e22", "1e+22"),
+            ("1e-6", "0.000001"),
+            ("1e-7", "1e-7"),
+            ("1.25e-7", "1.25e-7"),
+            ("1.7976931348623157e308", "1.7976931348623157e+308"),
+            ("2.2250738585072014e-308", "2.2250738585072014e-308"),
+            ("5e-324", "5e-324"),
+            ("1e308", "1e+308"),
+            ("1e-308", "1e-308"),
+            ("9007199254740991", "9007199254740991"),
+            ("9007199254740992", "9007199254740992"),
+            ("333333333.33333329", "333333333.3333333"),
+            ("0.000001", "0.000001"),
+            ("0.0000001", "1e-7"),
+            ("-0", "0"),
+            ("1.2345678901234567", "1.2345678901234567"),
+            ("0.000001234", "0.000001234"),
+            ("0.0000001234", "1.234e-7"),
+            ("1234567890123456789", "1234567890123456800"),
+            ("-1e-8", "-1e-8"),
+            ("1.25e-6", "0.00000125"),
+            ("4.50e21", "4.5e+21"),
+            ("1.0000000000000002", "1.0000000000000002"),
+        ];
+        for (raw, expected) in vectors {
+            assert_eq!(canonical(raw), expected, "input {raw}");
+        }
+    }
+
+}
+
+
+#[cfg(test)]
+mod invalid_json_regressions {
+    use super::canonicalize_json;
+
+    #[test]
+    fn rejects_invalid_json_syntax_and_ambiguous_keys() {
+        let invalid = [
+            "", " ", "true false", "nulx", "01", "-01", "1e+",
+            "1e400", "[1,]", r#"{"a":1,}"#,
+            r#"{"a":1,"a":2}"#, r#"{"a":1,"\u0061":2}"#,
+            r#"{"a" 1}"#, r#"{"a":}"#, r#"{"a":0}stuff"#,
+            r#""\uD800""#, r#""\uDE00""#,
+            r#""\uD800\u0041""#, r#""\q""#, r#""\uG000""#,
+            "[", "{", r#""unterminated"#,
+            r#""unescaped
+newline""#,
+        ];
+        for input in invalid {
+            assert!(canonicalize_json(input.as_bytes()).is_err(), "accepted {input:?}");
+        }
+        assert!(canonicalize_json(&[b'"', 0xc3, 0x28, b'"']).is_err());
+    }
+
+    #[test]
+    fn accepts_nested_and_escaped_valid_json() {
+        let valid = [
+            "null", "true", "-0", "1e21", "[]", "{}",
+            r#"{"escaped":"\uD83D\uDE00","array":[0,false,"a\nb"]}"#,
+            r#"{"é":1,"😀":2}"#, r#"{"a":1,"b":2}"#,
+        ];
+        for input in valid {
+            assert!(canonicalize_json(input.as_bytes()).is_ok(), "rejected {input:?}");
+        }
+    }
+
+    #[test]
+    fn enforces_nesting_depth_limit() {
+        let input = format!("{}0{}", "[".repeat(130), "]".repeat(130));
+        assert!(canonicalize_json(input.as_bytes()).is_err());
+    }
 }

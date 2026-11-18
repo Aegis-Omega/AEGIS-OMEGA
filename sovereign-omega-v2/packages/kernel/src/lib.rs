@@ -84,7 +84,7 @@ pub extern "C" fn bernstein_lcb(
 }
 
 /// RFC 8785 JSON canonicalization.
-/// Parses JSON at input_ptr, sorts object keys by Unicode code point order,
+/// Parses JSON at input_ptr, sorts object keys by UTF-16 code unit order,
 /// writes canonical UTF-8 bytes to out_ptr.
 /// Returns output byte length.
 /// Ports canonicalizeJCS from src/core/canonicalize.ts.
@@ -94,8 +94,19 @@ pub unsafe extern "C" fn canonicalize(
     input_len: i32,
     out_ptr: i32,
 ) -> i32 {
+    // Validate lengths before forming a Rust slice. Casting a negative i32
+    // to usize would create an invalid slice and violate memory safety.
+    // The WASM API uses the kernel's fixed 32KB input/output buffers.
+    if input_len < 0 || input_len as usize > 32_768 {
+        return -1;
+    }
     let input = core::slice::from_raw_parts(input_ptr as *const u8, input_len as usize);
-    let result = canonical::canonicalize_json(input);
+    // Fail closed on invalid JSON or a canonical form beyond the fixed 32KB
+    // output buffer. A negative result is a rejection, never a byte length.
+    let result = match canonical::canonicalize_json(input) {
+        Ok(value) if value.len() <= 32_768 => value,
+        _ => return -1,
+    };
     let out = core::slice::from_raw_parts_mut(out_ptr as *mut u8, result.len());
     out.copy_from_slice(&result);
     result.len() as i32

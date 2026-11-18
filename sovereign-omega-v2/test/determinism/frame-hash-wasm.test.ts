@@ -95,6 +95,7 @@ function wasmCanonicalize(k: KernelExports, inputBytes: Uint8Array): Uint8Array 
   const outPtr = k.get_output_ptr()
   writeToWasm(k, inputBytes, inPtr)
   const outLen = k.canonicalize(inPtr, inputBytes.length, outPtr)
+  if (outLen < 0) throw new Error('WASM_CANONICALIZATION_REJECTED')
   return readFromWasm(k, outPtr, outLen)
 }
 
@@ -391,5 +392,14 @@ describe.skipIf(!WASM_READY)('Proof G4 — epoch hash stability and distinguisha
     }
     const wasmAttestHash = wasmHashObject(k, wasmAttestPayload)
     expect(tsAttest.attestation_hash).toBe(wasmAttestHash)
+  })
+})
+
+
+describe.skipIf(!WASM_READY)('WASM canonicalize fail-closed propagation', () => {
+  it('rejects invalid JSON before any hashing or Merkle calculation', async () => {
+    const k = await ensureKernel()
+    expect(() => wasmCanonicalize(k, new TextEncoder().encode('{"x":}')))
+      .toThrow('WASM_CANONICALIZATION_REJECTED')
   })
 })
