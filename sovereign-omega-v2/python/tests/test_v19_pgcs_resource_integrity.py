@@ -379,7 +379,10 @@ class PGCSResourceCoherenceV19(unittest.TestCase):
         try:
             with patch.object(pgcs.psutil, "virtual_memory",
                               return_value=SimpleNamespace(used=4, total=64, percent=6.25)):
-                sample = controller.snapshot(1)
+                # Keep synthetic baseline and snapshot counters paired.
+                # Never substitute host runner counters for mock values.
+                with patch.object(controller, "_read_disk_io", return_value=(40, 50)):
+                    sample = controller.snapshot(1)
             self.assertEqual((sample.disk_swap_bytes_in, sample.disk_swap_bytes_out), (0, 0))
             self.assertFalse(controller._monitor_started)
         finally:
