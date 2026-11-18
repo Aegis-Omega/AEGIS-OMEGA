@@ -46,7 +46,9 @@ from gradient_anchor import GradientAnchorCalibrator, DEFAULT_ANCHOR_TOKENS
 
 # ── Adaptive Memory Layout (V18) ─────────────────────────────────────────────
 # From exact V15 adaptive_memory.py; per-instance geometry and no 4 GiB default.
-from adaptive_memory import configured_arena_layout
+from adaptive_memory import (
+    configured_arena_layout, effective_available_bytes, MemoryBudgetError,
+)
 
 
 # ── Functional Definitions ────────────────────────────────────────────────────
@@ -138,16 +140,25 @@ class CoreMatrix:
 
         # Adopt the exact V15 layout calculus, not its older M1 or checkpoint.
         self._layout = configured_arena_layout()
-        self._array = mmap.mmap(-1, self._layout.total)
-        self._mem = memoryview(self._array)
-        self._m1_region = self._mem[:self._layout.m1_size]
-        self._m2_region = self._mem[self._layout.m2_offset:self._layout.m3_offset]
-        self._m3_region = self._mem[self._layout.m3_offset:self._layout.total]
-
-        # Subsystems
-        self._pgcs = PGCSController(event_callback=event_callback)
-        self._failsafe = EpochFailsafeController(event_callback=event_callback)
-        self._calibrator = GradientAnchorCalibrator(DEFAULT_ANCHOR_TOKENS)
+        try:
+            self._array = mmap.mmap(-1, self._layout.total)
+        except (MemoryError, OSError) as exc:
+            raise MemoryBudgetError('ARENA_MMAP_ALLOCATION_FAILED') from exc
+        try:
+            self._mem = memoryview(self._array)
+            self._m1_region = self._mem[:self._layout.m1_size]
+            self._m2_region = self._mem[self._layout.m2_offset:self._layout.m3_offset]
+            self._m3_region = self._mem[self._layout.m3_offset:self._layout.total]
+            self._pgcs = PGCSController(event_callback=event_callback)
+            self._failsafe = EpochFailsafeController(event_callback=event_callback)
+            self._calibrator = GradientAnchorCalibrator(DEFAULT_ANCHOR_TOKENS)
+        except BaseException:
+            for name in ('_m3_region', '_m2_region', '_m1_region', '_mem'):
+                view = getattr(self, name, None)
+                if view is not None:
+                    view.release()
+            self._array.close()
+            raise
 
         # State
         self._sequence: int = 0
@@ -260,6 +271,8 @@ class CoreMatrix:
                     getattr(self, '_stopped', False) or
                     getattr(self, '_views_released', False)):
                 raise RuntimeError('CORE_MATRIX_CLOSED')
+            if self._layout.total > effective_available_bytes() // 2:
+                raise MemoryBudgetError('CORE_MATRIX_HEADROOM_LOST')
             failsafe_state = self._failsafe.state
             if failsafe_state in (EpochState.QUARANTINE, EpochState.FROZEN, EpochState.RECOVERING):
                 return {'status': failsafe_state.value.upper(), 'sequence': self._sequence}

@@ -46,10 +46,14 @@ jobs:
           test "$(git hash-object sovereign-omega-v2/python/pgcs.py)" = 'a31beab4efd5e9847dd9b5091dd2621fb7f04815'
           test "$(git hash-object sovereign-omega-v2/python/tests/test_hardware_config.py)" = '513c4c18f405d138f9aa7a023277fa97bdf271f6'
           test "$(git hash-object sovereign-omega-v2/python/tests/test_v19_pgcs_resource_integrity.py)" = '83b6be5918f2844b4b6d722836eca0d93283648f'
-          test "$(git hash-object sovereign-omega-v2/python/core_matrix.py)" = 'c7ac61798919b02c24c947ae5d97346d83447b3f'
-          test "$(git hash-object sovereign-omega-v2/python/adaptive_memory.py)" = 'eb188b65105ce9cd99c72dd17e78f13cc6dde85d'
-          test "$(git hash-object sovereign-omega-v2/python/ledger_persist.py)" = '8667a1d96e80cd63cd0c95a7621e0749cb3af116'
+          test "$(git hash-object sovereign-omega-v2/python/core_matrix.py)" = 'dd5ad797b934238bad59ed41c3f9e7f26a751828'
+          test "$(git hash-object sovereign-omega-v2/python/adaptive_memory.py)" = '28e1d602f4c8efcd335b00635328b4d07d2bac52'
+          test "$(git hash-object sovereign-omega-v2/python/ledger_persist.py)" = 'c18c81c2ec4cb28f2db99b5f87e4bf5aeac81826'
           test "$(git hash-object sovereign-omega-v2/python/m1_chain.py)" = 'dab08ab13d5500b557cca7eadd7b0ad7eae7c435'
+      - name: Pin V18 headroom and M123 test fixtures
+        run: |
+          test "$(git hash-object sovereign-omega-v2/python/tests/test_m123_contracts_v2.py)" = '8ad4c164954ed5a7de49bb46ce9e12d6308944ca'
+          test "$(git hash-object sovereign-omega-v2/python/tests/test_v18_adaptive_holon.py)" = '735914bb8a83b96ad63ad055bf52f59ebe7f39e1'
       - name: Verify cognitive manifest ancestry with no skill edits
         run: |
           python scripts/build-cognitive-manifest.py --check --ref integration/optimus-v19-pgcs-resource-integrity-20261117 --parent-state-hash 96d9749975019b83397e383478fcc7cd7e61fb2f3b3a854512367e3ee8f9ab41
