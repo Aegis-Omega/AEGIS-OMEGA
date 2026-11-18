@@ -13,7 +13,7 @@ DEPENDENCY CHAIN: PGCS must pass before TGCS telemetry is meaningful.
 TGCS must pass before AFSE analysis is valid.
 
 ARCHITECTURE: append-only, in-memory neural compression ring buffer
-with lock-free atomic-style operations (single-producer, single-consumer).
+with lock-serialized append-only records and no silent overwrite.
 Compression triggers at PGCS_TRIGGER_FRACTION (0.92) of total RAM.
 Target after compression: PGCS_TARGET_FRACTION (0.75) of total RAM.
 Maximum compression ratio: 50x via integer quantisation.
@@ -92,6 +92,7 @@ class CompressionRingBuffer:
         self._total_written = 0
         self._total_compressed_bytes = 0
         self._lock = threading.Lock()
+        self._closed = False
 
     def write_segment(self, data: bytes, compressed: bytes) -> bool:
         """
@@ -106,6 +107,8 @@ class CompressionRingBuffer:
         total_entry_size = header_size + len(compressed)
 
         with self._lock:
+            if self._closed:
+                raise RuntimeError('PGCS_RING_CLOSED')
             # Never clobber earlier entries while pretending append-only.
             if total_entry_size > self._capacity - self._write_pos:
                 return False
@@ -134,7 +137,12 @@ class CompressionRingBuffer:
         return self._total_written / self._total_compressed_bytes
 
     def close(self):
-        self._buf.close()
+        # Serialize close with writers; double close must be harmless.
+        with self._lock:
+            if self._closed:
+                return
+            self._buf.close()
+            self._closed = True
 
 
 # ── Integer Quantisation Compression ────────────────────────────────────────
@@ -309,22 +317,54 @@ class PGCSController:
         self._event_cb = event_callback
         self._running = False
         self._thread: Optional[threading.Thread] = None
+        self._lifecycle_lock = threading.RLock()
+        self._stopping = False
+        self._stopped = False
         self._compressions = 0
         self._bytes_compressed = 0
         self._ring_marker_rejections = 0
 
     def start(self):
-        """Start the background PGCS monitoring thread."""
-        self._running = True
-        self._thread = threading.Thread(target=self._monitor_loop, daemon=True)
-        self._thread.start()
+        """Start the PGCS monitor once; closed controllers cannot restart."""
+        with self._lifecycle_lock:
+            if self._stopped or self._stopping:
+                raise RuntimeError('PGCS_MONITOR_CLOSED')
+            if self._running:
+                return
+            thread = threading.Thread(target=self._monitor_loop, daemon=True)
+            self._running = True
+            self._thread = thread
+            try:
+                thread.start()
+            except BaseException:
+                self._running = False
+                self._thread = None
+                raise
 
     def stop(self):
-        """Stop the PGCS monitoring thread."""
-        self._running = False
-        if self._thread:
-            self._thread.join(timeout=2.0)
-        self._ring.close()
+        """Terminate the monitor before releasing mmap; retry on timeout.
+
+        No ring release occurs while a monitor thread might still write.
+        A self-join cannot provide a safe close and is rejected explicitly.
+        """
+        with self._lifecycle_lock:
+            if self._stopped:
+                return
+            self._stopping = True
+            self._running = False
+            thread = self._thread
+        if thread is not None:
+            if thread is threading.current_thread():
+                raise RuntimeError('PGCS_MONITOR_SELF_JOIN')
+            thread.join(timeout=2.0)
+            if thread.is_alive():
+                raise RuntimeError('PGCS_MONITOR_STOP_TIMEOUT')
+        with self._lifecycle_lock:
+            if self._stopped:
+                return
+            self._ring.close()
+            self._stopped = True
+            self._thread = None
 
     def snapshot(self, sequence_number: int) -> PGCSTelemetry:
         """

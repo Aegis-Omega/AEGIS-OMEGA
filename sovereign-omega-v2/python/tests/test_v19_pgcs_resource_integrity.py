@@ -4,6 +4,8 @@ Donor: V15 hardware_config.py and pgcs.py (exact Git blobs).
 Preserves V18 CoreMatrix, M1 and checkpoint v2.3.0 unchanged.
 """
 import gc
+import threading
+from concurrent.futures import ThreadPoolExecutor
 import sys
 import unittest
 from pathlib import Path
@@ -175,6 +177,113 @@ class PGCSResourceCoherenceV19(unittest.TestCase):
                         controller.snapshot(4)
         finally:
             controller.stop()
+
+
+    def test_ring_double_close_is_idempotent_and_writes_fail_closed(self):
+        ring = pgcs.CompressionRingBuffer(capacity_bytes=64)
+        self.assertTrue(ring.write_segment(b"first", b"x"))
+        ring.close()
+        ring.close()
+        self.assertTrue(ring._buf.closed)
+        with self.assertRaisesRegex(RuntimeError, "PGCS_RING_CLOSED"):
+            ring.write_segment(b"after", b"oops")
+        self.assertEqual(ring._count, 1)
+
+    def test_concurrent_bounded_appends_preserve_exact_records(self):
+        record_size = 8 + 5
+        limit = 256
+        ring = pgcs.CompressionRingBuffer(capacity_bytes=record_size * limit)
+        def write_batch(thread_id):
+            accepted = []
+            for i in range(128):
+                payload = bytes([thread_id]) + i.to_bytes(4, "little")
+                if ring.write_segment(payload, payload):
+                    accepted.append(payload)
+            return accepted
+        try:
+            with ThreadPoolExecutor(max_workers=4) as executor:
+                accepted = [item for batch in executor.map(write_batch, range(4))
+                            for item in batch]
+            self.assertEqual(len(accepted), limit)
+            self.assertEqual(ring._count, limit)
+            self.assertEqual(ring._write_pos, record_size * limit)
+            self.assertEqual(ring._total_written, 5 * limit)
+            parsed = []
+            ring._buf.seek(0)
+            for _ in range(limit):
+                self.assertEqual(int.from_bytes(ring._buf.read(4), "little"), 5)
+                self.assertEqual(int.from_bytes(ring._buf.read(4), "little"), 5)
+                parsed.append(ring._buf.read(5))
+            self.assertEqual(set(parsed), set(accepted))
+            self.assertEqual(len(set(parsed)), limit)
+            self.assertFalse(ring.write_segment(b"x", b"x"))
+        finally:
+            ring.close()
+
+    def test_repeated_monitor_start_does_not_duplicate_threads(self):
+        with patch.object(pgcs.PGCSController, "_read_disk_io", return_value=(0, 0)):
+            with patch.object(pgcs, "_observed_ring_capacity", return_value=64):
+                controller = pgcs.PGCSController()
+        fake_thread = Mock()
+        fake_thread.is_alive.return_value = False
+        try:
+            with patch.object(pgcs.threading, "Thread", return_value=fake_thread) as create:
+                controller.start()
+                controller.start()
+                create.assert_called_once()
+                fake_thread.start.assert_called_once()
+            controller.stop()
+            controller.stop()
+            fake_thread.join.assert_called_once()
+            self.assertTrue(controller._ring._buf.closed)
+            with self.assertRaisesRegex(RuntimeError, "PGCS_MONITOR_CLOSED"):
+                controller.start()
+        finally:
+            controller.stop()
+
+    def test_monitor_join_timeout_never_frees_live_ring(self):
+        with patch.object(pgcs.PGCSController, "_read_disk_io", return_value=(0, 0)):
+            with patch.object(pgcs, "_observed_ring_capacity", return_value=64):
+                controller = pgcs.PGCSController()
+        fake_thread = Mock()
+        fake_thread.is_alive.side_effect = [True, False]
+        controller._thread = fake_thread
+        with self.assertRaisesRegex(RuntimeError, "PGCS_MONITOR_STOP_TIMEOUT"):
+            controller.stop()
+        self.assertFalse(controller._ring._buf.closed)
+        with self.assertRaisesRegex(RuntimeError, "PGCS_MONITOR_CLOSED"):
+            controller.start()
+        controller.stop()
+        self.assertTrue(controller._ring._buf.closed)
+        self.assertEqual(fake_thread.join.call_count, 2)
+
+    def test_monitor_start_exception_clears_running_and_thread_reference(self):
+        with patch.object(pgcs.PGCSController, "_read_disk_io", return_value=(0, 0)):
+            with patch.object(pgcs, "_observed_ring_capacity", return_value=64):
+                controller = pgcs.PGCSController()
+        fake_thread = Mock()
+        fake_thread.start.side_effect = OSError("test runner thread denied")
+        try:
+            with patch.object(pgcs.threading, "Thread", return_value=fake_thread):
+                with self.assertRaises(OSError):
+                    controller.start()
+            self.assertFalse(controller._running)
+            self.assertIsNone(controller._thread)
+        finally:
+            controller.stop()
+        self.assertTrue(controller._ring._buf.closed)
+
+    def test_monitor_self_join_refuses_unsafe_ring_close(self):
+        with patch.object(pgcs.PGCSController, "_read_disk_io", return_value=(0, 0)):
+            with patch.object(pgcs, "_observed_ring_capacity", return_value=64):
+                controller = pgcs.PGCSController()
+        controller._thread = threading.current_thread()
+        with self.assertRaisesRegex(RuntimeError, "PGCS_MONITOR_SELF_JOIN"):
+            controller.stop()
+        self.assertFalse(controller._ring._buf.closed)
+        controller._thread = None
+        controller.stop()
+        self.assertTrue(controller._ring._buf.closed)
 
 
 if __name__ == "__main__":
