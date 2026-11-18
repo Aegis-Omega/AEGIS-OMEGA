@@ -46,6 +46,10 @@ class PGCSDiskIOUnavailable(RuntimeError):
     """A swap measurement is missing or cannot prove monotonic byte counters."""
 
 
+class PGCSMonitorUnavailable(RuntimeError):
+    """The PGCS monitor has stopped, failed, or terminated unexpectedly."""
+
+
 # ── Telemetry ────────────────────────────────────────────────────────────────
 @dataclass
 class PGCSTelemetry:
@@ -320,6 +324,8 @@ class PGCSController:
         self._lifecycle_lock = threading.RLock()
         self._stopping = False
         self._stopped = False
+        self._monitor_started = False
+        self._monitor_fault: Optional[str] = None
         self._compressions = 0
         self._bytes_compressed = 0
         self._ring_marker_rejections = 0
@@ -336,9 +342,11 @@ class PGCSController:
             self._thread = thread
             try:
                 thread.start()
+                self._monitor_started = True
             except BaseException:
                 self._running = False
                 self._thread = None
+                self._stopping = True
                 raise
 
     def stop(self):
@@ -366,11 +374,29 @@ class PGCSController:
             self._stopped = True
             self._thread = None
 
+    def _require_monitor_health(self) -> None:
+        """Never claim healthy T0 monitoring after failure or termination.
+
+        Pre-start snapshots retain the previous passive telemetry contract.
+        Only a started monitor is required to remain alive. A second check
+        after sampling prevents a failure during observation from passing.
+        """
+        with self._lifecycle_lock:
+            if self._monitor_fault is not None:
+                raise PGCSMonitorUnavailable('PGCS_MONITOR_FAILED')
+            if self._stopping or self._stopped:
+                raise PGCSMonitorUnavailable('PGCS_MONITOR_STOPPED')
+            if self._monitor_started and (
+                    not self._running or self._thread is None or
+                    not self._thread.is_alive()):
+                raise PGCSMonitorUnavailable('PGCS_MONITOR_NOT_RUNNING')
+
     def snapshot(self, sequence_number: int) -> PGCSTelemetry:
         """
-        Take an immutable telemetry snapshot.
+        Take a T0 telemetry snapshot without falsifying monitor health.
         sequence_number MUST come from the event substrate, never time.time().
         """
+        self._require_monitor_health()
         mem = psutil.virtual_memory()
         current_disk_io = self._read_disk_io()
         # Cumulative counters are monotone during one process lifetime.
@@ -382,7 +408,7 @@ class PGCSController:
             current_disk_io[0] - self._baseline_disk_io[0],
             current_disk_io[1] - self._baseline_disk_io[1],
         )
-        return PGCSTelemetry(
+        telemetry = PGCSTelemetry(
             timestamp_ms=sequence_number,  # sequence used as temporal proxy
             ram_used_bytes=mem.used,
             ram_total_bytes=mem.total,
@@ -394,20 +420,30 @@ class PGCSController:
             disk_swap_bytes_out=delta_io[1],
             ring_buffer_utilisation=self._ring.utilisation,
         )
+        self._require_monitor_health()
+        return telemetry
 
     def _monitor_loop(self):
-        while self._running:
-            mem = psutil.virtual_memory()
-            usage = mem.percent / 100.0
+        try:
+            while self._running:
+                mem = psutil.virtual_memory()
+                usage = mem.percent / 100.0
 
-            if usage >= PGCS_TRIGGER_FRACTION:
-                self._trigger_compression()
-                if self._event_cb:
-                    self._event_cb('PGCS_TRIGGERED', {
-                        'usage_fraction': usage,
-                        'compressions': self._compressions,
-                    })
-            time.sleep(0.1)
+                if usage >= PGCS_TRIGGER_FRACTION:
+                    self._trigger_compression()
+                    if self._event_cb:
+                        self._event_cb('PGCS_TRIGGERED', {
+                            'usage_fraction': usage,
+                            'compressions': self._compressions,
+                        })
+                time.sleep(0.1)
+        except Exception as exc:
+            # Never let a failed monitor look like a healthy zero-swap
+            # observation; retain only the error class, not sensitive data.
+            with self._lifecycle_lock:
+                self._monitor_fault = type(exc).__name__
+                self._running = False
+                self._stopping = True
 
     def _trigger_compression(self) -> int:
         """

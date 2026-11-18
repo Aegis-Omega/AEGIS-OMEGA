@@ -286,5 +286,105 @@ class PGCSResourceCoherenceV19(unittest.TestCase):
         self.assertTrue(controller._ring._buf.closed)
 
 
+    def test_monitor_sensor_exception_is_a_recorded_terminal_fault(self):
+        with patch.object(pgcs.PGCSController, "_read_disk_io", return_value=(0, 0)):
+            with patch.object(pgcs, "_observed_ring_capacity", return_value=128):
+                controller = pgcs.PGCSController()
+        sensed = threading.Event()
+        def fail_sensor():
+            sensed.set()
+            raise OSError("virtual memory unavailable")
+        try:
+            with patch.object(pgcs.psutil, "virtual_memory", side_effect=fail_sensor):
+                controller.start()
+                self.assertTrue(sensed.wait(2.0))
+                controller._thread.join(timeout=2.0)
+            self.assertFalse(controller._thread.is_alive())
+            self.assertEqual(controller._monitor_fault, "OSError")
+            self.assertFalse(controller._running)
+            with self.assertRaisesRegex(pgcs.PGCSMonitorUnavailable, "PGCS_MONITOR_FAILED"):
+                controller.snapshot(1)
+            with self.assertRaisesRegex(RuntimeError, "PGCS_MONITOR_CLOSED"):
+                controller.start()
+        finally:
+            controller.stop()
+        self.assertTrue(controller._ring._buf.closed)
+
+    def test_monitor_callback_exception_cannot_be_silent(self):
+        with patch.object(pgcs.PGCSController, "_read_disk_io", return_value=(0, 0)):
+            with patch.object(pgcs, "_observed_ring_capacity", return_value=128):
+                controller = pgcs.PGCSController(
+                    event_callback=lambda name, info: (_ for _ in ()).throw(
+                        RuntimeError("callback unavailable")))
+        signaled = threading.Event()
+        def pressure():
+            signaled.set()
+            return SimpleNamespace(percent=99.0)
+        try:
+            with patch.object(pgcs.psutil, "virtual_memory", side_effect=pressure):
+                with patch.object(controller, "_trigger_compression", return_value=1):
+                    controller.start()
+                    self.assertTrue(signaled.wait(2.0))
+                    controller._thread.join(timeout=2.0)
+            self.assertFalse(controller._thread.is_alive())
+            self.assertEqual(controller._monitor_fault, "RuntimeError")
+            with self.assertRaisesRegex(pgcs.PGCSMonitorUnavailable, "PGCS_MONITOR_FAILED"):
+                controller.snapshot(1)
+        finally:
+            controller.stop()
+
+    def test_orderly_stop_cannot_be_passed_as_zero_swap(self):
+        with patch.object(pgcs.PGCSController, "_read_disk_io", return_value=(20, 30)):
+            with patch.object(pgcs, "_observed_ring_capacity", return_value=128):
+                controller = pgcs.PGCSController()
+        controller.stop()
+        with self.assertRaisesRegex(pgcs.PGCSMonitorUnavailable, "PGCS_MONITOR_STOPPED"):
+            controller.snapshot(3)
+
+    def test_thread_disappears_without_fault_still_denies_snapshot(self):
+        with patch.object(pgcs.PGCSController, "_read_disk_io", return_value=(20, 30)):
+            with patch.object(pgcs, "_observed_ring_capacity", return_value=128):
+                controller = pgcs.PGCSController()
+        controller._monitor_started = True
+        controller._running = True
+        controller._thread = Mock()
+        controller._thread.is_alive.return_value = False
+        try:
+            with self.assertRaisesRegex(pgcs.PGCSMonitorUnavailable, "PGCS_MONITOR_NOT_RUNNING"):
+                controller.snapshot(4)
+        finally:
+            controller._thread = None
+            controller.stop()
+
+    def test_fault_during_measurement_cannot_return_previous_pass(self):
+        with patch.object(pgcs.PGCSController, "_read_disk_io", return_value=(40, 50)):
+            with patch.object(pgcs, "_observed_ring_capacity", return_value=128):
+                controller = pgcs.PGCSController()
+        def fail_during_sample():
+            controller._monitor_fault = "RuntimeError"
+            return (40, 50)
+        try:
+            with patch.object(pgcs.psutil, "virtual_memory",
+                              return_value=SimpleNamespace(used=4, total=64, percent=6.25)):
+                with patch.object(controller, "_read_disk_io", side_effect=fail_during_sample):
+                    with self.assertRaisesRegex(pgcs.PGCSMonitorUnavailable, "PGCS_MONITOR_FAILED"):
+                        controller.snapshot(5)
+        finally:
+            controller.stop()
+
+    def test_passive_prestart_snapshot_remains_observable_only(self):
+        with patch.object(pgcs.PGCSController, "_read_disk_io", return_value=(40, 50)):
+            with patch.object(pgcs, "_observed_ring_capacity", return_value=128):
+                controller = pgcs.PGCSController()
+        try:
+            with patch.object(pgcs.psutil, "virtual_memory",
+                              return_value=SimpleNamespace(used=4, total=64, percent=6.25)):
+                sample = controller.snapshot(1)
+            self.assertEqual((sample.disk_swap_bytes_in, sample.disk_swap_bytes_out), (0, 0))
+            self.assertFalse(controller._monitor_started)
+        finally:
+            controller.stop()
+
+
 if __name__ == "__main__":
     unittest.main()
