@@ -1,0 +1,19 @@
+{
+  "schema_version": "1.0.0",
+  "purpose": "Publish the static MCP Evidence Lab while preserving the currently deployed homepage source",
+  "authorization": "Operator explicitly requested production publication on 2026-10-07",
+  "production_baseline_commit": "d329eae1b15ad89bf38e38857e53de9151ed7b4c",
+  "production_baseline_deployment": "dpl_UCEPFLGhgBSmPKYJZBfkyLzHb41R",
+  "page_source_commit": "de84fd79ef586afbf22f83748955aac6e276cbaf",
+  "page_source_tree": "0bbf1c71571e65f1d60e505bc7c35a70a1f307ae",
+  "recorded_mcp_source": "897fa55556a639a04a67d25481b7a432af007d04",
+  "route": "https://aegisomega.com/labs/mcp",
+  "scope": "Seven unchanged static files, scoped routing/security headers, release tests and exact-branch exclusions for unrelated products",
+  "homepage_source": "UNCHANGED_FROM_PRODUCTION_BASELINE",
+  "new_execution_authority": false,
+  "new_mcp_endpoint": false,
+  "new_aws_resources": false,
+  "deployment_status": "MUST_BE_VERIFIED_FROM_PROVIDER_AND_PUBLIC_HTTP",
+  "repository_admission": "NOT_ASSERTED",
+  "rollback_deployment": "dpl_UCEPFLGhgBSmPKYJZBfkyLzHb41R"
+}
