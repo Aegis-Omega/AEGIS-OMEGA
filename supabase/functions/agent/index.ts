@@ -6,6 +6,8 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { CORS } from '../_shared/cors.ts'
 import { authorizeNebiusCaller, isNebiusRequestBounded } from '../_shared/nebius-auth.ts'
+import { authorizeSlackMachine, readBoundedBody } from '../_shared/slack-agent-auth.ts'
+import { reserveAgentExecution } from '../_shared/agent-budget.ts'
 
 const ANTHROPIC_API_KEY = Deno.env.get('ANTHROPIC_API_KEY') ?? ''
 const NOTIFY_SECRET     = Deno.env.get('NOTIFY_SECRET') ?? ''
@@ -77,13 +79,13 @@ async function runTool(name: string, input: Record<string, unknown>): Promise<st
 }
 
 // ── Agentic loop (max 5 turns) ────────────────────────────────────────────────
-async function runAgent(task: string, context?: string): Promise<{ result: string; actions: string[] }> {
+async function runAgent(task: string, context?: string, mode: 'operator' | 'slack' = 'operator'): Promise<{ result: string; actions: string[] }> {
   const messages: { role: string; content: unknown }[] = [
     { role: 'user', content: context ? `Context:\n${context}\n\nTask: ${task}` : task },
   ]
   const actions: string[] = []
 
-  for (let turn = 0; turn < 5; turn++) {
+  for (let turn = 0; turn < (mode === 'slack' ? 1 : 5); turn++) {
     const res = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: {
@@ -94,16 +96,18 @@ async function runAgent(task: string, context?: string): Promise<{ result: strin
       },
       body: JSON.stringify({
         model: 'claude-haiku-4-5',
-        max_tokens: 1024,
-        system: [{ type: 'text', text: SYSTEM, cache_control: { type: 'ephemeral' } }],
-        tools: TOOLS,
+        max_tokens: mode === 'slack' ? 256 : 1024,
+        system: [{ type: 'text', text: mode === 'slack'
+          ? 'Answer the Slack question briefly. No database, account data, tools, mutations or notifications.'
+          : SYSTEM, cache_control: { type: 'ephemeral' } }],
+        tools: mode === 'slack' ? [] : TOOLS,
         messages,
       }),
     })
 
     if (!res.ok) {
-      const err = await res.text()
-      throw new Error(`Anthropic API error ${res.status}: ${err}`)
+      // Do not read or log provider response bodies, which can contain sensitive data.
+      throw new Error(`Provider request failed: HTTP ${res.status}`)
     }
 
     const msg = await res.json()
@@ -113,6 +117,9 @@ async function runAgent(task: string, context?: string): Promise<{ result: strin
       const text = msg.content.find((b: { type: string }) => b.type === 'text')?.text ?? ''
       return { result: text, actions }
     }
+
+    // A Slack machine identity is never authorized to execute DB or notification tools.
+    if (mode === 'slack') return { result: 'No tool execution is available for Slack requests.', actions: [] }
 
     if (msg.stop_reason === 'tool_use') {
       const toolResults = []
@@ -136,56 +143,109 @@ Deno.serve(async (req) => {
     return new Response(JSON.stringify({ error: 'Method not allowed' }), { status: 405, headers: CORS })
   }
 
-  // A public client may never spend Anthropic credits or access service-role tools.
-  // Reuse the existing pinned JWT+allowlist gate; missing runtime settings DENY.
-  const permitted = await authorizeNebiusCaller(
-    req.headers.get('Authorization'),
-    Deno.env.get('AEGIS_AGENT_ALLOWED_USER_IDS') ?? '',
-    async (jwt) => {
-      if (!SUPABASE_URL || !SERVICE_KEY) return null
-      const authClient = createClient(SUPABASE_URL, SERVICE_KEY, { auth: { persistSession: false } })
-      const { data, error } = await authClient.auth.getUser(jwt)
-      return error ? null : data.user?.id ?? null
-    },
-  )
-  if (!permitted) {
-    return new Response(JSON.stringify({ error: 'Authenticated operator required' }), {
-      status: 401, headers: { ...CORS, 'Content-Type': 'application/json' },
+  // Never combine user JWT authorization and Slack machine authentication.
+  // JWT is always verified by Supabase Auth; machine credentials are HMAC,
+  // bound to this request, audience, Slack actor, TTL and a separate capability.
+  const machineHeaders = ['x-aegis-machine-key-id', 'x-aegis-machine-ts',
+    'x-aegis-machine-nonce', 'x-aegis-machine-sig']
+  const hasMachineHeaders = machineHeaders.some(key => req.headers.has(key))
+  const requestUrl = new URL(req.url)
+  if (hasMachineHeaders && (requestUrl.pathname !== '/functions/v1/agent' || requestUrl.search)) {
+    return Response.json({ error: 'Machine audience mismatch' }, { status: 401, headers: CORS })
+  }
+  if (hasMachineHeaders && req.headers.has('authorization')) {
+    return Response.json({ error: 'Conflicting credentials' }, { status: 401, headers: CORS })
+  }
+
+  let mode: 'operator' | 'slack'
+  let actorId: string
+  let eventKey: string
+  let raw: string | null
+  let machineBody: Awaited<ReturnType<typeof authorizeSlackMachine>> = null
+
+  if (hasMachineHeaders) {
+    raw = await readBoundedBody(req)
+    if (raw === null) return Response.json({ error: 'Invalid body' }, { status: 413, headers: CORS })
+    machineBody = await authorizeSlackMachine(req.headers, raw, {
+      key: Deno.env.get('AEGIS_SLACK_AGENT_HMAC_KEY') ?? '',
+      keyId: Deno.env.get('AEGIS_SLACK_AGENT_KEY_ID') ?? '',
+      allowedTeams: Deno.env.get('AEGIS_SLACK_ALLOWED_TEAM_IDS') ?? '',
+      allowedUsers: Deno.env.get('AEGIS_SLACK_ALLOWED_USER_IDS') ?? '',
+      allowedActors: Deno.env.get('AEGIS_SLACK_ALLOWED_ACTORS') ?? '',
     })
+    if (!machineBody) {
+      return Response.json({ error: 'Unauthorized machine caller' }, { status: 401, headers: CORS })
+    }
+    mode = 'slack'
+    actorId = `${machineBody.slack.team_id}:${machineBody.slack.user_id}`
+    eventKey = `slack:${machineBody.slack.team_id}:${machineBody.slack.event_id}`
+  } else {
+    let operatorId: string | null = null
+    const permitted = await authorizeNebiusCaller(
+      req.headers.get('Authorization'),
+      Deno.env.get('AEGIS_AGENT_ALLOWED_USER_IDS') ?? '',
+      async (jwt) => {
+        if (!SUPABASE_URL || !SERVICE_KEY) return null
+        const authClient = createClient(SUPABASE_URL, SERVICE_KEY, { auth: { persistSession: false } })
+        const { data, error } = await authClient.auth.getUser(jwt)
+        operatorId = error ? null : data.user?.id ?? null
+        return operatorId
+      },
+    )
+    if (!permitted || !operatorId) {
+      return Response.json({ error: 'Authenticated operator required' }, { status: 401, headers: CORS })
+    }
+    mode = 'operator'
+    actorId = operatorId
+    eventKey = `operator:${crypto.randomUUID()}`
+    raw = await readBoundedBody(req)
+    if (raw === null) return Response.json({ error: 'Invalid body' }, { status: 413, headers: CORS })
   }
 
-  if (!ANTHROPIC_API_KEY) {
-    return new Response(JSON.stringify({ error: 'ANTHROPIC_API_KEY not configured' }), { status: 503, headers: CORS })
+  if (!ANTHROPIC_API_KEY || !SUPABASE_URL || !SERVICE_KEY) {
+    return Response.json({ error: 'Agent unavailable' }, { status: 503, headers: CORS })
   }
-
+  if (!req.headers.get('content-type')?.includes('application/json')) {
+    return Response.json({ error: 'Content type required' }, { status: 415, headers: CORS })
+  }
   let body: unknown
-  try {
-    body = await req.json()
-  } catch {
-    return new Response(JSON.stringify({ error: 'invalid JSON body' }), { status: 400, headers: CORS })
+  try { body = JSON.parse(raw) } catch {
+    return Response.json({ error: 'invalid JSON body' }, { status: 400, headers: CORS })
   }
   if (body === null || typeof body !== 'object' || Array.isArray(body)) {
-    return new Response(JSON.stringify({ error: 'invalid request body' }), { status: 400, headers: CORS })
+    return Response.json({ error: 'invalid request body' }, { status: 400, headers: CORS })
+  }
+  const { task, context, notify } = body as Record<string, unknown>
+  if (typeof task !== 'string' || (context !== undefined && typeof context !== 'string')
+    || (notify !== undefined && typeof notify !== 'boolean')) {
+    return Response.json({ error: 'invalid request fields' }, { status: 400, headers: CORS })
+  }
+  if (mode === 'slack' && (notify !== undefined || context !== undefined || !machineBody)) {
+    return Response.json({ error: 'Slack scope violation' }, { status: 403, headers: CORS })
+  }
+  const boundedContext = mode === 'slack'
+    ? `Slack team ${machineBody!.slack.team_id}, user ${machineBody!.slack.user_id}`
+    : context === undefined ? undefined : context
+  if (!isNebiusRequestBounded(task, boundedContext ?? '', [])) {
+    return Response.json({ error: 'task or context exceeds request bounds' }, { status: 400, headers: CORS })
   }
 
-  const { task, context, notify } = body as Record<string, unknown>
-  if (typeof task !== 'string'
-    || (context !== undefined && typeof context !== 'string')
-    || (notify !== undefined && typeof notify !== 'boolean')) {
-    return new Response(JSON.stringify({ error: 'invalid request fields' }), { status: 400, headers: CORS })
+  // Both user and Slack paths require one atomic, durable replay+quota admission.
+  // Missing RPC/schema or database failure => unavailable; never spend on fail-open.
+  const budgetClient = createClient(SUPABASE_URL, SERVICE_KEY, { auth: { persistSession: false } })
+  const admission = await reserveAgentExecution(budgetClient, mode, actorId, eventKey)
+  if (admission === 'unavailable') {
+    return Response.json({ error: 'Budget control unavailable' }, { status: 503, headers: CORS })
   }
-  const boundedContext = context === undefined ? undefined : context
-  if (!isNebiusRequestBounded(task, boundedContext ?? '', [])) {
-    return new Response(JSON.stringify({ error: 'task or context exceeds request bounds' }), {
-      status: 400, headers: CORS,
-    })
+  if (admission === 'denied') {
+    return Response.json({ error: 'Duplicate or quota reached' }, { status: 429, headers: CORS })
   }
 
   try {
-    const { result, actions } = await runAgent(task, boundedContext)
+    const { result, actions } = await runAgent(task, boundedContext, mode)
 
     // Optionally notify owner with the result
-    if (notify) {
+    if (mode === 'operator' && notify) {
       const notifyUrl = `${SUPABASE_URL}/functions/v1/notify`
       await fetch(notifyUrl, {
         method: 'POST',
@@ -198,9 +258,9 @@ Deno.serve(async (req) => {
       headers: { ...CORS, 'Content-Type': 'application/json' },
     })
   } catch (e) {
-    console.error('Agent error:', e)
-    return new Response(JSON.stringify({ error: (e as Error).message }), {
-      status: 500,
+    console.error('Agent execution failed (details redacted)')
+    return new Response(JSON.stringify({ error: 'Agent execution failed' }), {
+      status: 502,
       headers: { ...CORS, 'Content-Type': 'application/json' },
     })
   }

@@ -1,144 +1,89 @@
-// AEGIS-Ω Slack event handler — slash commands + app mentions → autonomous agent
-// Deploy: supabase functions deploy slack-events --no-verify-jwt
-// Env vars: SLACK_SIGNING_SECRET, SLACK_BOT_TOKEN, SUPABASE_URL, NOTIFY_SECRET
-//
-// Slack app setup (api.slack.com/apps):
-//   1. Incoming Webhooks → ON → install to #aegis-alerts → copy URL → SLACK_WEBHOOK_URL secret
-//   2. Slash Commands → /aegis → Request URL: https://rwehltdwpsncnwxzkwik.supabase.co/functions/v1/slack-events
-//   3. Event Subscriptions → Request URL same as above → Subscribe to: app_mention, message.im
-//   4. OAuth Scopes: chat:write, commands, app_mentions:read, im:read, im:write
-//   5. Install app → copy Bot Token → SLACK_BOT_TOKEN secret
-//   6. Copy Signing Secret → SLACK_SIGNING_SECRET secret
+// TAR-21: signed Slack ingress with scoped, request-bound agent machine identity.
+// No Supabase user JWT or NOTIFY_SECRET is used for Slack-to-agent authorization.
+import {
+  allowedSlackActor, parseSlackPayload, readBoundedBody,
+  signSlackAgentRequest, verifySlackSignature,
+  type SlackMachineBody,
+} from '../_shared/slack-agent-auth.ts'
 
 const SLACK_SIGNING_SECRET = Deno.env.get('SLACK_SIGNING_SECRET') ?? ''
-const SLACK_BOT_TOKEN      = Deno.env.get('SLACK_BOT_TOKEN') ?? ''
-const SUPABASE_URL         = Deno.env.get('SUPABASE_URL') ?? ''
-const NOTIFY_SECRET        = Deno.env.get('NOTIFY_SECRET') ?? ''
+const SLACK_BOT_TOKEN = Deno.env.get('SLACK_BOT_TOKEN') ?? ''
+const SUPABASE_URL = Deno.env.get('SUPABASE_URL') ?? ''
+const SLACK_ALLOWED_TEAM_IDS = Deno.env.get('AEGIS_SLACK_ALLOWED_TEAM_IDS') ?? ''
+const SLACK_ALLOWED_USER_IDS = Deno.env.get('AEGIS_SLACK_ALLOWED_USER_IDS') ?? ''
+const SLACK_ALLOWED_ACTORS = Deno.env.get('AEGIS_SLACK_ALLOWED_ACTORS') ?? ''
+const MACHINE_KEY = Deno.env.get('AEGIS_SLACK_AGENT_HMAC_KEY') ?? ''
+const MACHINE_KEY_ID = Deno.env.get('AEGIS_SLACK_AGENT_KEY_ID') ?? ''
 
-const CORS = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'content-type',
-  'Access-Control-Allow-Methods': 'POST, OPTIONS',
-}
-
-// Verify Slack request signature (HMAC-SHA256)
-async function verifySlackSignature(body: string, timestamp: string, sig: string): Promise<boolean> {
-  if (!SLACK_SIGNING_SECRET) return true // skip in dev
-  const age = Math.abs(Date.now() / 1000 - Number(timestamp))
-  if (age > 300) return false // replay attack
-
-  const baseString = `v0:${timestamp}:${body}`
-  const key = await crypto.subtle.importKey(
-    'raw', new TextEncoder().encode(SLACK_SIGNING_SECRET),
-    { name: 'HMAC', hash: 'SHA-256' }, false, ['sign'],
-  )
-  const raw = await crypto.subtle.sign('HMAC', key, new TextEncoder().encode(baseString))
-  const computed = 'v0=' + Array.from(new Uint8Array(raw)).map(b => b.toString(16).padStart(2, '0')).join('')
-  return computed === sig
-}
-
-// Post a message back to Slack
-async function slackReply(channel: string, text: string, thread_ts?: string): Promise<void> {
-  if (!SLACK_BOT_TOKEN) return
-  await fetch('https://slack.com/api/chat.postMessage', {
+async function slackReply(channel: string, text: string, threadTs?: string): Promise<void> {
+  // Bot key never goes to the agent; the channel and thread come from signed Slack data.
+  const response = await fetch('https://slack.com/api/chat.postMessage', {
     method: 'POST',
-    headers: { 'Authorization': `Bearer ${SLACK_BOT_TOKEN}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ channel, text, thread_ts }),
+    headers: { Authorization: `Bearer ${SLACK_BOT_TOKEN}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ channel, text: text.slice(0, 1400), thread_ts: threadTs }),
+    signal: AbortSignal.timeout(10_000),
   })
+  if (!response.ok) throw Error('Slack transport failure')
+  const data = await response.json().catch(() => null)
+  if (!data?.ok) throw Error('Slack delivery failure')
 }
 
-// Call the agent function with a task
-async function runAgent(task: string, context?: string): Promise<string> {
-  const agentUrl = `${SUPABASE_URL}/functions/v1/agent`
-  const res = await fetch(agentUrl, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'x-notify-secret': NOTIFY_SECRET },
-    body: JSON.stringify({ task, context }),
+async function runAgent(job: SlackMachineBody): Promise<string> {
+  // Fail closed if the configured project URL is malformed or points away from Supabase.
+  const agentBase = new URL(SUPABASE_URL)
+  if (agentBase.protocol !== 'https:' || !agentBase.hostname.endsWith('.supabase.co')
+    || agentBase.pathname !== '/') throw Error('agent endpoint unavailable')
+  const { rawBody, headers } = await signSlackAgentRequest(job, MACHINE_KEY, MACHINE_KEY_ID)
+  const res = await fetch(new URL('/functions/v1/agent', agentBase), {
+    method: 'POST', headers, body: rawBody, signal: AbortSignal.timeout(25_000),
   })
-  if (!res.ok) return `Agent error: ${res.status}`
+  if (!res.ok) return `Agent request denied (${res.status})`
   const data = await res.json()
-  return data.result ?? 'No result'
+  return typeof data?.result === 'string' ? data.result.slice(0, 1200) : 'No result'
 }
 
 Deno.serve(async (req) => {
-  if (req.method === 'OPTIONS') return new Response(null, { headers: CORS })
-
-  const body = await req.text()
+  if (req.method !== 'POST') return new Response('Method not allowed', { status: 405 })
+  // No skip-in-dev path; absent settings shut down the endpoint before execution.
+  if (!SLACK_SIGNING_SECRET || !SLACK_ALLOWED_TEAM_IDS || !SLACK_ALLOWED_USER_IDS
+    || !SLACK_ALLOWED_ACTORS || new TextEncoder().encode(MACHINE_KEY).length < 32
+    || !/^[A-Za-z0-9_-]{1,48}$/.test(MACHINE_KEY_ID) || !SUPABASE_URL) {
+    return new Response('Gateway unavailable', { status: 503 })
+  }
+  const raw = await readBoundedBody(req)
+  if (raw === null) return new Response('Invalid or oversized body', { status: 413 })
   const timestamp = req.headers.get('x-slack-request-timestamp') ?? ''
-  const sig       = req.headers.get('x-slack-signature') ?? ''
-
-  if (!(await verifySlackSignature(body, timestamp, sig))) {
+  if (!(await verifySlackSignature(raw, timestamp,
+    req.headers.get('x-slack-signature') ?? '', SLACK_SIGNING_SECRET))) {
     return new Response('Unauthorized', { status: 401 })
   }
-
-  const contentType = req.headers.get('content-type') ?? ''
-
-  // ── Slash command (/aegis <task>) — form-encoded ──────────────────────────
-  if (contentType.includes('application/x-www-form-urlencoded')) {
-    const params = new URLSearchParams(body)
-    const task    = params.get('text')?.trim() ?? ''
-    const channel = params.get('channel_id') ?? ''
-    const user    = params.get('user_name') ?? 'unknown'
-    const ts      = params.get('message_ts') ?? undefined
-
-    if (!task) {
-      return new Response(JSON.stringify({
-        response_type: 'ephemeral',
-        text: 'Usage: `/aegis <task>` — e.g. `/aegis how many purchases today?`',
-      }), { headers: { 'Content-Type': 'application/json' } })
-    }
-
-    // Acknowledge immediately (Slack requires <3s response)
-    const ackResponse = new Response(JSON.stringify({
-      response_type: 'in_channel',
-      text: `_Running: "${task}"..._`,
-    }), { headers: { 'Content-Type': 'application/json' } })
-
-    // Run agent in background and post result
-    ;(async () => {
-      try {
-        const result = await runAgent(task, `Requested by @${user} in Slack`)
-        await slackReply(channel, `*AEGIS-Ω:* ${result}`, ts)
-      } catch (e) {
-        await slackReply(channel, `Agent error: ${(e as Error).message}`, ts)
-      }
-    })()
-
-    return ackResponse
+  const parsed = await parseSlackPayload(raw, req.headers.get('content-type') ?? '', timestamp)
+  if (!parsed) return new Response('Invalid Slack payload', { status: 400 })
+  if (parsed.kind === 'challenge') {
+    return Response.json({ challenge: parsed.challenge })
   }
-
-  // ── Event API (app_mention, url_verification) — JSON ─────────────────────
-  if (contentType.includes('application/json')) {
-    const event = JSON.parse(body)
-
-    // URL verification challenge (required during app setup)
-    if (event.type === 'url_verification') {
-      return new Response(JSON.stringify({ challenge: event.challenge }), {
-        headers: { 'Content-Type': 'application/json' },
-      })
-    }
-
-    // App mention: @AEGIS-Ω <task>
-    if (event.event?.type === 'app_mention') {
-      const text    = (event.event.text ?? '').replace(/<@[A-Z0-9]+>/g, '').trim()
-      const channel = event.event.channel
-      const ts      = event.event.ts
-
-      if (text) {
-        ;(async () => {
-          try {
-            await slackReply(channel, `_On it: "${text}"..._`, ts)
-            const result = await runAgent(text, 'Requested via @AEGIS-Ω mention in Slack')
-            await slackReply(channel, `*AEGIS-Ω:* ${result}`, ts)
-          } catch (e) {
-            await slackReply(channel, `Error: ${(e as Error).message}`, ts)
-          }
-        })()
-      }
-
-      return new Response('ok', { status: 200 })
-    }
+  if (parsed.kind === 'ignore') return new Response('ok')
+  const { job } = parsed
+  const { team_id, user_id } = job.slack
+  if (!allowedSlackActor(team_id, user_id, SLACK_ALLOWED_TEAM_IDS, SLACK_ALLOWED_USER_IDS, SLACK_ALLOWED_ACTORS)) {
+    return new Response('Forbidden', { status: 403 })
   }
-
-  return new Response('ok', { status: 200 })
+  // No paid task without a durable background lifetime and an actual reply channel.
+  const runtime = (globalThis as { EdgeRuntime?: { waitUntil?: (p: Promise<unknown>) => void } }).EdgeRuntime
+  if (!SLACK_BOT_TOKEN || typeof runtime?.waitUntil !== 'function') {
+    return new Response('Gateway unavailable', { status: 503 })
+  }
+  const jobPromise = (async () => {
+    try {
+      const result = await runAgent({ task: job.task, scope: job.scope, slack: job.slack })
+      await slackReply(job.channel, `*AEGIS-Ω:* ${result}`, job.threadTs)
+    } catch {
+      // Never post or log secrets, upstream content, or stack traces to Slack.
+      await slackReply(job.channel, 'AEGIS agent request unavailable.', job.threadTs).catch(() => {})
+    }
+  })()
+  runtime.waitUntil(jobPromise)
+  return req.headers.get('content-type')?.includes('application/x-www-form-urlencoded')
+    ? Response.json({ response_type: 'ephemeral', text: 'AEGIS request received for authorization.' })
+    : new Response('ok', { status: 200 })
 })
