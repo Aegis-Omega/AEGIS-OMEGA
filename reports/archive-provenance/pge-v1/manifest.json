@@ -1,0 +1,36 @@
+{
+  "schema": "AEGIS_ARCHIVE_PGE_PROVENANCE_V1",
+  "source_archive": {
+    "filename": "Documents/AEGIS--.zip",
+    "sha256": "3d0e5e33545c38cadd294c1ca55a40542a91c5b6c9195f23ff920c1f7c5c73c4",
+    "archive_head": "ad7f2090a1ca54494d7509021117264b0bb1bc04"
+  },
+  "artifacts": [
+    {
+      "original_path": "state/architect/6e9bf77dd6c2.json",
+      "sha256": "49135fa54f8a2e2adf6cd08719f8e5680d2fa85e6990c6fa5bd504eb024495e1",
+      "status": "HISTORICAL_NOT_REPLAYED"
+    },
+    {
+      "original_path": "state/architect/7fd3ad63ddca.json",
+      "sha256": "255f981391700aac578877a24cf2a828e07e5c1c71a5451dbc58d8a64d38e9af",
+      "status": "HISTORICAL_NOT_REPLAYED"
+    },
+    {
+      "original_path": "state/artisan/7fd3ad63ddca_result.json",
+      "sha256": "70e8a973887aaaed9c5091b75655f58ac0f93e361ba6da6c4c142db2afd276d5",
+      "status": "HISTORICAL_GENERATED_STUBS_NOT_REPLAYED"
+    },
+    {
+      "original_path": "state/auditor/7fd3ad63ddca_evaluation.json",
+      "sha256": "11f86f87241bbf77c0ba03f7a1e674179d02a53ae0d07d5a8348c6a9cdcd9a99",
+      "status": "HISTORICAL_VERDICT_NOT_REPLAYED"
+    }
+  ],
+  "disposition": {
+    "active_state_restored": false,
+    "reason": "Preserve historical P/G/E evidence without allowing stale PASS/verified fields to become active runtime state.",
+    "production_wiring": "NOT_PERFORMED",
+    "authority_effect": "NONE"
+  }
+}

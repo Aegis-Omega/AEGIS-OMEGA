@@ -1,0 +1,93 @@
+{
+  "schema": "AEGIS_ARCHIVE_ARC_DATA_TRAINING_REBIND_V1",
+  "base_pr": 620,
+  "base_head": "20a944f2da0e97ddda67196d05a64bbef725089d",
+  "source_historical_commit": "81b0470bec975e86b7abb7d910d34d505920a7e5",
+  "corpus": {
+    "subtree_sha": "367c3f0ae50cd5da6ff1e4b6e8a12376920929ee",
+    "files": 804,
+    "task_json_files": 800,
+    "bytes": 20978436,
+    "canonical_sha256_root": "35d3088c6a4518f8ef85e4ef22b4ec22bba413ad43ec147fa6331293c50e5a17"
+  },
+  "historical_failure": {
+    "command": "PYTHONPATH=. python train.py --steps 1 --arc-data ./data/arc_data",
+    "result": "FAIL",
+    "cause": "in-place mutation of the autoregressive LongTensor invalidated saved embedding indices required by autograd"
+  },
+  "minimal_repair": {
+    "path": "swarm_os/arc/model/transformer_policy.py",
+    "change": "clone seq[:, :t + 1] before forward",
+    "semantic_scope": "autograd storage isolation only"
+  },
+  "post_repair_execution": {
+    "command": "PYTHONPATH=. python train.py --steps 1 --arc-data ./data/arc_data",
+    "status": "PASS_TO_COMPLETION",
+    "tasks_seen": 800,
+    "checkpoint_emitted": true,
+    "benchmark_interpretation": "NOT_PERMITTED_SINGLE_STOCHASTIC_TRAINING_SAMPLE"
+  },
+  "deterministic_regression": {
+    "command": "PYTHONPATH=. pytest -q tests/test_training_smoke.py",
+    "status": "PASS",
+    "result": "1 passed",
+    "establishes": "real archived ARC sample traverses encoder -> autoregressive policy -> DSL -> backward with finite policy gradients"
+  },
+  "dependency_gap": {
+    "historical_requirements_include_torch": false,
+    "smoke_contract": "swarm_os/arc/requirements-training-smoke.txt"
+  },
+  "full_training": "NOT_RUN",
+  "trained_checkpoint_quality": "NOT_ESTABLISHED",
+  "production_wiring": "NOT_PERFORMED",
+  "authority_effect": "NONE",
+  "deterministic_100_step_smoke": {
+    "command": "PYTHONPATH=. python scripts/test-archive-arc-training-100.py",
+    "status": "PASS",
+    "seed": 11,
+    "steps": 100,
+    "tasks_available": 800,
+    "metrics": {
+      "mean_acc": 0.3993,
+      "mean_cvs": 0.9163,
+      "hd_arc": 0.6007,
+      "best_acc": 0.91,
+      "curriculum_level": 1,
+      "tasks_seen": 800
+    },
+    "checkpoint": {
+      "size_bytes": 2908823,
+      "sha256": "2cd3e04f137506a4bee363d42e0acf94fde569eba53be6a41d1910f94d7551bf",
+      "committed": false
+    },
+    "receipt": "reports/archive-arc-training-100-smoke-v1.json",
+    "receipt_sha256": "57b04cbb5d047c022269dea86df6db3b7418e7d47201fc1ed4c5d28e1de14038",
+    "interpretation": "TRAINING_PATH_EXECUTION_ONLY_NOT_HELD_OUT_BENCHMARK"
+  },
+  "train_to_test_exact_audit_50": {
+    "command": "PYTHONPATH=. python scripts/evaluate-archive-arc-train-test.py --limit 50 --max-depth 8 --max-states 50000",
+    "status": "PASS",
+    "task_count": 50,
+    "selection_uses_test_outputs": false,
+    "search": {
+      "kind": "semantic_state_exhaustive_bfs",
+      "max_depth": 8,
+      "max_states_per_task": 50000,
+      "truncated_task_count": 0
+    },
+    "train_exact_program_found_count": 0,
+    "test_exact_solve_count": 0,
+    "test_exact_solve_rate": 0,
+    "receipt": "reports/archive-arc-train-test-exact-50-v1.json",
+    "receipt_file_sha256": "16843384d1a7187e46de3776112e6465e4137b3d5e72f5173e25ccbede563dd0",
+    "interpretation": "BOUNDED_PRIMITIVE_DSL_TRAIN_TO_TEST_EXACT_REPLAY_NOT_GENERAL_ARC_CAPABILITY"
+  },
+  "historical_evaluator_disposition": {
+    "path": "swarm_os/benchmark/arc_held_out_eval.py",
+    "status": "NOT_ADMISSIBLE_AS_GENERALIZATION_PROOF",
+    "reasons": [
+      "candidate selection scores against the same example output rather than locking a train-selected program and evaluating test",
+      "TRANSFORMATION_PROGRAMS operation IDs are inconsistent with swarm_os/arc/dsl/vocab.py"
+    ]
+  }
+}

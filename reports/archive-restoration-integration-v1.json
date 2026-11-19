@@ -1,0 +1,270 @@
+{
+  "schema": "AEGIS_ARCHIVE_RESTORATION_INTEGRATION_V1",
+  "repository": "Aegis-Omega/AEGIS-OMEGA",
+  "base_main": "495bfd85d79abcb2b4f6898fe9c156488492426a",
+  "integration_parent": {
+    "pr": 626,
+    "head": "d4bed01873130b3b7ab196ae2a67d4a9b5953b71",
+    "tree": "e1d5edee0d43edec62943b85f9c4222d8c4c5ac9"
+  },
+  "source_lanes": {
+    "619": {
+      "head": "b2cbae6744269b162ff5447b6dcdff173125cd59",
+      "scope": "ECCF + GCCE source restoration and static Rust audit"
+    },
+    "621": {
+      "head": "ea6d5bab2210171fe40a2dc29f595b09b2f42759",
+      "scope": "P/G/E historical provenance"
+    },
+    "624": {
+      "head": "79aae45cfcd98d594c5213460282ac2260ea7aec",
+      "scope": "ARC corpus + training repair + bounded train/test audit"
+    },
+    "625": {
+      "head": "e79fd9225e2955c0265b54dd1e861b48a0dabd4a",
+      "scope": "Sovereign_Brain provenance + restoration ledger"
+    },
+    "626": {
+      "head": "d4bed01873130b3b7ab196ae2a67d4a9b5953b71",
+      "scope": "SWARM/ARC read-only bridge source and image wiring"
+    }
+  },
+  "exact_object_bindings": [
+    {
+      "path": ".github/workflows/archive-arc-training-smoke.yml",
+      "source_pr": 624,
+      "source_head": "79aae45cfcd98d594c5213460282ac2260ea7aec",
+      "object_type": "blob",
+      "object_sha": "ae6a63a8fec59351c671c30815fbe63d86e062de"
+    },
+    {
+      "path": ".github/workflows/archive-restoration-rust.yml",
+      "source_pr": 619,
+      "source_head": "b2cbae6744269b162ff5447b6dcdff173125cd59",
+      "object_type": "blob",
+      "object_sha": "c64e79a92e697d80c840688ee6b0300120795bfc"
+    },
+    {
+      "path": "eccf",
+      "source_pr": 619,
+      "source_head": "b2cbae6744269b162ff5447b6dcdff173125cd59",
+      "object_type": "tree",
+      "object_sha": "56d49b3a3ba3f173ab77195deb1ee157709b44bb"
+    },
+    {
+      "path": "gcce",
+      "source_pr": 619,
+      "source_head": "b2cbae6744269b162ff5447b6dcdff173125cd59",
+      "object_type": "tree",
+      "object_sha": "e02232b3fcd4b54c55023f36e6742af5add25a08"
+    },
+    {
+      "path": "reports/archive-arc-data-training-rebind-v1.json",
+      "source_pr": 624,
+      "source_head": "79aae45cfcd98d594c5213460282ac2260ea7aec",
+      "object_type": "blob",
+      "object_sha": "a87161be2bb75a19b793b0414f7de2c9770b7135"
+    },
+    {
+      "path": "reports/archive-arc-train-test-exact-50-v1.json",
+      "source_pr": 624,
+      "source_head": "79aae45cfcd98d594c5213460282ac2260ea7aec",
+      "object_type": "blob",
+      "object_sha": "6fba3fe9bec9d0391c211e95069811d03c537d10"
+    },
+    {
+      "path": "reports/archive-arc-training-100-smoke-v1.json",
+      "source_pr": 624,
+      "source_head": "79aae45cfcd98d594c5213460282ac2260ea7aec",
+      "object_type": "blob",
+      "object_sha": "0511270692900f76415c3cd54d6c88b8fdcaf722"
+    },
+    {
+      "path": "reports/archive-provenance/pge-v1/architect-6e9bf77dd6c2.json",
+      "source_pr": 621,
+      "source_head": "ea6d5bab2210171fe40a2dc29f595b09b2f42759",
+      "object_type": "blob",
+      "object_sha": "f562d9408c8703eeb3738d0486d73893fbf829f5"
+    },
+    {
+      "path": "reports/archive-provenance/pge-v1/architect-7fd3ad63ddca.json",
+      "source_pr": 621,
+      "source_head": "ea6d5bab2210171fe40a2dc29f595b09b2f42759",
+      "object_type": "blob",
+      "object_sha": "135f2adc9e2495d928ca17c6dd3e2d0cf66a24b8"
+    },
+    {
+      "path": "reports/archive-provenance/pge-v1/artisan-7fd3ad63ddca-result.json",
+      "source_pr": 621,
+      "source_head": "ea6d5bab2210171fe40a2dc29f595b09b2f42759",
+      "object_type": "blob",
+      "object_sha": "b05236cab439d1500863df54e4a68c1aae13bfa5"
+    },
+    {
+      "path": "reports/archive-provenance/pge-v1/auditor-7fd3ad63ddca-evaluation.json",
+      "source_pr": 621,
+      "source_head": "ea6d5bab2210171fe40a2dc29f595b09b2f42759",
+      "object_type": "blob",
+      "object_sha": "1cfc8d80f666b15b13720ab0d69dcdb39a2e5088"
+    },
+    {
+      "path": "reports/archive-provenance/pge-v1/manifest.json",
+      "source_pr": 621,
+      "source_head": "ea6d5bab2210171fe40a2dc29f595b09b2f42759",
+      "object_type": "blob",
+      "object_sha": "738ea0e8b1a7a0d95884a4a4b2c8833c789e9eee"
+    },
+    {
+      "path": "reports/archive-provenance/sovereign-brain-v1/.obsidian/app.json",
+      "source_pr": 625,
+      "source_head": "e79fd9225e2955c0265b54dd1e861b48a0dabd4a",
+      "object_type": "blob",
+      "object_sha": "d2b2aa59f62b05c9fce006e6ab8ea87c3668e18f"
+    },
+    {
+      "path": "reports/archive-provenance/sovereign-brain-v1/000_Sovereign_OS_Master.md",
+      "source_pr": 625,
+      "source_head": "e79fd9225e2955c0265b54dd1e861b48a0dabd4a",
+      "object_type": "blob",
+      "object_sha": "713febc573487f0e0f852a59a01f6c7a21d678be"
+    },
+    {
+      "path": "reports/archive-provenance/sovereign-brain-v1/01_Architecture_Omega_Stack.md",
+      "source_pr": 625,
+      "source_head": "e79fd9225e2955c0265b54dd1e861b48a0dabd4a",
+      "object_type": "blob",
+      "object_sha": "06fc794ab2dbbeb1e9b804975583a172f687c45a"
+    },
+    {
+      "path": "reports/archive-provenance/sovereign-brain-v1/02_Biology_and_HD.md",
+      "source_pr": 625,
+      "source_head": "e79fd9225e2955c0265b54dd1e861b48a0dabd4a",
+      "object_type": "blob",
+      "object_sha": "493dfd7f8b8fc5ff3432c87426396aae142b77ba"
+    },
+    {
+      "path": "reports/archive-provenance/sovereign-brain-v1/03_ARC_Graph_Grammar.md",
+      "source_pr": 625,
+      "source_head": "e79fd9225e2955c0265b54dd1e861b48a0dabd4a",
+      "object_type": "blob",
+      "object_sha": "d41dacdefa0fc3d4982bf46dd60c2851537582fb"
+    },
+    {
+      "path": "reports/archive-provenance/sovereign-brain-v1/04_Kaggle_Directives.md",
+      "source_pr": 625,
+      "source_head": "e79fd9225e2955c0265b54dd1e861b48a0dabd4a",
+      "object_type": "blob",
+      "object_sha": "7a4ebffa0d5f833767cc09a0c32af4fa1543fbd3"
+    },
+    {
+      "path": "reports/archive-provenance/sovereign-brain-v1/05_Sovereignty_Laws.md",
+      "source_pr": 625,
+      "source_head": "e79fd9225e2955c0265b54dd1e861b48a0dabd4a",
+      "object_type": "blob",
+      "object_sha": "eab04003f4426ced1ac29318003f22d386e2cd62"
+    },
+    {
+      "path": "reports/archive-provenance/sovereign-brain-v1/manifest.json",
+      "source_pr": 625,
+      "source_head": "e79fd9225e2955c0265b54dd1e861b48a0dabd4a",
+      "object_type": "blob",
+      "object_sha": "60c371d4c7a2a1e7173ab444e6e01caf8539d632"
+    },
+    {
+      "path": "reports/archive-restoration-eccf-gcce-v1.json",
+      "source_pr": 619,
+      "source_head": "b2cbae6744269b162ff5447b6dcdff173125cd59",
+      "object_type": "blob",
+      "object_sha": "5616282fa71b016954791b69afab711864c0c347"
+    },
+    {
+      "path": "reports/archive-restoration-ledger-v1.json",
+      "source_pr": 625,
+      "source_head": "e79fd9225e2955c0265b54dd1e861b48a0dabd4a",
+      "object_type": "blob",
+      "object_sha": "0e6255205d5a9af20942d7ec84bebabfd79be5d5"
+    },
+    {
+      "path": "reports/archive-rust-static-audit-v1.json",
+      "source_pr": 619,
+      "source_head": "b2cbae6744269b162ff5447b6dcdff173125cd59",
+      "object_type": "blob",
+      "object_sha": "77b2f550a95cab70323fb5ebaf2d5f25531db6e9"
+    },
+    {
+      "path": "scripts/audit-archive-rust-restoration.py",
+      "source_pr": 619,
+      "source_head": "b2cbae6744269b162ff5447b6dcdff173125cd59",
+      "object_type": "blob",
+      "object_sha": "2ef0b3e361f00a1267e025aef2cbee53a6aa41e3"
+    },
+    {
+      "path": "scripts/evaluate-archive-arc-train-test.py",
+      "source_pr": 624,
+      "source_head": "79aae45cfcd98d594c5213460282ac2260ea7aec",
+      "object_type": "blob",
+      "object_sha": "0eaf8fa6a870964f34cb46c70fa4cc55b921dcd5"
+    },
+    {
+      "path": "scripts/test-archive-arc-training-100.py",
+      "source_pr": 624,
+      "source_head": "79aae45cfcd98d594c5213460282ac2260ea7aec",
+      "object_type": "blob",
+      "object_sha": "cad9260fc55a8e260bff1ba279ced4f18b1bd95d"
+    },
+    {
+      "path": "swarm_os/arc/data",
+      "source_pr": 624,
+      "source_head": "79aae45cfcd98d594c5213460282ac2260ea7aec",
+      "object_type": "tree",
+      "object_sha": "367c3f0ae50cd5da6ff1e4b6e8a12376920929ee"
+    },
+    {
+      "path": "swarm_os/arc/model/transformer_policy.py",
+      "source_pr": 624,
+      "source_head": "79aae45cfcd98d594c5213460282ac2260ea7aec",
+      "object_type": "blob",
+      "object_sha": "dff1ea21cdc8eb91861c64d226e5fab2e072ce19"
+    },
+    {
+      "path": "swarm_os/arc/requirements-training-smoke.txt",
+      "source_pr": 624,
+      "source_head": "79aae45cfcd98d594c5213460282ac2260ea7aec",
+      "object_type": "blob",
+      "object_sha": "a3acd731c7ded1f428cf3df0090e24cb3963a649"
+    },
+    {
+      "path": "swarm_os/arc/tests/test_training_smoke.py",
+      "source_pr": 624,
+      "source_head": "79aae45cfcd98d594c5213460282ac2260ea7aec",
+      "object_type": "blob",
+      "object_sha": "c8d37f2fc3d8bc3a16d41c6e218601df0a8c13eb"
+    }
+  ],
+  "composition": {
+    "base_spine_includes": [
+      "PR #620",
+      "PR #623",
+      "PR #626"
+    ],
+    "added_source_lanes": [
+      "PR #619",
+      "PR #621",
+      "PR #624",
+      "PR #625"
+    ],
+    "semantic_rewrite": false,
+    "object_reuse": true
+  },
+  "evidence_boundary": {
+    "rust_execution": "NOT_ESTABLISHED",
+    "python_bounded_runtime": "PASS",
+    "arc_100_step_training_path": "PASS_NOT_BENCHMARK",
+    "arc_50_task_train_test_exact": "0/50 exact within bounded primitive DSL audit",
+    "hosted_actions": "ZERO_STEP_INCIDENT_UNRESOLVED"
+  },
+  "production_wiring": "SOURCE_IMAGE_AND_BRIDGE_CANDIDATE_NOT_DEPLOYED",
+  "deployment": "NOT_PERFORMED",
+  "merge": "NOT_PERFORMED",
+  "authority_effect": "NONE"
+}

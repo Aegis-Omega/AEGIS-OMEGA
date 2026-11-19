@@ -1,6 +1,8 @@
 import { useCallback, useRef, useState } from 'react'
 import type { AgentNode, CollaborationMode, CollaborationResult, LogEntry, SystemStatus } from '../types.js'
 import { DEPARTMENTS } from '../types.js'
+import type { ExecutionInitResult } from '../../../packages/shared/lib/platform-contract.js'
+import { parsePlatformEnvelope } from '../lib/platformEnvelope.js'
 
 const BRIDGE = (import.meta.env.VITE_BRIDGE_URL as string | undefined) ?? 'http://localhost:7890'
 
@@ -56,7 +58,6 @@ export function useExecution(apiKey: string) {
     addLog('INFO',   `Objective: ${objective}`)
     addLog('INFO',   `Live Claude: ${live ? 'YES' : 'DEMO'}`)
 
-    // POST /platform/executions — start async execution
     let executionId: string
     let streamUrl: string
     try {
@@ -70,9 +71,16 @@ export function useExecution(apiKey: string) {
         const err = await res.json().catch(() => ({ error: res.statusText }))
         throw new Error(`${res.status}: ${(err as { error?: string }).error ?? res.statusText}`)
       }
-      const data = await res.json() as { execution_id: string; stream_url: string }
-      executionId = data.execution_id
-      streamUrl   = data.stream_url
+      const body = await res.json()
+      const envelope = parsePlatformEnvelope<ExecutionInitResult>(body)
+      if (envelope.execution_id !== envelope.data.execution_id) {
+        throw new Error('PLATFORM_EXECUTION_ID_MISMATCH')
+      }
+      executionId = envelope.data.execution_id
+      streamUrl   = envelope.data.stream_url
+      if (!streamUrl) {
+        throw new Error('PLATFORM_STREAM_URL_MISSING')
+      }
       addLog('SUCCESS', `Execution initiated — ID: ${executionId.slice(0, 8)}…`)
     } catch (e) {
       addLog('ERROR', `Launch failed: ${String(e)}`)
@@ -80,7 +88,6 @@ export function useExecution(apiKey: string) {
       return
     }
 
-    // GET /platform/executions/live — SSE stream
     setStatus('STREAMING')
     addLog('STREAM', `Opening SSE stream → ${streamUrl}`)
 
@@ -94,7 +101,6 @@ export function useExecution(apiKey: string) {
       catch { return }
 
       const p = event.payload
-
       if (event.type === 'dag_step') {
         const deptId   = p['dept_id'] as string
         const deptName = p['dept_name'] as string

@@ -1,11 +1,13 @@
 import { Activity, ShieldCheck } from 'lucide-react'
 import { useState } from 'react'
+import { ArchiveRuntimePanel } from './components/ArchiveRuntimePanel.js'
 import { BridgeStatus } from './components/BridgeStatus.js'
 import { ConsensusReport } from './components/ConsensusReport.js'
 import { ControlPanel } from './components/ControlPanel.js'
 import { ExecutionTrace } from './components/ExecutionTrace.js'
 import { KeyEntry } from './components/KeyEntry.js'
 import { SwarmGrid } from './components/SwarmGrid.js'
+import { useArchiveRuntime } from './hooks/useArchiveRuntime.js'
 import { useBridgeStatus } from './hooks/useBridgeStatus.js'
 import { useExecution } from './hooks/useExecution.js'
 
@@ -32,6 +34,7 @@ export default function App() {
 
 function Dashboard({ apiKey, onLogout }: { apiKey: string; onLogout: () => void }) {
   const health                            = useBridgeStatus()
+  const archiveRuntime                    = useArchiveRuntime(apiKey)
   const { status, agents, logs, result, execute, reset } = useExecution(apiKey)
 
   return (
@@ -75,6 +78,7 @@ function Dashboard({ apiKey, onLogout }: { apiKey: string; onLogout: () => void 
 
       {/* Infrastructure row */}
       <BridgeStatus health={health} />
+      <ArchiveRuntimePanel runtime={archiveRuntime} />
 
       {/* Main grid */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 flex-1">

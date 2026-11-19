@@ -1,0 +1,1 @@
+numpy>=1.26\ntorch>=2.2\npytest>=8\n
