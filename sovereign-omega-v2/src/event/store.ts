@@ -49,7 +49,9 @@ export class EventStore {
     producer_version: string,
     payload_schema_version: string,
     retention_class: RetentionClass,
-    timestamp_ms: number  // MUST come from the caller's event context, not Date.now()
+    timestamp_ms: number,  // MUST come from the caller's event context, not Date.now()
+    expectedSequence?: number,
+    writeCondition?: () => boolean,
   ): Promise<EventEnvelope<TPayload>> {
     const db = this.requireDB()
 
@@ -79,6 +81,10 @@ export class EventStore {
         tx.onerror = (e) => reject(new EventStoreError(`Transaction error: ${e}`))
       }
     )
+
+    if (expectedSequence !== undefined && currentSeq !== expectedSequence) {
+      throw new ConcurrentEventStoreUpdateError()
+    }
 
     const nextSeq = currentSeq + 1
     const event_id = generateUUIDv7() as UUIDv7
@@ -133,8 +139,28 @@ export class EventStore {
       const tx = db.transaction([EVENTS_STORE, SEQUENCES_STORE], 'readwrite')
       const eventsStore = tx.objectStore(EVENTS_STORE)
       const sequencesStore = tx.objectStore(SEQUENCES_STORE)
-      eventsStore.put({ ...envelope, sequence: nextSeq })
-      sequencesStore.put(nextSeq, this.streamId)
+      const seqReq = sequencesStore.get(this.streamId)
+      seqReq.onsuccess = () => {
+        if ((seqReq.result ?? -1) !== currentSeq) {
+          reject(new ConcurrentEventStoreUpdateError())
+          tx.abort()
+          return
+        }
+        let conditionPassed = false
+        try {
+          conditionPassed = writeCondition?.() ?? true
+        } catch {
+          conditionPassed = false
+        }
+        if (!conditionPassed) {
+          reject(new EventStoreWriteConditionError())
+          tx.abort()
+          return
+        }
+        eventsStore.put({ ...envelope, sequence: nextSeq })
+        sequencesStore.put(nextSeq, this.streamId)
+      }
+      seqReq.onerror = () => reject(new EventStoreError('Failed to verify sequence before append'))
       tx.oncomplete = () => resolve()
       /* c8 ignore next -- IDB error path; fake-indexeddb never fires tx.onerror in normal operation */
       tx.onerror = () => reject(new EventStoreError('Transaction failed during append'))
@@ -263,5 +289,19 @@ export class EventStoreError extends Error {
   constructor(message: string) {
     super(message)
     this.name = 'EventStoreError'
+  }
+}
+
+export class ConcurrentEventStoreUpdateError extends EventStoreError {
+  constructor() {
+    super('Event stream changed before conditional append')
+    this.name = 'ConcurrentEventStoreUpdateError'
+  }
+}
+
+export class EventStoreWriteConditionError extends EventStoreError {
+  constructor() {
+    super('Event append condition was not satisfied')
+    this.name = 'EventStoreWriteConditionError'
   }
 }
