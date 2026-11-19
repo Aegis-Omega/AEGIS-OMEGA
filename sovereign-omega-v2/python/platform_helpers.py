@@ -1327,7 +1327,9 @@ def swarm_collaborate_autonomous(
     """
     roster = ordered_roster(departments)
     total = len(roster)
-    cap = total if max_agents is None else max(0, min(int(max_agents), total))
+    if max_agents is not None and (type(max_agents) is not int or max_agents < 0):
+        raise ValueError('INVALID_MAX_AGENTS')
+    cap = total if max_agents is None else min(max_agents, total)
 
     artifacts: list = []
     shared: list = []          # completed upstream artifacts (the mediated store)
@@ -1355,6 +1357,8 @@ def swarm_collaborate_autonomous(
                       'category': dept['category'], 'upstream': len(upstream)})
         try:
             output = agent_call(dept, objective, mode, upstream)
+            if not isinstance(output, str) or not output.strip():
+                raise AgentEmptyOutput('MODEL_OUTPUT_EMPTY')
             status = 'ok'
         except Exception as exc:
             output = ''
@@ -1381,22 +1385,33 @@ def swarm_collaborate_autonomous(
     }
 
 
+class AgentProviderUnavailable(RuntimeError):
+    """Required model provider cannot be initialized."""
+
+
+class AgentRefused(RuntimeError):
+    """Model refused to produce a governed response."""
+
+
+class AgentEmptyOutput(RuntimeError):
+    """Model returned no usable content."""
+
+
 def make_autonomous_agent_call():
     """
     Production agent_call factory: each department gets its OWN governed model
     call, primed with its category persona and the upstream artifacts it depends
-    on. Falls back to the template dept_output when no model client is available,
-    so the executor always returns usable artifacts.
+    on. Never substitutes a template for a live provider failure or refusal.
     """
     import anth_client as _ac
     try:
         _client = _ac.get_client()
     except Exception:
-        _client = None
+        raise AgentProviderUnavailable('MODEL_CLIENT_UNAVAILABLE') from None
+    if _client is None:
+        raise AgentProviderUnavailable('MODEL_CLIENT_UNAVAILABLE')
 
     def _call(dept: dict, objective: str, mode: str, upstream: list) -> str:
-        if _client is None:
-            return dept_output(objective, mode, dept)
         persona = _CATEGORY_PERSONAS.get(dept['category'], '')
         upstream_block = '\n'.join(
             f'- {u["role"]}: {u["output"][:400]}' for u in upstream[:12]
@@ -1421,8 +1436,11 @@ def make_autonomous_agent_call():
             kwargs['thinking'] = {'type': 'adaptive'}
         resp = _client.messages.create(**kwargs)
         if getattr(resp, 'stop_reason', None) == 'refusal':
-            return dept_output(objective, mode, dept)
-        return ''.join(b.text for b in resp.content if hasattr(b, 'text')).strip()
+            raise AgentRefused('MODEL_REFUSED')
+        output = ''.join(b.text for b in resp.content if hasattr(b, 'text')).strip()
+        if not output:
+            raise AgentEmptyOutput('MODEL_OUTPUT_EMPTY')
+        return output
 
     return _call
 
