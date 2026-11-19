@@ -1,0 +1,35 @@
+{
+  "schema": "aegis-mira-rh-proof-ir/v1",
+  "kind": "finite_gram_sos",
+  "statement": {
+    "matrix": [
+      [
+        "5",
+        "1"
+      ],
+      [
+        "1",
+        "2"
+      ]
+    ],
+    "vectors": [
+      [
+        "2",
+        "0"
+      ],
+      [
+        "1",
+        "1"
+      ],
+      [
+        "0",
+        "1"
+      ]
+    ],
+    "weights": [
+      "1",
+      "1",
+      "1"
+    ]
+  }
+}

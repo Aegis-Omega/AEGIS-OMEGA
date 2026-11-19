@@ -1,0 +1,28 @@
+{
+  "authority_class": "NONE",
+  "checked": {
+    "analytic_claims": [
+      "Support premise, regularity and normalization dy must be discharged against actual Lean definitions",
+      "Prime cutoff eliminates no zero-side spectral terms and does not imply RH"
+    ],
+    "checked_scope": "CONDITIONAL_SUPPORT_TO_ALL_PRIME_POWERS",
+    "claim": "IF supp(g)⊆[exp(-d),exp(d)], THEN A_g(n)=A_g(1/n)=0 for every integer n>=2",
+    "delta": "1/1000",
+    "exp_2delta_strict_upper_bound": "500/499",
+    "proof_rule": "0<x<1 -> exp(x)<=1/(1-x); monotonicity; ratio support of autocorrelation"
+  },
+  "kind": "support_prime_cutoff",
+  "lean_kernel_checked": false,
+  "local_exact_arithmetic_checked": true,
+  "receipt_sha256": "69bc87afbce2ec650bb45f620c07c6de196762dea464ded06618b1645e18b5ca",
+  "rh_obligations": [
+    "exact-source full Weil explicit-formula identity",
+    "universal Weil positivity for all admissible g",
+    "proof term for the unmodified Mathlib RiemannHypothesis"
+  ],
+  "riemann_hypothesis_proven": false,
+  "schema": "aegis-mira-rh-proof-ir/v1",
+  "statement": {
+    "delta": "1/1000"
+  }
+}

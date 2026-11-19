@@ -1,0 +1,83 @@
+{
+  "authority_class": "NONE",
+  "checked": {
+    "analytic_claims": [
+      "No identification with the full Weil form Q(g) has been established"
+    ],
+    "checked_scope": "ALL_REAL_VECTORS_IN_DECLARED_FINITE_DIMENSION",
+    "claim": "forall x in R^n, x^T A x = sum_i w_i (v_i^T x)^2 >= 0",
+    "dimension": 2,
+    "matrix": [
+      [
+        "5",
+        "1"
+      ],
+      [
+        "1",
+        "2"
+      ]
+    ],
+    "proof_rule": "exact rational matrix coefficient comparison + nonnegative weights",
+    "vectors": [
+      [
+        "2",
+        "0"
+      ],
+      [
+        "1",
+        "1"
+      ],
+      [
+        "0",
+        "1"
+      ]
+    ],
+    "weights": [
+      "1",
+      "1",
+      "1"
+    ]
+  },
+  "kind": "finite_gram_sos",
+  "lean_kernel_checked": false,
+  "local_exact_arithmetic_checked": true,
+  "receipt_sha256": "eecd73913f584527bf50d03fd40b4d8c2c6fd2387e2a9eab73151980d23da02f",
+  "rh_obligations": [
+    "exact-source full Weil explicit-formula identity",
+    "universal Weil positivity for all admissible g",
+    "proof term for the unmodified Mathlib RiemannHypothesis"
+  ],
+  "riemann_hypothesis_proven": false,
+  "schema": "aegis-mira-rh-proof-ir/v1",
+  "statement": {
+    "matrix": [
+      [
+        "5",
+        "1"
+      ],
+      [
+        "1",
+        "2"
+      ]
+    ],
+    "vectors": [
+      [
+        "2",
+        "0"
+      ],
+      [
+        "1",
+        "1"
+      ],
+      [
+        "0",
+        "1"
+      ]
+    ],
+    "weights": [
+      "1",
+      "1",
+      "1"
+    ]
+  }
+}

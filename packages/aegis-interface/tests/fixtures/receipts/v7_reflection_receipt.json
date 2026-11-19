@@ -1,0 +1,53 @@
+{
+  "authority_class": "NONE",
+  "checked": {
+    "P_s_ascending": [
+      "0",
+      "-3342533565123/242792649158410",
+      "70968652130814093/1714116103058374600",
+      "-5986501435543446/214264512882296825",
+      "174063880283949/342823220611674920",
+      "-2059037482311/10083035900343380",
+      "477152856243/428529025764593650",
+      "-68164693749/214264512882296825"
+    ],
+    "R_u_ascending": [
+      "-23554856205564579/857058051529187300",
+      "-34730978424291/171411610305837460",
+      "-68164693749/214264512882296825"
+    ],
+    "analytic_claims": [
+      "G(s)=P(s)Phi(s) requires Mellin integration-by-parts hypotheses",
+      "Phi(1-s)=Phi(s) requires real-even bump hypotheses",
+      "full explicit formula, universal Weil positivity, and RH are OPEN"
+    ],
+    "checked_scope": "ALL_COMPLEX_S_BY_POLYNOMIAL_IDENTITY",
+    "claim": "P(0)=P(1)=0 and P(1-s)=-P(s) as Q[s] identities",
+    "degree": 7,
+    "proof_rule": "P(s)=(s-1/2)((s-1/2)^2-1/4)R((s-1/2)^2)",
+    "source_theorem": "exact symbolic normal form, replayed from input coefficients"
+  },
+  "kind": "reflection_polynomial",
+  "lean_kernel_checked": false,
+  "local_exact_arithmetic_checked": true,
+  "receipt_sha256": "701b8c22ecc80897e2bd4338f3c2201cffec5ee9a52d9448249ce1e95250c9c0",
+  "rh_obligations": [
+    "exact-source full Weil explicit-formula identity",
+    "universal Weil positivity for all admissible g",
+    "proof term for the unmodified Mathlib RiemannHypothesis"
+  ],
+  "riemann_hypothesis_proven": false,
+  "schema": "aegis-mira-rh-proof-ir/v1",
+  "statement": {
+    "coefficients_s_ascending": [
+      "0",
+      "-3342533565123/242792649158410",
+      "70968652130814093/1714116103058374600",
+      "-5986501435543446/214264512882296825",
+      "174063880283949/342823220611674920",
+      "-2059037482311/10083035900343380",
+      "477152856243/428529025764593650",
+      "-68164693749/214264512882296825"
+    ]
+  }
+}
