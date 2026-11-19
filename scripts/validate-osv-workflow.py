@@ -14,8 +14,8 @@ import yaml
 
 RECEIPT_KIND = "AEGIS_OSV_WORKFLOW_STARTUP_RECEIPT_V1"
 EXPECTED_REFS = {
-    "scan-scheduled": "google/osv-scanner-action/.github/workflows/osv-scanner-reusable.yml@v2.3.8",
-    "scan-pr": "google/osv-scanner-action/.github/workflows/osv-scanner-reusable-pr.yml@v2.3.8",
+    "scan-scheduled": "google/osv-scanner-action/.github/workflows/osv-scanner-reusable.yml@9a498708959aeaef5ef730655706c5a1df1edbc2",
+    "scan-pr": "google/osv-scanner-action/.github/workflows/osv-scanner-reusable-pr.yml@9a498708959aeaef5ef730655706c5a1df1edbc2",
 }
 
 
@@ -64,8 +64,8 @@ def validate(path: Path) -> dict[str, Any]:
                 violations.append(
                     f"{job_name} reusable workflow ref mismatch: expected {expected_ref}, got {actual_ref}"
                 )
-            if not isinstance(actual_ref, str) or not re.search(r"@v\d+\.\d+\.\d+$", actual_ref):
-                violations.append(f"{job_name} reusable workflow must use an exact semantic version")
+            if not isinstance(actual_ref, str) or not re.search(r"@[0-9a-f]{40}$", actual_ref):
+                violations.append(f"{job_name} reusable workflow must use its allowlisted immutable commit SHA")
             scan_args = job.get("with", {}).get("scan-args") if isinstance(job.get("with"), dict) else None
             if not isinstance(scan_args, str) or "-r" not in scan_args or "--skip-git" not in scan_args:
                 violations.append(f"{job_name} scan-args must include -r and --skip-git")
