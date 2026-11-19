@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="bs">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="color-scheme" content="dark" />
+  <meta name="robots" content="noindex,nofollow" />
+  <meta name="description" content="Read-only provjera AEGIS OAuth spremnosti i WebMCP integracije." />
+  <link rel="stylesheet" href="./styles.css" />
+  <title>AEGIS Ω | OAuth spremnost</title>
+</head>
+<body>
+  <div class="app-frame">
+    <aside class="sidebar">
+      <div class="brand"><span class="mark">Ω</span><div><strong>AEGIS</strong><small>OMEGA LABS</small></div></div>
+      <div class="nav-heading">OPERATIVNI ALATI</div>
+      <div class="nav-active"><span class="dot"></span> OAuth spremnost</div>
+      <a class="nav-link" href="https://aegisomega.com" target="_blank" rel="noopener noreferrer">Javni Hub <span>↗</span></a>
+      <a class="nav-link" href="https://aegisomega.com/compliance" target="_blank" rel="noopener noreferrer">Compliance <span>↗</span></a>
+      <div class="sidebar-note">Ova stranica je lokalni alat za pripremu konfiguracije. Ne mijenja Google Cloud, GitHub niti produkciju.</div>
+    </aside>
+    <main class="main">
+      <div class="topline"><span>IDENTITET / GOOGLE OAUTH</span><span>19. NOV 2026.</span></div>
+      <header class="hero">
+        <div><h1>OAuth spremnost</h1><p>Jedno mjesto za provjeru domene, URL vrijednosti i otvorenih obaveza prije Google brand verifikacije.</p></div>
+        <span class="state open"><span class="status-dot"></span> Nije spremno za prijavu</span>
+      </header>
+      <section class="summary" aria-label="Stanje provjere">
+        <div><small>DOMENA · VERCEL</small><strong class="good">VERIFIED</strong><span>aegisomega.com</span></div>
+        <div><small>GOOGLE SEARCH CONSOLE</small><strong>UNKNOWN</strong><span>Nije direktno potvrđeno</span></div>
+        <div><small>PRAVNI DOKUMENTI</small><strong class="warn">OPEN</strong><span>Nedostaju rute u Hub main izvoru</span></div>
+      </section>
+      <section class="content-head"><div><h2>Branding vrijednosti</h2><p>Predložene URL adrese za postojeći AEGIS web Hub. Vrijednosti možeš kopirati ili urediti lokalno.</p></div><button id="reset-fields" class="quiet" type="button">Vrati izvorno</button></section>
+      <div class="fields">
+        <div class="field"><label for="field-homepage">Application home page</label><div class="inputrow"><input id="field-homepage" value="https://aegisomega.com" spellcheck="false" /><button type="button" data-copy="homepage">Kopiraj</button></div><small class="under ok">Vercel domena potvrđena; Google vlasništvo još nije potvrđeno</small></div>
+        <div class="field"><label for="field-privacy">Application privacy policy</label><div class="inputrow"><input id="field-privacy" value="https://aegisomega.com/privacy" spellcheck="false" /><button type="button" data-copy="privacy">Kopiraj</button></div><small class="under danger">OPEN: u trenutno provjerenom Hub routeru nema odgovarajuće stranice</small></div>
+        <div class="field"><label for="field-terms">Application terms of service</label><div class="inputrow"><input id="field-terms" value="https://aegisomega.com/terms" spellcheck="false" /><button type="button" data-copy="terms">Kopiraj</button></div><small class="under danger">OPEN: stvarni dokument i javna dostupnost nisu potvrđeni</small></div>
+        <div class="field"><label for="field-authorizedDomain">Authorized domains</label><div class="inputrow"><input id="field-authorizedDomain" value="aegisomega.com" spellcheck="false" /><button type="button" data-copy="authorizedDomain">Kopiraj</button></div><small class="under">Bez https:// i bez putanje. Google Search Console vlasništvo treba potvrditi zasebno.</small></div>
+      </div>
+      <div class="verification">
+        <div class="verification-head"><div><h2>Provjera formata</h2><p>Provjera je deterministička i lokalna. Ne pristupa Google API-ju.</p></div><button id="run-checks" class="primary" type="button">Provjeri URL-ove</button></div>
+        <div class="counter">Prolaznost provjera: <strong id="check-count">0/0</strong></div>
+        <ul id="results" class="checklist" aria-live="polite"></ul>
+      </div>
+      <section class="route-probe" aria-labelledby="route-probe-title">
+        <div class="verification-head">
+          <div><h2 id="route-probe-title">Provjera stvarnih ruta</h2><p>Posebno otkriva SPA fallback: HTML 200 nije dokaz da politika privatnosti postoji. Provjera šalje samo GET na istu domenu.</p></div>
+          <button id="probe-pages" class="quiet" type="button">Provjeri javne stranice</button>
+        </div>
+        <div id="probe-report" class="probe-report" aria-live="polite">Provjera pravnih ruta još nije pokrenuta za ove vrijednosti.</div>
+        <p class="probe-note">Za pozitivan tehnički rezultat stranica treba sadržavati &lt;meta name="aegis-legal-document" content="privacy"&gt; ili content="terms" i glavni sadržaj. Čak ni to ne zamjenjuje pravni pregled.</p>
+      </section>
+      <section class="next"><h2>Šta je još otvoreno?</h2><ol><li>Objaviti stvarnu politiku privatnosti koja tačno opisuje pristup, upotrebu, pohranu i dijeljenje Google korisničkih podataka.</li><li>Objaviti primjenjive uslove korištenja na istom domenu.</li><li>Potvrditi vlasništvo domene u Google Search Console računu povezanom s Cloud projektom.</li><li>Pregledati OAuth scopes i redirect URI-je konkretnog Cloud projekta, pa tek onda sačuvati Branding.</li></ol></section>
+      <div class="footer"><span id="webmcp-status">Provjera WebMCP podrške…</span><span>WEBMCP · LOKALNA PRIPREMA · BEZ VANJSKIH UPISA</span></div>
+      <p id="live-region" class="sr-only" role="status" aria-live="polite"></p>
+    </main>
+  </div>
+  <script type="module" src="./app.js"></script>
+</body>
+</html>
