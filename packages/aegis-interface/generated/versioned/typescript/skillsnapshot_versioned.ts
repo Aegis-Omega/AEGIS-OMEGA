@@ -9,7 +9,7 @@ export interface SkillSnapshotV1 {
   confidence: number;
   /** range: 0.0..=1.0 */
   failure_rate: number;
-  attempts: number;
+  attempts: bigint;
   tags: string[];
   parent_skill?: string | null;
 }
@@ -21,7 +21,7 @@ export interface SkillSnapshotV2 {
   confidence: number;
   /** range: 0.0..=1.0 */
   failure_rate: number;
-  attempts: number;
+  attempts: bigint;
   tags: string[];
   parent_skill?: string | null;
   /** range: 0.0..=1.0 */
