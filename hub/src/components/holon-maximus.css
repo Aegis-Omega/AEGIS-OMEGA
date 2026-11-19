@@ -1,0 +1,129 @@
+/*
+ * HOLON MAXIMUS OPTIMUS — AEGIS existing Holon Glass language,
+ * editorial hierarchy + bounded optical art; no new global palette.
+ * Human thinking is the product. Procedural matter is the framing, not data.
+ */
+.hm-root{--hm-ink:var(--hg-text,#f0f7ff);--hm-muted:var(--hg-dim,#afc4d6);
+  --hm-blue:var(--hg-ice,#bbebff);--hm-edge:var(--hg-edge,rgba(145,192,252,.18));
+  max-width:1540px;margin:0 auto;padding:0 clamp(18px,4vw,66px) 65px;
+  color:var(--hm-ink);font-family:Inter,'Geist Sans',system-ui,sans-serif}
+.hm-root *{box-sizing:border-box}
+.hm-root button,.hm-root select,.hm-root textarea{font:inherit}
+.hm-root :focus-visible{outline:3px solid var(--hm-blue);outline-offset:4px}
+.hm-overline,.hm-step-label,.hm-evidence-title>span{font:600 12px/1.6 ui-monospace,'SFMono-Regular',monospace;letter-spacing:.12em;color:#a7d0e8}
+.hm-intro{position:relative;overflow:hidden;min-height:500px;display:flex;align-items:center;isolation:isolate;
+  padding:clamp(40px,5vw,86px) 0 64px;border-bottom:1px solid var(--hm-edge)}
+.hm-intro:before{content:"";position:absolute;z-index:-1;inset:0;
+  background:radial-gradient(ellipse 55% 76% at 80% 50%,rgba(22,61,111,.30),transparent 75%)}
+.hm-intro>div:first-child{position:relative;z-index:4;width:min(740px,58%)}
+.hm-intro h1{font-size:clamp(52px,5.8vw,98px);font-weight:620;letter-spacing:-.075em;
+  line-height:1.01;margin:25px 0 24px;text-wrap:balance}
+.hm-intro h1 em{font-style:normal;color:#abcde8}
+.hm-intro p{font-size:clamp(17px,1.3vw,21px);line-height:1.58;color:#c2d2e1;max-width:615px}
+.hm-claims{display:flex;flex-wrap:wrap;gap:8px;margin-top:33px}
+.hm-claims span{border:1px solid rgba(179,212,237,.38);padding:9px 14px;
+  background:rgba(8,24,44,.75);border-radius:25px;font-size:13px;line-height:1.35;color:#cfe2ee}
+.hm-art{position:absolute;inset:0 0 0 auto;z-index:0;width:58%;pointer-events:none}
+.hm-art .sm-stage{position:absolute;inset:0;width:100%;height:100%;min-height:0;pointer-events:none}
+.hm-art .sm-stage:after{background:linear-gradient(90deg,#020611 1%,rgba(2,6,17,.48) 26%,transparent 68%),
+linear-gradient(0deg,rgba(2,6,17,.85),transparent 21%)}
+.hm-art .sm-north,.hm-art .sm-south,.hm-art .sm-command{display:none}
+.hm-bar{display:flex;align-items:center;justify-content:space-between;gap:22px;flex-wrap:wrap;
+  border-bottom:1px solid var(--hm-edge);padding:23px 0;font-size:15px;color:var(--hm-muted)}
+.hm-bar b{color:var(--hm-ink);font-variant-numeric:tabular-nums}
+.hm-bar>span:last-child{font-size:13px}
+.hm-layout{display:grid;grid-template-columns:minmax(0,1.22fr) minmax(340px,.78fr);
+  gap:clamp(28px,4.5vw,76px);padding:45px 0}
+.hm-step{border-top:1px solid var(--hm-edge);padding:31px 0 53px}
+.hm-step:first-child{border-top:0;padding-top:5px}
+.hm-step h2{font-size:clamp(30px,3.1vw,45px);line-height:1.14;letter-spacing:-.052em;font-weight:620;margin:10px 0 21px}
+.hm-step>label,.hm-gridtwo label{display:block;font-size:15px;font-weight:570;color:#d5e5ee;margin:19px 0 10px}
+.hm-step textarea{display:block;width:100%;border:1px solid rgba(162,200,227,.50);background:#071727;color:#f0f7ff;
+  font-size:17px;line-height:1.55;border-radius:8px;padding:18px 19px;min-height:110px;resize:vertical}
+.hm-step textarea::placeholder{color:#95adc0;opacity:1}
+.hm-step textarea:focus{border-color:#b8e4f3}
+.hm-step button{cursor:pointer}
+.hm-step button:disabled,.hm-export button:disabled{opacity:.45;cursor:not-allowed}
+.hm-action{min-height:50px;background:#cfe5ec;color:#10243a;border:0;border-radius:7px;
+  font-size:16px;font-weight:670;padding:13px 23px;margin-top:16px}
+.hm-action:not(:disabled):hover{background:#e4f4f9}
+.hm-existing{border-left:2px solid #84c1d4;background:rgba(18,42,61,.56);padding:23px 25px}
+.hm-existing span{font-size:12px;letter-spacing:.12em;color:#9fd2e7}
+.hm-existing p{font-size:21px;line-height:1.5;margin:11px 0 0;white-space:pre-wrap;overflow-wrap:anywhere}
+.hm-helper{color:#b4c9d9;font-size:15px;line-height:1.6;max-width:640px}
+.hm-warning{border-left:3px solid #d8b58e;padding:12px 16px;color:#e9d1b4;
+  font-size:15px;line-height:1.55;background:rgba(91,56,30,.22)}
+.hm-lenses{display:flex;flex-wrap:wrap;gap:9px;margin:22px 0}
+.hm-lenses button{min-height:46px;border:1px solid #7295aa;color:#d0e5ef;background:#122a3a;
+  border-radius:25px;padding:9px 18px;font-size:15px}
+.hm-lenses button[aria-pressed="true"]{background:#c8e4e9;color:#10283a;border-color:#d9f4f5}
+.hm-gridtwo{display:grid;grid-template-columns:1fr 1fr;gap:17px}
+.hm-gridtwo label{margin:0}
+.hm-gridtwo select{width:100%;min-height:49px;margin-top:9px;padding:10px 30px 10px 13px;
+  border:1px solid rgba(159,202,230,.5);border-radius:6px;background:#0b2233;color:#e8f2f5;
+  font-size:15px;line-height:1.4}
+.hm-branches{display:grid;gap:13px}
+.hm-branch{padding:23px 24px;border:1px solid rgba(153,187,215,.34);
+  background:linear-gradient(110deg,rgba(25,48,69,.67),rgba(9,24,44,.66));border-radius:8px}
+.hm-branch-head{display:flex;gap:12px;justify-content:space-between;flex-wrap:wrap;
+  color:#a8cedf;font:12px/1.5 ui-monospace,monospace;letter-spacing:.045em}
+.hm-branch p{font-size:17px;line-height:1.55;white-space:pre-wrap;overflow-wrap:anywhere;margin:15px 0}
+.hm-branch button{color:#d5ecf3;background:transparent;border:1px solid #90bed2;
+  border-radius:6px;min-height:45px;padding:9px 17px;font-size:15px}
+.hm-aside{min-width:0}
+.hm-evidence-title{border-top:1px solid var(--hm-edge);padding-top:31px}
+.hm-evidence-title h2{font-size:clamp(27px,2.4vw,39px);line-height:1.17;
+  letter-spacing:-.045em;margin:12px 0 22px;font-weight:600}
+.hm-graph{border:1px solid var(--hm-edge);background:radial-gradient(ellipse at 50% 52%,#142f48,#071323 75%);
+  border-radius:9px;overflow:hidden}
+.hm-graph svg{display:block;width:100%;height:auto;aspect-ratio:530/344}
+.hm-graph p{margin:0;padding:10px 18px 17px;color:#a9c1d5;font-size:13px;line-height:1.45}
+.hm-ledger{padding:30px 0;border-bottom:1px solid var(--hm-edge)}
+.hm-ledger h3,.hm-export h3{font-size:21px;letter-spacing:-.035em;margin:0 0 17px}
+.hm-ledger>p{font-size:15px;line-height:1.55;color:var(--hm-muted)}
+.hm-ledger ol{list-style:none;padding:0;margin:0;display:grid;gap:15px}
+.hm-ledger li{border-left:1px solid #719bb4;padding:2px 0 2px 17px}
+.hm-ledger li span{color:#a9cbd9;font-size:12px;letter-spacing:.07em}
+.hm-ledger li p{font-size:15px;line-height:1.5;margin:8px 0;color:#ebf4f5;overflow-wrap:anywhere}
+.hm-export{padding:29px 0}
+.hm-export p{font-size:15px;line-height:1.6;color:var(--hm-muted)}
+.hm-export code{display:block;padding:13px 0;font-size:12px;color:#bad5df;overflow-wrap:anywhere}
+.hm-export button,.hm-import{border:1px solid #9fc5d8;border-radius:7px;background:#16334a;
+  color:#f2f8fb;cursor:pointer;padding:12px 17px;min-height:46px;display:inline-block;
+  font-size:15px;font-weight:600;margin:7px 10px 7px 0}
+.hm-import{position:relative}
+.hm-import input{position:absolute;inset:0;width:100%;opacity:0;cursor:pointer}
+.hm-import:focus-within{outline:3px solid #b5e2f0;outline-offset:3px}
+.hm-feedback{padding:17px;border:1px solid #88c7c8;background:#092b2c;color:#d9f6ef;font-size:15px;border-radius:6px}
+.hm-error{border-color:#dba293;background:#3f2225;color:#ffdfdb}
+.hm-footer{display:flex;flex-wrap:wrap;justify-content:space-between;gap:15px;padding:27px 0;
+  border-top:1px solid var(--hm-edge);color:#b6c9db;font-size:13px}
+@media(max-width:1000px){.hm-intro>div:first-child{width:65%}.hm-art{width:60%}.hm-layout{grid-template-columns:1fr}.hm-aside{max-width:840px}}
+@media(max-width:650px){
+  .hm-root{padding:0 18px 40px}
+  .hm-intro{display:block;min-height:0;padding:37px 0 15px}
+  .hm-intro>div:first-child{width:100%}
+  .hm-intro h1{font-size:clamp(42px,10.2vw,68px);line-height:1.04;margin:17px 0}
+  .hm-intro p{font-size:17px;line-height:1.55}
+  .hm-art{position:relative;width:100%;height:240px;margin:12px 0 0}
+  .hm-art .sm-stage:after{background:linear-gradient(0deg,#020611,transparent 28%)}
+  .hm-claims{margin-top:21px}
+  .hm-bar{font-size:13px}
+  .hm-layout{padding:25px 0;gap:30px}
+  .hm-step{padding:22px 0 38px}
+  .hm-step h2{font-size:clamp(27px,8vw,38px)}
+  .hm-gridtwo{grid-template-columns:1fr}
+  .hm-gridtwo label+label{margin-top:6px}
+  .hm-overline{font-size:11px}
+  .hm-action{width:100%}
+  .hm-branch{padding:19px}
+  .hm-graph{margin-left:-3px;margin-right:-3px}
+}
+@media(prefers-reduced-motion:reduce){
+ .hm-root *,.hm-root *::before,.hm-root *::after{animation:none!important;transition:none!important;scroll-behavior:auto!important}
+}
+@media(prefers-contrast:more){.hm-step textarea,.hm-gridtwo select,.hm-branch,
+  .hm-graph,.hm-export button,.hm-import{border:2px solid #e3f5fa}
+  .hm-root{--hm-muted:#e8f4f6}
+}
+@media(prefers-reduced-transparency:reduce){.hm-branch,.hm-existing,.hm-claims span{background:#0d2333}}

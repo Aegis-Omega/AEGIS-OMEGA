@@ -46,12 +46,12 @@ function PlatNav() {
 // ─── Trust strip ───────────────────────────────────────────────────────────
 
 const TRUST_ITEMS = [
-  { n: '11,168', label: 'tests passing' },
-  { n: '39',     label: 'agent departments' },
+  { n: 'UNKNOWN', label: 'exact-head test state' },
+  { n: '39',     label: 'configured departments' },
   { n: '1.0.0',  label: 'contract version' },
   { n: 'SHA-256',label: 'hash-chained audit' },
   { n: 'T0–T4',  label: 'epistemic tiers' },
-  { n: '100%',   label: 'replay verifiable' },
+  { n: 'UNVERIFIED', label: 'end-to-end replay status' },
 ]
 
 function TrustStrip() {
@@ -320,11 +320,11 @@ export function PlatformPage() {
           <NousPill>THE PLATFORM</NousPill>
         </div>
         <h1 style={{ fontSize: 'clamp(36px, 6vw, 64px)', fontWeight: 800, lineHeight: 1.08, color: '#ECEAE3', marginBottom: 20, letterSpacing: '-0.02em' }}>
-          39 autonomous departments.<br />One governed answer.
+          Configured departments.<br />Evidence-bound decisions.
         </h1>
         <p style={{ fontSize: 17, color: MUTED, maxWidth: 520, margin: '0 auto 36px', lineHeight: 1.65 }}>
-          Send any business objective. The AEGIS swarm activates all 39 departments simultaneously,
-          synthesizes their analysis, and delivers a constitutionally-audited result in under 10 seconds.
+          Submit an objective to a governed workflow. Provider availability, evidence coverage and latency
+          vary by execution. Demo outputs are not live provider evidence; inspect the result and receipt before trusting it.
         </p>
         <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'center', gap: 12 }}>
           <NousButton href="/pricing" variant="primary" size="lg">Start for Free <ArrowR /></NousButton>
@@ -332,6 +332,7 @@ export function PlatformPage() {
         </div>
       </div>
 
+      <div style={{ padding: "10px 24px", textAlign: "center", background: "rgba(200,169,110,.065)" }}><p role="note" style={{ fontSize: 12, color: T.amber, maxWidth: 720, margin: "10px auto 0", lineHeight: 1.6 }}>Metrics are not live CI telemetry. Configured capabilities are distinct from validated executions; no blanket replay or latency guarantee is asserted here.</p></div>
       <TrustStrip />
       <AgentCatalog />
       <SwarmDemoWidget />

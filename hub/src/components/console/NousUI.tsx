@@ -1,8 +1,7 @@
 // AEGIS-Ω — NOUS interaction primitives.
-// The shared button/pill language so every interactive element across the
-// platform resembles NOUS: glass surface, gold/indigo glow, a refined lift on
-// hover. Encoded once; inherited everywhere. Self-contained inline styles so it
-// drops into any page (landing, console, pricing, docs) without CSS coupling.
+// One shared button and label language for Pricing, Compliance and Docs.
+// Solid information planes; editorial form, restrained motion and real focus.
+// Local inline styles preserve standalone use outside the Holon shell.
 
 import { useState } from 'react'
 import type { CSSProperties, ReactNode } from 'react'
@@ -28,7 +27,7 @@ export function NousButton({ children, href, onClick, variant = 'primary', size 
   const base: CSSProperties = {
     display: 'inline-flex', alignItems: 'center', gap: 9,
     padding: PAD[size], fontSize: FS[size], fontWeight: 600,
-    borderRadius: 12, textDecoration: 'none', cursor: 'pointer',
+    borderRadius: 4, textDecoration: 'none', cursor: 'pointer',
     fontFamily: 'inherit', letterSpacing: '0.01em', whiteSpace: 'nowrap',
     transition: 'transform 0.22s cubic-bezier(0.2,0.8,0.2,1), box-shadow 0.3s, border-color 0.3s, background 0.3s',
     transform: hover ? 'translateY(-1.5px)' : 'translateY(0)',
@@ -36,10 +35,10 @@ export function NousButton({ children, href, onClick, variant = 'primary', size 
   }
   const skin: CSSProperties = variant === 'primary'
     ? {
-        color: '#0A0A0C',
+        color: '#0D1415',
         background: hover
-          ? 'linear-gradient(180deg, #FFF8EA 0%, #D8B97E 100%)'
-          : 'linear-gradient(180deg, #F3ECDC 0%, #C8A96E 100%)',
+          ? 'linear-gradient(115deg, #F4E4C0 0%, #DFBE83 100%)'
+          : 'linear-gradient(115deg, #E9DBBB 0%, #D8BD91 100%)',
         borderColor: 'rgba(255,255,255,0.18)',
         boxShadow: hover
           ? `0 10px 40px ${T.phi}55, inset 0 1px 0 rgba(255,255,255,0.5)`
@@ -47,10 +46,10 @@ export function NousButton({ children, href, onClick, variant = 'primary', size 
       }
     : {
         color: hover ? T.text : T.sub,
-        background: hover ? 'rgba(255,255,255,0.06)' : 'rgba(255,255,255,0.02)',
-        borderColor: hover ? 'rgba(255,255,255,0.22)' : 'rgba(255,255,255,0.10)',
+        background: hover ? 'rgba(218,228,221,0.11)' : 'rgba(218,228,221,0.035)',
+        borderColor: hover ? 'rgba(216,218,209,0.47)' : 'rgba(216,218,209,0.24)',
         boxShadow: hover ? `0 8px 30px rgba(0,0,0,0.4), 0 0 30px ${T.indigo}1A` : 'none',
-        backdropFilter: 'blur(8px)',
+        backdropFilter: 'none',
       }
   const props = {
     style: { ...base, ...skin, ...style },
@@ -74,7 +73,7 @@ export function NousPill({ children, accent = T.phi }: { children: ReactNode; ac
   return (
     <span style={{
       display: 'inline-flex', alignItems: 'center', gap: 8,
-      padding: '6px 14px', borderRadius: 100, fontSize: 11,
+      padding: '7px 13px', borderRadius: 3, fontSize: 12,
       fontFamily: 'var(--font-mono)', letterSpacing: '0.12em', color: accent,
       background: `${accent}10`, border: `1px solid ${accent}30`,
       backdropFilter: 'blur(8px)',

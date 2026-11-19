@@ -83,11 +83,11 @@
   --alliance-guardian: #C8A96E;
 
   /* ── Hub surface ──────────────────────────────────────────── */
-  --hub-bg:      #08090C;
-  --hub-surface: #0F1117;
-  --hub-border:  #1A1D27;
-  --hub-text:    #EDEAE3;
-  --hub-muted:   #6B6E80;
+  --hub-bg:      #080C0F;
+  --hub-surface: #111A1D;
+  --hub-border:  #344044;
+  --hub-text:    #EEEAE1;
+  --hub-muted:   #A9B6B0;
   --hub-accent:  #6366F1;
   --hub-glow:    #818CF8;
 

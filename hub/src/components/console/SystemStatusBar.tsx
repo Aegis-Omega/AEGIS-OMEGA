@@ -18,15 +18,15 @@ export function SystemStatusBar({ snap }: { snap: ConsoleSnapshot }) {
           boxShadow: `0 0 10px ${dot}`, display: 'inline-block',
         }} />
         <span style={{ fontFamily: MONO, fontSize: 12, color: live ? T.green : T.amber, letterSpacing: '0.1em' }}>
-          {live ? '● LIVE' : '○ DEMO'}
+          {live ? '● REMOTE OBSERVATION' : '○ UNAVAILABLE'}
         </span>
         <span style={{ fontSize: 12, color: T.muted }}>{snap.reason}</span>
       </div>
       <div className="flex items-center gap-5">
         <Field label="contract" value={`v${snap.status.contract_version}`} />
         <Field label="agents" value={String(snap.status.total_agents)} />
-        <Field label="chain" value={snap.status.audit_chain_hash.slice(0, 12) + '…'}
-          color={snap.status.chain_valid ? T.green : T.red} />
+        <Field label="chain" value={(snap.source === 'live' && snap.status.audit_chain_hash ? snap.status.audit_chain_hash.slice(0, 12) + '… (reported)' : 'NOT VERIFIED')}
+          color={snap.source === 'live' && snap.status.chain_valid === false ? T.red : T.amber} />
       </div>
     </div>
   )

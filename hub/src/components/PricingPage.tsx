@@ -97,7 +97,7 @@ function PricingNav() {
       position: 'fixed', top: 0, left: 0, right: 0, zIndex: 50,
       background: 'rgba(6,7,12,0.55)', backdropFilter: 'blur(16px) saturate(150%)',
       borderBottom: `1px solid rgba(255,255,255,0.06)`,
-    }} className="px-7 py-4 flex items-center justify-between">
+    }} className="av-embedded-nav px-7 py-4 flex items-center justify-between">
       <a href="/" style={{ color: T.text, fontFamily: MONO, letterSpacing: '0.22em', fontSize: 13, fontWeight: 600 }}>
         AEGIS<span style={{ color: T.phi }}>-Ω</span>
       </a>

@@ -1,5 +1,6 @@
 // AEGIS-Ω Console — shared design tokens.
-// Matches the hub platform design language exactly (PlatformPage.tsx palette).
+// Shared neutral material system across NOUS, Pricing, Compliance and Docs.
+// Semantic tier colors retain their original meanings; these are not live status flags.
 
 export const T = {
   phi:    '#C8A96E', // gold — constitutional / φ
@@ -8,33 +9,31 @@ export const T = {
   blue:   '#60A5FA', // info
   amber:  '#F59E0B', // caution / stressed
   red:    '#F87171', // fault / quarantine
-  text:   '#ECEAE3',
-  sub:    '#A1A1AA',
-  muted:  '#6B6B7A',
-  card:   '#1A1A1E',
-  border: '#1E1E22',
-  void:   '#08090C',
-  bg:     '#0F0F11',
-  inset:  '#07070A',
+  text:   '#EEEAE1',
+  sub:    '#BEC8C2',
+  muted:  '#99ABA8',
+  card:   '#151E21',
+  border: 'rgba(199,210,209,0.20)',
+  void:   '#080C0F',
+  bg:     '#0D1216',
+  inset:  '#090E10',
 } as const
 
 export const MONO = 'var(--font-mono)'
 export const SANS = 'var(--font-sans)'
 
-// ── Neural Glassmorphism design system ────────────────────────────────────────
-// Encoded once so it is reproducible forever (your eye → named constants).
-// A glass panel = translucent frosted surface + edge-light + accent glow.
-// The edge-light (inset top highlight) is what makes glass read as *glass*.
+// ── Structural material surface ────────────────────────────────────────────
+// Background is a solid reading plane; optical effects belong to focal art.
 
 import type { CSSProperties } from 'react'
 
 export const GLASS = {
   blur: 'blur(18px) saturate(150%)',
-  surface: 'rgba(22, 22, 28, 0.55)',
-  surfaceHi: 'rgba(30, 30, 38, 0.62)',
-  hairline: 'rgba(255, 255, 255, 0.08)',
-  edgeLight: 'inset 0 1px 0 rgba(255, 255, 255, 0.07)',
-  depth: '0 10px 40px rgba(0, 0, 0, 0.45)',
+  surface: 'rgba(19, 28, 31, 0.92)',
+  surfaceHi: 'rgba(27, 37, 40, 0.94)',
+  hairline: 'rgba(219, 227, 214, 0.20)',
+  edgeLight: 'inset 0 1px 0 rgba(239, 232, 209, 0.08)',
+  depth: '0 14px 36px rgba(0, 0, 0, 0.34)',
 } as const
 
 // Glass panel factory. Pass an accent for a soft colored glow at the edge.
