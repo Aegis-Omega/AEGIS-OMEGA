@@ -1,0 +1,500 @@
+{
+  "schema": "aegis.rh.scope-clean.v1",
+  "authority_effect": "NONE",
+  "rh_proven": false,
+  "source_pr": 679,
+  "extracted_from_head": "2676c3bf40b0a196e3dc0ec52180c25c35ab9e7f",
+  "base_main": "495bfd85d79abcb2b4f6898fe9c156488492426a",
+  "root_module": "WeilRHImpliesFinalSignV13",
+  "local_closure_count": 91,
+  "local_sources": [
+    {
+      "module": "MellinDecayEstimateV1",
+      "path": "sovereign-omega-v2/formal/bridges/lean/MellinDecayEstimateV1.lean",
+      "blob_sha": "948204a796d85cd9ff3a65dd558218211006f6ef"
+    },
+    {
+      "module": "RHFinalClosureSpineV1",
+      "path": "sovereign-omega-v2/formal/bridges/lean/RHFinalClosureSpineV1.lean",
+      "blob_sha": "58e52abd3e52d8087a64ec6624a41ce731285059"
+    },
+    {
+      "module": "RHMillenniumGateV10",
+      "path": "sovereign-omega-v2/formal/bridges/lean/RHMillenniumGateV10.lean",
+      "blob_sha": "9d562ffd211c6dae8df802c9aec23f065115def6"
+    },
+    {
+      "module": "RHRestrictedWeilBridgeV13",
+      "path": "sovereign-omega-v2/formal/bridges/lean/RHRestrictedWeilBridgeV13.lean",
+      "blob_sha": "cda7c59f0bfa97ed9a8b5fb78791890a3dc3904b"
+    },
+    {
+      "module": "RHTranslatedKernelDominanceV1",
+      "path": "sovereign-omega-v2/formal/bridges/lean/RHTranslatedKernelDominanceV1.lean",
+      "blob_sha": "8848cdf312417cd24b1312ef1aa09b793259d147"
+    },
+    {
+      "module": "RHZeroKernelBoundV11",
+      "path": "sovereign-omega-v2/formal/bridges/lean/RHZeroKernelBoundV11.lean",
+      "blob_sha": "87d79320ae5fbecddb916e82e3e600fa9c8c54f5"
+    },
+    {
+      "module": "RHZeroKernelLaplaceAnalyticV12",
+      "path": "sovereign-omega-v2/formal/bridges/lean/RHZeroKernelLaplaceAnalyticV12.lean",
+      "blob_sha": "49757c0413c2dd8f9362f33e159234dcf59f4bb4"
+    },
+    {
+      "module": "RHZeroKernelLaplaceV12",
+      "path": "sovereign-omega-v2/formal/bridges/lean/RHZeroKernelLaplaceV12.lean",
+      "blob_sha": "432e0cb10b3f7a12127ec1965d881b46550ea06d"
+    },
+    {
+      "module": "RestrictedWeilCriterionFinalV13",
+      "path": "sovereign-omega-v2/formal/bridges/lean/RestrictedWeilCriterionFinalV13.lean",
+      "blob_sha": "2d69dd3344e4cc014643cdc70e3912bb3df38777"
+    },
+    {
+      "module": "RestrictedWeilCriterionKernelBridgeV10",
+      "path": "sovereign-omega-v2/formal/bridges/lean/RestrictedWeilCriterionKernelBridgeV10.lean",
+      "blob_sha": "f17336332f25070f16152e420f8d8c44b60d254f"
+    },
+    {
+      "module": "RestrictedWeilCriterionLaplaceV10",
+      "path": "sovereign-omega-v2/formal/bridges/lean/RestrictedWeilCriterionLaplaceV10.lean",
+      "blob_sha": "391203427c15f5f1218a4e75e5c0d168a1356b70"
+    },
+    {
+      "module": "RestrictedWeilCriterionResidueCoefficientV11",
+      "path": "sovereign-omega-v2/formal/bridges/lean/RestrictedWeilCriterionResidueCoefficientV11.lean",
+      "blob_sha": "5cd89d137524992348d43912438b82da49dd12b9"
+    },
+    {
+      "module": "RestrictedWeilCriterionResidueWitnessV11",
+      "path": "sovereign-omega-v2/formal/bridges/lean/RestrictedWeilCriterionResidueWitnessV11.lean",
+      "blob_sha": "6d9f5d8df77bcf21f61198867255cf4d02bb3b9d"
+    },
+    {
+      "module": "RestrictedWeilCriterionTargetWitnessV11",
+      "path": "sovereign-omega-v2/formal/bridges/lean/RestrictedWeilCriterionTargetWitnessV11.lean",
+      "blob_sha": "e0331945275e58e0b0c3c1236c32b4af54cb3b31"
+    },
+    {
+      "module": "RestrictedWeilCriterionZeroKernelV10",
+      "path": "sovereign-omega-v2/formal/bridges/lean/RestrictedWeilCriterionZeroKernelV10.lean",
+      "blob_sha": "04a6e49e81c593e939d25d81235a0e7cf057decb"
+    },
+    {
+      "module": "WeilAbjadFourPhaseBridgeV1",
+      "path": "sovereign-omega-v2/formal/bridges/lean/WeilAbjadFourPhaseBridgeV1.lean",
+      "blob_sha": "e631a19ff29eababf6546519a386f9014b71ba7f"
+    },
+    {
+      "module": "WeilArchimedeanConvergenceV1",
+      "path": "sovereign-omega-v2/formal/bridges/lean/WeilArchimedeanConvergenceV1.lean",
+      "blob_sha": "8c04ac6f254abb5a19c25f600e25ffb8af0c7f6d"
+    },
+    {
+      "module": "WeilArchimedeanCorrectionV10",
+      "path": "sovereign-omega-v2/formal/bridges/lean/WeilArchimedeanCorrectionV10.lean",
+      "blob_sha": "99e9b6eb8a7aabbbf22e4e469833adebab82ba6c"
+    },
+    {
+      "module": "WeilArchimedeanCothTailV1",
+      "path": "sovereign-omega-v2/formal/bridges/lean/WeilArchimedeanCothTailV1.lean",
+      "blob_sha": "67606ca99e96ecd0a7cbd4861ca48fe9471ffa7b"
+    },
+    {
+      "module": "WeilAutocorrelationClosureV1",
+      "path": "sovereign-omega-v2/formal/bridges/lean/WeilAutocorrelationClosureV1.lean",
+      "blob_sha": "8a578da0d379d2a643c2ce436a97a4ff5e3531eb"
+    },
+    {
+      "module": "WeilAutocorrelationExplicitFormulaV10",
+      "path": "sovereign-omega-v2/formal/bridges/lean/WeilAutocorrelationExplicitFormulaV10.lean",
+      "blob_sha": "72e756c4386c6478cac301f4d1e82fbc9d6fe8f6"
+    },
+    {
+      "module": "WeilAutocorrelationMellinV11",
+      "path": "sovereign-omega-v2/formal/bridges/lean/WeilAutocorrelationMellinV11.lean",
+      "blob_sha": "eaf488412c46a51d7f5f68c2432576ccd04e79fa"
+    },
+    {
+      "module": "WeilAutocorrelationPoleAggregationV1",
+      "path": "sovereign-omega-v2/formal/bridges/lean/WeilAutocorrelationPoleAggregationV1.lean",
+      "blob_sha": "bb785359eda0b4e03cea65de65bc21c9a0a70191"
+    },
+    {
+      "module": "WeilAutocorrelationRealityV1",
+      "path": "sovereign-omega-v2/formal/bridges/lean/WeilAutocorrelationRealityV1.lean",
+      "blob_sha": "84d389c16b46427d1432f16a3f76baf031fba67c"
+    },
+    {
+      "module": "WeilCriterionCompactSmoothV1",
+      "path": "sovereign-omega-v2/formal/bridges/lean/WeilCriterionCompactSmoothV1.lean",
+      "blob_sha": "48039592aa281da1aa514586e09aab09720dd679"
+    },
+    {
+      "module": "WeilDiagonalKernelReductionV21",
+      "path": "sovereign-omega-v2/formal/bridges/lean/WeilDiagonalKernelReductionV21.lean",
+      "blob_sha": "9c0e36523a528ce1268fe6ec3bb42bc320b3a29b"
+    },
+    {
+      "module": "WeilDigammaIntegralReductionV1",
+      "path": "sovereign-omega-v2/formal/bridges/lean/WeilDigammaIntegralReductionV1.lean",
+      "blob_sha": "4d96c2be8104e05131bca08448dbe18513191f96"
+    },
+    {
+      "module": "WeilDigammaSeriesHalfPlaneV1",
+      "path": "sovereign-omega-v2/formal/bridges/lean/WeilDigammaSeriesHalfPlaneV1.lean",
+      "blob_sha": "d4cf0622d8f9f98cb60691073e721725bb716d94"
+    },
+    {
+      "module": "WeilDigammaSeriesRealV1",
+      "path": "sovereign-omega-v2/formal/bridges/lean/WeilDigammaSeriesRealV1.lean",
+      "blob_sha": "75744f1593cb6b94bb43ae186a41ad7ad56825f7"
+    },
+    {
+      "module": "WeilDisjointEnergyV2",
+      "path": "sovereign-omega-v2/formal/bridges/lean/WeilDisjointEnergyV2.lean",
+      "blob_sha": "5565d644ed0c436dcc4fee41074b758974e93df1"
+    },
+    {
+      "module": "WeilExplicitFormulaV10",
+      "path": "sovereign-omega-v2/formal/bridges/lean/WeilExplicitFormulaV10.lean",
+      "blob_sha": "e7d4d31eb6053d5f7325f23071322580b441c8a0"
+    },
+    {
+      "module": "WeilFixedLineArithmeticV10",
+      "path": "sovereign-omega-v2/formal/bridges/lean/WeilFixedLineArithmeticV10.lean",
+      "blob_sha": "b3849e4333230e251d3713cce2056956cc5e3ded"
+    },
+    {
+      "module": "WeilFixedLineCompletedGammaV10",
+      "path": "sovereign-omega-v2/formal/bridges/lean/WeilFixedLineCompletedGammaV10.lean",
+      "blob_sha": "ebe723ef8ebd6cafd4c2dd43d805ad44c3801883"
+    },
+    {
+      "module": "WeilFixedLineExplicitFormulaContractV2",
+      "path": "sovereign-omega-v2/formal/bridges/lean/WeilFixedLineExplicitFormulaContractV2.lean",
+      "blob_sha": "45c80a60ab06688dbb25f5fb992dfc53b8d0843f"
+    },
+    {
+      "module": "WeilFixedLineFubiniCoreV3",
+      "path": "sovereign-omega-v2/formal/bridges/lean/WeilFixedLineFubiniCoreV3.lean",
+      "blob_sha": "0142808a951121f0dea831a45438d75773d9dc4d"
+    },
+    {
+      "module": "WeilFixedLineFubiniSwapV4",
+      "path": "sovereign-omega-v2/formal/bridges/lean/WeilFixedLineFubiniSwapV4.lean",
+      "blob_sha": "e61d4ea8aa619d8856134d3c39fd17936d6f02ef"
+    },
+    {
+      "module": "WeilFixedLineGammaAssemblyV10",
+      "path": "sovereign-omega-v2/formal/bridges/lean/WeilFixedLineGammaAssemblyV10.lean",
+      "blob_sha": "426c3d185e816160cf7c26437a63f70772f08453"
+    },
+    {
+      "module": "WeilFixedLineGammaCoreV10",
+      "path": "sovereign-omega-v2/formal/bridges/lean/WeilFixedLineGammaCoreV10.lean",
+      "blob_sha": "8996442368a775a34b0f651a398217d884729a4a"
+    },
+    {
+      "module": "WeilFixedLineGammaFubiniV10",
+      "path": "sovereign-omega-v2/formal/bridges/lean/WeilFixedLineGammaFubiniV10.lean",
+      "blob_sha": "fd28a9b0f0bb5c79d544e3f8c190a4db28d1ee1f"
+    },
+    {
+      "module": "WeilFixedLineGammaXSpaceV10",
+      "path": "sovereign-omega-v2/formal/bridges/lean/WeilFixedLineGammaXSpaceV10.lean",
+      "blob_sha": "3328fe14cee624ef11a4e79c3660f6be1b6282d3"
+    },
+    {
+      "module": "WeilFixedLineKernelIntegralV6",
+      "path": "sovereign-omega-v2/formal/bridges/lean/WeilFixedLineKernelIntegralV6.lean",
+      "blob_sha": "743d826ee6de8f6b0d48297f08f5796310db373d"
+    },
+    {
+      "module": "WeilFixedLineXSpaceTailV7",
+      "path": "sovereign-omega-v2/formal/bridges/lean/WeilFixedLineXSpaceTailV7.lean",
+      "blob_sha": "909936d435c36e56c09b9a8a1ca137a02d330024"
+    },
+    {
+      "module": "WeilFixedLineZeroSideV10",
+      "path": "sovereign-omega-v2/formal/bridges/lean/WeilFixedLineZeroSideV10.lean",
+      "blob_sha": "91bdc1eaec1bfa6c84e9fc77e142c58fa97e4968"
+    },
+    {
+      "module": "WeilLogCoordinateIsometryV21",
+      "path": "sovereign-omega-v2/formal/bridges/lean/WeilLogCoordinateIsometryV21.lean",
+      "blob_sha": "481b2dce81fdfc9ba44602058e602f8eccb56e14"
+    },
+    {
+      "module": "WeilMellinInversionV1",
+      "path": "sovereign-omega-v2/formal/bridges/lean/WeilMellinInversionV1.lean",
+      "blob_sha": "b88e90577394aa5cd800d5ea7c8fd411bc4f2468"
+    },
+    {
+      "module": "WeilMellinWeightedFixedLineV2",
+      "path": "sovereign-omega-v2/formal/bridges/lean/WeilMellinWeightedFixedLineV2.lean",
+      "blob_sha": "8ea59852a6b9fc81de7cef4395b6aaf568b8a998"
+    },
+    {
+      "module": "WeilMixedAlgebraV2",
+      "path": "sovereign-omega-v2/formal/bridges/lean/WeilMixedAlgebraV2.lean",
+      "blob_sha": "0478a41a967df5340a931f4452f1105078edff16"
+    },
+    {
+      "module": "WeilMixedClosureV2",
+      "path": "sovereign-omega-v2/formal/bridges/lean/WeilMixedClosureV2.lean",
+      "blob_sha": "57263c1acd5f57bb45a0f9b5e47669ca6cf511b7"
+    },
+    {
+      "module": "WeilMomentKillerConstructionV1",
+      "path": "sovereign-omega-v2/formal/bridges/lean/WeilMomentKillerConstructionV1.lean",
+      "blob_sha": "f599d884d0d59f7e652887fb9e055ce95ea54aa6"
+    },
+    {
+      "module": "WeilPairedHadamardFixedLineV1",
+      "path": "sovereign-omega-v2/formal/bridges/lean/WeilPairedHadamardFixedLineV1.lean",
+      "blob_sha": "68cecb9909b9ca270a34803b0fcf7f4b1697ad75"
+    },
+    {
+      "module": "WeilPairedHadamardKernelTsumV2",
+      "path": "sovereign-omega-v2/formal/bridges/lean/WeilPairedHadamardKernelTsumV2.lean",
+      "blob_sha": "bd87f1d650f85d5f6c3e7eab5a52863ee9ac248d"
+    },
+    {
+      "module": "WeilPairedHadamardTsumFusionV1",
+      "path": "sovereign-omega-v2/formal/bridges/lean/WeilPairedHadamardTsumFusionV1.lean",
+      "blob_sha": "f5bdb087535964b881403e5ad68565f0cdc4ea32"
+    },
+    {
+      "module": "WeilPairedMellinProfileV5",
+      "path": "sovereign-omega-v2/formal/bridges/lean/WeilPairedMellinProfileV5.lean",
+      "blob_sha": "b1d74f57f9533fc1592c156a4fb61fe950a3cee5"
+    },
+    {
+      "module": "WeilPairedZeroEvaluationV9",
+      "path": "sovereign-omega-v2/formal/bridges/lean/WeilPairedZeroEvaluationV9.lean",
+      "blob_sha": "af91865be83cf031bbc8e1dc38c840c54f2b9565"
+    },
+    {
+      "module": "WeilPoleTermV1",
+      "path": "sovereign-omega-v2/formal/bridges/lean/WeilPoleTermV1.lean",
+      "blob_sha": "5fd2deba32811877aaac64837fb81c895f30e882"
+    },
+    {
+      "module": "WeilPrimeLineIdentityV1",
+      "path": "sovereign-omega-v2/formal/bridges/lean/WeilPrimeLineIdentityV1.lean",
+      "blob_sha": "4db96b150c658897e571a157acd29831c7838ec5"
+    },
+    {
+      "module": "WeilPrimeSummabilityV1",
+      "path": "sovereign-omega-v2/formal/bridges/lean/WeilPrimeSummabilityV1.lean",
+      "blob_sha": "5952cac81f515a5ac784cd51e9b3c187d1727d8a"
+    },
+    {
+      "module": "WeilRHImpliesFinalSignV13",
+      "path": "sovereign-omega-v2/formal/bridges/lean/WeilRHImpliesFinalSignV13.lean",
+      "blob_sha": "7b00e26bcfd923f93386663aa7fb4c15085a293b"
+    },
+    {
+      "module": "WeilReciprocalPairedTestV8",
+      "path": "sovereign-omega-v2/formal/bridges/lean/WeilReciprocalPairedTestV8.lean",
+      "blob_sha": "89127d6b57ec7376a027f8cacac091cfc6431dbf"
+    },
+    {
+      "module": "WeilSeparatedArchBridgeV31",
+      "path": "sovereign-omega-v2/formal/bridges/lean/WeilSeparatedArchBridgeV31.lean",
+      "blob_sha": "d6e44db91730618053a67977c9d32c3f5159bf9a"
+    },
+    {
+      "module": "WeilThreeBlockAnalyticConstantsV21",
+      "path": "sovereign-omega-v2/formal/bridges/lean/WeilThreeBlockAnalyticConstantsV21.lean",
+      "blob_sha": "92271bb57ba91d977f1c19573a55d7978e79a329"
+    },
+    {
+      "module": "WeilThreeBlockComplexV2",
+      "path": "sovereign-omega-v2/formal/bridges/lean/WeilThreeBlockComplexV2.lean",
+      "blob_sha": "854b90da12ce0aaa4ce97d79cfaa6a2a2b91a31e"
+    },
+    {
+      "module": "WeilThreeBlockCrossAssemblyV30",
+      "path": "sovereign-omega-v2/formal/bridges/lean/WeilThreeBlockCrossAssemblyV30.lean",
+      "blob_sha": "25a01843658d02b5a62a1077b77885cce7e95b18"
+    },
+    {
+      "module": "WeilThreeBlockCrossPrimeV28",
+      "path": "sovereign-omega-v2/formal/bridges/lean/WeilThreeBlockCrossPrimeV28.lean",
+      "blob_sha": "51206472ec9347f16fa793585de193b2b9087703"
+    },
+    {
+      "module": "WeilThreeBlockCrossPrimeWindowV29",
+      "path": "sovereign-omega-v2/formal/bridges/lean/WeilThreeBlockCrossPrimeWindowV29.lean",
+      "blob_sha": "faf44e2953292416cf98b50cbd041a997ae4496f"
+    },
+    {
+      "module": "WeilThreeBlockNormBridgeV21",
+      "path": "sovereign-omega-v2/formal/bridges/lean/WeilThreeBlockNormBridgeV21.lean",
+      "blob_sha": "96cc55e2402da367483f751ac382521622f0eeb1"
+    },
+    {
+      "module": "WeilThreeBlockPrimeEvaluationV30",
+      "path": "sovereign-omega-v2/formal/bridges/lean/WeilThreeBlockPrimeEvaluationV30.lean",
+      "blob_sha": "1aa66fb90ef94aabdbb228c71fe95610c95ba1b7"
+    },
+    {
+      "module": "WeilThreeBlockRationalV1",
+      "path": "sovereign-omega-v2/formal/bridges/lean/WeilThreeBlockRationalV1.lean",
+      "blob_sha": "7baba140b1cd6d44177b17000fbb93167edec3ba"
+    },
+    {
+      "module": "WeilThreeBlockTranslatedPacketsV22",
+      "path": "sovereign-omega-v2/formal/bridges/lean/WeilThreeBlockTranslatedPacketsV22.lean",
+      "blob_sha": "85d3ff56e185b306a370d0e30c0b991afd1d5b6b"
+    },
+    {
+      "module": "WeilTwoPointPositivityV1",
+      "path": "sovereign-omega-v2/formal/bridges/lean/WeilTwoPointPositivityV1.lean",
+      "blob_sha": "98d906659b860aac90267a3cc2578f6665621788"
+    },
+    {
+      "module": "WeilWidthArchBudgetV26",
+      "path": "sovereign-omega-v2/formal/bridges/lean/WeilWidthArchBudgetV26.lean",
+      "blob_sha": "0045d85ed311eb9e684ef1e9e23abe7a6e0df5d1"
+    },
+    {
+      "module": "WeilWidthArchCorrelationV25",
+      "path": "sovereign-omega-v2/formal/bridges/lean/WeilWidthArchCorrelationV25.lean",
+      "blob_sha": "99e5e77ff0c44b0589df2a2a472e3f5dfe93f509"
+    },
+    {
+      "module": "WeilWidthArchIntegralV27",
+      "path": "sovereign-omega-v2/formal/bridges/lean/WeilWidthArchIntegralV27.lean",
+      "blob_sha": "281162e0e52425affbdfb052f8093bef5143cb96"
+    },
+    {
+      "module": "WeilWidthDiagonalArchFrontierV24",
+      "path": "sovereign-omega-v2/formal/bridges/lean/WeilWidthDiagonalArchFrontierV24.lean",
+      "blob_sha": "e3f056ba0345b3e0a0c0562b41c38d1ab6432526"
+    },
+    {
+      "module": "WeilWidthPrimeVanishingV23",
+      "path": "sovereign-omega-v2/formal/bridges/lean/WeilWidthPrimeVanishingV23.lean",
+      "blob_sha": "dcb7132c480738283c8c4d88ae0aba46c9f44907"
+    },
+    {
+      "module": "WeilXiLogDerivDecompositionV10",
+      "path": "sovereign-omega-v2/formal/bridges/lean/WeilXiLogDerivDecompositionV10.lean",
+      "blob_sha": "656c63ee9ca75c02c3cdb382eb099740d23aeb08"
+    },
+    {
+      "module": "WeilZeroCarrierBridgeV10",
+      "path": "sovereign-omega-v2/formal/bridges/lean/WeilZeroCarrierBridgeV10.lean",
+      "blob_sha": "c538186c1f71a012d9f0961ddcd1c2cfb89966b1"
+    },
+    {
+      "module": "WeilZeroKernelHermitianV11",
+      "path": "sovereign-omega-v2/formal/bridges/lean/WeilZeroKernelHermitianV11.lean",
+      "blob_sha": "78c3644ec51f78b35a524355a3cf891d97f4c51c"
+    },
+    {
+      "module": "WeilZeroSideIdentificationV1",
+      "path": "sovereign-omega-v2/formal/bridges/lean/WeilZeroSideIdentificationV1.lean",
+      "blob_sha": "49ff916bf877160b02635913e4f964f86190a63b"
+    },
+    {
+      "module": "WeilZeroTranslationV11",
+      "path": "sovereign-omega-v2/formal/bridges/lean/WeilZeroTranslationV11.lean",
+      "blob_sha": "6755931c48fabad03273660555b5d97e3e333474"
+    },
+    {
+      "module": "WeilZeroTwoPointV11",
+      "path": "sovereign-omega-v2/formal/bridges/lean/WeilZeroTwoPointV11.lean",
+      "blob_sha": "ca57381c3aa6f4682be8a335da8fb232604c8784"
+    },
+    {
+      "module": "ZeroCountingBoundV1",
+      "path": "sovereign-omega-v2/formal/bridges/lean/ZeroCountingBoundV1.lean",
+      "blob_sha": "f8ac3c31ee0afa85f35bbc9539ad842e3d3335ef"
+    },
+    {
+      "module": "ZeroCountingMellinSummabilityV1",
+      "path": "sovereign-omega-v2/formal/bridges/lean/ZeroCountingMellinSummabilityV1.lean",
+      "blob_sha": "01509b3933039aa595c83f366bbe90a44f2a4d81"
+    },
+    {
+      "module": "ZeroCriticalStripV1",
+      "path": "sovereign-omega-v2/formal/bridges/lean/ZeroCriticalStripV1.lean",
+      "blob_sha": "8dd25b1e5bf55d902fe5b57e8572e8e564d4c983"
+    },
+    {
+      "module": "ZeroHeightFiniteSumV1",
+      "path": "sovereign-omega-v2/formal/bridges/lean/ZeroHeightFiniteSumV1.lean",
+      "blob_sha": "94415f65ae85e1e9993916a22891ca2248d65d4d"
+    },
+    {
+      "module": "ZeroHeightLimitContractV1",
+      "path": "sovereign-omega-v2/formal/bridges/lean/ZeroHeightLimitContractV1.lean",
+      "blob_sha": "5d0d065113d9076db4eab6cf4be7a9868eec56a4"
+    },
+    {
+      "module": "ZeroHeightShellMassV1",
+      "path": "sovereign-omega-v2/formal/bridges/lean/ZeroHeightShellMassV1.lean",
+      "blob_sha": "e7af2be4e5f0b1bbb1f605bbee19e919b92e5bd0"
+    },
+    {
+      "module": "ZeroHeightSummabilityBridgeV1",
+      "path": "sovereign-omega-v2/formal/bridges/lean/ZeroHeightSummabilityBridgeV1.lean",
+      "blob_sha": "f72516a9ee50f8b5457f4a99c55ddc296d15d8dd"
+    },
+    {
+      "module": "ZeroMajorantSummabilityV1",
+      "path": "sovereign-omega-v2/formal/bridges/lean/ZeroMajorantSummabilityV1.lean",
+      "blob_sha": "4c100d1f84188deddd1e00dc6cb8aca851fc4eea"
+    },
+    {
+      "module": "ZeroShellAnalyticSynthesisV1",
+      "path": "sovereign-omega-v2/formal/bridges/lean/ZeroShellAnalyticSynthesisV1.lean",
+      "blob_sha": "257ef4b003206b816555acb0f72ff702e0daac65"
+    },
+    {
+      "module": "ZeroShellQuadraticBoundV1",
+      "path": "sovereign-omega-v2/formal/bridges/lean/ZeroShellQuadraticBoundV1.lean",
+      "blob_sha": "45e7f91166b32832c54e6538041d1a5d12171b12"
+    }
+  ],
+  "external_proof_source": {
+    "repository": "nicholasbulka/li-criterion-rh-equivalence-lean",
+    "commit": "35df682f3b709ffe5fbcfdd452dfa964bd622b87",
+    "original_mathlib_sha": "de5ce8a9a66a4aa68a9bdbb35b63a06d34d9ca11",
+    "compatibility_source_blob": "10d38a54580ff72d698a30be64fe1c3c44f862a2",
+    "compatibility_note": "three-line if/ite compatibility overlay used by prior exact-head workflows"
+  },
+  "toolchain": {
+    "lean": "leanprover/lean4:v4.33.1",
+    "mathlib": "0df444a360eaa60ab8c11dca51a86af692955474"
+  },
+  "headline_theorems": [
+    "AEGIS.RHRestrictedWeilBridgeV13.final_sign_implies_rh_v13",
+    "AEGIS.WeilRHImpliesFinalSignV13.rh_implies_final_sign_residual_v13",
+    "AEGIS.WeilRHImpliesFinalSignV13.rh_iff_universal_v13",
+    "AEGIS.WeilRHImpliesFinalSignV13.millennium_moment_iff_rh_v13",
+    "AEGIS.RHRestrictedWeilBridgeV13.restricted_weil_criterion_kernel_bridge_v13"
+  ],
+  "expected_axioms": [
+    "propext",
+    "Classical.choice",
+    "Quot.sound"
+  ],
+  "unresolved_non_mathlib_imports": [
+    "Hadamard.OrderOne.LogDeriv",
+    "Hadamard.OrderOne.LogDerivMultiplicity",
+    "Hadamard.OrderOne.TailEstimates",
+    "Lc.LiCriterion.Basic",
+    "Lc.LiCriterion.HadamardBridge",
+    "Lc.LiCriterion.HadamardSummabilityBridge",
+    "Lc.LiCriterion.XiGrowth"
+  ],
+  "note": "Criterion/equivalence lane only. This manifest does not assert RiemannHypothesis."
+}
