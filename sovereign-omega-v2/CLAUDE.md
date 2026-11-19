@@ -8,6 +8,19 @@ Architecture: FROZEN
 
 ---
 
+## Research / runtime classification (mandatory)
+
+These are runtime project memories and historical assertions, not a live
+verification receipt for every deployment, proof or external service. Resolve
+conflicts by inspecting current source bytes and actual machine evidence.
+Never infer that a Lean/Coq theorem is false, unfinished or invalid because
+runtime Gate 8 or a repository branch has not passed deployment checks.
+For AEGIS RH, first load root `CLAUDE.md` and `WORKFLOW.md` and the actual
+research source modules, preserve earlier kernel receipts and check alternative
+Weil/CvS/Krein/Li/Coq routes before introducing an auxiliary assumption.
+No claimed T0/ACTIVE entry below substitutes for a current source-bound
+verification; report such a claim as historical until independently checked.
+
 ## What This System Is
 
 Constitutional runtime stabilized. Replay sovereignty active. Martingale boundedness integrated. φ-governed convergence unified. Reduction-first governance enforced.
@@ -62,7 +75,9 @@ failsafe corruption_count must equal 0.
 
 ## TypeScript Build Order — STRICT
 
-Failure at any gate = HALT. Do not proceed to the next gate without the current passing.
+Failure at any runtime gate = HALT *the next dependent gate and deployment*.
+Preserve the observed failure; targeted repair and independent research may
+continue under existing authorization. Never skip, relabel or weaken a gate.
 
 Gate 1: npm run test -- test/unit/jcs.test.ts (RFC 8785 conformance)
 Gate 2: npm run test -- test/unit/sequence.test.ts (atomic sequences)

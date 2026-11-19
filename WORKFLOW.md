@@ -7,7 +7,7 @@
 
 This loop closes both. It runs on top of what already exists — RALPH, the 8 gates,
 the skills, the hooks — and makes two things mandatory: **use what exists before
-building**, and **nothing is done until it is on `main`, verified.**
+building**, and **product delivery requires authorized integration; formal proof authority requires exact-source kernel evidence, independent of merge status.**
 
 Drive the loop with `/loop`. Every session also opens with `scripts/ground-truth.sh`
 so none starts blind.
@@ -20,7 +20,7 @@ so none starts blind.
 bash scripts/ground-truth.sh
 ```
 Branch · ahead/behind `main` · unpushed · membrane · prod-live. If work is stranded
-(ahead of `main`), resolving that is the first job — before anything new.
+(ahead of `main`), preserve it and assess integration eligibility; do not block independent formal research or merge without explicit operator approval.
 
 ---
 
@@ -46,16 +46,41 @@ and why it doesn't already cover it.
 
 ---
 
+## RH RESEARCH OVERRIDE: MULTI-ROUTE FIRST
+
+For RH, preflight effective agent and connector configuration, Git exact heads,
+Library/archives, compiler/cache availability, and all existing theorem producers.
+Represent candidate proof strategies as an AND/OR hypergraph. Before choosing a
+new analytic premise, test direct producer-to-consumer composition in **every
+relevant existing route**, classify unsupported, refuted and stronger-than-needed
+assumptions, and preserve previous proof checkpoints. A blocked selected route
+cannot justify a universal negative conclusion. Keep mathematical validity,
+Lean/Coq kernel verification, CI access, and protected-main integration separate.
+Use targeted exact-head compile/replay; never relaunch the full pipeline merely
+to compensate for missing cache or billing/runner access. No paid resources,
+credentials, or changes to protected main without express authorization.
+
 ## STEP 2 — ASSESS (L6)
 
 Classify the tier. Pick the **smallest** change that moves the goal. State the goal
-as a verifiable check (CLAUDE.md §Behavioral Guidelines, rule 4). If unclear — ask
-before building (rule 1).
+as a verifiable check (CLAUDE.md §Behavioral Guidelines, rule 4).
+Inspect existing sources and verify safe alternatives first. Ask only when
+ambiguity materially changes authority, safety, a theorem statement, or
+the acceptance gate. Do not repeat questions answered by existing evidence.
 
 ## STEP 3 — LOCK
 
 Implement it. Surgical, match existing style, no speculative scope (rules 2–3).
 `deepFreeze` state. T0/T1/T2 discipline holds.
+
+## STEP 4 — VERIFY THE AFFECTED DOMAIN
+
+The runtime Gate 8 commands below are mandatory for runtime changes that
+require them. They are NOT Lean or Coq proof verification. For mathematical
+work, use exact statement comparison, source-bound imports, pinned compiler
+kernel replay and axiom inspection; if the compiler is unavailable, explicitly
+mark kernel verification UNKNOWN and continue another safe research action.
+Do not equate passing an unrelated runtime gate with a proven theorem.
 
 ## STEP 4 — PROVE
 
@@ -68,8 +93,7 @@ A claim like "it's wired" must be backed by the thing actually working end-to-en
 
 ## STEP 5 — SHIP (HARMONIZE)
 
-`commit → push → PR to **main**`. Work is **not done** until it is on `main`, or an
-open PR to `main` with green CI. Stranded on a feature branch = not done.
+`commit → push → authorized review`. Product delivery requires approved integration and the relevant gates. Formal mathematics must retain exact-head proof evidence independently of merge state. Never merge protected `main` without explicit operator authorization.
 
 ---
 
@@ -79,5 +103,8 @@ Every tick ends by answering out loud:
 
 > **"Did I use what already exists, and is this on a path to `main`, verified, today?"**
 
-If "no" to either, that is the next tick's first job — before anything new is started.
+For runtime delivery, unresolved authorized integration must be tracked.
+For mathematical research, a theorem can have valid exact-head evidence without
+being merged: never interrupt an independent executable proof path just because
+one branch has not entered `main`. Preserve the checkpoint and continue.
 `/evening-seal` before stopping: nothing uncommitted, unpushed, or stranded.
