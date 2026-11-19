@@ -20,9 +20,9 @@ _PRIMITIVE = {
     "string": "string",
     "bool": "boolean",
     "s32": "number",
-    "s64": "number",
+    "s64": "bigint",
     "u32": "number",
-    "u64": "number",
+    "u64": "bigint",
     "f32": "number",
     "f64": "number",
 }
@@ -85,7 +85,7 @@ def _coarse_from_ts(ts_type: str) -> str:
         return "string"
     if ts_type == "boolean":
         return "bool"
-    if ts_type == "number":
+    if ts_type in ("number", "bigint"):
         return "number"
     return ts_type  # reference type
 
