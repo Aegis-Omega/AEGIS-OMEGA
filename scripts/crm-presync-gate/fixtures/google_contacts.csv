@@ -1,0 +1,3 @@
+source_record_id,email,phone,company
+people/c1,ALEX@EXAMPLE.TEST,555-2323,Acme
+people/c2,other@example.test,555-4545,
