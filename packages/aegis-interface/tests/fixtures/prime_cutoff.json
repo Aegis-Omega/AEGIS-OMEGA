@@ -1,0 +1,7 @@
+{
+  "schema": "aegis-mira-rh-proof-ir/v1",
+  "kind": "support_prime_cutoff",
+  "statement": {
+    "delta": "1/1000"
+  }
+}

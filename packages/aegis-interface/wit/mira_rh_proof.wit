@@ -1,0 +1,24 @@
+// AEGIS MIRA RH proof IR, structural interface ONLY.
+// It cannot represent a Lean kernel proof or confer proof authority.
+variant MathClaimKind {
+    reflection_polynomial,
+    finite_gram_sos,
+    support_prime_cutoff,
+}
+
+variant MathClaimState {
+    local_exact,
+    conditional_support,
+    hold,
+}
+
+record MIRAMathReceipt {
+    kind: MathClaimKind,
+    state: MathClaimState,
+    statement_sha256: string,
+    receipt_sha256: string,
+    scope: string,
+    authority_class: string,
+    lean_kernel_checked: bool,
+    riemann_hypothesis_proven: bool,
+}
