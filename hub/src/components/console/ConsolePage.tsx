@@ -50,7 +50,7 @@ function StatChip({ label, value, color }: { label: string; value: string; color
 
 export function ConsolePage() {
   const snap = usePlatformConsole()
-  const memoryActive = snap.calibration.window_size > 0
+  const memoryActive = snap.source === 'live' && snap.calibration.window_size > 0
   const live = snap.source === 'live'
 
   return (
@@ -84,7 +84,7 @@ export function ConsolePage() {
           }}>
             <span style={{ width: 7, height: 7, borderRadius: '50%', background: live ? T.green : T.amber, boxShadow: `0 0 10px ${live ? T.green : T.amber}` }} />
             <span style={{ fontFamily: MONO, fontSize: 11, color: live ? T.green : T.amber, letterSpacing: '0.12em' }}>
-              {live ? 'LIVE' : 'DEMO'}
+              {live ? 'LIVE' : 'UNKNOWN'}
             </span>
             <span style={{ fontSize: 11, color: T.muted }}>· {snap.reason}</span>
           </div>
@@ -108,13 +108,13 @@ export function ConsolePage() {
             background: 'rgba(9,10,15,0.86)', border: `1px solid rgba(255,255,255,0.10)`,
             backdropFilter: 'blur(16px) saturate(140%)', boxShadow: '0 24px 70px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.06)',
           }}>
-            <StatChip label="departments" value={String(snap.status.total_agents)} color={T.text} />
+            <StatChip label="departments" value={live ? String(snap.status.total_agents) : "UNKNOWN"} color={live ? T.text : T.amber} />
             <Divider />
-            <StatChip label="homeostasis" value={snap.calibration.homeostasis_zone} color={T.green} />
+            <StatChip label="homeostasis" value={live ? snap.calibration.homeostasis_zone : "UNKNOWN"} color={live ? T.green : T.amber} />
             <Divider />
-            <StatChip label="contract" value={`v${snap.status.contract_version}`} color={T.text} />
+            <StatChip label="contract" value={live ? `v${snap.status.contract_version}` : "UNKNOWN"} color={live ? T.text : T.amber} />
             <Divider />
-            <StatChip label="chain" value={snap.status.chain_valid ? 'valid' : 'broken'} color={snap.status.chain_valid ? T.green : T.red} />
+            <StatChip label="chain" value={live ? (snap.status.chain_valid ? "API: valid" : "API: invalid") : "UNKNOWN"} color={!live ? T.amber : snap.status.chain_valid ? T.green : T.red} />
           </div>
 
           <div style={{ marginTop: 40, fontSize: 11, color: T.muted, fontFamily: MONO, letterSpacing: '0.1em' }}>
@@ -126,11 +126,18 @@ export function ConsolePage() {
         <main style={{ maxWidth: 1080, margin: '0 auto', padding: '40px 24px 80px', display: 'flex', flexDirection: 'column', gap: 24 }}>
           <SectionLabel n="01" title="System state" sub="Homeostasis and self-verification — the system's felt state and its honesty." />
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
-            <HomeostasisGauge cal={snap.calibration} />
+            {live ? <HomeostasisGauge cal={snap.calibration} /> : (
+              <div role="status" style={{ padding: 20, borderRadius: 12, border: `1px solid ${T.border}`, background: T.card }}>
+                <div style={{ fontFamily: MONO, color: T.amber, fontSize: 12 }}>HOMEOSTASIS · UNKNOWN</div>
+                <p style={{ color: T.muted, marginTop: 12, fontSize: 13, lineHeight: 1.6 }}>
+                  No validated platform telemetry. No simulated health metrics are substituted.
+                </p>
+              </div>
+            )}
             <VerificationPanel snap={snap} />
           </div>
 
-          <SectionLabel n="02" title="Live collaboration" sub="Stream a 39-department run — dag_step → agent_event → tool_call → completion." />
+          <SectionLabel n="02" title="Collaboration demonstration" sub="Local simulation only. No agent work or tool execution is claimed." />
           <LiveSwarmRunner memoryActive={memoryActive} />
         </main>
 

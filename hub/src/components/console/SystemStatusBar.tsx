@@ -1,5 +1,5 @@
 // AEGIS-Ω Console — system status bar + loud verification panel.
-// The top strip: LIVE/DEMO source badge (never ambiguous), contract version,
+// The top strip: LIVE/UNKNOWN source badge (never ambiguous), contract version,
 // terminal chain hash. Below it, the verification checklist — every check
 // states its reason out loud.
 
@@ -18,15 +18,15 @@ export function SystemStatusBar({ snap }: { snap: ConsoleSnapshot }) {
           boxShadow: `0 0 10px ${dot}`, display: 'inline-block',
         }} />
         <span style={{ fontFamily: MONO, fontSize: 12, color: live ? T.green : T.amber, letterSpacing: '0.1em' }}>
-          {live ? '● LIVE' : '○ DEMO'}
+          {live ? '● LIVE' : '○ UNKNOWN'}
         </span>
         <span style={{ fontSize: 12, color: T.muted }}>{snap.reason}</span>
       </div>
       <div className="flex items-center gap-5">
-        <Field label="contract" value={`v${snap.status.contract_version}`} />
-        <Field label="agents" value={String(snap.status.total_agents)} />
-        <Field label="chain" value={snap.status.audit_chain_hash.slice(0, 12) + '…'}
-          color={snap.status.chain_valid ? T.green : T.red} />
+        <Field label="contract" value={live ? `v${snap.status.contract_version}` : "UNKNOWN"} />
+        <Field label="agents" value={live ? String(snap.status.total_agents) : "UNKNOWN"} />
+        <Field label="chain" value={live ? snap.status.audit_chain_hash.slice(0, 12) + '…' : 'UNKNOWN'}
+          color={!live ? T.amber : snap.status.chain_valid ? T.green : T.red} />
       </div>
     </div>
   )
@@ -43,7 +43,7 @@ function Field({ label, value, color }: { label: string; value: string; color?: 
 
 export function VerificationPanel({ snap }: { snap: ConsoleSnapshot }) {
   return (
-    <div style={{ ...glass(T.green), padding: 20 }}>
+    <div style={{ ...glass(snap.source === 'live' ? T.green : T.amber), padding: 20 }}>
       <Heading>VERIFICATION · loud by design</Heading>
       <p style={{ fontSize: 12, color: T.muted, marginTop: 6, marginBottom: 16, lineHeight: 1.5 }}>
         No silent degradation. Every check states its reason — a failing system tells you why.
