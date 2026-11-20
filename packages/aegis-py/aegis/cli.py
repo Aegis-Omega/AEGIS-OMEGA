@@ -6,7 +6,6 @@ Commands:
   execute <objective>             Async execution with live SSE stream
   get <execution_id>              Fetch a completed execution by ID
   delete <execution_id>           Remove a stored execution
-  work validate|plan|simulate|verify|export [pack]
 
 Environment:
   AEGIS_API_KEY                   Your API key (or pass via --key)
@@ -231,6 +230,9 @@ def main(argv: list[str] | None = None) -> int:
     p_del = sub.add_parser("delete", help="Remove a stored execution")
     p_del.add_argument("execution_id")
 
+    p_vr = sub.add_parser("verify-receipts", help="Verify a receipts chain file (offline, no key)")
+    p_vr.add_argument("file")
+
     p_work = sub.add_parser("work", help="Offline, read-only workflow packs")
     work_sub = p_work.add_subparsers(dest="work_command", required=True)
     for command in ("validate", "plan", "simulate", "verify", "export"):
@@ -241,9 +243,6 @@ def main(argv: list[str] | None = None) -> int:
         )
 
     args = parser.parse_args(argv)
-
-    if args.command == "work":
-        return _cmd_work(args)
 
     api_key  = args.key or os.environ.get("AEGIS_API_KEY", "")
     base_url = args.base or os.environ.get("AEGIS_BASE_URL", BASE_URL)

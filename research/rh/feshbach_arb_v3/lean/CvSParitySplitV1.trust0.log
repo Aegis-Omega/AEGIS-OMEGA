@@ -1,0 +1,4 @@
+'AEGIS.CvSParitySplitV1.cross_zero' depends on axioms: [propext, Classical.choice, Quot.sound]
+'AEGIS.CvSParitySplitV1.blocks_posSemidef' depends on axioms: [propext, Classical.choice, Quot.sound]
+'AEGIS.CvSParitySplitV1.congr_posSemidef' depends on axioms: [propext, Classical.choice, Quot.sound]
+exit=0 secs=6
