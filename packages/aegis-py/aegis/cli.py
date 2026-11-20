@@ -6,7 +6,6 @@ Commands:
   execute <objective>             Async execution with live SSE stream
   get <execution_id>              Fetch a completed execution by ID
   delete <execution_id>           Remove a stored execution
-  verify-receipts <file>          Verify a receipts chain (offline, no key)
 
 Environment:
   AEGIS_API_KEY                   Your API key (or pass via --key)
@@ -189,6 +188,17 @@ def _cmd_delete(client: AegisClient, args: argparse.Namespace) -> int:
     return 0
 
 
+def _cmd_work(args: argparse.Namespace) -> int:
+    from .work import run_work_command
+
+    try:
+        print(run_work_command(args.work_command, args.pack))
+    except (OSError, ValueError) as exc:
+        print(_c(_RED, f"error: {exc}"), file=sys.stderr)
+        return 2
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         prog="aegis",
@@ -223,18 +233,16 @@ def main(argv: list[str] | None = None) -> int:
     p_vr = sub.add_parser("verify-receipts", help="Verify a receipts chain file (offline, no key)")
     p_vr.add_argument("file")
 
-    args = parser.parse_args(argv)
+    p_work = sub.add_parser("work", help="Offline, read-only workflow packs")
+    work_sub = p_work.add_subparsers(dest="work_command", required=True)
+    for command in ("validate", "plan", "simulate", "verify", "export"):
+        p_work_command = work_sub.add_parser(command)
+        p_work_command.add_argument(
+            "pack", nargs="?", default="code",
+            help="sample pack name (code, data, science) or a local JSON file",
+        )
 
-    if args.command == "verify-receipts":
-        from .receipts import verify
-        result = verify(args.file)
-        if args.json:
-            print(json.dumps(result))
-        elif result["valid"]:
-            print(_c(_GREEN, "VALID") + f"  {result['count']} receipts · terminal {result['terminal_hash'][:16]}…")
-        else:
-            print(_c(_RED, "INVALID") + f"  {result['error']}")
-        return 0 if result["valid"] else 1
+    args = parser.parse_args(argv)
 
     api_key  = args.key or os.environ.get("AEGIS_API_KEY", "")
     base_url = args.base or os.environ.get("AEGIS_BASE_URL", BASE_URL)
