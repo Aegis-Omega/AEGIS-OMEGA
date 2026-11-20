@@ -55,3 +55,9 @@ test('unknown snapshot contains no fabricated status', () => {
 test('validators reject primitive and array input', () => {
  assert.equal(isPlatformStatus([]),false); assert.equal(isCalibrationStatus('fine'),false)
 })
+
+test('zero observed cycles cannot claim optimal homeostasis', () => {
+ const x=toConsoleSnapshot(status(), {...calibration(), window_size:0, fitness_mean:0.5}, {tools:[tool]})
+ assert.equal(x.source,'unknown'); assert.equal(x.status,null)
+ assert.match(x.reason,/zero measured cycles/)
+})
