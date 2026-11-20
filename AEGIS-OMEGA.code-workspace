@@ -10,6 +10,8 @@
 			"cursor-global": true,
 			"windsurf": true,
 			"cursor-workspace": true
-		}
+		},
+		"chat.agent.sandbox.enabled": "on",
+		"chat.agent.sandbox.network.allowLocalNetwork": true
 	}
 }
