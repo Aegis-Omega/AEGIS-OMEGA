@@ -1,0 +1,38 @@
+name: Hub telemetry contract
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'hub/**'
+      - '.github/workflows/hub-telemetry-contract.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: hub-telemetry-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  fail-closed-console:
+    name: Validate hub telemetry and build
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: hub
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: hub/package-lock.json
+      - name: Install exact dependencies
+        run: npm ci
+      - name: Fail-closed telemetry regression suite
+        run: npm run test:contract
+      - name: Full TypeScript and Vite build
+        run: npm run build
