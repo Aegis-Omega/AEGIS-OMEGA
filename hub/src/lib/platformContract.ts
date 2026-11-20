@@ -135,6 +135,11 @@ export function toConsoleSnapshot(
   if (!isPlatformStatus(rawStatus) || !isCalibrationStatus(rawCalibration)) {
     return unknownSnapshot('Required /platform/status or /platform/calibration evidence missing or invalid')
   }
+  // The Python bridge emits a synthetic optimal state when no runs exist.
+  // A valid schema with zero measured cycles is NOT evidence of healthy operation.
+  if (rawCalibration.window_size === 0) {
+    return unknownSnapshot('Calibration has zero measured cycles; homeostasis UNKNOWN')
+  }
   const validTools = record(rawToolsEnvelope) && Array.isArray(rawToolsEnvelope.tools) &&
     rawToolsEnvelope.tools.every(isAgentTool)
   const tools: AgentTool[] = validTools ? rawToolsEnvelope.tools as AgentTool[] : []
