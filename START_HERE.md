@@ -106,6 +106,10 @@ _Last refreshed 2026-06-24._
 - Delete the GCP project entirely (recoverable 30 days) so it can never bleed again.
 - Push the "zero kernel" (exists only on operator's PC — invisible to all sessions until pushed).
 
+## Enterprise kickoff — 2026-11-21
+
+The [enterprise staging guide](enterprise/README.md) and [bridge preflight](enterprise/check-bridge.mjs) define the initial dashboard connectivity checks and the evidence needed for the OpenAI Technology application. Enterprise deployment and the end-to-end OpenAI audit demonstration are pending.
+
 ## Next concrete step
 
 Make one real $48 purchase on aegisomega.com from a phone. If the API key arrives, the
