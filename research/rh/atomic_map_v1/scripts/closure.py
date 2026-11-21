@@ -6,6 +6,7 @@ allm=set().union(*map(set,groups))
 def chosen(n):
     for g in reversed(groups):
         if n in g: return g[n]
+    raise SystemExit(f"SOURCE_MISSING:{n}")
 done=set();order=[]
 def visit(n):
     if n in done: return
