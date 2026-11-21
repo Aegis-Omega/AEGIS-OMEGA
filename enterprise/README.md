@@ -15,15 +15,12 @@ VITE_BRIDGE_URL=https://bridge.example.com npm run build
 
 Substitute the actual staging URLs. The bridge check exercises seven dashboard routes, verifies the node hash against the returned fields, and checks CORS when the dashboard origin is supplied. A pass records route compatibility at that time. The bridge's `/network` route includes synthetic peers, and several dashboard panels use fixtures. Keep both out of customer production evidence. Restrict staging access before connecting any customer telemetry.
 
-## OpenAI Partner Network preparation
+## OpenAI Services Technical Assessment
 
-Prepare for the Technology program with a demonstration of one AEGIS governance workflow backed by OpenAI. The optional OpenAI Chat Completions provider in [the Supabase chat function](../supabase/functions/chat/index.ts) is an existing integration point. The enterprise dashboard currently reads bridge telemetry. An end-to-end enterprise demonstration still needs to exercise an OpenAI request, capture the model and request provenance, and show an audit artifact that an independent verifier can check.
+For the Services assessment, document how AEGIS scopes a customer workflow, governs AI and tool access, tests changes, obtains release approval, and measures results. The enterprise preflight can support the engineering methodology with a reproducible example.
 
-| Evidence | What to capture |
-| --- | --- |
-| Technical capability | A pinned build, an authenticated staging run using synthetic data, the audit artifact, verification output, and a test showing that a deliberately modified artifact fails verification. |
-| Production controls | Separate OpenAI projects for staging and production, server-side credentials, per-project budgets, an explicit data retention configuration, and documented access limits and rollback. |
-| Customer experience | A verified customer reference or clearly labeled pilot result, with measured outcomes and permission to share. |
-| Company details | Verified legal name, website, business address, company size, partner type, and primary business contact. An authorized company representative reviews and accepts the applicable agreement. |
+The optional OpenAI Chat Completions provider in [the Supabase chat function](../supabase/functions/chat/index.ts) is an existing integration point. The enterprise dashboard reads bridge telemetry. A staging demonstration can exercise an authenticated OpenAI request using synthetic data, record model and request provenance, and show an audit artifact that an independent verifier can check. Record the source revision and the verification results.
 
-These are AEGIS deliverables for review. OpenAI evaluates the application. [Partner Network](https://openai.com/business/partners/), [Application form](https://partners.openai.com/partner-application), [Production best practices](https://developers.openai.com/api/docs/guides/production-best-practices), [API data controls](https://developers.openai.com/api/docs/guides/your-data).
+For the assessment's delivery-history fields, use confirmed deployments and measured outcomes with permission to share. Label internal demos and pilots according to their actual scope. List issued credentials and certifications with verifiable records.
+
+[Partner onboarding](https://partners.openai.com/onboarding) · [Production best practices](https://developers.openai.com/api/docs/guides/production-best-practices) · [API data controls](https://developers.openai.com/api/docs/guides/your-data)

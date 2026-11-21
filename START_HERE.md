@@ -108,7 +108,7 @@ _Last refreshed 2026-06-24._
 
 ## Enterprise kickoff — 2026-11-21
 
-The [enterprise staging guide](enterprise/README.md) and [bridge preflight](enterprise/check-bridge.mjs) define the initial dashboard connectivity checks and the evidence needed for the OpenAI Technology application. Enterprise deployment and the end-to-end OpenAI audit demonstration are pending.
+The [enterprise staging guide](enterprise/README.md) and [bridge preflight](enterprise/check-bridge.mjs) define the initial dashboard connectivity checks and the evidence needed for the OpenAI Services Technical Assessment. Enterprise deployment and the end-to-end OpenAI audit demonstration are pending.
 
 ## Next concrete step
 
