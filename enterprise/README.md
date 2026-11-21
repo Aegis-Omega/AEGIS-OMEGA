@@ -15,6 +15,18 @@ VITE_BRIDGE_URL=https://bridge.example.com npm run build
 
 Substitute the actual staging URLs. The bridge check exercises seven dashboard routes, verifies the node hash against the returned fields, and checks CORS when the dashboard origin is supplied. A pass records route compatibility at that time. The bridge's `/network` route includes synthetic peers, and several dashboard panels use fixtures. Keep both out of customer production evidence. Restrict staging access before connecting any customer telemetry.
 
+## Reproduce synthetic pilot evidence
+
+From the repository root, run the fixture and then verify its receipt against the same checked-out source:
+
+```sh
+revision=$(git rev-parse HEAD)
+node enterprise/pilot-receipt.mjs run "$revision" > pilot-receipt.json
+node enterprise/pilot-receipt.mjs verify "$revision" pilot-receipt.json
+```
+
+The fixture checks that seven dashboard routes are accepted and that a synthetic HTTP 401 is reported when the node route is withheld. The receipt contains the supplied commit, source and fixture hashes, route results, and a checksum. The verifier replays the fixture and rejects changed receipts. The run makes zero external requests and incurs zero model charges. Use an independently checked-out revision to verify the evidence. Hosted authentication and OpenAI inference require separate staging evidence.
+
 ## OpenAI Services Technical Assessment
 
 For the Services assessment, document how AEGIS scopes a customer workflow, governs AI and tool access, tests changes, obtains release approval, and measures results. The enterprise preflight can support the engineering methodology with a reproducible example.

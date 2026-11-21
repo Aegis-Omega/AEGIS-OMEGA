@@ -31,13 +31,13 @@ function parseUrl(value, originOnly = false) {
   return url
 }
 
-export async function checkBridge(bridgeUrl, dashboardOrigin) {
+export async function checkBridge(bridgeUrl, dashboardOrigin, fetchResponse = fetch) {
   const base = parseUrl(bridgeUrl).href.replace(/\/$/, '')
   const origin = dashboardOrigin ? parseUrl(dashboardOrigin, true).origin : undefined
 
   return Promise.all(Object.entries(checks).map(async ([path, validate]) => {
     try {
-      const response = await fetch(base + path, {
+      const response = await fetchResponse(base + path, {
         headers: origin ? { Origin: origin } : undefined,
         redirect: 'error',
         signal: AbortSignal.timeout(4_000),
