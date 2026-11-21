@@ -1,0 +1,15 @@
+n=0 residual=0
+n=1 residual=0
+n=2 residual=0
+n=3 residual=0
+n=4 residual=0
+n=5 residual=0
+n=6 residual=0
+n=7 residual=0
+n=8 residual=0
+LEGENDRE_IDENTITY_EXACT_n<=8: True
+n=  64  J_min: none 0.92714  one moment 2.13979  two moments 2.60401
+n= 128  J_min: none 0.92664  one moment 2.13777  two moments 2.59992
+n= 256  J_min: none 0.92646  one moment 2.13713  two moments 2.59865
+n= 512  J_min: none 0.92640  one moment 2.13692  two moments 2.59825
+claimed lower bounds: none log2=0.69315 ; two moments 3/2+log2=2.19315
