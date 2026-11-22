@@ -14,5 +14,6 @@ for m in WeilDiagonalLogGainS1 WeilDiagonalLogGainV1; do
   echo "rc=$rc" >> "$out"
   [ "$rc" -eq 0 ] || { echo "FAIL $m"; exit 1; }
   if grep -Eq "sorryAx|warning|error" "$out"; then echo "FAIL $m: sorry/warning/error in output"; exit 1; fi
+  python3 -I "$HERE/../scripts/check_axioms.py" "$out" "$HERE/$m.lean" || { echo "FAIL $m: axiom allowlist"; exit 1; }
   echo "OK $m"
 done

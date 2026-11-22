@@ -23,4 +23,5 @@ lean --trust=0 "$HERE/Audit.lean" > "$S/w/audit.log" 2>&1; rc=$?
 echo "AUDIT_RC $rc" >> "$S/w/audit.log"
 [ "$rc" -eq 0 ] || { echo "FAIL audit"; exit 1; }
 if grep -q "sorryAx" "$S/w/audit.log"; then echo "FAIL sorryAx in audit"; exit 1; fi
+python3 -I "$HERE/check_axioms.py" "$S/w/audit.log" "$HERE/Audit.lean" || { echo "FAIL audit axiom allowlist"; exit 1; }
 echo DONE
