@@ -1,0 +1,37 @@
+'AEGIS.WeilSeparatedArchBridgeV31.three_block_bound_of_moments' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'AEGIS.WeilSeparatedArchBridgeV31.three_cross_bounds_of_moments' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'AEGIS.WeilSeparatedArchBridgeV31.three_arch_bounds_of_moments' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'AEGIS.WeilSeparatedArchBridgeV31.translated_arch_norm_bound' depends on axioms: [propext, Classical.choice, Quot.sound]
+'AEGIS.WeilSeparatedArchBridgeV31.separated_arch_norm_bound' depends on axioms: [propext, Classical.choice, Quot.sound]
+'AEGIS.WeilSeparatedArchBridgeV31.centered_arch_kernel_bound' depends on axioms: [propext, Classical.choice, Quot.sound]
+'AEGIS.WeilSeparatedArchBridgeV31.separated_arch_eq_log_kernel' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'AEGIS.WeilWidthArchIntegralV27.width_diagonal_103_over_100_v27' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'AEGIS.WeilWidthArchCorrelationV25.norm_logCorrelation_le_energy_v25' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'AEGIS.WeilThreeBlockCrossPrimeV28.logCross_translate_eq_logCorrelation_v28' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'AEGIS.WeilThreeBlockPrimeEvaluationV30.adjacent_prime_sum_exact' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'AEGIS.WeilThreeBlockPrimeEvaluationV30.outer_prime_sum_exact' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'AEGIS.WeilThreeBlockCrossAssemblyV30.three_block_bound_of_two_arch' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'AEGIS.WeilThreeBlockTranslatedPacketsV22.translate_preserves_moments' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+AUDIT_RC 0

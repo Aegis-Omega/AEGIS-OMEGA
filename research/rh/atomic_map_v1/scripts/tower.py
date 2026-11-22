@@ -1,6 +1,7 @@
 # Numerical probe (float64, class (d)): Weil form on dyadic comb classes at fixed total log-width w.
 import numpy as np, math, sys
-w=float(eval(sys.argv[1])) if len(sys.argv)>1 else 1/32
+from fractions import Fraction
+w=float(Fraction(sys.argv[1])) if len(sys.argv)>1 else 1/32
 n=int(sys.argv[2]) if len(sys.argv)>2 else 48
 NMAX=int(sys.argv[3]) if len(sys.argv)>3 else 14
 d=math.log(2); delta=w/n

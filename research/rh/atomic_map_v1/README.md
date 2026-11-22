@@ -15,8 +15,8 @@ The modules are the operator's work. This report replays, classifies and measure
 
 | what | where | result |
 |---|---|---|
-| `lean --trust=0` on the full import closure of `WeilSeparatedArchBridgeV31` (26 modules, `AegisRH/PR606/*.lean`) | formal-conjectures `ce4868fd`, Lean 4.33.1, Mathlib `v4.33.1` cache | **26/26 exit 0**, 0 errors ([`trust0_replay.tsv`](trust0_replay.tsv); source hashes in [`trust0_sources.sha256`](trust0_sources.sha256)) |
-| `#print axioms` on 14 theorems of that chain, at `--trust=0` | [`scripts/Audit.lean`](scripts/Audit.lean) | every one is `[propext, Classical.choice, Quot.sound]` ([`trust0_axioms.log`](trust0_axioms.log)) |
+| `lean --trust=0` on the full import closure of `WeilSeparatedArchBridgeV31` (26 modules, `AegisRH/PR606/*.lean`) | formal-conjectures `ce4868fd`, Lean 4.33.1, Mathlib `0df444a3` (the `v4.33.1` cache) | **26/26 exit 0**, 0 errors ([`trust0_replay.tsv`](trust0_replay.tsv); source hashes in [`trust0_sources.sha256`](trust0_sources.sha256)) |
+| `#print axioms` on 14 theorems of that chain, at `--trust=0` | [`scripts/Audit.lean`](scripts/Audit.lean) | every one is `[propext, Classical.choice, Quot.sound]` ([`trust0_axioms.txt`](trust0_axioms.txt)) |
 | Feshbach L = 9/5: the integer τ layer (`tau80.py`, `diag80.py`) | copy of `research/rh/feshbach_arb_v3` | both input files match the pinned sha256 (`d5374e04…`, `efae4a0a…`) |
 | Feshbach L = 9/5: block regeneration and both checkers | same | blocks byte-identical; both checkers certify and refuse as the receipt says (§6) |
 | `lean --trust=0` on the new modules `WeilDiagonalLogGainS1` (Mathlib only) and `WeilDiagonalLogGainV1` (on the 26-module closure) | [`lean/`](lean/), 2026-11-22 | **both exit 0**, no warnings, no `sorry`; 11 theorems, all `[propext, Classical.choice, Quot.sound]` (§4.6) |
@@ -132,17 +132,17 @@ The exhaustion theorems are **reductions**. Each one moves the open part to the 
 Model, class **(d)**:
 
 * the comb `F = Σ_{j=0}^{N} z_j T_{j log 2} g` with g of total log-width w = 1/32 and both moments;
-* g discretized as a step function on n cells (n = 32, 48, 96; results agree to about 1%);
+* g discretized as a step function on n cells (n = 32, 48, 96). λ_min and the absolute masses agree across meshes to about 1%. The per-gap prime-block norms for k ≥ 7 do **not** converge: at k = 10 they are 1.024, 0.690 and 1.105 for n = 32, 48 and 96. Treat that column as indicative only;
 * the exact Weil form evaluated: prime powers up to 2^{N+1}·e^w, the Archimedean kernel by quadrature;
 * full output in [`tower_n48.txt`](tower_n48.txt), [`tower_n32.txt`](tower_n32.txt) and [`tower_n96.txt`](tower_n96.txt).
 
-| gap k | prime powers in `[k log 2 ± 1/32]` | Σ Λ(q)/√q | ‖prime block‖ on moment-zero |
+| gap k | prime powers in `[k log 2 ± 1/32]` (list for k ≤ 7, **count** after) | Σ Λ(q)/√q | ‖prime block‖ on moment-zero (mesh-dependent, see above) |
 |---|---|---|---|
 | 1–6 | only 2^k | log 2·2^{−k/2} | the same |
 | 7 | 125, 127, 128, 131 | 1.061 | 0.541 |
-| 10 | 11 | 2.186 | 0.690 |
-| 12 | 30 | 3.780 | 0.679 |
-| 17 | 696 | 22.57 | 0.511 |
+| 10 | 11 of them | 2.186 | 0.690 (n48) |
+| 12 | 30 of them | 3.780 | 0.679 (n48) |
+| 17 | 696 of them | 22.57 | 0.511 (n32) |
 
 | blocks N+1 | λ_min (true form) | absolute-sum budget D − 2Σ mass | norm budget D − 2Σ‖G_k‖ |
 |---|---|---|---|
@@ -150,9 +150,9 @@ Model, class **(d)**:
 | 7 | 1.76 | 0.73 | 0.73 |
 | 8 | 1.60 | **−1.39** | **−0.35** |
 | 13 | 0.99 | −25.1 | −6.9 |
-| 18 | 0.82 | −152 | −12.9 |
+| 18 (n32) | 0.82 | −152 | −12.9 |
 
-(D here is the numerical moment-zero diagonal, 3.65.)
+(D here is the numerical moment-zero diagonal, 3.65. The rows up to 13 blocks come from `tower_n48.txt` and the 18-block row from `tower_n32.txt`, since the n48 run stops at 13 blocks.)
 
 **Verdict: confirmed only in part.**
 
@@ -224,7 +224,12 @@ With both moments, h is within O(w) of the span of {P₂, P₃, …}. The identi
 
 ### 4.5 Success criteria
 
-Status after 2026-11-22: criteria 1 and 2 are **met** (§4.6). Criterion 3 is open. Criterion 4 is met by the committed scripts.
+Status after 2026-11-22 (§4.6), against the criteria as first written below:
+
+* **Criterion 1 is met in a corrected form.** The literal real-valued statement below is not what was proved, and it is false as written for merely continuous h (see §4.6). The proved theorem is the ℝ≥0∞ form, on any interval.
+* **Criterion 2 is met with a slightly weaker constant.** It proves 103/100 + e^{−1/32}·log 2 ≈ 1.7018, not 1.70667, because it keeps V27's `diagonalSmallV21` for the (e^{u/2} − 1) part. Reaching 1.70667 needs the sharper pointwise bound with 1/63; that is not done.
+* Criterion 3 is open.
+* Criterion 4 is met by the committed scripts.
 
 1. **Lean, S1:** `theorem log_gain (h : ℝ → ℂ) (hc : Continuous h) (hs : support h ⊆ Icc 0 1) : Real.log 2 * ∫ x, ‖h x‖^2 ≤ ∫ s in Ioc 0 1, ((∫ x, ‖h x‖^2) - (∫ x, h (x+s) * conj (h x)).re) / s`. It must compile with `lean --trust=0`, `#print axioms` must list only `[propext, Classical.choice, Quot.sound]`, and it must contain no `sorry`.
 2. **Lean, transport:** `diagonal_log_gain_v1 : (cothTail (1/32) − κ + exp(−1/32)·log 2 − 1/63)·E ≤ −Re B(g,g)` under `WidthOneThirtyTwoAt`. Here 1/63 is a rational upper bound for ∫₀^{1/32} (e^{u/2} − 1)/sinh u = 0.015685…; with it the constant is 1.70667. The same three axioms are required.
@@ -233,7 +238,7 @@ Status after 2026-11-22: criteria 1 and 2 are **met** (§4.6). Criterion 3 is op
 
 ### 4.6 Result (2026-11-22): S1 and the transport are proved
 
-Files: [`lean/WeilDiagonalLogGainS1.lean`](lean/WeilDiagonalLogGainS1.lean) and [`lean/WeilDiagonalLogGainV1.lean`](lean/WeilDiagonalLogGainV1.lean), with sha256 in [`lean/SHA256SUMS`](lean/SHA256SUMS). Both were replayed with `lean --trust=0` (Lean 4.33.1, Mathlib `0df444a3`): exit 0, no warnings, no `sorry`. The logs are in `lean/*.trust0.log`, and [`lean/build.sh`](lean/build.sh) reruns both on top of the 26-module closure from `scripts/replay.sh`.
+Files: [`lean/WeilDiagonalLogGainS1.lean`](lean/WeilDiagonalLogGainS1.lean) and [`lean/WeilDiagonalLogGainV1.lean`](lean/WeilDiagonalLogGainV1.lean), with sha256 in [`lean/SHA256SUMS`](lean/SHA256SUMS). Both were replayed with `lean --trust=0` (Lean 4.33.1, Mathlib `0df444a3`): exit 0, no warnings, no `sorry`. The logs are in `lean/*.trust0.txt`, and [`lean/build.sh`](lean/build.sh) reruns both on top of the 26-module closure from `scripts/replay.sh`.
 
 **S1, as proved.** It is stated in `ℝ≥0∞`, so it needs no integrability hypothesis. That matters: for a merely continuous h, (E − Re C(s))/s need not be integrable, and a real-valued statement would be false through the zero default of the Bochner integral. It also holds on any interval:
 
@@ -312,8 +317,8 @@ The graph below is read bottom to top: arrows run from the finite certificates u
 ## 6. Feshbach L = 9/5 reproduction
 
 * The first run stopped because `scipy` was missing from this container. That was an environment gap, not a certificate failure.
-* In the second run ([`feshbach_reproduce.log`](feshbach_reproduce.log)), three block sets were regenerated: joint g0, and even and odd renormalised g0. Each matches its pinned sha256 byte for byte. The V9 set was not regenerated, so the script stopped at its missing file.
-* I then ran the checks by hand ([`feshbach_checks.log`](feshbach_checks.log)):
+* In the second run ([`feshbach_reproduce.txt`](feshbach_reproduce.txt)), three block sets were regenerated: joint g0, and even and odd renormalised g0. Each matches its pinned sha256 byte for byte. The V9 set was not regenerated, so the script stopped at its missing file.
+* I then ran the checks by hand ([`feshbach_checks.txt`](feshbach_checks.txt)):
 
 | checker | even 4.23e-17 | odd 5e-17 | joint 4.21e-17 | even 4.24e-17 | joint 4.22e-17 |
 |---|---|---|---|---|---|
@@ -326,9 +331,11 @@ The graph below is read bottom to top: arrows run from the finite certificates u
 
 ```
 # formal-conjectures checkout at ce4868fd, with the Mathlib cache from `lake exe cache get`
+export FC=<fc> S=<scratch dir>; mkdir -p $S/w
 python3 -I scripts/closure.py WeilSeparatedArchBridgeV31 <AEGIS-OMEGA>/sovereign-omega-v2/formal/bridges/lean \
-    <fc>/AegisRH/PR606/Source <fc>/AegisRH/PR606/Compat <fc>/AegisRH/PR606 > $S/w/order.tsv
-cp scripts/Audit.lean $S/w/ && S=$S bash scripts/replay.sh        # one lean process at a time, about 6 min
+    $FC/AegisRH/PR606/Source $FC/AegisRH/PR606/Compat $FC/AegisRH/PR606 > $S/w/order.tsv
+bash scripts/replay.sh                      # 26 modules + audit at --trust=0; exits non-zero on any failure
+OLEAN=$S/olean bash lean/build.sh           # the two new modules; rewrites lean/*.trust0.txt
 python3 -I scripts/tower.py 1/32 48 12; python3 -I scripts/budget.py
 python3 -I scripts/legendre.py; python3 -I scripts/decomp.py      # needs sympy and mpmath
 ```
