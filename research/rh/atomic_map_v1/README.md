@@ -19,6 +19,7 @@ The modules are the operator's work. This report replays, classifies and measure
 | `#print axioms` on 14 theorems of that chain, at `--trust=0` | [`scripts/Audit.lean`](scripts/Audit.lean) | every one is `[propext, Classical.choice, Quot.sound]` ([`trust0_axioms.log`](trust0_axioms.log)) |
 | Feshbach L = 9/5: the integer τ layer (`tau80.py`, `diag80.py`) | copy of `research/rh/feshbach_arb_v3` | both input files match the pinned sha256 (`d5374e04…`, `efae4a0a…`) |
 | Feshbach L = 9/5: block regeneration and both checkers | same | blocks byte-identical; both checkers certify and refuse as the receipt says (§6) |
+| `lean --trust=0` on the new modules `WeilDiagonalLogGainS1` (Mathlib only) and `WeilDiagonalLogGainV1` (on the 26-module closure) | [`lean/`](lean/), 2026-11-22 | **both exit 0**, no warnings, no `sorry`; 11 theorems, all `[propext, Classical.choice, Quot.sound]` (§4.6) |
 | Fixed-width comb probe (float64, step-function model) | [`scripts/tower.py`](scripts/tower.py) | §3 |
 | Legendre log-kernel identity: exact for n ≤ 8 (SymPy); full decomposition to 30 digits (mpmath) | [`scripts/legendre.py`](scripts/legendre.py), [`scripts/decomp.py`](scripts/decomp.py) | §4 |
 
@@ -56,6 +57,7 @@ There are no N or NP parameters: this is an analytic chain, not a matrix certifi
 | Archimedean mixed term ≤ `E/100` (centred kernel 6/5, error 4/25) | `V31.separated_arch_norm_bound`, `three_arch_bounds_of_moments` | width, moments, gap ≥ log 2 − 1/32 | (a) |
 | ‖B₀₁‖, ‖B₁₂‖ ≤ 51/100·E and ‖B₀₂‖ ≤ 9/25·E | `V31.three_cross_bounds_of_moments` | width, moments | (a) |
 | **Re RHS(autocorr(z₀g₋ + z₁g₀ + z₂g₊)) ≤ −(1/10)·energy** | `V31.three_block_bound_of_moments` | width, moments, any z ∈ ℂ³ | (a) |
+| *new (§4.6):* diagonal `(103/100 + e^{−1/32}·log 2)·E ≤ −Re B(g,g)`, constant > 17/10 | `WeilDiagonalLogGainV1.width_diagonal_log_gain_v1`, `log_gain_constant_gt` | width (**no moments used**) | (a), this session |
 
 On the handoff remark that "V30's downstream constants still use 1/100": they do, and that is consistent. V31 discharges exactly the `1/100` premise of `V30.three_block_bound_of_arch`, so the three-block chain is closed at class (a).
 
@@ -222,10 +224,47 @@ With both moments, h is within O(w) of the span of {P₂, P₃, …}. The identi
 
 ### 4.5 Success criteria
 
+Status after 2026-11-22: criteria 1 and 2 are **met** (§4.6). Criterion 3 is open. Criterion 4 is met by the committed scripts.
+
 1. **Lean, S1:** `theorem log_gain (h : ℝ → ℂ) (hc : Continuous h) (hs : support h ⊆ Icc 0 1) : Real.log 2 * ∫ x, ‖h x‖^2 ≤ ∫ s in Ioc 0 1, ((∫ x, ‖h x‖^2) - (∫ x, h (x+s) * conj (h x)).re) / s`. It must compile with `lean --trust=0`, `#print axioms` must list only `[propext, Classical.choice, Quot.sound]`, and it must contain no `sorry`.
 2. **Lean, transport:** `diagonal_log_gain_v1 : (cothTail (1/32) − κ + exp(−1/32)·log 2 − 1/63)·E ≤ −Re B(g,g)` under `WidthOneThirtyTwoAt`. Here 1/63 is a rational upper bound for ∫₀^{1/32} (e^{u/2} − 1)/sinh u = 0.015685…; with it the constant is 1.70667. The same three axioms are required.
-3. **Lean, use:** a five-block fixed-width comb theorem (gaps ≤ 4, so V13 single-sample isolation applies, since 1/32 ≤ 2^{−5}) with margin ≥ 1/10·E. The Perron margin is 0.185 with the 1/100 Archimedean bound.
+3. **Lean, use:** a five-block fixed-width comb theorem (gaps ≤ 4, so V13 single-sample isolation applies, since 1/32 ≤ 2^{−5}) with margin ≥ 1/10·E. With the proved constant 1.7018 the Perron margin is 0.180, using the 1/100 Archimedean bound.
 4. **Checker:** `scripts/budget.py` reproduces the margins in §3 to within 10⁻⁴. `scripts/tower.py 1/32 96 10` keeps λ_min(5 blocks) ≥ 1.7066 − ρ(5) ≈ 0.185. The measured value is 2.17 (row N = 4), so the bound sits well below it.
+
+### 4.6 Result (2026-11-22): S1 and the transport are proved
+
+Files: [`lean/WeilDiagonalLogGainS1.lean`](lean/WeilDiagonalLogGainS1.lean) and [`lean/WeilDiagonalLogGainV1.lean`](lean/WeilDiagonalLogGainV1.lean), with sha256 in [`lean/SHA256SUMS`](lean/SHA256SUMS). Both were replayed with `lean --trust=0` (Lean 4.33.1, Mathlib `0df444a3`): exit 0, no warnings, no `sorry`. The logs are in `lean/*.trust0.log`, and [`lean/build.sh`](lean/build.sh) reruns both on top of the 26-module closure from `scripts/replay.sh`.
+
+**S1, as proved.** It is stated in `ℝ≥0∞`, so it needs no integrability hypothesis. That matters: for a merely continuous h, (E − Re C(s))/s need not be integrable, and a real-valued statement would be false through the zero default of the Bochner integral. It also holds on any interval:
+
+```lean
+theorem AEGIS.WeilDiagonalLogGainS1.log_gain (h : ℝ → ℂ) (hm : Measurable h) (lo L : ℝ)
+    (hs : ∀ x, x ∉ Icc lo (lo + L) → h x = 0) :
+    ENNReal.ofReal (Real.log 2) * ∫⁻ x, ENNReal.ofReal (‖h x‖ ^ 2) ≤
+      ∫⁻ s in Ioc 0 L, ENNReal.ofReal (1 / (2 * s)) *
+        ∫⁻ x, ENNReal.ofReal (‖h (x + s) - h x‖ ^ 2)
+```
+
+**Transport, as proved.** For every retained packet, with no moment hypothesis:
+
+```lean
+theorem AEGIS.WeilDiagonalLogGainV1.width_diagonal_log_gain_v1
+    (g : WeilCompactSmoothGV1) (a : ℝ) (hw : WidthOneThirtyTwoAt g a) :
+    (103 / 100 + Real.exp (-(1 / 32 : ℝ)) * Real.log 2) * energy g.1 ≤ -(B g g).re
+theorem AEGIS.WeilDiagonalLogGainV1.log_gain_constant_gt :
+    (17 / 10 : ℝ) < 103 / 100 + Real.exp (-(1 / 32 : ℝ)) * Real.log 2
+```
+
+The intermediate theorems are:
+
+* `diff_sq_integral`: ∫‖h(v+u) − h(v)‖² = 2E − 2 Re C(u);
+* `inner_pointwise`: integrand ≤ E·e^{1/64}/2 − e^{−1/32}·(E − Re C(u))/u on (0, 1/32];
+* `weighted_gain`: ∫₀^{1/32} (E − Re C)/u ≥ log 2·E, which is S1 on [a − 1/64, a + 1/64];
+* `inner_log_gain`: inner window ≤ E·diagonalSmallV21 − e^{−1/32}·log 2·E.
+
+It reuses V21, V24, V25, V26, V27 and V31 unchanged, and modifies no existing module.
+
+The new diagonal constant is 1.7018 (V27 has 1.03). It sits 0.005 below the numerical 1.7069 of §3, because it keeps V27's `diagonalSmallV21` for the (e^{u/2} − 1) part.
 
 The lemma is useful because it is the cheapest edge with a measurable effect. Three blocks become five at the **same** width, with no new arithmetic input. It also separates the diagonal deficit from the resonance problem. It does not prove positivity on the whole class, it does not prove the windows L > 39/50, and it does not prove RH.
 
@@ -253,7 +292,9 @@ The graph below is read bottom to top: arrows run from the finite certificates u
   │ 3 blocks: (a), V31.three_block_bound_of_moments, margin −1/10·E                         │
   │   ▲ V22 moments/energy · V23 diag prime 0 · V25 ‖C‖≤E · V27 diag 103/100 · V28 transport │
   │   ▲ V29 isolation m=2,4 · V30 exact prime sums · V31 Arch ≤ E/100        (all (a))       │
-  │ ✗ E1: 4–7 blocks: diagonal deficit (103/100 vs ≥1.707 / ~3.16). §4 lemma → 5, then 7      │
+  │ diagonal 1.7018·E without moments: (a), WeilDiagonalLogGainV1 (2026-11-22)                │
+  │ ✗ E1: 4–5 blocks: the N-block assembly (Gram/Perron in Lean) is still missing;            │
+  │       6–7 blocks also need the moment gain of §4.4                                        │
   │ ✗ E2: ≥ 8 blocks: resonant prime powers (gap ≥ 7); needs signed bounds                    │
   │       (20261117 k=7,10,11 margins: (a)ᴿ algebra only; analytic producers (e))            │
   └─────────────────────────────────────────────────────────────────────────────────────────┘
@@ -262,7 +303,7 @@ The graph below is read bottom to top: arrows run from the finite certificates u
 
 | missing edge | what it lacks |
 |---|---|
-| **E1** | a diagonal lower bound that keeps the E − Re C ≥ 0 structure (§4). Pure real analysis, no arithmetic. |
+| **E1** | The diagonal half is closed: 1.7018 E, class (a), §4.6. Still missing: an N-block assembly theorem (V31 has only the 3-block version) and, for 6–7 blocks, the moment gain of §4.4. |
 | **E2** | cross-term bounds for gaps k ≥ 7 that keep the phases of C_g at log q − k·log 2. Absolute and per-gap norm bounds provably fail (§3). |
 | **E3** | any argument that a positive form on the comb class controls general packets of the same width. No such link exists in the repository. |
 | **E4** | a uniform argument in L. Window-by-window certificates cannot supply one. |
