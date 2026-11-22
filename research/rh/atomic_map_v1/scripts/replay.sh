@@ -11,6 +11,8 @@ BASE="$(lake env printenv LEAN_PATH)" || exit 1
 export LEAN_PATH="$S/olean:$BASE"
 : > "$S/w/replay.tsv"
 while IFS=$'\t' read -r name file digest; do
+  actual="$(sha256sum "$file" | cut -d ' ' -f 1)"
+  if [ "$actual" != "$digest" ]; then echo "FAIL $name: source sha256 $actual does not match order.tsv $digest"; exit 1; fi
   t0=$(date +%s)
   lean --trust=0 -o "$S/olean/$name.olean" "$file" > "$S/w/log_$name.txt" 2>&1; rc=$?
   t1=$(date +%s)

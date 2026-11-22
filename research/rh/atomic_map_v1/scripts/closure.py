@@ -27,7 +27,8 @@ def visit(n):
         if not t.startswith("import "): break
         for d in t[7:].split():
             if d in allm: visit(d)
-            elif d.split(".")[0] not in {"Mathlib","Lean","Std","Aesop","Batteries","Qq"}: print("UNRESOLVED",n,d,file=sys.stderr)
+            elif d.split(".")[0] not in {"Mathlib","Lean","Std","Aesop","Batteries","Qq"}:
+                raise SystemExit(f"UNRESOLVED_IMPORT:{n}:{d}")
     order.append(n)
 visit(target)
 for n in order: print(n, chosen(n), hashlib.sha256(chosen(n).read_bytes()).hexdigest(), sep="\t")

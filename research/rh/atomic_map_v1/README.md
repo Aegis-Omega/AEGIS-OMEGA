@@ -233,7 +233,7 @@ Status after 2026-11-22 (§4.6), against the criteria as first written below:
 
 1. **Lean, S1:** `theorem log_gain (h : ℝ → ℂ) (hc : Continuous h) (hs : support h ⊆ Icc 0 1) : Real.log 2 * ∫ x, ‖h x‖^2 ≤ ∫ s in Ioc 0 1, ((∫ x, ‖h x‖^2) - (∫ x, h (x+s) * conj (h x)).re) / s`. It must compile with `lean --trust=0`, `#print axioms` must list only `[propext, Classical.choice, Quot.sound]`, and it must contain no `sorry`.
 2. **Lean, transport:** `diagonal_log_gain_v1 : (cothTail (1/32) − κ + exp(−1/32)·log 2 − 1/63)·E ≤ −Re B(g,g)` under `WidthOneThirtyTwoAt`. Here 1/63 is a rational upper bound for ∫₀^{1/32} (e^{u/2} − 1)/sinh u = 0.015685…; with it the constant is 1.70667. The same three axioms are required.
-3. **Lean, use:** a five-block fixed-width comb theorem (gaps ≤ 4, so V13 single-sample isolation applies, since 1/32 ≤ 2^{−5}) with margin ≥ 1/10·E. With the proved constant 1.7018 the Perron margin is 0.180, using the 1/100 Archimedean bound.
+3. **Lean, use:** a five-block fixed-width comb theorem (gaps ≤ 4, so the V13 single-sample condition holds, since 1/32 ≤ 2^{−5}) with margin ≥ 1/10·E. This needs the gap-3 and gap-4 cross bounds compiled first: V13 is only a source snapshot today. With the proved constant 1.7018 the Perron margin is 0.180, using the 1/100 Archimedean bound.
 4. **Checker:** `scripts/budget.py` reproduces the margins in §3 to within 10⁻⁴. `scripts/tower.py 1/32 96 10` keeps λ_min(5 blocks) ≥ 1.7066 − ρ(5) ≈ 0.185. The measured value is 2.17 (row N = 4), so the bound sits well below it.
 
 ### 4.6 Result (2026-11-22): S1 and the transport are proved
@@ -308,8 +308,8 @@ The graph below is read bottom to top: arrows run from the finite certificates u
 
 | missing edge | what it lacks |
 |---|---|
-| **E1** | The diagonal half is closed: 1.7018 E, class (a), §4.6. Still missing: an N-block assembly theorem (V31 has only the 3-block version) and, for 6–7 blocks, the moment gain of §4.4. |
-| **E2** | cross-term bounds for gaps k ≥ 7 that keep the phases of C_g at log q − k·log 2. Absolute and per-gap norm bounds provably fail (§3). |
+| **E1** | The diagonal half is closed: 1.7018 E, class (a), §4.6. Still missing: (i) Lean cross-term bounds for gaps 3 and 4: the replayed V29/V30/V31 cover only gaps 1 and 2, and the general `RHDyadicWindowV13.gap_B_norm_bound` is a class (e) source snapshot with no compiled module; (ii) an N-block assembly theorem (V31 has only the 3-block version); (iii) for 6–7 blocks, the moment gain of §4.4 and window isolation for gaps 5 and 6. |
+| **E2** | cross-term bounds for gaps k ≥ 7 that keep the phases of C_g at log q − k·log 2. In the class (d) model of §3, the absolute-sum and per-gap norm budgets go negative from 8 blocks on. That is a numerical observation for finitely many gaps and one discretisation (the per-gap norms are mesh-dependent), not a proof that every gap-by-gap norm approach must fail. |
 | **E3** | any argument that a positive form on the comb class controls general packets of the same width. No such link exists in the repository. |
 | **E4** | a uniform argument in L. Window-by-window certificates cannot supply one. |
 | **E5** | Lean statements of the five unformalised Feshbach steps (`RECEIPT.json`). |
