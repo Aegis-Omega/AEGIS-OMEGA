@@ -310,7 +310,7 @@ The graph below is read bottom to top: arrows run from the finite certificates u
 
 | missing edge | what it lacks |
 |---|---|
-| **E1** | Closed for 5 blocks, class (a), replayed here at `--trust=0` (`lean/replay_e1.sh`, 2026-11-23): `WeilFiveBlockCrossV1.translated_cross_bound` bounds the cross terms for gaps 1–4, and `WeilFiveBlockE1V1.five_block_bound_of_moments` assembles five translates with arbitrary complex coefficients into Re W ≤ −17/100·energy, using the 1.7018 diagonal of §4.6 and the rational Perron rows of `WeilFiveBlockPerronV1`. Only propext, Classical.choice and Quot.sound are used. Still missing (E1′): for 6–7 blocks, the moment gain of §4.4 and window isolation for gaps 5 and 6. |
+| **E1** | Closed for 5 blocks, class (a), replayed here at `--trust=0` (`lean/replay_e1.sh`, 2026-11-23): `WeilFiveBlockCrossV1.translated_cross_bound` bounds the cross terms for gaps 1–4, and `WeilFiveBlockE1V1.five_block_bound_of_moments` assembles five translates with arbitrary complex coefficients into Re W ≤ −17/100·energy, using the 1.7018 diagonal of §4.6 and the rational Perron rows of `WeilFiveBlockPerronV1`. Only propext, Classical.choice and Quot.sound are used. Still missing (E1′): 6–7 blocks. [`e1prime.txt`](e1prime.txt) (class (d) for the eigenvalues; the window lists are exact integer facts) shows that isolation is not the obstacle: with a ±1/32 window, gaps 5 and 6 see only 32 and 64. The obstacle is the diagonal. For a nonnegative symmetric ceiling matrix, no weighted-row (Perron) certificate beats D − ρ(C) (Collatz–Wielandt). With ceilings log 2·2^{−k/2} + a, six blocks need D > 1.7058 even at a = 0, and D > 1.7551 at a = 1/100. The proved D = 1.7018 falls short, and the sharper 1.70667 of criterion 2 would clear a = 0 by only 0.0009. So 6–7 blocks need the moment gain of §4.4, or cross ceilings sharper than the prime-sum term, not just more isolation lemmas. |
 | **E2** | cross-term bounds for gaps k ≥ 7 that keep the phases of C_g at log q − k·log 2. In the class (d) model of §3, the absolute-sum and per-gap norm budgets go negative from 8 blocks on. That is a numerical observation for finitely many gaps and one discretisation (the per-gap norms are mesh-dependent), not a proof that every gap-by-gap norm approach must fail. |
 | **E3** | any argument that a positive form on the comb class controls general packets of the same width. No such link exists in the repository. |
 | **E4** | a uniform argument in L. Window-by-window certificates cannot supply one. |
@@ -339,6 +339,6 @@ python3 -I scripts/closure.py WeilSeparatedArchBridgeV31 <AEGIS-OMEGA>/sovereign
 bash scripts/replay.sh                      # 26 modules + audit at --trust=0; exits non-zero on any failure
 OLEAN=$S/olean bash lean/build.sh           # the two new modules; rewrites lean/*.trust0.txt
 OLEAN=$S/olean E1_LOGS=$S/e1 bash lean/replay_e1.sh   # the three five-block modules + exact arithmetic, with axiom audit
-python3 -I scripts/tower.py 1/32 48 12; python3 -I scripts/budget.py
+python3 -I scripts/tower.py 1/32 48 12; python3 -I scripts/budget.py; python3 -I scripts/e1prime.py
 python3 -I scripts/legendre.py; python3 -I scripts/decomp.py      # needs sympy and mpmath
 ```

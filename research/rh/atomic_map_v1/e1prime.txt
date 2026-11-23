@@ -1,0 +1,15 @@
+gap k: prime powers q with |log q - k log 2| <= 1/32
+  k=1  window [1.938, 2.063]  [2]
+  k=2  window [3.877, 4.127]  [4]
+  k=3  window [7.754, 8.254]  [8]
+  k=4  window [15.508, 16.508]  [16]
+  k=5  window [31.015, 33.016]  [32]
+  k=6  window [62.031, 66.032]  [64]
+  k=7  window [124.062, 132.063]  [125, 127, 128, 131]
+diagonal D = 1.70182
+  blocks=5  arch a=1/100  rho=1.5216  D - rho = +0.1803
+  blocks=5  arch a=    0  rho=1.4820  D - rho = +0.2198
+  blocks=6  arch a=1/100  rho=1.7551  D - rho = -0.0533
+  blocks=6  arch a=    0  rho=1.7058  D - rho = -0.0040
+  blocks=7  arch a=1/100  rho=1.9526  D - rho = -0.2508
+  blocks=7  arch a=    0  rho=1.8937  D - rho = -0.1919
