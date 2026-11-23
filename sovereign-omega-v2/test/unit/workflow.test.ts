@@ -206,4 +206,15 @@ describe('Workflow Event Recorder (E5) — Ω⁵.8', () => {
     expect(appendSpy).not.toHaveBeenCalled()
   })
 
+
+  it('rejects delegated event with missing authority class', async () => {
+    const { store, appendSpy } = makeStore()
+    await expect(recordWorkflowEvent(
+      store,
+      EventType.SUBAGENT_DELEGATED,
+      { ...subagentDelegated, authority_class: undefined },
+      FIXED_TS
+    )).rejects.toThrow('INVALID_SUBAGENT_AUTHORITY_CLASS')
+    expect(appendSpy).not.toHaveBeenCalled()
+  })
 })

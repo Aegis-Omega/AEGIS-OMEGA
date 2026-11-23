@@ -314,8 +314,14 @@ export async function mapPlanToE5Events(
   delegating_agent_id: string,
 ): Promise<readonly E5WorkUnitEvent[]> {
   const agent = string(delegating_agent_id, 'INVALID_AGENT_ID', ID)
+  if (plan.authorization !== 'NOT_GRANTED' || plan.execution !== 'NOT_EXECUTED') {
+    throw new WorkContractError('INVALID_PLAN_STATE')
+  }
   const out: E5WorkUnitEvent[] = []
   for (const step of plan.ordered_steps) {
+    if (!Object.hasOwn(AUTHORITY_CLASS, step.authority)) {
+      throw new WorkContractError('INVALID_AUTHORITY')
+    }
     const task_hash: SHA256Hex = await hashValue({ contract_sha256: plan.contract_sha256, step })
     out.push({
       step_id: step.id,
@@ -326,6 +332,9 @@ export async function mapPlanToE5Events(
         subagent_type: step.kind,
         semantic_scope: step.scope,
         authority_class: AUTHORITY_CLASS[step.authority],
+        required_work_authority: step.authority,
+        plan_authorization: plan.authorization,
+        plan_execution: plan.execution,
         task_hash,
       },
     })

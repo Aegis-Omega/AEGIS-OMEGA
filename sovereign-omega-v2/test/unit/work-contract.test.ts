@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { compileWorkContract, mapPlanToE5Events, WorkContractError } from '../../src/event/work-contract.js'
+import type { CompiledWorkPlan } from '../../src/event/work-contract.js'
 import { recordWorkflowEvent } from '../../src/event/workflow-recorder.js'
 import type { AppendCapable } from '../../src/event/workflow-recorder.js'
 import { CapabilityClass, EventType } from '../../src/core/types.js'
@@ -230,5 +231,46 @@ describe('UWP-01 work compiler: bounded exact contract', () => {
     expect(appended).toHaveLength(3)
     expect((appended[0] as { event_type: EventType }).event_type).toBe(EventType.SUBAGENT_DELEGATED)
     await expect(mapPlanToE5Events(plan, '../x')).rejects.toThrow('INVALID_AGENT_ID')
+  })
+
+  it.each([
+    ['branch_only', 'moderate'],
+    ['operator_approved', 'critical'],
+  ] as const)('preserves %s without granting authority', async (level, risk) => {
+    const s = invalid(s => {
+      s.steps = [step('a')]
+      s.authority_ceiling = 'operator_approved'
+      s.steps[0].authority = level
+      s.steps[0].risk = risk
+      s.steps[0].scope = ['repo:branch']
+      s.steps[0].effects = ['branch_write']
+    })
+    const plan = await compileWorkContract(s)
+    const [event] = await mapPlanToE5Events(plan, 'coordinator')
+    expect(event!.payload.authority_class).toBe(CapabilityClass.SELF_MODIFYING)
+    expect(event!.payload.required_work_authority).toBe(level)
+    expect(event!.payload.plan_authorization).toBe('NOT_GRANTED')
+    expect(event!.payload.plan_execution).toBe('NOT_EXECUTED')
+  })
+
+  it('rejects unknown source authority', async () => {
+    await expect(compileWorkContract(invalid(s => {
+      s.steps[0].authority = 'superuser'
+    }))).rejects.toThrow('INVALID_AUTHORITY')
+  })
+
+  it('rejects forged plan authority and grant', async () => {
+    const plan = await compileWorkContract(spec())
+    const badAuthority = {
+      ...plan,
+      ordered_steps: [
+        { ...plan.ordered_steps[0]!, authority: 'superuser' },
+        ...plan.ordered_steps.slice(1),
+      ],
+    } as unknown as CompiledWorkPlan
+    await expect(mapPlanToE5Events(badAuthority, 'coordinator')).rejects.toThrow('INVALID_AUTHORITY')
+
+    const badGrant = { ...plan, authorization: 'GRANTED' } as unknown as CompiledWorkPlan
+    await expect(mapPlanToE5Events(badGrant, 'coordinator')).rejects.toThrow('INVALID_PLAN_STATE')
   })
 })
