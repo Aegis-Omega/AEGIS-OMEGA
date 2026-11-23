@@ -47,6 +47,12 @@ freshness or completeness.
 Even exit 0 never means safe to sync. Every record verdict is review-only.
 Cross-source collisions, missing emails, non-CRM emails, conflicting phones,
 and incompatible organization values are never used to auto-update CRM.
+A cross-source email overlap means the normalized email appears in at least two
+distinct named source namespaces. Repeated normalized emails within one source
+are flagged as `DUPLICATE_EMAIL_WITHIN_SOURCE` and remain `FIELD_REVIEW`, not
+`CROSS_SOURCE_REVIEW`. The report also counts
+`same_source_duplicate_email_groups`. Both conditions can exist simultaneously;
+all candidate verdicts remain non-authorizing.
 No fuzzy name match, Gmail plus-address aliasing, phone-based matching, or
 permission inference is performed.
 

@@ -62,6 +62,35 @@ class GateTests(unittest.TestCase):
         self.assertEqual(x["cross_source_email_overlap_groups"], 1)
         self.assertEqual([a["verdict"] for a in x["candidates"]], ["CROSS_SOURCE_REVIEW"] * 2)
 
+    def test_same_source_duplicate_email_not_cross_source(self):
+        c = self.crm()
+        g = self.src("google_contacts", [
+            ["g1", "case@example.test", "", ""],
+            ["g2", "CASE@example.test", "", ""],
+        ])
+        x = evaluate(c, {"google_contacts": g}, ("google_contacts",))
+        self.assertEqual(x["cross_source_email_overlap_groups"], 0)
+        self.assertEqual(x["same_source_duplicate_email_groups"], 1)
+        self.assertEqual([a["verdict"] for a in x["candidates"]], ["FIELD_REVIEW"] * 2)
+        self.assertTrue(all("DUPLICATE_EMAIL_WITHIN_SOURCE" in a["flags"] for a in x["candidates"]))
+        self.assertFalse(x["can_merge"])
+
+    def test_same_source_and_cross_source_flag_both(self):
+        c = self.crm()
+        g = self.src("google_contacts", [
+            ["g1", "case@example.test", "", ""],
+            ["g2", "CASE@example.test", "", ""],
+        ])
+        o = self.src("outlook_default", [["o1", "case@example.test", "", ""]])
+        x = evaluate(c, {"google_contacts": g, "outlook_default": o},
+                     ("google_contacts", "outlook_default"))
+        self.assertEqual(x["cross_source_email_overlap_groups"], 1)
+        self.assertEqual(x["same_source_duplicate_email_groups"], 1)
+        self.assertEqual(x["verdict_counts"], {"CROSS_SOURCE_REVIEW": 3})
+        self.assertEqual(x["flag_counts"]["DUPLICATE_EMAIL_WITHIN_SOURCE"], 2)
+        self.assertEqual(x["flag_counts"]["CROSS_SOURCE_EMAIL_OVERLAP"], 3)
+        self.assertFalse(x["can_enable_sync"])
+
     def test_missing_source_is_unknown_not_zero(self):
         x = evaluate(self.crm(), {"google_contacts": self.src("google_contacts", [])})
         self.assertEqual(x["missing_source_snapshots"], ["outlook_default", "outlook_iphone"])

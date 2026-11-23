@@ -136,8 +136,11 @@ def evaluate(crm_csv: Path, sources: dict[str, Path], required_sources: tuple[st
                 else:
                     crm_record = candidate_crm[0]
                     crm_id = crm_record["hs_object_id"].strip()
-                    if len(email_to_sources[em]) > 1:
+                    source_hits = email_to_sources[em]
+                    if len({other_source for other_source, _ in source_hits}) > 1:
                         flags.append("CROSS_SOURCE_EMAIL_OVERLAP")
+                    if sum(other_source == name for other_source, _ in source_hits) > 1:
+                        flags.append("DUPLICATE_EMAIL_WITHIN_SOURCE")
                     external_phone = norm_phone(row.get("phone"))
                     internal_phone = norm_phone(crm_record.get("phone") or crm_record.get("mobilephone"))
                     if external_phone and not internal_phone:
@@ -182,7 +185,11 @@ def evaluate(crm_csv: Path, sources: dict[str, Path], required_sources: tuple[st
                              for name, rows in sorted(source_rows.items())},
         "required_source_names": list(required_sources),
         "missing_source_snapshots": missing_sources,
-        "cross_source_email_overlap_groups": sum(len(v) > 1 for v in email_to_sources.values()),
+        "cross_source_email_overlap_groups": sum(
+            len({name for name, _ in hits}) > 1 for hits in email_to_sources.values()),
+        "same_source_duplicate_email_groups": sum(
+            any(count > 1 for count in Counter(name for name, _ in hits).values())
+            for hits in email_to_sources.values()),
         "verdict_counts": counts,
         "flag_counts": all_flags,
         "candidates": details,
