@@ -96,7 +96,8 @@ The exhaustion theorems are **reductions**. Each one moves the open part to the 
 
 | claim | parameters | class |
 |---|---|---|
-| Q(G) ≥ μ‖G‖² for every moment-zero G in L²[0, 9/5]; prime powers 2, 3, 4, 5; μ = 4.23·10⁻¹⁷ (parity split, renormalised g0) and 4.21·10⁻¹⁷ (joint) | N = 400, NP = 16000, order-8 tail, c_∞ ≤ 0.97992 bound to `krein_slack.log` | (c) — checkers `schur_mid` (Rump) and `cert_congr` (exact T·S·Tᵀ, then Gershgorin) |
+| the finite Schur/CvS system is positive definite with margin μ = 4.23·10⁻¹⁷ (parity split, renormalised g0) and 4.21·10⁻¹⁷ (joint); prime powers 2, 3, 4, 5 | N = 400, NP = 16000, order-8 tail, c_∞ ≤ 0.97992 bound to `krein_slack.log` | (c) for the matrix statement only — checkers `schur_mid` (Rump) and `cert_congr` (exact T·S·Tᵀ, then Gershgorin) |
+| ⇒ Q(G) ≥ μ‖G‖² for every moment-zero G in L²[0, 9/5] | — | conditional on the class (e) row of this table |
 | τ layer: fixed point at 2^120, directed rounding | NP = 16000, N = 400 | (c); inputs re-derived here and their sha256 match |
 | `CvSTailRenormV1`: `schur_mono`, `renorm_eq`, `schur_renorm(_sum)` | abstract | (a)ᴿ (logs committed) |
 | `CvSParitySplitV1`: `cross_zero`, `blocks_posSemidef`, `congr_posSemidef` | abstract | (a)ᴿ |
@@ -157,8 +158,8 @@ Model, class **(d)**:
 **Verdict: confirmed only in part.**
 
 1. **What is confirmed.** At w = 1/32 the dyadic gaps hit only 2^k for k ≤ 6. From k = 7 on, other prime powers enter: 125 = 5³, 127 and 131. Any bound that sums absolute values, or norms gap by gap (V13-style Gershgorin), then fails: their mass grows like Σ_{q≈2^k} Λ(q)/√q.
-2. **What is refuted.** The resonances are **not** an obstruction to positivity in this model. λ_min stays positive, at 0.82 for 18 blocks, and decreases slowly. The prime blocks cancel in phase: their operator norm stays at about 0.5–0.7 while their mass grows without bound. A *signed* treatment, which is the operator's 2026-11-17 direction, is the right kind of tool for gaps ≥ 7.
-3. **What is missed.** In the Lean chain as it stands, resonances are **not** the binding constraint. The chain already fails at **4 blocks**, at gap 3, where only 2³ is in range. The cause is the diagonal: `103/100` against a true value of about **1.97 E without moments** and **3.65 E with moments**. V27 bounds the inner integral ∫₀^w (E − e^{u/2} Re C(u))/sinh u du from below by about −E/64, while its true value is ≥ +0.92 E.
+2. **What is refuted (numerically, class (d)).** The resonances are **not** an obstruction to positivity in this discretised model. λ_min stays positive, at 0.82 for 18 blocks, and decreases slowly. The prime blocks cancel in phase: their operator norm stays at about 0.5–0.7 while their mass grows without bound. A *signed* treatment, which is the operator's 2026-11-17 direction, is the right kind of tool for gaps ≥ 7.
+3. **What is missed.** In the Lean chain as it stands, resonances are **not** the binding constraint. The chain already fails at **4 blocks**, at gap 3, where only 2³ is in range. The cause is the diagonal: `103/100` against grid values of about **1.97 E without moments** and **3.65 E with moments**. V27 bounds the inner integral ∫₀^w (E − e^{u/2} Re C(u))/sinh u du from below by about −E/64; on the grids it is about +0.92 E. These grid values are minima over finite-dimensional step-function subspaces, so they are *upper* bounds on the infimum over all admissible packets, not lower bounds: class (d) observations only. The proved lower bound is the Lean S1/V1 result, 103/100 + e^{−1/32}·log 2 ≈ 1.7018 (§4.6).
 
 [`budget.txt`](budget.txt) shows this with a Perron bound, using the cross ceilings c_k = log 2·2^{−k/2} + a_k:
 
@@ -228,7 +229,7 @@ Status after 2026-11-22 (§4.6), against the criteria as first written below:
 
 * **Criterion 1 is met in a corrected form.** The literal real-valued statement below is not what was proved, and it is false as written for merely continuous h (see §4.6). The proved theorem is the ℝ≥0∞ form, on any interval.
 * **Criterion 2 is met with a slightly weaker constant.** It proves 103/100 + e^{−1/32}·log 2 ≈ 1.7018, not 1.70667, because it keeps V27's `diagonalSmallV21` for the (e^{u/2} − 1) part. Reaching 1.70667 needs the sharper pointwise bound with 1/63; that is not done.
-* Criterion 3 is open.
+* Criterion 3 is met as of 2026-11-23: `WeilFiveBlockE1V1.five_block_bound_of_moments` gives margin 17/100·E ≥ 1/10·E, with the gap-3 and gap-4 cross bounds compiled in `WeilFiveBlockCrossV1` (class (a), replayed here; see E1 in §5).
 * Criterion 4 is met by the committed scripts.
 
 1. **Lean, S1:** `theorem log_gain (h : ℝ → ℂ) (hc : Continuous h) (hs : support h ⊆ Icc 0 1) : Real.log 2 * ∫ x, ‖h x‖^2 ≤ ∫ s in Ioc 0 1, ((∫ x, ‖h x‖^2) - (∫ x, h (x+s) * conj (h x)).re) / s`. It must compile with `lean --trust=0`, `#print axioms` must list only `[propext, Classical.choice, Quot.sound]`, and it must contain no `sorry`.
@@ -298,8 +299,9 @@ The graph below is read bottom to top: arrows run from the finite certificates u
   │   ▲ V22 moments/energy · V23 diag prime 0 · V25 ‖C‖≤E · V27 diag 103/100 · V28 transport │
   │   ▲ V29 isolation m=2,4 · V30 exact prime sums · V31 Arch ≤ E/100        (all (a))       │
   │ diagonal 1.7018·E without moments: (a), WeilDiagonalLogGainV1 (2026-11-22)                │
-  │ ✗ E1: 4–5 blocks: the N-block assembly (Gram/Perron in Lean) is still missing;            │
-  │       6–7 blocks also need the moment gain of §4.4                                        │
+  │ 5 blocks: (a), WeilFiveBlockE1V1.five_block_bound_of_moments, margin −17/100·E (11-23)   │
+  │   ▲ WeilFiveBlockCrossV1.translated_cross_bound gaps 1–4 · WeilFiveBlockPerronV1 (all (a))│
+  │ ✗ E1': 6–7 blocks: moment gain of §4.4 and isolation for gaps 5 and 6                     │
   │ ✗ E2: ≥ 8 blocks: resonant prime powers (gap ≥ 7); needs signed bounds                    │
   │       (20261117 k=7,10,11 margins: (a)ᴿ algebra only; analytic producers (e))            │
   └─────────────────────────────────────────────────────────────────────────────────────────┘
@@ -308,7 +310,7 @@ The graph below is read bottom to top: arrows run from the finite certificates u
 
 | missing edge | what it lacks |
 |---|---|
-| **E1** | The diagonal half is closed: 1.7018 E, class (a), §4.6. Still missing: (i) Lean cross-term bounds for gaps 3 and 4: the replayed V29/V30/V31 cover only gaps 1 and 2, and the general `RHDyadicWindowV13.gap_B_norm_bound` is a class (e) source snapshot with no compiled module; (ii) an N-block assembly theorem (V31 has only the 3-block version); (iii) for 6–7 blocks, the moment gain of §4.4 and window isolation for gaps 5 and 6. |
+| **E1** | Closed for 5 blocks, class (a), replayed here at `--trust=0` (`lean/replay_e1.sh`, 2026-11-23): `WeilFiveBlockCrossV1.translated_cross_bound` bounds the cross terms for gaps 1–4, and `WeilFiveBlockE1V1.five_block_bound_of_moments` assembles five translates with arbitrary complex coefficients into Re W ≤ −17/100·energy, using the 1.7018 diagonal of §4.6 and the rational Perron rows of `WeilFiveBlockPerronV1`. Only propext, Classical.choice and Quot.sound are used. Still missing (E1′): for 6–7 blocks, the moment gain of §4.4 and window isolation for gaps 5 and 6. |
 | **E2** | cross-term bounds for gaps k ≥ 7 that keep the phases of C_g at log q − k·log 2. In the class (d) model of §3, the absolute-sum and per-gap norm budgets go negative from 8 blocks on. That is a numerical observation for finitely many gaps and one discretisation (the per-gap norms are mesh-dependent), not a proof that every gap-by-gap norm approach must fail. |
 | **E3** | any argument that a positive form on the comb class controls general packets of the same width. No such link exists in the repository. |
 | **E4** | a uniform argument in L. Window-by-window certificates cannot supply one. |
@@ -336,6 +338,7 @@ python3 -I scripts/closure.py WeilSeparatedArchBridgeV31 <AEGIS-OMEGA>/sovereign
     $FC/AegisRH/PR606/Source $FC/AegisRH/PR606/Compat $FC/AegisRH/PR606 > $S/w/order.tsv
 bash scripts/replay.sh                      # 26 modules + audit at --trust=0; exits non-zero on any failure
 OLEAN=$S/olean bash lean/build.sh           # the two new modules; rewrites lean/*.trust0.txt
+OLEAN=$S/olean E1_LOGS=$S/e1 bash lean/replay_e1.sh   # the three five-block modules + exact arithmetic, with axiom audit
 python3 -I scripts/tower.py 1/32 48 12; python3 -I scripts/budget.py
 python3 -I scripts/legendre.py; python3 -I scripts/decomp.py      # needs sympy and mpmath
 ```
