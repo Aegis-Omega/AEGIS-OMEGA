@@ -163,12 +163,14 @@ Model, class **(d)**:
 
 [`budget.txt`](budget.txt) shows this with a Perron bound, using the cross ceilings c_k = log 2·2^{−k/2} + a_k:
 
-| blocks | ρ(C) | margin with D = 1.0349 (Lean V27) | margin with D = 1.7018 (proved, §4.6) | margin with D = 1.7069 (proposed sharper transport, class (d)) |
+| blocks | ρ(C) | margin with D = 103/100 (proved, Lean V27) | margin with D = 1.7018 (proved, §4.6) | margin with D = 1.7069 (proposed sharper transport, class (d)) |
 |---|---|---|---|---|
-| 3 | 0.908 | **+0.127** (the closed V31 result) | +0.794 | +0.799 |
-| 4 | 1.243 | −0.208 | +0.459 | +0.464 |
-| 5 | 1.522 | −0.487 | **+0.180** | +0.185 |
-| 6 | 1.755 | −0.720 | −0.053 | −0.048 |
+| 3 | 0.908 | **+0.122** (V31 proves margin 1/10 in Lean) | +0.794 | +0.799 |
+| 4 | 1.243 | −0.213 | +0.459 | +0.464 |
+| 5 | 1.522 | −0.492 | **+0.180** | +0.185 |
+| 6 | 1.755 | −0.725 | −0.053 | −0.048 |
+
+(`budget.py` also prints 1.0349, a numerical quadrature of the V27 expression; only 103/100 is proved. The ρ(C) values are floating-point eigenvalues, class (d).)
 
 With the moment gain of §4.4 (D ≈ 3.16), the same bound gives 7 blocks, up to gap 6. That is exactly where the resonances begin. Only from that point are the operator's resonances the binding obstacle.
 
