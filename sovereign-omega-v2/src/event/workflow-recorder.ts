@@ -6,7 +6,7 @@
 // ============================================================
 
 import { assertReplaySafe } from '../core/semantics.js'
-import { EventType, RetentionClass } from '../core/types.js'
+import { CapabilityClass, EventType, RetentionClass } from '../core/types.js'
 import type { EventEnvelope } from '../core/types.js'
 
 export const E5_PRODUCER_ID = 'sovereign-omega-v2:workflow-recorder'
@@ -55,6 +55,29 @@ export async function recordWorkflowEvent<T>(
     throw new RangeError(
       `recordWorkflowEvent: '${event_type}' is not a cognitive workflow (E5) event type`
     )
+  }
+  if (event_type === EventType.SUBAGENT_DELEGATED) {
+    const cls = payload !== null && typeof payload === 'object' &&
+      Object.hasOwn(payload, 'authority_class')
+      ? (payload as { authority_class: unknown }).authority_class
+      : undefined
+    if (!Object.values(CapabilityClass).includes(cls as CapabilityClass)) {
+      throw new RangeError('INVALID_SUBAGENT_AUTHORITY_CLASS')
+    }
+    // Legacy E5 payloads have no UWP fields and remain recordable as UNKNOWN.
+    // Once any UWP field is present, require a complete and coherent declaration.
+    const p = payload as Record<string, unknown>
+    const hasUwp = Object.hasOwn(p, 'required_work_authority') ||
+      Object.hasOwn(p, 'plan_authorization') || Object.hasOwn(p, 'plan_execution')
+    if (hasUwp) {
+      const a = p['required_work_authority']
+      const valid = a === 'read_only' || a === 'branch_only' || a === 'operator_approved'
+      const expected = a === 'read_only' ? CapabilityClass.INFERENCE : CapabilityClass.SELF_MODIFYING
+      if (!valid || p['plan_authorization'] !== 'NOT_GRANTED' ||
+          p['plan_execution'] !== 'NOT_EXECUTED' || cls !== expected) {
+        throw new RangeError('INVALID_SUBAGENT_WORK_AUTHORITY')
+      }
+    }
   }
   // Safety gate: assertReplaySafe throws ReplaySafetyViolation before any IDB write.
   assertReplaySafe(payload, event_type)

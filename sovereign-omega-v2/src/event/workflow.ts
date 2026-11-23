@@ -48,6 +48,10 @@ export interface SubagentDelegatedPayload {
   readonly subagent_type: string               // e.g. 'Explore', 'claude-code-guide'
   readonly semantic_scope: readonly string[]   // file paths in declared authority scope
   readonly authority_class: CapabilityClass
+  // Optional UWP metadata; absence means UNKNOWN, never implicit approval.
+  readonly required_work_authority?: 'read_only' | 'branch_only' | 'operator_approved'
+  readonly plan_authorization?: 'NOT_GRANTED'
+  readonly plan_execution?: 'NOT_EXECUTED'
   readonly task_hash: SHA256Hex                // canonical hash of the task prompt
 }
 

@@ -206,4 +206,51 @@ describe('Workflow Event Recorder (E5) — Ω⁵.8', () => {
     expect(appendSpy).not.toHaveBeenCalled()
   })
 
+
+  it('rejects delegated event with missing authority class', async () => {
+    const { store, appendSpy } = makeStore()
+    await expect(recordWorkflowEvent(
+      store,
+      EventType.SUBAGENT_DELEGATED,
+      { ...subagentDelegated, authority_class: undefined },
+      FIXED_TS
+    )).rejects.toThrow('INVALID_SUBAGENT_AUTHORITY_CLASS')
+    expect(appendSpy).not.toHaveBeenCalled()
+  })
+
+  it.each([
+    ['mismatched class', {
+      authority_class: CapabilityClass.INFERENCE,
+      required_work_authority: 'operator_approved',
+      plan_authorization: 'NOT_GRANTED',
+      plan_execution: 'NOT_EXECUTED',
+    }],
+    ['forged approval', {
+      authority_class: CapabilityClass.SELF_MODIFYING,
+      required_work_authority: 'operator_approved',
+      plan_authorization: 'GRANTED',
+      plan_execution: 'NOT_EXECUTED',
+    }],
+    ['partial metadata', {
+      required_work_authority: 'branch_only',
+    }],
+    ['invalid work authority', {
+      required_work_authority: 'superuser',
+      plan_authorization: 'NOT_GRANTED',
+      plan_execution: 'NOT_EXECUTED',
+    }],
+  ] as const)('rejects invalid UWP delegation: %s',
+    async (_name, overrides) => {
+      const { store, appendSpy } = makeStore()
+
+      await expect(recordWorkflowEvent(
+        store,
+        EventType.SUBAGENT_DELEGATED,
+        { ...subagentDelegated, ...overrides },
+        FIXED_TS
+      )).rejects.toThrow('INVALID_SUBAGENT_WORK_AUTHORITY')
+
+      expect(appendSpy).not.toHaveBeenCalled()
+    }
+  )
 })
