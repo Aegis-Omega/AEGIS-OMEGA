@@ -9,6 +9,13 @@ mkdir -p "$S/olean" "$S/w"
 cd "$FC" || exit 1
 BASE="$(lake env printenv LEAN_PATH)" || exit 1
 export LEAN_PATH="$S/olean:$BASE"
+# Refuse an empty or truncated closure: the audit could otherwise import stale .olean files.
+EXPECTED="${EXPECTED:-26}"
+n="$(grep -c . "$S/w/order.tsv")" || true
+last="$(tail -n 1 "$S/w/order.tsv" | cut -f 1)"
+if [ "$n" != "$EXPECTED" ] || [ "$last" != WeilSeparatedArchBridgeV31 ]; then
+  echo "FAIL order.tsv: $n modules ending in '$last', expected $EXPECTED ending in WeilSeparatedArchBridgeV31"; exit 1
+fi
 : > "$S/w/replay.tsv"
 while IFS=$'\t' read -r name file digest; do
   actual="$(sha256sum "$file" | cut -d ' ' -f 1)"
@@ -19,6 +26,7 @@ while IFS=$'\t' read -r name file digest; do
   printf '%s\t%s\t%s\t%s\t%s\n' "$name" "$rc" "$((t1-t0))" "$digest" "$(grep -c -i 'error' "$S/w/log_$name.txt")" >> "$S/w/replay.tsv"
   if [ "$rc" -ne 0 ]; then echo "FAIL $name"; exit 1; fi
 done < "$S/w/order.tsv"
+[ "$(wc -l < "$S/w/replay.tsv")" -eq "$EXPECTED" ] || { echo "FAIL replay.tsv row count"; exit 1; }
 lean --trust=0 "$HERE/Audit.lean" > "$S/w/audit.log" 2>&1; rc=$?
 echo "AUDIT_RC $rc" >> "$S/w/audit.log"
 [ "$rc" -eq 0 ] || { echo "FAIL audit"; exit 1; }
