@@ -9,13 +9,15 @@ mkdir -p "$S/olean" "$S/w"
 cd "$FC" || exit 1
 BASE="$(lake env printenv LEAN_PATH)" || exit 1
 export LEAN_PATH="$S/olean:$BASE"
-# Refuse an empty or truncated closure: the audit could otherwise import stale .olean files.
-EXPECTED="${EXPECTED:-26}"
-n="$(grep -c . "$S/w/order.tsv")" || true
-last="$(tail -n 1 "$S/w/order.tsv" | cut -f 1)"
-if [ "$n" != "$EXPECTED" ] || [ "$last" != WeilSeparatedArchBridgeV31 ]; then
-  echo "FAIL order.tsv: $n modules ending in '$last', expected $EXPECTED ending in WeilSeparatedArchBridgeV31"; exit 1
+# The closure must be exactly the pinned module set (names and digests, no duplicates or
+# substitutions) and end in the audit target; otherwise the audit could import stale .olean files.
+MANIFEST="$HERE/../trust0_sources.sha256"
+EXPECTED="$(grep -c . "$MANIFEST")"
+if ! diff <(cut -f 1,3 "$S/w/order.tsv" | sort) <(awk '{print $1 "\t" $2}' "$MANIFEST" | sort) > /dev/null; then
+  echo "FAIL order.tsv: module set differs from $MANIFEST"; exit 1
 fi
+last="$(tail -n 1 "$S/w/order.tsv" | cut -f 1)"
+[ "$last" = WeilSeparatedArchBridgeV31 ] || { echo "FAIL order.tsv: ends in '$last', not WeilSeparatedArchBridgeV31"; exit 1; }
 : > "$S/w/replay.tsv"
 while IFS=$'\t' read -r name file digest; do
   actual="$(sha256sum "$file" | cut -d ' ' -f 1)"
