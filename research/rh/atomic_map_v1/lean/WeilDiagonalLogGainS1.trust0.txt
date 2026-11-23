@@ -1,0 +1,6 @@
+'AEGIS.WeilDiagonalLogGainS1.boundary_layers' depends on axioms: [propext, Classical.choice, Quot.sound]
+'AEGIS.WeilDiagonalLogGainS1.lintegral_w' depends on axioms: [propext, Classical.choice, Quot.sound]
+'AEGIS.WeilDiagonalLogGainS1.log_sum_ge' depends on axioms: [propext, Classical.choice, Quot.sound]
+'AEGIS.WeilDiagonalLogGainS1.kernel_ge' depends on axioms: [propext, Classical.choice, Quot.sound]
+'AEGIS.WeilDiagonalLogGainS1.log_gain' depends on axioms: [propext, Classical.choice, Quot.sound]
+rc=0

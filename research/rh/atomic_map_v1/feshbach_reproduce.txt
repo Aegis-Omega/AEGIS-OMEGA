@@ -1,0 +1,17 @@
+$SCRATCH/fesh/tau80/alpha_L95_NP16000_P120.json: OK
+$SCRATCH/fesh/tau80/diag_L95_N400_P120.json: OK
+OK  manifests/../runs/v8p_18fix/blocks_even_N400_NP16000.json
+OK  manifests/../runs/v8i_18g0full/blocks_N400_NP16000.json
+OK  manifests/../runs/v8p_18fix/blocks_odd_N400_NP16000.json
+mu=4.23e-17: POSITIVE DEFINITE (midpoint - radius norm), min Cholesky pivot [3.25764097599e-5 +/- 3.65e-18]  radius norm r = [3.9264e-27 +/- 4.76e-34]
+mu=5e-17: POSITIVE DEFINITE (midpoint - radius norm), min Cholesky pivot [8.39275210627e-5 +/- 7.42e-18]  radius norm r = [4.6755e-27 +/- 9.90e-33]
+mu=4.21e-17: POSITIVE DEFINITE (midpoint - radius norm), min Cholesky pivot [6.35182339275e-8 +/- 1.52e-20]  radius norm r = [3.2185e-27 +/- 2.64e-32]
+Traceback (most recent call last):
+  File "$SCRATCH/fesh/src/schur_mid.py", line 42, in <module>
+    if sha256(p('blocks')) != Mn['blocks_sha256']: blocked('blocks sha256 mismatch')
+       ~~~~~~^^^^^^^^^^^^^
+  File "$SCRATCH/fesh/src/schur_mid.py", line 27, in sha256
+    with open(path, 'rb') as f: return hashlib.sha256(f.read()).hexdigest()
+         ~~~~^^^^^^^^^^^^
+FileNotFoundError: [Errno 2] No such file or directory: '$SCRATCH/fesh/manifests/../runs/v8i_18v9w/blocks_N400_NP16000.json'
+REPRODUCE_RC 1

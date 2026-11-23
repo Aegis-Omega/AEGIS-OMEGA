@@ -1,0 +1,15 @@
+cothTail(1/32)-kappa = 1.050724547061583  Lean diagonal (V27) = 1.034853489114916  proposed no-moment diag >= 1.7068604357775412
+arch 1/100 (V31)
+  blocks=2  rho=0.5001  margin Lean D=0.5347  margin proposed D=1.2067
+  blocks=3  rho=0.9077  margin Lean D=0.1272  margin proposed D=0.7992
+  blocks=4  rho=1.2430  margin Lean D=-0.2082  margin proposed D=0.4638
+  blocks=5  rho=1.5216  margin Lean D=-0.4867  margin proposed D=0.1853
+  blocks=6  rho=1.7551  margin Lean D=-0.7202  margin proposed D=-0.0482
+  blocks=7  rho=1.9526  margin Lean D=-0.9177  margin proposed D=-0.2457
+arch (30/649)2^{-5k/2} (in flight)
+  blocks=2  rho=0.4983  margin Lean D=0.5366  margin proposed D=1.2086
+  blocks=3  rho=0.8999  margin Lean D=0.1350  margin proposed D=0.8070
+  blocks=4  rho=1.2275  margin Lean D=-0.1927  margin proposed D=0.4793
+  blocks=5  rho=1.4976  margin Lean D=-0.4628  margin proposed D=0.2092
+  blocks=6  rho=1.7224  margin Lean D=-0.6875  margin proposed D=-0.0155
+  blocks=7  rho=1.9109  margin Lean D=-0.8761  margin proposed D=-0.2041

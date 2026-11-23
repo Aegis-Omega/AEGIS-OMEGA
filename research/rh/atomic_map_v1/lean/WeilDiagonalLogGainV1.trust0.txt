@@ -1,0 +1,7 @@
+'AEGIS.WeilDiagonalLogGainV1.diff_sq_integral' depends on axioms: [propext, Classical.choice, Quot.sound]
+'AEGIS.WeilDiagonalLogGainV1.inner_pointwise' depends on axioms: [propext, Classical.choice, Quot.sound]
+'AEGIS.WeilDiagonalLogGainV1.weighted_gain' depends on axioms: [propext, Classical.choice, Quot.sound]
+'AEGIS.WeilDiagonalLogGainV1.inner_log_gain' depends on axioms: [propext, Classical.choice, Quot.sound]
+'AEGIS.WeilDiagonalLogGainV1.width_diagonal_log_gain_v1' depends on axioms: [propext, Classical.choice, Quot.sound]
+'AEGIS.WeilDiagonalLogGainV1.log_gain_constant_gt' depends on axioms: [propext, Classical.choice, Quot.sound]
+rc=0
