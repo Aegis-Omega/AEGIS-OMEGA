@@ -2,21 +2,24 @@
 # Orthogonal to the constitutional CEREMONY quorum in ci.yml: this workflow governs the
 # evidence discipline of the manuscript claims ledger only, and is NOT part of the BFT
 # quorum. It does not gate CEREMONY and CEREMONY does not gate it.
+#
+# This check intentionally runs on every main-bound candidate. A required workflow that
+# is skipped by a paths filter may never report a status, leaving the candidate waiting
+# indefinitely. The validation is cheap and the ledger is repository-wide evidence state.
 name: claims-ledger
 
 on:
   pull_request:
-    paths:
-      - docs/claims.json
-      - docs/CLAIMS_LEDGER.md
-      - docs/claims.schema.json
-      - scripts/validate-claims.mjs
+    branches: [main]
+  merge_group:
+    branches: [main]
   push:
-    paths:
-      - docs/claims.json
-      - docs/CLAIMS_LEDGER.md
-      - docs/claims.schema.json
-      - scripts/validate-claims.mjs
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: claims-ledger-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 permissions:
   contents: read
