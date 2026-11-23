@@ -40,7 +40,7 @@ push; it never enters the sandbox.
 ## Run
 
 ```sh
-python agents/aegis-worker/run.py 749 --probe   # check GitHub access first, no work done
+python agents/aegis-worker/run.py 749 --probe   # check access first: a real session, capped at $0.50
 python agents/aegis-worker/run.py 749           # deliver issue #749; default spend cap $10
 ```
 

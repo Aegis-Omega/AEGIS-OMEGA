@@ -38,3 +38,9 @@ def test_done_when_is_extracted_into_rubric():
 
 def test_rubric_without_done_when_falls_back():
     assert "every acceptance criterion" in run.build_rubric(1, "no criteria here")
+
+
+def test_claimed_and_operator_issues_block_a_run():
+    issue = {"labels": [{"name": "task"}, {"name": "claimed"}, {"name": "needs-operator"}]}
+    assert run.blocking_labels(issue) == ["claimed", "needs-operator"]
+    assert run.blocking_labels({"labels": [{"name": "task"}, {"name": "p0"}]}) == []

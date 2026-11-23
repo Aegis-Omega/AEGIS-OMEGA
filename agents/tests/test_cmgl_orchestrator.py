@@ -47,6 +47,13 @@ def test_single_model_edge_does_not_become_consensus():
     assert res.mode == "DEFER" and not res.gate_passed
 
 
+def test_one_supporter_of_two_agents_is_not_consensus():
+    # Regression (ChatGPT audit of #836): weight 1.0/2 = 0.5 used to reach the threshold and pass the gate.
+    res = run_sync({"claude": agent(gen([("a", "b", 1.0)]), crit()),
+                    "qwen": agent(gen([]), crit())}, max_iterations=1)
+    assert "a->b" not in res.graph and not res.gate_passed and res.mode == "DEFER"
+
+
 def test_two_critics_drop_a_contradicted_edge():
     g = gen([("a", "b", 0.9)])
     attack = crit(("gemini", "a->b"))

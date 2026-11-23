@@ -7,7 +7,7 @@ then add the GitHub MCP credential to the vault (see agents/aegis-worker/README.
 
 Run:
     python agents/aegis-worker/run.py 749                # deliver issue #749 as a PR
-    python agents/aegis-worker/run.py 749 --probe        # only check GitHub access, no work
+    python agents/aegis-worker/run.py 749 --probe        # only check access; a real session, capped at $0.50
 Env: ANTHROPIC_API_KEY (or an `ant auth login` profile), GITHUB_TOKEN
      (fine-grained PAT, Contents + Pull requests + Issues read/write on the repo).
 """
@@ -88,12 +88,24 @@ def resource_ids() -> dict[str, str]:
     return env
 
 
-def run(number: int, budget_usd: float, probe: bool) -> int:
+PROBE_BUDGET_USD = 0.5
+BLOCKING_LABELS = {"claimed", "needs-operator"}
+
+
+def blocking_labels(issue: dict) -> list[str]:
+    return sorted({label["name"] for label in issue.get("labels", [])} & BLOCKING_LABELS)
+
+
+def run(number: int, budget_usd: float, probe: bool, force: bool = False) -> int:
     import anthropic
 
     token = os.environ.get("GITHUB_TOKEN") or sys.exit("GITHUB_TOKEN is not set")
     ids = resource_ids()
     issue = fetch_issue(number, token)
+    if blocking_labels(issue) and not force:
+        sys.exit(f"issue #{number} is labelled {blocking_labels(issue)}: not starting (--force overrides)")
+    if probe:
+        budget_usd = min(budget_usd, PROBE_BUDGET_USD)
     client = anthropic.Anthropic()
     session = client.beta.sessions.create(
         agent=ids["agent"],
@@ -125,6 +137,7 @@ def run(number: int, budget_usd: float, probe: bool) -> int:
         ]
 
     result = "unknown"
+    stop = "unknown"
     with client.beta.sessions.events.stream(session_id=session.id) as stream:
         client.beta.sessions.events.send(session_id=session.id, events=events)
         for event in stream:
@@ -143,13 +156,14 @@ def run(number: int, budget_usd: float, probe: bool) -> int:
                 print(f"[grader iteration {event.iteration}] {event.result}: {event.explanation}", flush=True)
             elif event.type == "session.status_idle":
                 if event.stop_reason.type != "requires_action":
-                    print(f"[idle] {event.stop_reason.type}")
+                    stop = event.stop_reason.type
+                    print(f"[idle] {stop}")
                     break
             elif event.type == "session.status_terminated":
                 print("[terminated]")
                 break
     if probe:
-        return 0
+        return 0 if stop == "end_turn" else 2  # read the agent's report above before the real run
     print(f"outcome: {result}")
     return 0 if result == "satisfied" else 2
 
@@ -158,9 +172,10 @@ def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     ap.add_argument("issue", type=int)
     ap.add_argument("--budget-usd", type=float, default=10.0, help="hard session spend cap (default 10)")
-    ap.add_argument("--probe", action="store_true", help="only check GitHub access, do no work")
+    ap.add_argument("--probe", action="store_true", help="only check access (real session, capped at $0.50)")
+    ap.add_argument("--force", action="store_true", help="start even if the issue is claimed or needs-operator")
     a = ap.parse_args()
-    return run(a.issue, a.budget_usd, a.probe)
+    return run(a.issue, a.budget_usd, a.probe, a.force)
 
 
 if __name__ == "__main__":

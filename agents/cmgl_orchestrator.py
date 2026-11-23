@@ -23,6 +23,7 @@ from typing import Awaitable, Callable
 Provider = Callable[[str, str], Awaitable[str]]  # (system, user) -> raw text
 
 EDGE_THRESHOLD = 0.5       # merged edge weight needed to enter the consensus graph
+MIN_SUPPORTERS = 2         # models that must independently propose an edge
 CONTRADICTION_PENALTY = 0.25
 MAX_CONTRADICTION_DENSITY = 0.34
 CALL_TIMEOUT_S = 120
@@ -175,7 +176,8 @@ def _merge(gens: dict[str, dict], crits: dict[str, dict]):
         penalty = CONTRADICTION_PENALTY * len({c["critic"] for c in against[k]})
         weights[k] = min(1.0, max(0.0, sum(sup.values()) / n_ok - penalty))
         supporters[k] = sorted(sup)
-    kept = {k for k, w in weights.items() if w >= EDGE_THRESHOLD}
+    # Consensus needs at least two independent supporters, whatever the weight.
+    kept = {k for k, w in weights.items() if w >= EDGE_THRESHOLD and len(supporters[k]) >= MIN_SUPPORTERS}
     resolved: list[str] = []
     while True:
         cycle = _find_cycle({tuple(k.split("->", 1)) for k in kept})  # type: ignore[arg-type]
@@ -235,7 +237,7 @@ async def run(task: str, providers: dict[str, Provider], max_iterations: int = 3
             len(kept & prev_kept) / len(kept | prev_kept) if (kept | prev_kept) else 1.0)
         assumptions = sorted({a for g in gens.values() for a in g["assumptions"]})
         missing = sorted({m for c in crits.values() for m in c["missing"]})
-        gate = mode != "DEFER" and density <= MAX_CONTRADICTION_DENSITY and len(gens) > 1
+        gate = mode == "MERGE" and density <= MAX_CONTRADICTION_DENSITY
         result = Result(
             task=task, mode=mode, gate_passed=gate, iterations=it,
             graph={k: {"weight": weights[k], "uncertainty": 1 - weights[k], "supporters": supporters[k]} for k in sorted(kept)},
