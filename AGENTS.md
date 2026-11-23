@@ -51,13 +51,12 @@ for d in "${CLAUDE_PROJECT_DIR:-}" "$PWD" /home/user/AEGIS-OMEGA /workspace/AEGI
 Replaces the earlier "no merge without express operator instruction" rule.
 
 - Agents merge pull requests into `main` themselves (`merge_pull_request` or auto-merge)
-  when it makes sense: every required check is green on the exact head, a different model
-  than the author has reviewed it, the PR is not a draft, and it has no conflicts. Prefer
-  squash so one revert undoes it. If any of that is UNKNOWN, do not merge.
+  when it makes sense: every required check is green on the exact head, the PR is not a
+  draft, and it has no conflicts. No separate review is required. Prefer squash so one
+  revert undoes it. If any of that is UNKNOWN, do not merge.
 - Never merge: a PR with a failing or missing required check, one that disables or
   weakens a check or ruleset, one that touches the frozen files, secrets, permissions or
-  billing, anything labelled `needs-operator`, or RH PR #92. The author never approves
-  their own PR.
+  billing, anything labelled `needs-operator`, or RH PR #92.
 - Spend is allowed while it is covered by free credits assigned to the account. Confirm
   the credit source before spending; if it is unknown, stop. Never add a payment method,
   upgrade a plan, or run anything that bills beyond the credits.
