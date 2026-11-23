@@ -1,9 +1,10 @@
 """Fail unless every `#print axioms` report in a Lean output uses only the standard axioms.
 usage: python3 -I check_axioms.py <lean-output> <source with the #print axioms commands>"""
 import re, sys
+from pathlib import Path
 
 ALLOWED = {"propext", "Classical.choice", "Quot.sound"}
-out, src = open(sys.argv[1]).read(), open(sys.argv[2]).read()
+out, src = Path(sys.argv[1]).read_text(), Path(sys.argv[2]).read_text()
 expected = len(re.findall(r"^\s*#print\s+axioms\b", src, re.M))
 deps = re.findall(r"depends on axioms: \[([^\]]*)\]", out)
 none = len(re.findall(r"does not depend on any axioms", out))
