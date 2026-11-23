@@ -83,3 +83,22 @@ jobs:
           path: ${{ runner.temp }}/repository-enforcement
           if-no-files-found: error
           retention-days: 30
+
+  agent-env-candidate-regression:
+    name: aegis / agent-env-candidate-regression
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout candidate test source without stored credentials
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          persist-credentials: false
+          submodules: false
+          lfs: false
+      - name: Run isolated agent environment regressions (#741)
+        working-directory: scripts
+        run: python3 -m unittest test_agent_env_setup.py -v

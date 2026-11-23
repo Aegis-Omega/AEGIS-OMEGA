@@ -16,8 +16,8 @@ jobs:
       - name: Checkout trusted writer evaluator
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
         with:
-          repository: ${{ job.workflow_repository || github.repository }}
-          ref: ${{ job.workflow_sha || github.workflow_sha }}
+          repository: ${{ github.event.pull_request.base.repo.full_name }}
+          ref: ${{ github.event.pull_request.base.sha }}
           path: trusted-source
           persist-credentials: false
           submodules: false
@@ -66,8 +66,8 @@ jobs:
       - name: Checkout trusted workflow source
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
         with:
-          repository: ${{ job.workflow_repository || github.repository }}
-          ref: ${{ job.workflow_sha || github.workflow_sha }}
+          repository: ${{ github.event.pull_request.base.repo.full_name }}
+          ref: ${{ github.event.pull_request.base.sha }}
           path: trusted-source
           fetch-depth: 1
           persist-credentials: false
@@ -156,7 +156,7 @@ jobs:
       - name: Evaluate candidate with trusted source only
         shell: bash
         env:
-          GITHUB_WORKFLOW_SHA: ${{ job.workflow_sha || github.workflow_sha }}
+          TRUSTED_SOURCE_SHA: ${{ github.event.pull_request.base.sha }}
           CANDIDATE_SHA: ${{ github.event.pull_request.head.sha }}
           BASE_SHA: ${{ github.event.pull_request.base.sha }}
           SOURCE_REF: ${{ github.event.pull_request.head.ref }}
@@ -168,7 +168,7 @@ jobs:
             --source-ref "$SOURCE_REF" \
             --candidate-sha "$CANDIDATE_SHA" \
             --base-sha "$BASE_SHA" \
-            --workflow-sha "$GITHUB_WORKFLOW_SHA" \
+            --workflow-sha "$TRUSTED_SOURCE_SHA" \
             --output "$RUNNER_TEMP/trusted-cognitive-admission-receipt.json"
 
       - name: Upload trusted admission receipt

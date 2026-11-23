@@ -96,6 +96,7 @@ def evaluate(
                     base_root,
                     source_ref=base_source_ref,
                     parent_state_hash=parent_state_hash,
+                    canonical_source_ref=False,
                 )
                 expected_base_hashes_raw = expected_base_hashes.encode("utf-8")
             except Exception as exc:
@@ -116,6 +117,7 @@ def evaluate(
                 candidate_root,
                 source_ref=source_ref,
                 parent_state_hash=base_state_hash,
+                canonical_source_ref=False,
             )
             expected_candidate_hashes_raw = expected_candidate_hashes.encode("utf-8")
         except Exception as exc:

@@ -1,0 +1,5 @@
+{
+  "name": "aegis-omega",
+  "owner": { "name": "Aegis-Omega" },
+  "plugins": [{ "name": "aegis-omega", "source": "./plugins/aegis-omega" }]
+}
