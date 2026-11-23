@@ -91,7 +91,7 @@ def evaluate(payload: dict) -> dict:
             source_commit=identity.source_commit,
             registry_root=registry_root,
             policy_root=policy_root,
-            current_generation=int(request_payload.get("current_generation", 0)),
+            current_generation=request_payload.get("current_generation", 0),
             approval_reference=identity.approval_reference,
             idempotency_key=request_payload.get("idempotency_key", "NONE"),
             compensation_reference=request_payload.get("compensation_reference", "NONE"),
