@@ -36,14 +36,30 @@ for d in "${CLAUDE_PROJECT_DIR:-}" "$PWD" /home/user/AEGIS-OMEGA /workspace/AEGI
 
 ## Changing code
 
-- Never write to `main`, never merge, never force-push, never rewrite history. Work on an
+- Never write to `main` directly, never force-push, never rewrite history. Work on an
   explicit branch; check its head before every push and verify the blob SHAs after.
+  Land work on `main` only through a pull request, per "Merging and spend" below.
 - In Claude Code the authority guard (`scripts/claude-authority-guard.py`) blocks pushes
   from the shell; push through the GitHub MCP (`push_files`) to a non-main branch.
 - Frozen: `sovereign-omega-v2/python/gate.py`, `dna.py`, `router.py`. Never commit `.env`
   files or secrets.
 - Gate before a commit that touches TypeScript:
   `cd sovereign-omega-v2 && npm run test && npm run typecheck && npm run build`.
+
+## Merging and spend (operator directive, 2026-11-23)
+
+Replaces the earlier "no merge without express operator instruction" rule.
+
+- Agents merge pull requests into `main` themselves (`merge_pull_request` or auto-merge)
+  when it makes sense: every required check is green on the exact head, the PR is not a
+  draft, and it has no conflicts. No separate review is required. Prefer squash so one
+  revert undoes it. If any of that is UNKNOWN, do not merge.
+- Never merge: a PR with a failing or missing required check, one that disables or
+  weakens a check or ruleset, one that touches the frozen files, secrets, permissions or
+  billing, anything labelled `needs-operator`, or RH PR #92.
+- Spend is allowed while it is covered by free credits assigned to the account. Confirm
+  the credit source before spending; if it is unknown, stop. Never add a payment method,
+  upgrade a plan, or run anything that bills beyond the credits.
 
 ## CI and limits
 
