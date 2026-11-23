@@ -64,6 +64,20 @@ export async function recordWorkflowEvent<T>(
     if (!Object.values(CapabilityClass).includes(cls as CapabilityClass)) {
       throw new RangeError('INVALID_SUBAGENT_AUTHORITY_CLASS')
     }
+    // Legacy E5 payloads have no UWP fields and remain recordable as UNKNOWN.
+    // Once any UWP field is present, require a complete and coherent declaration.
+    const p = payload as Record<string, unknown>
+    const hasUwp = Object.hasOwn(p, 'required_work_authority') ||
+      Object.hasOwn(p, 'plan_authorization') || Object.hasOwn(p, 'plan_execution')
+    if (hasUwp) {
+      const a = p['required_work_authority']
+      const valid = a === 'read_only' || a === 'branch_only' || a === 'operator_approved'
+      const expected = a === 'read_only' ? CapabilityClass.INFERENCE : CapabilityClass.SELF_MODIFYING
+      if (!valid || p['plan_authorization'] !== 'NOT_GRANTED' ||
+          p['plan_execution'] !== 'NOT_EXECUTED' || cls !== expected) {
+        throw new RangeError('INVALID_SUBAGENT_WORK_AUTHORITY')
+      }
+    }
   }
   // Safety gate: assertReplaySafe throws ReplaySafetyViolation before any IDB write.
   assertReplaySafe(payload, event_type)
