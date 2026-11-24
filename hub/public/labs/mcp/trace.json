@@ -1,0 +1,348 @@
+{
+  "schema_version": "1.0.0",
+  "observed_at": "2026-10-07T01:26:39.451Z",
+  "observation": "ACTUAL_BROWSER_STREAMABLE_HTTP",
+  "verification": {
+    "verdict": "PASS",
+    "profile": "LOCAL_MCP_PROTOCOL_AND_AUTHORITY_BOUNDARY",
+    "protocol_version": "2025-11-25",
+    "policy_sha256": "705591e5f8874db09b5d666363b92ff638e2d65ff12bc8494a4c9a294675e3a3",
+    "authority_outcome": "DENIED",
+    "external_effect": "NOT_EXECUTED",
+    "authority_effect": "NONE",
+    "scope": "Five actual local HTTP exchanges; not Alexa runtime, model execution, or repository admission."
+  },
+  "trace_sha256": "edaec7ba22c0e47afe11180c2b8f82a3e4989e6df6ca4330e8c551df8fb342d0",
+  "trace": [
+    {
+      "sequence": 1,
+      "observed_at": "2026-10-07T01:26:39.323Z",
+      "method": "initialize",
+      "request": {
+        "jsonrpc": "2.0",
+        "id": 1,
+        "method": "initialize",
+        "params": {
+          "protocolVersion": "2025-11-25",
+          "capabilities": {},
+          "clientInfo": {
+            "name": "aegis-alexa-lane-web-simulator",
+            "version": "1.0.0"
+          }
+        }
+      },
+      "request_headers": {
+        "accept": "application/json, text/event-stream",
+        "session_present": false,
+        "protocol_version": null
+      },
+      "status": 200,
+      "response": {
+        "result": {
+          "protocolVersion": "2025-11-25",
+          "capabilities": {
+            "tools": {
+              "listChanged": true
+            },
+            "resources": {
+              "listChanged": true
+            }
+          },
+          "serverInfo": {
+            "name": "aegis-constitutional-swarm",
+            "version": "0.2.0"
+          }
+        },
+        "jsonrpc": "2.0",
+        "id": 1
+      }
+    },
+    {
+      "sequence": 2,
+      "observed_at": "2026-10-07T01:26:39.419Z",
+      "method": "notifications/initialized",
+      "request": {
+        "jsonrpc": "2.0",
+        "method": "notifications/initialized"
+      },
+      "request_headers": {
+        "accept": "application/json, text/event-stream",
+        "session_present": true,
+        "protocol_version": "2025-11-25"
+      },
+      "status": 202,
+      "response": null
+    },
+    {
+      "sequence": 3,
+      "observed_at": "2026-10-07T01:26:39.424Z",
+      "method": "tools/list",
+      "request": {
+        "jsonrpc": "2.0",
+        "id": 2,
+        "method": "tools/list",
+        "params": {}
+      },
+      "request_headers": {
+        "accept": "application/json, text/event-stream",
+        "session_present": true,
+        "protocol_version": "2025-11-25"
+      },
+      "status": 200,
+      "response": {
+        "result": {
+          "tools": [
+            {
+              "name": "aegis_health",
+              "description": "Check AEGIS constitutional health: t0_verdict, corruption_count, hash chain status.",
+              "inputSchema": {
+                "$schema": "http://json-schema.org/draft-07/schema#",
+                "type": "object",
+                "properties": {}
+              },
+              "execution": {
+                "taskSupport": "forbidden"
+              }
+            },
+            {
+              "name": "aegis_telemetry",
+              "description": "Get live AEGIS telemetry: PGCS passes, epoch count, VCG metrics, martingale state.",
+              "inputSchema": {
+                "$schema": "http://json-schema.org/draft-07/schema#",
+                "type": "object",
+                "properties": {}
+              },
+              "execution": {
+                "taskSupport": "forbidden"
+              }
+            },
+            {
+              "name": "aegis_platform_status",
+              "description": "Get AEGIS platform status through a D0 authority decision.",
+              "inputSchema": {
+                "$schema": "http://json-schema.org/draft-07/schema#",
+                "type": "object",
+                "properties": {}
+              },
+              "execution": {
+                "taskSupport": "forbidden"
+              }
+            },
+            {
+              "name": "aegis_collaborate",
+              "description": "Run the governed swarm. Requires API key, execution identity, observed capability, workspace binding, and D2 approval.",
+              "inputSchema": {
+                "$schema": "http://json-schema.org/draft-07/schema#",
+                "type": "object",
+                "properties": {
+                  "objective": {
+                    "type": "string",
+                    "minLength": 10
+                  },
+                  "mode": {
+                    "default": "analysis",
+                    "type": "string",
+                    "enum": [
+                      "revenue",
+                      "gtm",
+                      "analysis",
+                      "risk",
+                      "compliance"
+                    ]
+                  }
+                },
+                "required": [
+                  "objective"
+                ]
+              },
+              "execution": {
+                "taskSupport": "forbidden"
+              }
+            },
+            {
+              "name": "aegis_start_execution",
+              "description": "Start a durable governed execution. Requires API key, identity, workspace binding, capability evidence, and D2 approval.",
+              "inputSchema": {
+                "$schema": "http://json-schema.org/draft-07/schema#",
+                "type": "object",
+                "properties": {
+                  "objective": {
+                    "type": "string",
+                    "minLength": 10
+                  },
+                  "mode": {
+                    "default": "analysis",
+                    "type": "string",
+                    "enum": [
+                      "revenue",
+                      "gtm",
+                      "analysis",
+                      "risk",
+                      "compliance"
+                    ]
+                  }
+                },
+                "required": [
+                  "objective"
+                ]
+              },
+              "execution": {
+                "taskSupport": "forbidden"
+              }
+            },
+            {
+              "name": "aegis_get_execution",
+              "description": "Read a durable execution through a D0 authority decision.",
+              "inputSchema": {
+                "$schema": "http://json-schema.org/draft-07/schema#",
+                "type": "object",
+                "properties": {
+                  "execution_id": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "execution_id"
+                ]
+              },
+              "execution": {
+                "taskSupport": "forbidden"
+              }
+            },
+            {
+              "name": "aegis_governed_claude_call",
+              "description": "Send a governed model call. D3 requires explicit approval and idempotency or compensation.",
+              "inputSchema": {
+                "$schema": "http://json-schema.org/draft-07/schema#",
+                "type": "object",
+                "properties": {
+                  "prompt": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "system": {
+                    "type": "string"
+                  },
+                  "idempotency_key": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "compensation_reference": {
+                    "type": "string",
+                    "minLength": 1
+                  }
+                },
+                "required": [
+                  "prompt"
+                ]
+              },
+              "execution": {
+                "taskSupport": "forbidden"
+              }
+            },
+            {
+              "name": "aegis_authority_policy",
+              "description": "Read the repository-owned Automaton-3 consequence policy and its SHA-256. No network, identity grant, or action execution.",
+              "inputSchema": {
+                "$schema": "http://json-schema.org/draft-07/schema#",
+                "type": "object",
+                "properties": {}
+              },
+              "annotations": {
+                "readOnlyHint": true,
+                "destructiveHint": false,
+                "idempotentHint": true,
+                "openWorldHint": false
+              },
+              "execution": {
+                "taskSupport": "forbidden"
+              }
+            }
+          ]
+        },
+        "jsonrpc": "2.0",
+        "id": 2
+      }
+    },
+    {
+      "sequence": 4,
+      "observed_at": "2026-10-07T01:26:39.431Z",
+      "method": "tools/call",
+      "request": {
+        "jsonrpc": "2.0",
+        "id": 3,
+        "method": "tools/call",
+        "params": {
+          "name": "aegis_authority_policy",
+          "arguments": {}
+        }
+      },
+      "request_headers": {
+        "accept": "application/json, text/event-stream",
+        "session_present": true,
+        "protocol_version": "2025-11-25"
+      },
+      "status": 200,
+      "response": {
+        "result": {
+          "content": [
+            {
+              "type": "text",
+              "text": "{\n  \"source\": {\n    \"path\": \"harness/policies/consequence-policy.v1.json\",\n    \"sha256\": \"705591e5f8874db09b5d666363b92ff638e2d65ff12bc8494a4c9a294675e3a3\"\n  },\n  \"policy_json\": \"{\\n  \\\"schema_version\\\": \\\"1.0.0\\\",\\n  \\\"classes\\\": {\\n    \\\"D0\\\": {\\\"minimum_validated_runs\\\": 0, \\\"approval\\\": \\\"NONE\\\", \\\"workspace\\\": \\\"READ_ONLY\\\", \\\"replay\\\": false, \\\"rollback\\\": \\\"NONE\\\", \\\"external_idempotency\\\": false},\\n    \\\"D1\\\": {\\\"minimum_validated_runs\\\": 3, \\\"approval\\\": \\\"NONE\\\", \\\"workspace\\\": \\\"REPOSITORY\\\", \\\"replay\\\": true, \\\"rollback\\\": \\\"REQUIRED\\\", \\\"external_idempotency\\\": false},\\n    \\\"D2\\\": {\\\"minimum_validated_runs\\\": 3, \\\"approval\\\": \\\"EXPLICIT\\\", \\\"workspace\\\": \\\"REPOSITORY\\\", \\\"replay\\\": true, \\\"rollback\\\": \\\"REQUIRED\\\", \\\"external_idempotency\\\": false},\\n    \\\"D3\\\": {\\\"minimum_validated_runs\\\": 3, \\\"approval\\\": \\\"EXPLICIT\\\", \\\"workspace\\\": \\\"REPOSITORY\\\", \\\"replay\\\": true, \\\"rollback\\\": \\\"COMPENSATION_OR_IDEMPOTENCY\\\", \\\"external_idempotency\\\": true},\\n    \\\"D4\\\": {\\\"minimum_validated_runs\\\": 3, \\\"approval\\\": \\\"EXPLICIT\\\", \\\"workspace\\\": \\\"REPOSITORY\\\", \\\"replay\\\": true, \\\"rollback\\\": \\\"COMPENSATION_OR_IDEMPOTENCY\\\", \\\"external_idempotency\\\": true}\\n  }\\n}\\n\",\n  \"policy\": {\n    \"schema_version\": \"1.0.0\",\n    \"classes\": {\n      \"D0\": {\n        \"minimum_validated_runs\": 0,\n        \"approval\": \"NONE\",\n        \"workspace\": \"READ_ONLY\",\n        \"replay\": false,\n        \"rollback\": \"NONE\",\n        \"external_idempotency\": false\n      },\n      \"D1\": {\n        \"minimum_validated_runs\": 3,\n        \"approval\": \"NONE\",\n        \"workspace\": \"REPOSITORY\",\n        \"replay\": true,\n        \"rollback\": \"REQUIRED\",\n        \"external_idempotency\": false\n      },\n      \"D2\": {\n        \"minimum_validated_runs\": 3,\n        \"approval\": \"EXPLICIT\",\n        \"workspace\": \"REPOSITORY\",\n        \"replay\": true,\n        \"rollback\": \"REQUIRED\",\n        \"external_idempotency\": false\n      },\n      \"D3\": {\n        \"minimum_validated_runs\": 3,\n        \"approval\": \"EXPLICIT\",\n        \"workspace\": \"REPOSITORY\",\n        \"replay\": true,\n        \"rollback\": \"COMPENSATION_OR_IDEMPOTENCY\",\n        \"external_idempotency\": true\n      },\n      \"D4\": {\n        \"minimum_validated_runs\": 3,\n        \"approval\": \"EXPLICIT\",\n        \"workspace\": \"REPOSITORY\",\n        \"replay\": true,\n        \"rollback\": \"COMPENSATION_OR_IDEMPOTENCY\",\n        \"external_idempotency\": true\n      }\n    }\n  },\n  \"authority_effect\": \"NONE\",\n  \"external_effect\": \"NONE\"\n}"
+            }
+          ]
+        },
+        "jsonrpc": "2.0",
+        "id": 3
+      }
+    },
+    {
+      "sequence": 5,
+      "observed_at": "2026-10-07T01:26:39.437Z",
+      "method": "tools/call",
+      "request": {
+        "jsonrpc": "2.0",
+        "id": 4,
+        "method": "tools/call",
+        "params": {
+          "name": "aegis_governed_claude_call",
+          "arguments": {
+            "prompt": "Explain the locally observed AEGIS policy. This request has no execution approval."
+          }
+        }
+      },
+      "request_headers": {
+        "accept": "application/json, text/event-stream",
+        "session_present": true,
+        "protocol_version": "2025-11-25"
+      },
+      "status": 200,
+      "response": {
+        "result": {
+          "content": [
+            {
+              "type": "text",
+              "text": "{\n  \"authority\": {\n    \"outcome\": \"DENIED\",\n    \"denial_codes\": [\n      \"IDENTITY_UNAVAILABLE\"\n    ]\n  },\n  \"external_effect\": \"NOT_EXECUTED\"\n}"
+            }
+          ],
+          "isError": true
+        },
+        "jsonrpc": "2.0",
+        "id": 4
+      }
+    }
+  ],
+  "limits": [
+    "Local observation, not a signed attestation.",
+    "No Alexa runtime or gated Amazon SDK was used.",
+    "No model request or AWS service is executed by this sequence.",
+    "HTTP identity is unbound; approved remote execution is outside this lane."
+  ],
+  "browser": "/usr/bin/google-chrome",
+  "viewport": {
+    "name": "desktop",
+    "width": 1360,
+    "height": 1040
+  },
+  "bridge_requests_observed": 0
+}
