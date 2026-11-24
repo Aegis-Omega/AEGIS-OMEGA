@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict'
 import { createServer } from 'node:http'
 import process from 'node:process'
+import { fileURLToPath } from 'node:url'
 
 import { Client } from '@modelcontextprotocol/sdk/client/index.js'
 import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js'
@@ -44,12 +45,15 @@ const address = bridge.address()
 assert(address && typeof address === 'object')
 const bridgeUrl = `http://127.0.0.1:${address.port}`
 
+const useLauncher = process.env.AEGIS_TEST_LAUNCHER === '1'
 const transport = new StdioClientTransport({
-  command: process.execPath,
-  args: ['dist/index.js'],
+  command: useLauncher ? 'bash' : process.execPath,
+  args: useLauncher ? [fileURLToPath(new URL('../../../scripts/start-aegis-mcp.sh', import.meta.url))] : ['dist/index.js'],
+  cwd: useLauncher ? '/tmp' : process.cwd(),
   env: {
     ...process.env,
-    AEGIS_BRIDGE_URL: bridgeUrl,
+    AEGIS_BRIDGE_URL: useLauncher ? '' : bridgeUrl,
+    AEGIS_BASE_URL: bridgeUrl,
     AEGIS_API_KEY: '',
   },
   stderr: 'pipe',

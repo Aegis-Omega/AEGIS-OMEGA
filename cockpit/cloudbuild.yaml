@@ -2,11 +2,13 @@ steps:
   - name: 'gcr.io/cloud-builders/docker'
     args:
       - build
+      - -f
+      - cockpit/Dockerfile
       - -t
       - gcr.io/$PROJECT_ID/aegis-cockpit:$COMMIT_SHA
       - -t
       - gcr.io/$PROJECT_ID/aegis-cockpit:latest
-      - cockpit/
+      - .
     dir: '.'
 
   - name: 'gcr.io/cloud-builders/docker'
@@ -30,7 +32,7 @@ steps:
       - --cpu=1
       - --min-instances=0
       - --max-instances=10
-      - --set-env-vars=GOOGLE_CLOUD_PROJECT=$PROJECT_ID,GOOGLE_CLOUD_REGION=europe-west3,CLAUDE_MODEL=claude-sonnet-4-6,RATE_LIMIT_RPM=20
+      - --set-env-vars=GOOGLE_CLOUD_PROJECT=$PROJECT_ID,GOOGLE_CLOUD_REGION=europe-west3,CLAUDE_MODEL=claude-sonnet-4-6,RATE_LIMIT_RPM=20,AEGIS_BRIDGE_URL=https://aegis-vertex.aegisomega.com
 
 images:
   - gcr.io/$PROJECT_ID/aegis-cockpit:$COMMIT_SHA

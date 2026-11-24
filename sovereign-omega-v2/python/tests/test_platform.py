@@ -180,19 +180,28 @@ def test_platform_envelope():
 # ── verify_api_key() ──────────────────────────────────────────────────────────
 
 def test_verify_api_key():
-    print('\nverify_api_key() (dev bypass — no SUPABASE_URL):')
+    print('\nverify_api_key() (explicit dev bypass — no Supabase):')
 
     # Ensure Supabase env vars are unset for dev-bypass path
     old_url = os.environ.pop('SUPABASE_URL', None)
     old_key = os.environ.pop('SUPABASE_SERVICE_ROLE_KEY', None)
+    old_dev_auth = os.environ.pop('AEGIS_DEV_AUTH', None)
     try:
-        # Valid dev key
+        # Missing production config fails closed unless development mode is explicit.
+        expect_raises('dev bypass is off by default', ValueError,
+                      lambda: verify_api_key('aegis_explorer_test'))
+
+        os.environ['AEGIS_DEV_AUTH'] = '1'
         email, tier = verify_api_key('aegis_explorer_test')
         _chk('dev key returns dev@local', email == 'dev@local')
         _chk('dev key returns explorer tier', tier == 'explorer')
 
         email2, tier2 = verify_api_key('aegis_anything_goes')
-        _chk('any aegis_* key passes dev bypass', email2 == 'dev@local')
+        _chk('explicit dev bypass accepts aegis_* key', email2 == 'dev@local')
+
+        os.environ['AEGIS_DEV_AUTH'] = '0'
+        expect_raises('dev bypass requires exact opt-in', ValueError,
+                      lambda: verify_api_key('aegis_explorer_test'))
 
         # Empty key
         expect_raises('empty key raises ValueError', ValueError,
@@ -207,6 +216,10 @@ def test_verify_api_key():
             os.environ['SUPABASE_URL'] = old_url
         if old_key is not None:
             os.environ['SUPABASE_SERVICE_ROLE_KEY'] = old_key
+        if old_dev_auth is not None:
+            os.environ['AEGIS_DEV_AUTH'] = old_dev_auth
+        else:
+            os.environ.pop('AEGIS_DEV_AUTH', None)
 
 
 # ── dept_output() ─────────────────────────────────────────────────────────────
@@ -338,10 +351,14 @@ def test_validate_collaboration_request():
 def test_query_api_key_info() -> None:
     print('\n--- query_api_key_info ---')
 
-    # Dev bypass: aegis_* key returns explorer defaults when Supabase absent
+    # Dev bypass requires an explicit opt-in when Supabase is absent
     orig_url = os.environ.pop('SUPABASE_URL', None)
     orig_key = os.environ.pop('SUPABASE_SERVICE_ROLE_KEY', None)
+    orig_dev_auth = os.environ.pop('AEGIS_DEV_AUTH', None)
     try:
+        _chk('query info dev bypass is off by default', query_api_key_info('aegis_testkey') is None)
+
+        os.environ['AEGIS_DEV_AUTH'] = '1'
         info = query_api_key_info('aegis_testkey')
         _chk('dev bypass returns dict', isinstance(info, dict))
         _chk('dev bypass email', info is not None and info.get('customer_email') == 'dev@local')
@@ -349,9 +366,13 @@ def test_query_api_key_info() -> None:
         _chk('dev bypass usage_count', info is not None and info.get('usage_count') == 0)
         _chk('dev bypass usage_limit', info is not None and info.get('usage_limit') == 10)
 
-        # Non-aegis_ key returns None in dev mode
+        os.environ['AEGIS_DEV_AUTH'] = '0'
+        _chk('query info requires exact dev opt-in', query_api_key_info('aegis_testkey') is None)
+
+        os.environ['AEGIS_DEV_AUTH'] = '1'
+        # Non-aegis_ keys do not receive the synthetic dev record.
         info2 = query_api_key_info('sk-bad-key')
-        _chk('non-aegis key returns None in dev mode', info2 is None)
+        _chk('non-aegis key returns None with dev bypass enabled', info2 is None)
 
         # Empty key returns None
         info3 = query_api_key_info('')
@@ -361,6 +382,10 @@ def test_query_api_key_info() -> None:
             os.environ['SUPABASE_URL'] = orig_url
         if orig_key is not None:
             os.environ['SUPABASE_SERVICE_ROLE_KEY'] = orig_key
+        if orig_dev_auth is not None:
+            os.environ['AEGIS_DEV_AUTH'] = orig_dev_auth
+        else:
+            os.environ.pop('AEGIS_DEV_AUTH', None)
 
 
 def test_record_revenue_cycle() -> None:

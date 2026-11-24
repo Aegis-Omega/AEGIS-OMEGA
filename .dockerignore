@@ -1,6 +1,5 @@
-# Build context = repo root for the platform image (vertex/Dockerfile).
-# Exclude heavy/irrelevant trees so the Cloud Build upload stays small.
-# KEEP: vertex/serve.py, agents/, harness/ — the platform image needs these.
+# Shared repository build context for vertex, Cockpit and product images.
+# Each Dockerfile selects its own sources; keep frontends and packages/shared.
 
 # Dependency + build artifact trees
 **/node_modules
@@ -17,14 +16,6 @@ aegis-cl-psi
 aegis-runtime
 aegisomega-webgpu
 
-# Frontends / products not in the platform image
-hub
-cockpit
-studio
-platform-picker
-hook-generator
-content-calendar
-packages
 sovereign-omega-v2/node_modules
 sovereign-omega-v2/dist
 

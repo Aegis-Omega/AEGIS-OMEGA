@@ -1,3 +1,10 @@
+<!-- AEGIS_OPTIMUS_EVOLUTION_DOC_BOUNDARY_V1 -->
+# Proof metrics freshness notice
+
+Numbers below were collected in June/July 2026 and are **historical metrics**, not a current CI success count, formal-kernel guarantee, or deployment receipt. `#[test]` / `it()` / `def test_*` counts enumerate test definitions, not executed passes. Re-run the documented commands against an exact commit and separately inspect native CI. Source topology: `scripts/aegis_topology.py`.
+
+---
+
 # AEGIS-Ω — Proof / Verification Sheet
 
 A receipt anyone can reproduce in minutes. Every number below was measured

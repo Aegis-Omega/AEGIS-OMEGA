@@ -4,11 +4,12 @@
   "type": "module",
   "scripts": {
     "build": "tsc",
-    "start": "node dist/index.js"
+    "start": "node dist/index.js",
+    "test:bridge": "npm run build && node test/bridge-proxy.mjs"
   },
   "dependencies": {
-    "@anthropic-ai/sdk": "^0.54.0",
-    "@anthropic-ai/vertex-sdk": "^0.7.0",
+    "@anthropic-ai/sdk": "^0.137.0",
+    "@anthropic-ai/vertex-sdk": "^0.22.0",
     "express": "^4.22.2"
   },
   "devDependencies": {

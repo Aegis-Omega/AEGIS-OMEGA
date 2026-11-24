@@ -1,3 +1,6 @@
+<!-- AEGIS_OPTIMUS_EVOLUTION_HISTORICAL_DEPLOY_V1 -->
+> **HISTORICAL DEPLOYMENT GUIDE, NOT CURRENT RELEASE AUTHORITY (2026-11-06).** The Lemon Squeezy instructions, branch name and service status below are dated and must not be executed as current production steps. The inspected hub pricing and payment sources use a PayPal flow. Start from [REPO_MAP.md](REPO_MAP.md), [Optimus Evolution](docs/architecture/OPTIMUS_EVOLUTION.md), and the exact-HEAD deployment workflows. Provider-side credentials, runtime state and explicit release approval must be checked independently. Manual/cloud releases may incur costs and are **not** authorized by this document.
+
 # AEGIS Ω — Deployment Guide
 
 **Canonical payment provider:** Lemon Squeezy  

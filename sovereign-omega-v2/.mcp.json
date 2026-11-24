@@ -1,17 +1,29 @@
 {
   "mcpServers": {
+    "aegis": {
+      "command": "bash",
+      "args": [
+        "-c",
+        "root=\"${CLAUDE_PROJECT_DIR:-$PWD}\"; if [ -f \"$root/scripts/start-aegis-mcp.sh\" ]; then exec bash \"$root/scripts/start-aegis-mcp.sh\"; else exec bash \"$root/../scripts/start-aegis-mcp.sh\"; fi"
+      ],
+      "env": {
+        "AEGIS_BASE_URL": "${AEGIS_BASE_URL:-}",
+        "AEGIS_BRIDGE_URL": "${AEGIS_BRIDGE_URL:-}",
+        "AEGIS_API_KEY": "${AEGIS_API_KEY:-}"
+      }
+    },
     "google-drive": {
-      "type": "url",
+      "type": "http",
       "url": "https://drivemcp.googleapis.com/mcp/v1",
       "note": "Access Sovereign Omega research corpus (200+ documents)"
     },
     "gmail": {
-      "type": "url",
+      "type": "http",
       "url": "https://gmailmcp.googleapis.com/mcp/v1",
-      "note": "Alliance communications — Claude, ChatGPT, Qwen handoff logs"
+      "note": "Alliance communications \u2014 Claude, ChatGPT, Qwen handoff logs"
     },
     "google-calendar": {
-      "type": "url",
+      "type": "http",
       "url": "https://calendarmcp.googleapis.com/mcp/v1",
       "note": "Sprint and milestone tracking"
     }

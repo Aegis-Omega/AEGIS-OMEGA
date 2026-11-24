@@ -21,9 +21,18 @@ jobs:
     name: aegis / coordinator-authority
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    env:
+      CANDIDATE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
     steps:
-      - name: Checkout candidate
+      - name: Checkout exact candidate
         uses: actions/checkout@v4
+        with:
+          ref: ${{ env.CANDIDATE_SHA }}
+          persist-credentials: false
+
+      - name: Assert exact Git source
+        shell: bash
+        run: test "$(git rev-parse HEAD)" = "$CANDIDATE_SHA"
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -39,3 +48,65 @@ jobs:
 
       - name: Run coordinator fail-closed tests
         run: pytest -q sovereign-omega-v2/python/tests/test_coordinator_authority.py
+
+      - name: Exercise actual coordinator fail-closed without live agents
+        env:
+          AEGIS_EXECUTION_IDENTITY_JSON: ""
+          AEGIS_APPROVAL_GRANT_JSON: ""
+          ANTHROPIC_API_KEY: ""
+          OPENAI_API_KEY: ""
+          VERTEX_PROJECT_ID: ""
+          PROXY_URL: ""
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import asyncio
+          import json
+          import os
+          from pathlib import Path
+          from agents import coordinator
+
+          expected = os.environ["CANDIDATE_SHA"]
+          knowledge = coordinator.establish_repository_knowledge()
+          assert knowledge["status"] == "ESTABLISHED", knowledge
+          assert knowledge["source_head_sha"] == expected, "Repository head is not the PR candidate"
+          assert not os.environ.get("AEGIS_EXECUTION_IDENTITY_JSON")
+
+          async def forbidden_backend(*_args, **_kwargs):
+              raise AssertionError("Live agent backend must not run in offline preflight")
+
+          coordinator._legacy.run_agent = forbidden_backend
+          results = asyncio.run(coordinator.dispatch_event(
+              "github_pr_opened",
+              {"number": "offline-preflight", "title": "Bounded authority smoke test"},
+          ))
+          receipts = coordinator.last_dispatch_receipts()
+          assert results == [], "A provider result appeared without authority"
+          assert receipts, "No coordinator routing receipt generated"
+          assert all(
+              item["outcome"] == "DENIED"
+              and item["authority_score"] == 0.0
+              and "IDENTITY_UNAVAILABLE" in item["reason_codes"]
+              for item in receipts
+          ), receipts
+
+          report = {
+              "schema": "aegis-coordinator-native-preflight/1",
+              "source_head_sha": expected,
+              "source_tree_sha": knowledge["source_tree_sha"],
+              "repository_knowledge_digest": knowledge["snapshot_digest"],
+              "authority": "DENIED",
+              "reason": "IDENTITY_UNAVAILABLE",
+              "agent_execution": "NOT_EXECUTED",
+              "provider_calls": 0,
+              "routing_receipt_hashes": [item["receipt_hash"] for item in receipts],
+          }
+          encoded = json.dumps(report, sort_keys=True, separators=(",", ":"))
+          print(encoded)
+          summary = os.environ.get("GITHUB_STEP_SUMMARY")
+          if summary:
+              with Path(summary).open("a", encoding="utf-8") as handle:
+                  handle.write("### AEGIS native coordinator (offline)\n\n")
+                  handle.write(encoded + "\n")
+          PY
