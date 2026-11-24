@@ -28,6 +28,7 @@ OWNERS = {
     "paperclip": "research", "alignment": "research", "security": "security",
     "docs": "documentation", "reports": "evidence", ".aegis": "evidence", "scripts": "tooling",
     ".github": "automation", ".claude": "automation", ".agent": "automation",
+    ".claude-plugin": "automation", "plugins": "automation", "research": "research",
     ".devcontainer": "tooling", ".vscode": "tooling", ".sovereign_context": "documentation",
 }
 # Existing paths: missing anchor is a source-tree error, not deployment failure.

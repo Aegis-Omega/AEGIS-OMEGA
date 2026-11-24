@@ -42,7 +42,8 @@ class TopologyContract(unittest.TestCase):
         git(self.repo, "commit", "-qm", "fixture")
 
     def test_aegis_specific_roots_have_explicit_owners(self):
-        expected = {".aegis": "evidence", "kernel-one": "runtime", "schemas": "packages", "infrastructure": "infrastructure"}
+        expected = {".aegis": "evidence", "kernel-one": "runtime", "schemas": "packages", "infrastructure": "infrastructure",
+                    ".claude-plugin": "automation", "plugins": "automation", "research": "research"}
         for root, owner in expected.items():
             self.assertEqual(module.OWNERS.get(root), owner)
 
