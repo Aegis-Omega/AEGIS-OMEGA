@@ -1,0 +1,4 @@
+mu=4e-17: FAILED at pivot 409: [+/- 0.207]  (||J|| <= 0)
+mu=4.1e-17: FAILED at pivot 409: [+/- 0.207]  (||J|| <= 0)
+mu=4.2e-17: FAILED at pivot 409: [+/- 0.207]  (||J|| <= 0)
+mu=4.25e-17: FAILED at pivot 409: [+/- 0.207]  (||J|| <= 0)
