@@ -7,14 +7,15 @@
     client.messages.create(model="claude-opus-5-5", max_tokens=256,
                            messages=[{"role": "user", "content": "hi"}])
 
-    $ aegis receipts verify receipts.json
+    $ aegis verify-receipts receipts.json
 
 Each call appends one envelope to an AEGIS_EXECUTION_ENVELOPE_CHAIN_V1 file:
 digests of the exact request and response, the model, the provider, a
 sequence number and the previous envelope's hash. Changing any byte of any
-past envelope breaks verification from that point on. The format is the one
-the bridge emits (sovereign-omega-v2/python/canonical_envelope.py) and the
-independent offline verifier checks (scripts/aegis-envelope-verify.py, #708).
+past envelope breaks verification from that point on. The envelope fields are
+the ones the bridge emits (sovereign-omega-v2/python/canonical_envelope.py).
+An independent offline verifier was proposed in #708 but is not on main; the
+only verifier today is `verify()` below (CLM-205 stays Proposed).
 
 What a VALID chain proves: integrity and ordering of the recorded digests.
 It does not prove who recorded them (signatures are Phase 2) or that the
@@ -38,6 +39,8 @@ CANON_VERSION = "JCS-1"
 GENESIS = "0" * 64
 BODY_FIELDS = ("canon_version", "seq", "prev_hash", "request_digest",
                "response_digest", "model_id", "epistemic_tier", "provider")
+ENVELOPE_FIELDS = frozenset(BODY_FIELDS) | {"envelope_hash", "signature"}
+PACKAGE_FIELDS = frozenset({"schema_version", "kind", "envelopes", "expected_terminal_hash"})
 
 
 def canon(value: Any) -> bytes:
@@ -118,11 +121,20 @@ def verify(path: str | os.PathLike) -> dict:
     """Recompute every envelope hash and link. Returns {valid, count, terminal_hash, error}."""
     try:
         pkg = json.loads(Path(path).read_text(encoding="utf-8"))
-        if pkg.get("kind") != CHAIN_KIND:
+        if not isinstance(pkg, dict) or set(pkg) != PACKAGE_FIELDS:
+            raise ValueError("UNEXPECTED_FIELDS")
+        if pkg["kind"] != CHAIN_KIND:
             raise ValueError("WRONG_KIND")
+        if pkg["schema_version"] != SCHEMA_VERSION:
+            raise ValueError("WRONG_SCHEMA_VERSION")
+        if not isinstance(pkg["envelopes"], list):
+            raise ValueError("ENVELOPES_NOT_A_LIST")
         prev = GENESIS
         for i, env in enumerate(pkg["envelopes"]):
-            if env.get("seq") != i:
+            if not isinstance(env, dict) or set(env) != ENVELOPE_FIELDS:
+                raise ValueError(f"UNEXPECTED_FIELDS at {i}")
+            # type() check: bool is an int subclass (True == 1) and 1.0 == 1 in Python.
+            if type(env["seq"]) is not int or env["seq"] != i:
                 raise ValueError(f"SEQ_MISMATCH at {i}")
             if env.get("prev_hash") != prev:
                 raise ValueError(f"BROKEN_LINK at {i}")
@@ -131,7 +143,7 @@ def verify(path: str | os.PathLike) -> dict:
             if _envelope_hash(env) != env.get("envelope_hash"):
                 raise ValueError(f"HASH_MISMATCH at {i}")
             prev = env["envelope_hash"]
-        if pkg.get("expected_terminal_hash") not in (None, prev):
+        if pkg["expected_terminal_hash"] != prev:
             raise ValueError("TERMINAL_MISMATCH")
         return {"valid": True, "count": len(pkg["envelopes"]), "terminal_hash": prev, "error": None}
     except (OSError, ValueError, KeyError, TypeError) as exc:
