@@ -121,17 +121,20 @@ def verify(path: str | os.PathLike) -> dict:
     """Recompute every envelope hash and link. Returns {valid, count, terminal_hash, error}."""
     try:
         pkg = json.loads(Path(path).read_text(encoding="utf-8"))
-        if set(pkg) != PACKAGE_FIELDS:
+        if not isinstance(pkg, dict) or set(pkg) != PACKAGE_FIELDS:
             raise ValueError("UNEXPECTED_FIELDS")
         if pkg["kind"] != CHAIN_KIND:
             raise ValueError("WRONG_KIND")
         if pkg["schema_version"] != SCHEMA_VERSION:
             raise ValueError("WRONG_SCHEMA_VERSION")
+        if not isinstance(pkg["envelopes"], list):
+            raise ValueError("ENVELOPES_NOT_A_LIST")
         prev = GENESIS
         for i, env in enumerate(pkg["envelopes"]):
-            if set(env) != ENVELOPE_FIELDS:
+            if not isinstance(env, dict) or set(env) != ENVELOPE_FIELDS:
                 raise ValueError(f"UNEXPECTED_FIELDS at {i}")
-            if env.get("seq") != i:
+            # type() check: bool is an int subclass (True == 1) and 1.0 == 1 in Python.
+            if type(env["seq"]) is not int or env["seq"] != i:
                 raise ValueError(f"SEQ_MISMATCH at {i}")
             if env.get("prev_hash") != prev:
                 raise ValueError(f"BROKEN_LINK at {i}")
