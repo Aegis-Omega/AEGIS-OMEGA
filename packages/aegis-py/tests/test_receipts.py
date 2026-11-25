@@ -59,6 +59,35 @@ def test_dropping_the_last_envelope_is_detected(tmp_path):
     assert verify(path)["error"] == "TERMINAL_MISMATCH"
 
 
+def test_truncation_cannot_hide_behind_a_renamed_terminal_key(tmp_path):
+    path = tmp_path / "r.json"
+    rec = Recorder(path)
+    for i in range(3):
+        rec.record({"q": i}, {"a": i}, model_id="m", provider="p")
+    pkg = json.loads(path.read_text())
+    pkg["envelopes"].pop()
+    pkg["expected_terminal_hasx"] = pkg.pop("expected_terminal_hash")
+    path.write_text(json.dumps(pkg))
+    assert not verify(path)["valid"]
+
+
+def test_every_single_byte_edit_breaks_the_chain(tmp_path):
+    path = tmp_path / "r.json"
+    rec = Recorder(path)
+    for i in range(3):
+        rec.record({"q": i}, {"a": i}, model_id="m", provider="p")
+    original = path.read_bytes()
+    survivors = []
+    for i, byte in enumerate(original):
+        for new in {byte ^ 1, ord("x") if byte != ord("x") else ord("y")}:
+            edited = bytearray(original)
+            edited[i] = new
+            path.write_bytes(bytes(edited))
+            if verify(path)["valid"]:
+                survivors.append((i, chr(byte), chr(new)))
+    assert survivors == []
+
+
 def test_wrap_anthropic_records_each_call(tmp_path):
     calls = []
     fake = SimpleNamespace(messages=SimpleNamespace(
